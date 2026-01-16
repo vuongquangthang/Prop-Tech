@@ -75,12 +75,13 @@ public class RoomService : IRoomService
         var room = new Room
         {
             FloorId = dto.FloorId,
+            RoomCode = dto.RoomCode,
             RoomNumber = dto.RoomNumber,
             RoomType = dto.RoomType,
-            Area = dto.Area,
-            Bedrooms = dto.Bedrooms,
-            Bathrooms = dto.Bathrooms,
-            Status = "AVAILABLE",
+            AreaSqm = dto.AreaSqm,
+            MonthlyRent = dto.MonthlyRent,
+            SalePrice = dto.SalePrice,
+            Status = "VACANT",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -105,9 +106,9 @@ public class RoomService : IRoomService
 
         room.RoomNumber = dto.RoomNumber;
         room.RoomType = dto.RoomType;
-        room.Area = dto.Area;
-        room.Bedrooms = dto.Bedrooms;
-        room.Bathrooms = dto.Bathrooms;
+        room.AreaSqm = dto.AreaSqm;
+        room.MonthlyRent = dto.MonthlyRent;
+        room.SalePrice = dto.SalePrice;
         room.Status = dto.Status;
         room.UpdatedAt = DateTime.UtcNow;
 
@@ -137,13 +138,14 @@ public class RoomService : IRoomService
             Id = room.Id,
             FloorId = room.FloorId,
             BuildingId = room.Floor?.BuildingId ?? 0,
-            BuildingName = room.Floor?.Building?.Name ?? "",
+            BuildingName = room.Floor?.Building?.BuildingName ?? "",
             FloorNumber = room.Floor?.FloorNumber ?? 0,
+            RoomCode = room.RoomCode,
             RoomNumber = room.RoomNumber,
             RoomType = room.RoomType,
-            Area = room.Area,
-            Bedrooms = room.Bedrooms,
-            Bathrooms = room.Bathrooms,
+            AreaSqm = room.AreaSqm,
+            MonthlyRent = room.MonthlyRent,
+            SalePrice = room.SalePrice,
             Status = room.Status,
             CreatedAt = room.CreatedAt
         };

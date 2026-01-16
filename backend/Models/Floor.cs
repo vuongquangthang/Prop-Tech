@@ -20,20 +20,12 @@ public class Floor
     [Column("floor_number")]
     public int FloorNumber { get; set; }
 
-    [Column("total_rooms")]
-    public int TotalRooms { get; set; }
+    [StringLength(50)]
+    [Column("floor_name")]
+    public string? FloorName { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("created_by")]
-    public long? CreatedBy { get; set; }
-
-    [Column("updated_by")]
-    public long? UpdatedBy { get; set; }
 
     // Navigation properties
     [ForeignKey("BuildingId")]

@@ -18,9 +18,12 @@ public class WaterMeterReading
     [Column("room_id")]
     public long RoomId { get; set; }
 
+    [ForeignKey(nameof(RoomId))]
+    public Room Room { get; set; } = null!;
+
     [Required]
-    [Column("reading_date")]
-    public DateTime ReadingDate { get; set; }
+    [Column("reading_month")]
+    public DateTime ReadingMonth { get; set; }
 
     [Required]
     [Column("previous_reading")]
@@ -32,6 +35,16 @@ public class WaterMeterReading
     [Precision(10, 2)]
     public decimal CurrentReading { get; set; }
 
+    [Column("consumption")]
+    [Precision(10, 2)]
+    public decimal Consumption { get; set; }
+
+    [Column("is_anomaly")]
+    public bool IsAnomaly { get; set; } = false;
+
+    [Column("anomaly_note")]
+    public string? AnomalyNote { get; set; }
+
     [StringLength(500)]
     [Column("notes")]
     public string? Notes { get; set; }
@@ -39,13 +52,6 @@ public class WaterMeterReading
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
     [Column("recorded_by")]
     public long? RecordedBy { get; set; }
-
-    // Navigation properties
-    [ForeignKey("RoomId")]
-    public Room Room { get; set; } = null!;
 }

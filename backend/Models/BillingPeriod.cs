@@ -11,23 +11,15 @@ public class BillingPeriod
 {
     [Key]
     [Column("id")]
-    public int Id { get; set; }
-
-    [Required]
-    [Column("period_year")]
-    public int PeriodYear { get; set; }
+    public long Id { get; set; }
 
     [Required]
     [Column("period_month")]
-    public int PeriodMonth { get; set; }
+    public DateTime PeriodMonth { get; set; }
 
     [Required]
-    [Column("start_date")]
-    public DateTime StartDate { get; set; }
-
-    [Required]
-    [Column("end_date")]
-    public DateTime EndDate { get; set; }
+    [Column("cutoff_date")]
+    public DateTime CutoffDate { get; set; }
 
     [Required]
     [Column("due_date")]
@@ -36,13 +28,22 @@ public class BillingPeriod
     [Required]
     [StringLength(20)]
     [Column("status")]
-    public string Status { get; set; } = "OPEN"; // OPEN, CLOSED
+    public string Status { get; set; } = "DRAFT"; // DRAFT, CONFIRMED, CLOSED
+
+    [Column("late_fee_enabled")]
+    public bool LateFeeEnabled { get; set; } = false;
+
+    [Column("late_fee_percent")]
+    public decimal? LateFeePercent { get; set; }
+
+    [Column("late_fee_fixed")]
+    public decimal? LateFeeFixed { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [Column("created_by")]
+    public long? CreatedBy { get; set; }
 
     // Navigation properties
     public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();

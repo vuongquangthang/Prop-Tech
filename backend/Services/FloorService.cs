@@ -32,9 +32,9 @@ public class FloorService : IFloorService
         {
             Id = f.Id,
             BuildingId = f.BuildingId,
-            BuildingName = f.Building?.Name ?? "",
+            BuildingName = f.Building?.BuildingName ?? "",
             FloorNumber = f.FloorNumber,
-            TotalRooms = f.TotalRooms,
+            FloorName = f.FloorName,
             CreatedAt = f.CreatedAt
         }).ToList();
     }
@@ -50,9 +50,9 @@ public class FloorService : IFloorService
         {
             Id = floor.Id,
             BuildingId = floor.BuildingId,
-            BuildingName = floor.Building?.Name ?? "",
+            BuildingName = floor.Building?.BuildingName ?? "",
             FloorNumber = floor.FloorNumber,
-            TotalRooms = floor.TotalRooms,
+            FloorName = floor.FloorName,
             CreatedAt = floor.CreatedAt
         };
     }
@@ -76,9 +76,8 @@ public class FloorService : IFloorService
         {
             BuildingId = dto.BuildingId,
             FloorNumber = dto.FloorNumber,
-            TotalRooms = dto.TotalRooms,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            FloorName = dto.FloorName,
+            CreatedAt = DateTime.UtcNow
         };
 
         await _floorRepository.AddAsync(floor);
@@ -88,9 +87,9 @@ public class FloorService : IFloorService
         {
             Id = floor.Id,
             BuildingId = floor.BuildingId,
-            BuildingName = building.Name,
+            BuildingName = building.BuildingName,
             FloorNumber = floor.FloorNumber,
-            TotalRooms = floor.TotalRooms,
+            FloorName = floor.FloorName,
             CreatedAt = floor.CreatedAt
         };
     }
@@ -105,8 +104,7 @@ public class FloorService : IFloorService
         }
 
         floor.FloorNumber = dto.FloorNumber;
-        floor.TotalRooms = dto.TotalRooms;
-        floor.UpdatedAt = DateTime.UtcNow;
+        floor.FloorName = dto.FloorName;
 
         _floorRepository.Update(floor);
         await _floorRepository.SaveChangesAsync();
@@ -115,9 +113,9 @@ public class FloorService : IFloorService
         {
             Id = floor.Id,
             BuildingId = floor.BuildingId,
-            BuildingName = floor.Building?.Name ?? "",
+            BuildingName = floor.Building?.BuildingName ?? "",
             FloorNumber = floor.FloorNumber,
-            TotalRooms = floor.TotalRooms,
+            FloorName = floor.FloorName,
             CreatedAt = floor.CreatedAt
         };
     }

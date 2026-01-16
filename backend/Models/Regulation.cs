@@ -11,12 +11,17 @@ public class Regulation
 {
     [Key]
     [Column("id")]
-    public int Id { get; set; }
+    public long Id { get; set; }
+
+    [Required]
+    [StringLength(50)]
+    [Column("regulation_code")]
+    public string RegulationCode { get; set; } = null!;
 
     [Required]
     [StringLength(50)]
     [Column("category")]
-    public string Category { get; set; } = null!; // BUILDING, PARKING, NOISE, PET, GUEST, OTHER
+    public string Category { get; set; } = null!; // BUILDING, PARKING, NOISE, PET, GUEST, SAFETY, OTHER
 
     [Required]
     [StringLength(200)]
@@ -27,11 +32,14 @@ public class Regulation
     [Column("content", TypeName = "NVARCHAR(MAX)")]
     public string Content { get; set; } = null!;
 
-    [Column("effective_from")]
-    public DateTime EffectiveFrom { get; set; } = DateTime.UtcNow;
+    [Column("effective_date")]
+    public DateTime? EffectiveDate { get; set; }
 
-    [Column("effective_to")]
-    public DateTime? EffectiveTo { get; set; }
+    [Column("expiry_date")]
+    public DateTime? ExpiryDate { get; set; }
+
+    [Column("view_count")]
+    public int ViewCount { get; set; } = 0;
 
     [Required]
     [Column("is_active")]
@@ -39,9 +47,6 @@ public class Regulation
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [Column("created_by")]
     public long? CreatedBy { get; set; }

@@ -18,10 +18,16 @@ public class PaymentReconciliation
     [Column("transaction_id")]
     public long TransactionId { get; set; }
 
+    [ForeignKey(nameof(TransactionId))]
+    public Transaction Transaction { get; set; } = null!;
+
     [Required]
     [StringLength(100)]
     [Column("bank_transaction_id")]
     public string BankTransactionId { get; set; } = null!;
+
+    [Column("bank_statement_ref")]
+    public string? BankStatementRef { get; set; }
 
     [Required]
     [Column("bank_amount")]
@@ -35,22 +41,18 @@ public class PaymentReconciliation
     [Required]
     [StringLength(20)]
     [Column("reconciliation_status")]
-    public string ReconciliationStatus { get; set; } = "MATCHED"; // MATCHED, UNMATCHED, DISPUTED
+    public string ReconciliationStatus { get; set; } = "PENDING"; // PENDING, MATCHED, UNMATCHED
 
     [StringLength(500)]
     [Column("notes")]
     public string? Notes { get; set; }
 
-    [Column("reconciled_at")]
-    public DateTime ReconciledAt { get; set; } = DateTime.UtcNow;
+    [Column("matched_at")]
+    public DateTime? MatchedAt { get; set; }
 
-    [Column("reconciled_by")]
-    public long? ReconciledBy { get; set; }
+    [Column("matched_by")]
+    public long? MatchedBy { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    // Navigation properties
-    [ForeignKey("TransactionId")]
-    public Transaction Transaction { get; set; } = null!;
 }

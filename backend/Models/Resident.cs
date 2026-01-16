@@ -21,25 +21,27 @@ public class Resident
     [Column("full_name")]
     public string FullName { get; set; } = null!;
 
-    [Required]
+    [StringLength(20)]
+    [Column("id_card_number")]
+    public string? IdCardNumber { get; set; }
+
     [StringLength(15)]
     [Column("phone_number")]
-    public string PhoneNumber { get; set; } = null!;
-
-    [StringLength(12)]
-    [Column("id_card")]
-    public string? IdCard { get; set; }
-
-    [Column("date_of_birth")]
-    public DateTime? DateOfBirth { get; set; }
-
-    [StringLength(500)]
-    [Column("address")]
-    public string? Address { get; set; }
+    public string? PhoneNumber { get; set; }
 
     [StringLength(100)]
     [Column("email")]
     public string? Email { get; set; }
+
+    [Column("date_of_birth")]
+    public DateTime? DateOfBirth { get; set; }
+
+    [StringLength(10)]
+    [Column("gender")]
+    public string? Gender { get; set; } // MALE, FEMALE, OTHER
+
+    [Column("permanent_address")]
+    public string? PermanentAddress { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

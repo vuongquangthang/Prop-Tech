@@ -12,34 +12,42 @@ public class PriceConfig
 {
     [Key]
     [Column("id")]
-    public int Id { get; set; }
-
-    [Required]
-    [StringLength(50)]
-    [Column("service_name")]
-    public string ServiceName { get; set; } = null!; // ELECTRICITY, WATER, MANAGEMENT, INTERNET, PARKING
-
-    [Required]
-    [Column("unit_price")]
-    [Precision(15, 2)]
-    public decimal UnitPrice { get; set; }
+    public long Id { get; set; }
 
     [Required]
     [StringLength(20)]
-    [Column("unit")]
-    public string Unit { get; set; } = null!; // VND/kWh, VND/m3, VND/month, VND/room
+    [Column("service_type")]
+    public string ServiceType { get; set; } = null!; // WATER, ELECTRICITY, SERVICE
 
-    [Column("effective_from")]
-    public DateTime EffectiveFrom { get; set; } = DateTime.UtcNow;
+    [Required]
+    [StringLength(20)]
+    [Column("pricing_method")]
+    public string PricingMethod { get; set; } = null!; // PER_PERSON, PER_UNIT, FIXED, TIERED
 
-    [Column("effective_to")]
-    public DateTime? EffectiveTo { get; set; }
+    [Required]
+    [Column("unit_price")]
+    [Precision(15, 4)]
+    public decimal UnitPrice { get; set; }
+
+    [StringLength(20)]
+    [Column("unit_type")]
+    public string? UnitType { get; set; }
+
+    [Required]
+    [Column("effective_date")]
+    public DateTime EffectiveDate { get; set; }
+
+    [Column("is_tiered")]
+    public bool IsTiered { get; set; } = false;
+
+    [Column("description")]
+    public string? Description { get; set; }
+
+    [Column("notes")]
+    public string? Notes { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [Column("created_by")]
     public long? CreatedBy { get; set; }

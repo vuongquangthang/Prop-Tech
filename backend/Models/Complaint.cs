@@ -22,6 +22,9 @@ public class Complaint
     [Column("room_id")]
     public long RoomId { get; set; }
 
+    [ForeignKey(nameof(RoomId))]
+    public Room Room { get; set; } = null!;
+
     [Required]
     [Column("resident_id")]
     public long ResidentId { get; set; }
@@ -33,8 +36,8 @@ public class Complaint
 
     [Required]
     [StringLength(200)]
-    [Column("title")]
-    public string Title { get; set; } = null!;
+    [Column("subject")]
+    public string Subject { get; set; } = null!;
 
     [Required]
     [Column("description", TypeName = "NVARCHAR(MAX)")]
@@ -62,13 +65,7 @@ public class Complaint
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
     // Navigation properties
-    [ForeignKey("RoomId")]
-    public Room Room { get; set; } = null!;
-
     public ICollection<ComplaintAttachment> Attachments { get; set; } = new List<ComplaintAttachment>();
     public ICollection<ComplaintResponse> Responses { get; set; } = new List<ComplaintResponse>();
 }

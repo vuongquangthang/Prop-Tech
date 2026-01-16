@@ -67,7 +67,7 @@ public class RoomRepository : Repository<Room>, IRoomRepository
         }
 
         return await query
-            .OrderBy(r => r.Floor.Building.Code)
+            .OrderBy(r => r.Floor.Building.BuildingCode)
             .ThenBy(r => r.Floor.FloorNumber)
             .ThenBy(r => r.RoomNumber)
             .ToListAsync();

@@ -30,11 +30,9 @@ public class BuildingService : IBuildingService
         return buildings.Select(b => new BuildingDto
         {
             Id = b.Id,
-            Code = b.Code,
-            Name = b.Name,
+            BuildingCode = b.BuildingCode,
+            BuildingName = b.BuildingName,
             Address = b.Address,
-            TotalFloors = b.TotalFloors,
-            Status = b.Status,
             CreatedAt = b.CreatedAt
         }).ToList();
     }
@@ -49,11 +47,9 @@ public class BuildingService : IBuildingService
         return new BuildingDto
         {
             Id = building.Id,
-            Code = building.Code,
-            Name = building.Name,
+            BuildingCode = building.BuildingCode,
+            BuildingName = building.BuildingName,
             Address = building.Address,
-            TotalFloors = building.TotalFloors,
-            Status = building.Status,
             CreatedAt = building.CreatedAt
         };
     }
@@ -61,18 +57,16 @@ public class BuildingService : IBuildingService
     public async Task<BuildingDto> CreateAsync(CreateBuildingDto dto)
     {
         // Check if code exists
-        if (await _buildingRepository.CodeExistsAsync(dto.Code))
+        if (await _buildingRepository.CodeExistsAsync(dto.BuildingCode))
         {
-            throw new InvalidOperationException($"Mã tòa nhà '{dto.Code}' đã tồn tại");
+            throw new InvalidOperationException($"Mã tòa nhà '{dto.BuildingCode}' đã tồn tại");
         }
 
         var building = new Building
         {
-            Code = dto.Code,
-            Name = dto.Name,
+            BuildingCode = dto.BuildingCode,
+            BuildingName = dto.BuildingName,
             Address = dto.Address,
-            TotalFloors = dto.TotalFloors,
-            Status = "ACTIVE",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -83,11 +77,9 @@ public class BuildingService : IBuildingService
         return new BuildingDto
         {
             Id = building.Id,
-            Code = building.Code,
-            Name = building.Name,
+            BuildingCode = building.BuildingCode,
+            BuildingName = building.BuildingName,
             Address = building.Address,
-            TotalFloors = building.TotalFloors,
-            Status = building.Status,
             CreatedAt = building.CreatedAt
         };
     }
@@ -101,10 +93,8 @@ public class BuildingService : IBuildingService
             throw new InvalidOperationException("Không tìm thấy tòa nhà");
         }
 
-        building.Name = dto.Name;
+        building.BuildingName = dto.BuildingName;
         building.Address = dto.Address;
-        building.TotalFloors = dto.TotalFloors;
-        building.Status = dto.Status;
         building.UpdatedAt = DateTime.UtcNow;
 
         _buildingRepository.Update(building);
@@ -113,11 +103,9 @@ public class BuildingService : IBuildingService
         return new BuildingDto
         {
             Id = building.Id,
-            Code = building.Code,
-            Name = building.Name,
+            BuildingCode = building.BuildingCode,
+            BuildingName = building.BuildingName,
             Address = building.Address,
-            TotalFloors = building.TotalFloors,
-            Status = building.Status,
             CreatedAt = building.CreatedAt
         };
     }

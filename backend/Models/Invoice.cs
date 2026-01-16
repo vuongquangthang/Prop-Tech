@@ -23,9 +23,15 @@ public class Invoice
     [Column("room_id")]
     public long RoomId { get; set; }
 
+    [ForeignKey(nameof(RoomId))]
+    public Room Room { get; set; } = null!;
+
     [Required]
     [Column("billing_period_id")]
-    public int BillingPeriodId { get; set; }
+    public long BillingPeriodId { get; set; }
+
+    [ForeignKey(nameof(BillingPeriodId))]
+    public BillingPeriod BillingPeriod { get; set; } = null!;
 
     [Required]
     [Column("issue_date")]
@@ -35,10 +41,40 @@ public class Invoice
     [Column("due_date")]
     public DateTime DueDate { get; set; }
 
+    [Column("headcount")]
+    public int? Headcount { get; set; }
+
+    [Column("room_charge")]
+    [Precision(15, 2)]
+    public decimal? RoomCharge { get; set; }
+
+    [Column("water_charge")]
+    [Precision(15, 2)]
+    public decimal? WaterCharge { get; set; }
+
+    [Column("electricity_charge")]
+    [Precision(15, 2)]
+    public decimal? ElectricityCharge { get; set; }
+
+    [Column("service_charge")]
+    [Precision(15, 2)]
+    public decimal? ServiceCharge { get; set; }
+
     [Required]
     [Column("total_amount")]
     [Precision(15, 2)]
     public decimal TotalAmount { get; set; }
+
+    [Column("adjustment_amount")]
+    [Precision(15, 2)]
+    public decimal? AdjustmentAmount { get; set; }
+
+    [Column("adjustment_note")]
+    public string? AdjustmentNote { get; set; }
+
+    [Column("late_fee")]
+    [Precision(15, 2)]
+    public decimal? LateFee { get; set; }
 
     [Column("paid_amount")]
     [Precision(15, 2)]
@@ -47,7 +83,41 @@ public class Invoice
     [Required]
     [StringLength(20)]
     [Column("status")]
-    public string Status { get; set; } = "UNPAID"; // UNPAID, PARTIAL, PAID, OVERDUE
+    public string Status { get; set; } = "UNPAID"; // UNPAID, PARTIAL, PAID, OVERDUE, VOIDED
+
+    [Column("snapshot_water_price")]
+    [Precision(15, 4)]
+    public decimal? SnapshotWaterPrice { get; set; }
+
+    [Column("snapshot_electricity_price")]
+    [Precision(15, 4)]
+    public decimal? SnapshotElectricityPrice { get; set; }
+
+    [Column("snapshot_service_price")]
+    [Precision(15, 4)]
+    public decimal? SnapshotServicePrice { get; set; }
+
+    [Column("snapshot_room_rent")]
+    [Precision(15, 2)]
+    public decimal? SnapshotRoomRent { get; set; }
+
+    [Column("confirmed_at")]
+    public DateTime? ConfirmedAt { get; set; }
+
+    [Column("confirmed_by")]
+    public long? ConfirmedBy { get; set; }
+
+    [Column("paid_at")]
+    public DateTime? PaidAt { get; set; }
+
+    [Column("voided_at")]
+    public DateTime? VoidedAt { get; set; }
+
+    [Column("voided_by")]
+    public long? VoidedBy { get; set; }
+
+    [Column("void_reason")]
+    public string? VoidReason { get; set; }
 
     [StringLength(500)]
     [Column("notes")]
@@ -56,22 +126,10 @@ public class Invoice
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
     [Column("created_by")]
     public long? CreatedBy { get; set; }
 
-    [Column("updated_by")]
-    public long? UpdatedBy { get; set; }
-
     // Navigation properties
-    [ForeignKey("RoomId")]
-    public Room Room { get; set; } = null!;
-
-    [ForeignKey("BillingPeriodId")]
-    public BillingPeriod BillingPeriod { get; set; } = null!;
-
     public ICollection<InvoiceLineItem> LineItems { get; set; } = new List<InvoiceLineItem>();
     public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
 }

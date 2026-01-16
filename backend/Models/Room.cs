@@ -19,41 +19,42 @@ public class Room
     public long FloorId { get; set; }
 
     [Required]
-    [StringLength(10)]
+    [StringLength(20)]
+    [Column("room_code")]
+    public string RoomCode { get; set; } = null!;
+
+    [Required]
+    [StringLength(20)]
     [Column("room_number")]
     public string RoomNumber { get; set; } = null!;
 
     [Required]
-    [StringLength(50)]
+    [StringLength(20)]
     [Column("room_type")]
-    public string RoomType { get; set; } = "STANDARD"; // STUDIO, STANDARD, DELUXE, PENTHOUSE
+    public string RoomType { get; set; } = "FOR_RENT"; // FOR_RENT, FOR_SALE, SOLD
 
-    [Column("area_m2")]
-    [Precision(10, 2)]
-    public decimal Area { get; set; }
+    [Column("monthly_rent")]
+    [Precision(15, 2)]
+    public decimal MonthlyRent { get; set; } = 0;
 
-    [Column("bedrooms")]
-    public int Bedrooms { get; set; } = 1;
-
-    [Column("bathrooms")]
-    public int Bathrooms { get; set; } = 1;
+    [Column("sale_price")]
+    [Precision(15, 2)]
+    public decimal SalePrice { get; set; } = 0;
 
     [Required]
     [StringLength(20)]
     [Column("status")]
-    public string Status { get; set; } = "AVAILABLE"; // AVAILABLE, OCCUPIED, MAINTENANCE
+    public string Status { get; set; } = "VACANT"; // VACANT, OCCUPIED, INACTIVE
+
+    [Column("area_sqm")]
+    [Precision(10, 2)]
+    public decimal? AreaSqm { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("created_by")]
-    public long? CreatedBy { get; set; }
-
-    [Column("updated_by")]
-    public long? UpdatedBy { get; set; }
 
     // Navigation properties
     [ForeignKey("FloorId")]

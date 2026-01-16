@@ -18,6 +18,9 @@ public class Transaction
     [Column("invoice_id")]
     public long InvoiceId { get; set; }
 
+    [ForeignKey(nameof(InvoiceId))]
+    public Invoice Invoice { get; set; } = null!;
+
     [Required]
     [StringLength(50)]
     [Column("transaction_code")]
@@ -35,7 +38,7 @@ public class Transaction
     [Required]
     [StringLength(50)]
     [Column("payment_method")]
-    public string PaymentMethod { get; set; } = null!; // CASH, BANK_TRANSFER, E_WALLET
+    public string PaymentMethod { get; set; } = null!; // BANK_TRANSFER, CASH, EWALLET, GATEWAY_MOCK
 
     [StringLength(100)]
     [Column("bank_reference")]
@@ -44,7 +47,13 @@ public class Transaction
     [Required]
     [StringLength(20)]
     [Column("status")]
-    public string Status { get; set; } = "SUCCESS"; // PENDING, SUCCESS, FAILED
+    public string Status { get; set; } = "INITIATED"; // INITIATED, PROCESSING, SUCCESS, FAILED, CANCELLED
+
+    [Column("gateway_reference")]
+    public string? GatewayReference { get; set; }
+
+    [Column("gateway_response")]
+    public string? GatewayResponse { get; set; }
 
     [StringLength(500)]
     [Column("notes")]
@@ -53,15 +62,9 @@ public class Transaction
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
     [Column("created_by")]
     public long? CreatedBy { get; set; }
 
     // Navigation properties
-    [ForeignKey("InvoiceId")]
-    public Invoice Invoice { get; set; } = null!;
-
     public ICollection<PaymentReconciliation> Reconciliations { get; set; } = new List<PaymentReconciliation>();
 }

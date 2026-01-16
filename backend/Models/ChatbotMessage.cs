@@ -17,35 +17,34 @@ public class ChatbotMessage
     [Column("conversation_id")]
     public long ConversationId { get; set; }
 
-    [Required]
-    [StringLength(20)]
-    [Column("sender")]
-    public string Sender { get; set; } = null!; // USER, BOT
+    [ForeignKey(nameof(ConversationId))]
+    public ChatbotConversation Conversation { get; set; } = null!;
 
     [Required]
-    [Column("message_text", TypeName = "NVARCHAR(MAX)")]
-    public string MessageText { get; set; } = null!;
+    [StringLength(20)]
+    [Column("sender_type")]
+    public string SenderType { get; set; } = null!; // USER, BOT
+
+    [Required]
+    [Column("message_content", TypeName = "NVARCHAR(MAX)")]
+    public string MessageContent { get; set; } = null!;
 
     [StringLength(50)]
     [Column("intent")]
     public string? Intent { get; set; }
 
-    [Column("faq_id")]
-    public int? FaqId { get; set; }
+    [Column("matched_faq_id")]
+    public long? MatchedFaqId { get; set; }
 
-    [Column("regulation_id")]
-    public int? RegulationId { get; set; }
+    [ForeignKey(nameof(MatchedFaqId))]
+    public FAQ? MatchedFaq { get; set; }
+
+    [Column("matched_regulation_id")]
+    public long? MatchedRegulationId { get; set; }
+
+    [ForeignKey(nameof(MatchedRegulationId))]
+    public Regulation? MatchedRegulation { get; set; }
 
     [Column("sent_at")]
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
-
-    // Navigation properties
-    [ForeignKey("ConversationId")]
-    public ChatbotConversation Conversation { get; set; } = null!;
-
-    [ForeignKey("FaqId")]
-    public FAQ? FAQ { get; set; }
-
-    [ForeignKey("RegulationId")]
-    public Regulation? Regulation { get; set; }
 }

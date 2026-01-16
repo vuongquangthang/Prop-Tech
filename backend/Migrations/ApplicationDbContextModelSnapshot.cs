@@ -88,12 +88,12 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.BillingPeriod", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -101,46 +101,53 @@ namespace backend.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CutoffDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("cutoff_date");
+
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2")
                         .HasColumnName("due_date");
 
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("end_date");
+                    b.Property<bool>("LateFeeEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("late_fee_enabled");
 
-                    b.Property<int>("PeriodMonth")
-                        .HasColumnType("int")
+                    b.Property<decimal?>("LateFeeFixed")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("late_fee_fixed");
+
+                    b.Property<decimal?>("LateFeePercent")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("late_fee_percent");
+
+                    b.Property<DateTime>("PeriodMonth")
+                        .HasColumnType("datetime2")
                         .HasColumnName("period_month");
-
-                    b.Property<int>("PeriodYear")
-                        .HasColumnType("int")
-                        .HasColumnName("period_year");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("start_date");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("OPEN")
+                        .HasDefaultValue("DRAFT")
                         .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PeriodYear", "PeriodMonth")
+                    b.HasIndex("PeriodMonth")
                         .IsUnique();
 
-                    b.ToTable("billing_periods");
+                    b.ToTable("billing_periods", t =>
+                        {
+                            t.HasCheckConstraint("CK_billing_periods_status", "status IN ('DRAFT', 'CONFIRMED', 'CLOSED')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.BlockedIp", b =>
@@ -207,15 +214,20 @@ namespace backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Address")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("address");
 
-                    b.Property<string>("Code")
+                    b.Property<string>("BuildingCode")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("building_code");
+
+                    b.Property<string>("BuildingName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("building_name");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -223,39 +235,13 @@ namespace backend.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("building_name");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("status");
-
-                    b.Property<int>("TotalFloors")
-                        .HasColumnType("int")
-                        .HasColumnName("total_floors");
-
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("UpdatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("updated_by");
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("BuildingCode")
                         .IsUnique();
 
                     b.ToTable("buildings");
@@ -270,19 +256,20 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<DateTime?>("EndedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("ended_at");
-
-                    b.Property<string>("SessionId")
+                    b.Property<string>("ConversationId")
+                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
-                        .HasColumnName("session_id");
+                        .HasColumnName("conversation_id");
 
-                    b.Property<DateTime>("StartedAt")
+                    b.Property<DateTime?>("SessionEnd")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("session_end");
+
+                    b.Property<DateTime>("SessionStart")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("started_at")
+                        .HasColumnName("session_start")
                         .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<string>("Status")
@@ -293,13 +280,20 @@ namespace backend.Migrations
                         .HasDefaultValue("ACTIVE")
                         .HasColumnName("status");
 
+                    b.Property<int>("TotalMessages")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("total_messages");
+
                     b.Property<long?>("UserId")
                         .HasColumnType("bigint")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SessionId");
+                    b.HasIndex("ConversationId")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -319,29 +313,29 @@ namespace backend.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("conversation_id");
 
-                    b.Property<int?>("FaqId")
-                        .HasColumnType("int")
-                        .HasColumnName("faq_id");
-
                     b.Property<string>("Intent")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("intent");
 
-                    b.Property<string>("MessageText")
+                    b.Property<long?>("MatchedFaqId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("matched_faq_id");
+
+                    b.Property<long?>("MatchedRegulationId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("matched_regulation_id");
+
+                    b.Property<string>("MessageContent")
                         .IsRequired()
                         .HasColumnType("NVARCHAR(MAX)")
-                        .HasColumnName("message_text");
+                        .HasColumnName("message_content");
 
-                    b.Property<int?>("RegulationId")
-                        .HasColumnType("int")
-                        .HasColumnName("regulation_id");
-
-                    b.Property<string>("Sender")
+                    b.Property<string>("SenderType")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasColumnName("sender");
+                        .HasColumnName("sender_type");
 
                     b.Property<DateTime>("SentAt")
                         .ValueGeneratedOnAdd()
@@ -353,11 +347,14 @@ namespace backend.Migrations
 
                     b.HasIndex("ConversationId");
 
-                    b.HasIndex("FaqId");
+                    b.HasIndex("MatchedFaqId");
 
-                    b.HasIndex("RegulationId");
+                    b.HasIndex("MatchedRegulationId");
 
-                    b.ToTable("chatbot_messages");
+                    b.ToTable("chatbot_messages", t =>
+                        {
+                            t.HasCheckConstraint("CK_chatbot_messages_sender_type", "sender_type IN ('USER', 'BOT')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.Complaint", b =>
@@ -424,22 +421,16 @@ namespace backend.Migrations
                         .HasDefaultValue("OPEN")
                         .HasColumnName("status");
 
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("subject");
+
                     b.Property<DateTime>("SubmittedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasColumnName("submitted_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
                     b.HasKey("Id");
@@ -449,7 +440,14 @@ namespace backend.Migrations
 
                     b.HasIndex("RoomId");
 
-                    b.ToTable("complaints");
+                    b.HasIndex("Status", "Priority");
+
+                    b.ToTable("complaints", t =>
+                        {
+                            t.HasCheckConstraint("CK_complaints_priority", "priority IN ('LOW', 'MEDIUM', 'HIGH', 'URGENT')");
+
+                            t.HasCheckConstraint("CK_complaints_status", "status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.ComplaintAttachment", b =>
@@ -561,20 +559,46 @@ namespace backend.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
                     b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
-                    b.Property<DateTime>("PaidDate")
-                        .ValueGeneratedOnAdd()
+                    b.Property<DateTime?>("PaidDate")
                         .HasColumnType("datetime2")
-                        .HasColumnName("paid_date")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("paid_date");
+
+                    b.Property<decimal?>("RefundAmount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("refund_amount");
 
                     b.Property<DateTime?>("RefundDate")
                         .HasColumnType("datetime2")
                         .HasColumnName("refund_date");
+
+                    b.Property<decimal>("RefundDeduction")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("refund_deduction");
+
+                    b.Property<string>("RefundReason")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("refund_reason");
+
+                    b.Property<long>("ResidencyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("residency_id");
+
+                    b.Property<long?>("ResidencyId1")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ResidentId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("resident_id");
 
                     b.Property<long>("RoomId")
                         .HasColumnType("bigint")
@@ -585,30 +609,103 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("HELD")
+                        .HasDefaultValue("UNPAID")
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("updated_at");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ResidencyId")
+                        .IsUnique();
+
+                    b.HasIndex("ResidencyId1")
+                        .IsUnique()
+                        .HasFilter("[ResidencyId1] IS NOT NULL");
+
+                    b.HasIndex("ResidentId");
+
                     b.HasIndex("RoomId");
 
-                    b.ToTable("deposits");
+                    b.ToTable("deposits", t =>
+                        {
+                            t.HasCheckConstraint("CK_deposits_status", "status IN ('UNPAID', 'PAID', 'REFUNDED', 'FORFEITED')");
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.ElectricityPriceSnapshot", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("effective_date");
+
+                    b.Property<bool>("IsTiered")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_tiered");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("notes");
+
+                    b.Property<long?>("PriceConfigId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("price_config_id");
+
+                    b.Property<string>("PricingMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("pricing_method");
+
+                    b.Property<string>("ServiceType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("service_type");
+
+                    b.Property<DateTime>("SnapshotDatetime")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("snapshot_datetime");
+
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriceConfigId");
+
+                    b.HasIndex("SnapshotDatetime");
+
+                    b.ToTable("electricity_price_snapshots");
                 });
 
             modelBuilder.Entity("backend.Models.ElectricityTier", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -616,56 +713,87 @@ namespace backend.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<DateTime>("EffectiveFrom")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("effective_from")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<DateTime?>("EffectiveTo")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("effective_to");
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
 
                     b.Property<decimal>("FromKwh")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("from_kwh");
 
-                    b.Property<decimal>("PricePerKwh")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("price_per_kwh");
+                    b.Property<long?>("PriceConfigId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("price_config_id");
 
-                    b.Property<int>("TierNumber")
+                    b.Property<int>("TierLevel")
                         .HasColumnType("int")
-                        .HasColumnName("tier_number");
+                        .HasColumnName("tier_level");
 
                     b.Property<decimal?>("ToKwh")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("to_kwh");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
+                        .HasColumnName("unit_price");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TierNumber", "EffectiveFrom");
+                    b.HasIndex("PriceConfigId", "TierLevel");
 
                     b.ToTable("electricity_tiers");
                 });
 
-            modelBuilder.Entity("backend.Models.FAQ", b =>
+            modelBuilder.Entity("backend.Models.ElectricityTierSnapshot", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("FromKwh")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("from_kwh");
+
+                    b.Property<long>("SnapshotId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("snapshot_id");
+
+                    b.Property<int>("TierLevel")
+                        .HasColumnType("int")
+                        .HasColumnName("tier_level");
+
+                    b.Property<decimal?>("ToKwh")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("to_kwh");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SnapshotId");
+
+                    b.ToTable("electricity_tier_snapshots");
+                });
+
+            modelBuilder.Entity("backend.Models.FAQ", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Answer")
                         .IsRequired()
@@ -688,6 +816,12 @@ namespace backend.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("created_by");
 
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("display_order");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -704,12 +838,6 @@ namespace backend.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("question");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<int>("ViewCount")
                         .ValueGeneratedOnAdd()
@@ -743,31 +871,20 @@ namespace backend.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
+                    b.Property<string>("FloorName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("floor_name");
 
                     b.Property<int>("FloorNumber")
                         .HasColumnType("int")
                         .HasColumnName("floor_number");
 
-                    b.Property<int>("TotalRooms")
-                        .HasColumnType("int")
-                        .HasColumnName("total_rooms");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("UpdatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("updated_by");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("BuildingId");
+                    b.HasIndex("BuildingId", "FloorNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UK_floors_building_floor");
 
                     b.ToTable("floors");
                 });
@@ -781,9 +898,26 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<int>("BillingPeriodId")
-                        .HasColumnType("int")
+                    b.Property<decimal?>("AdjustmentAmount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("adjustment_amount");
+
+                    b.Property<string>("AdjustmentNote")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("adjustment_note");
+
+                    b.Property<long>("BillingPeriodId")
+                        .HasColumnType("bigint")
                         .HasColumnName("billing_period_id");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<long?>("ConfirmedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("confirmed_by");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -799,6 +933,15 @@ namespace backend.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("due_date");
 
+                    b.Property<decimal?>("ElectricityCharge")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("electricity_charge");
+
+                    b.Property<int?>("Headcount")
+                        .HasColumnType("int")
+                        .HasColumnName("headcount");
+
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -808,6 +951,11 @@ namespace backend.Migrations
                     b.Property<DateTime>("IssueDate")
                         .HasColumnType("datetime2")
                         .HasColumnName("issue_date");
+
+                    b.Property<decimal?>("LateFee")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("late_fee");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
@@ -821,9 +969,43 @@ namespace backend.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("paid_amount");
 
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("paid_at");
+
+                    b.Property<decimal?>("RoomCharge")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("room_charge");
+
                     b.Property<long>("RoomId")
                         .HasColumnType("bigint")
                         .HasColumnName("room_id");
+
+                    b.Property<decimal?>("ServiceCharge")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("service_charge");
+
+                    b.Property<decimal?>("SnapshotElectricityPrice")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
+                        .HasColumnName("snapshot_electricity_price");
+
+                    b.Property<decimal?>("SnapshotRoomRent")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("snapshot_room_rent");
+
+                    b.Property<decimal?>("SnapshotServicePrice")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
+                        .HasColumnName("snapshot_service_price");
+
+                    b.Property<decimal?>("SnapshotWaterPrice")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
+                        .HasColumnName("snapshot_water_price");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -838,26 +1020,40 @@ namespace backend.Migrations
                         .HasColumnType("decimal(15,2)")
                         .HasColumnName("total_amount");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                    b.Property<string>("VoidReason")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("void_reason");
 
-                    b.Property<long?>("UpdatedBy")
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("voided_at");
+
+                    b.Property<long?>("VoidedBy")
                         .HasColumnType("bigint")
-                        .HasColumnName("updated_by");
+                        .HasColumnName("voided_by");
+
+                    b.Property<decimal?>("WaterCharge")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("water_charge");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BillingPeriodId");
 
+                    b.HasIndex("DueDate");
+
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
 
-                    b.HasIndex("RoomId");
+                    b.HasIndex("Status");
 
-                    b.ToTable("invoices");
+                    b.HasIndex("RoomId", "BillingPeriodId");
+
+                    b.ToTable("invoices", t =>
+                        {
+                            t.HasCheckConstraint("CK_invoices_status", "status IN ('UNPAID', 'PARTIAL', 'PAID', 'OVERDUE', 'VOIDED')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.InvoiceLineItem", b =>
@@ -882,18 +1078,28 @@ namespace backend.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("description");
 
                     b.Property<long>("InvoiceId")
                         .HasColumnType("bigint")
                         .HasColumnName("invoice_id");
 
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("item_type");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("quantity");
+
+                    b.Property<string>("TierInfo")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("tier_info");
 
                     b.Property<string>("Unit")
                         .HasMaxLength(20)
@@ -901,15 +1107,18 @@ namespace backend.Migrations
                         .HasColumnName("unit");
 
                     b.Property<decimal>("UnitPrice")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
                         .HasColumnName("unit_price");
 
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("invoice_line_items");
+                    b.ToTable("invoice_line_items", t =>
+                        {
+                            t.HasCheckConstraint("CK_invoice_line_items_item_type", "item_type IN ('ROOM', 'WATER', 'ELECTRICITY', 'ELECTRICITY_TIER', 'SERVICE', 'ADJUSTMENT', 'LATE_FEE')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.MeterReading", b =>
@@ -920,6 +1129,15 @@ namespace backend.Migrations
                         .HasColumnName("id");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AnomalyNote")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("anomaly_note");
+
+                    b.Property<decimal>("Consumption")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("consumption");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -932,6 +1150,10 @@ namespace backend.Migrations
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("current_reading");
 
+                    b.Property<bool>("IsAnomaly")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_anomaly");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
@@ -942,9 +1164,9 @@ namespace backend.Migrations
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("previous_reading");
 
-                    b.Property<DateTime>("ReadingDate")
+                    b.Property<DateTime>("ReadingMonth")
                         .HasColumnType("datetime2")
-                        .HasColumnName("reading_date");
+                        .HasColumnName("reading_month");
 
                     b.Property<long?>("RecordedBy")
                         .HasColumnType("bigint")
@@ -954,15 +1176,9 @@ namespace backend.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("room_id");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomId", "ReadingDate");
+                    b.HasIndex("RoomId", "ReadingMonth");
 
                     b.ToTable("meter_readings");
                 });
@@ -993,13 +1209,44 @@ namespace backend.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("is_read");
 
+                    b.Property<string>("LinkUrl")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("link_url");
+
+                    b.Property<string>("NotificationType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("notification_type");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("NORMAL")
+                        .HasColumnName("priority");
+
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("read_at");
 
+                    b.Property<long?>("RecipientId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("recipient_id");
+
                     b.Property<long?>("RelatedId")
                         .HasColumnType("bigint")
                         .HasColumnName("related_id");
+
+                    b.Property<long?>("ScopeId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("scope_id");
+
+                    b.Property<string>("ScopeType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("scope_type");
 
                     b.Property<DateTime>("SentAt")
                         .ValueGeneratedOnAdd()
@@ -1013,21 +1260,22 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(200)")
                         .HasColumnName("title");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("type");
-
-                    b.Property<long>("UserId")
+                    b.Property<long?>("UserId")
                         .HasColumnType("bigint")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ScopeType", "ScopeId");
+
                     b.HasIndex("UserId", "IsRead");
 
-                    b.ToTable("notifications");
+                    b.ToTable("notifications", t =>
+                        {
+                            t.HasCheckConstraint("CK_notifications_priority", "priority IN ('NORMAL', 'URGENT')");
+
+                            t.HasCheckConstraint("CK_notifications_scope_type", "scope_type IS NULL OR scope_type IN ('USER', 'ROOM', 'FLOOR', 'BUILDING', 'ALL')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.PaymentReconciliation", b =>
@@ -1048,6 +1296,10 @@ namespace backend.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("bank_date");
 
+                    b.Property<string>("BankStatementRef")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("bank_statement_ref");
+
                     b.Property<string>("BankTransactionId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1060,27 +1312,25 @@ namespace backend.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<DateTime?>("MatchedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("matched_at");
+
+                    b.Property<long?>("MatchedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("matched_by");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("notes");
-
-                    b.Property<DateTime>("ReconciledAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("reconciled_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("ReconciledBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("reconciled_by");
 
                     b.Property<string>("ReconciliationStatus")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("MATCHED")
+                        .HasDefaultValue("PENDING")
                         .HasColumnName("reconciliation_status");
 
                     b.Property<long>("TransactionId")
@@ -1091,17 +1341,20 @@ namespace backend.Migrations
 
                     b.HasIndex("TransactionId");
 
-                    b.ToTable("payment_reconciliations");
+                    b.ToTable("payment_reconciliations", t =>
+                        {
+                            t.HasCheckConstraint("CK_payment_reconciliations_status", "reconciliation_status IN ('PENDING', 'MATCHED', 'UNMATCHED')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.PriceConfig", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1113,54 +1366,66 @@ namespace backend.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("created_by");
 
-                    b.Property<DateTime>("EffectiveFrom")
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTime>("EffectiveDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("effective_from")
+                        .HasColumnName("effective_date")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<DateTime?>("EffectiveTo")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("effective_to");
+                    b.Property<bool>("IsTiered")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_tiered");
 
-                    b.Property<string>("ServiceName")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("service_name");
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("notes");
 
-                    b.Property<string>("Unit")
+                    b.Property<string>("PricingMethod")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasColumnName("unit");
+                        .HasColumnName("pricing_method");
+
+                    b.Property<string>("ServiceType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("service_type");
 
                     b.Property<decimal>("UnitPrice")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
+                        .HasPrecision(15, 4)
+                        .HasColumnType("decimal(15,4)")
                         .HasColumnName("unit_price");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                    b.Property<string>("UnitType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("unit_type");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ServiceName", "EffectiveFrom");
+                    b.HasIndex("ServiceType", "EffectiveDate");
 
-                    b.ToTable("price_configs");
+                    b.ToTable("price_configs", t =>
+                        {
+                            t.HasCheckConstraint("CK_price_configs_pricing_method", "pricing_method IN ('PER_PERSON', 'PER_UNIT', 'FIXED', 'TIERED')");
+
+                            t.HasCheckConstraint("CK_price_configs_service_type", "service_type IN ('WATER', 'ELECTRICITY', 'SERVICE')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.Regulation", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Category")
                         .IsRequired()
@@ -1183,15 +1448,13 @@ namespace backend.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("created_by");
 
-                    b.Property<DateTime>("EffectiveFrom")
-                        .ValueGeneratedOnAdd()
+                    b.Property<DateTime?>("EffectiveDate")
                         .HasColumnType("datetime2")
-                        .HasColumnName("effective_from")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("effective_date");
 
-                    b.Property<DateTime?>("EffectiveTo")
+                    b.Property<DateTime?>("ExpiryDate")
                         .HasColumnType("datetime2")
-                        .HasColumnName("effective_to");
+                        .HasColumnName("expiry_date");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -1199,21 +1462,30 @@ namespace backend.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
 
+                    b.Property<string>("RegulationCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("regulation_code");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
                         .HasColumnName("title");
 
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<int>("ViewCount")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("view_count");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Category");
+
+                    b.HasIndex("RegulationCode")
+                        .IsUnique();
 
                     b.ToTable("regulations");
                 });
@@ -1227,19 +1499,46 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<DateTime>("CheckInDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("check_in_date");
+
+                    b.Property<DateTime?>("CheckOutDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("check_out_date");
+
+                    b.Property<DateTime?>("ContractEndDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("contract_end_date");
+
+                    b.Property<string>("ContractNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("contract_number");
+
+                    b.Property<DateTime?>("ContractStartDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("contract_start_date");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<DateTime>("MoveInDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("move_in_date");
+                    b.Property<bool>("IsPrimaryResident")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_primary_resident");
 
-                    b.Property<DateTime?>("MoveOutDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("move_out_date");
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("OwnershipType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("ownership_type");
 
                     b.Property<long>("ResidentId")
                         .HasColumnType("bigint")
@@ -1258,18 +1557,22 @@ namespace backend.Migrations
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ResidentId");
 
-                    b.HasIndex("RoomId");
+                    b.HasIndex("RoomId", "ResidentId", "OwnershipType")
+                        .HasDatabaseName("UK_residencies");
 
-                    b.ToTable("residencies");
+                    b.ToTable("residencies", t =>
+                        {
+                            t.HasCheckConstraint("CK_residencies_ownership", "ownership_type IN ('OWNER', 'TENANT')");
+
+                            t.HasCheckConstraint("CK_residencies_status", "status IN ('ACTIVE', 'INACTIVE', 'ENDED')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.Resident", b =>
@@ -1280,11 +1583,6 @@ namespace backend.Migrations
                         .HasColumnName("id");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("address");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1307,22 +1605,28 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(100)")
                         .HasColumnName("full_name");
 
-                    b.Property<string>("IdCard")
-                        .HasMaxLength(12)
-                        .HasColumnType("nvarchar(12)")
-                        .HasColumnName("id_card");
+                    b.Property<string>("Gender")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("gender");
+
+                    b.Property<string>("IdCardNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("id_card_number");
+
+                    b.Property<string>("PermanentAddress")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("permanent_address");
 
                     b.Property<string>("PhoneNumber")
-                        .IsRequired()
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)")
                         .HasColumnName("phone_number");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("updated_at");
 
                     b.Property<long?>("UserId")
                         .HasColumnType("bigint")
@@ -1330,11 +1634,16 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("IdCardNumber");
+
                     b.HasIndex("PhoneNumber");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("residents");
+                    b.ToTable("residents", t =>
+                        {
+                            t.HasCheckConstraint("CK_residents_gender", "gender IN ('MALE', 'FEMALE', 'OTHER')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.Room", b =>
@@ -1346,18 +1655,10 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<decimal>("Area")
+                    b.Property<decimal?>("AreaSqm")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
-                        .HasColumnName("area_m2");
-
-                    b.Property<int>("Bathrooms")
-                        .HasColumnType("int")
-                        .HasColumnName("bathrooms");
-
-                    b.Property<int>("Bedrooms")
-                        .HasColumnType("int")
-                        .HasColumnName("bedrooms");
+                        .HasColumnName("area_sqm");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1365,49 +1666,266 @@ namespace backend.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
                     b.Property<long>("FloorId")
                         .HasColumnType("bigint")
                         .HasColumnName("floor_id");
 
+                    b.Property<decimal>("MonthlyRent")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("monthly_rent");
+
+                    b.Property<string>("RoomCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("room_code");
+
                     b.Property<string>("RoomNumber")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("room_number");
 
                     b.Property<string>("RoomType")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("room_type");
+
+                    b.Property<decimal>("SalePrice")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)")
+                        .HasColumnName("sale_price");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("EMPTY")
+                        .HasDefaultValue("VACANT")
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("UpdatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("updated_by");
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
                     b.HasIndex("FloorId");
 
-                    b.ToTable("rooms");
+                    b.HasIndex("RoomCode");
+
+                    b.ToTable("rooms", t =>
+                        {
+                            t.HasCheckConstraint("CK_rooms_room_type", "room_type IN ('FOR_RENT', 'FOR_SALE', 'SOLD')");
+
+                            t.HasCheckConstraint("CK_rooms_status", "status IN ('VACANT', 'OCCUPIED', 'INACTIVE')");
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.Service", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("unit");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name");
+
+                    b.ToTable("services");
+                });
+
+            modelBuilder.Entity("backend.Models.ServicePriceAdjustment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("AdjustedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("adjusted_at")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("AdjustedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("adjusted_by");
+
+                    b.Property<string>("AdjustmentReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("adjustment_reason");
+
+                    b.Property<decimal>("NewPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("new_price");
+
+                    b.Property<decimal>("OldPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("old_price");
+
+                    b.Property<long>("ServiceId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("service_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceId");
+
+                    b.ToTable("service_price_adjustments");
+                });
+
+            modelBuilder.Entity("backend.Models.ServicePriceSnapshot", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("notes");
+
+                    b.Property<decimal>("PreviousPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("previous_price");
+
+                    b.Property<long>("ServiceId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("service_id");
+
+                    b.Property<DateTime>("SnapshotDatetime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("snapshot_datetime")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceId");
+
+                    b.ToTable("service_price_snapshots");
+                });
+
+            modelBuilder.Entity("backend.Models.ServiceUsage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<bool>("IsCharged")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_charged");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("notes");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("quantity");
+
+                    b.Property<long>("ResidencyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("residency_id");
+
+                    b.Property<long?>("ResidentId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("resident_id");
+
+                    b.Property<long>("ServiceId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("service_id");
+
+                    b.Property<long?>("ServiceId1")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateTime>("UsageDatetime")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("usage_datetime");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResidentId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("ServiceId1");
+
+                    b.HasIndex("ResidencyId", "ServiceId", "UsageDatetime");
+
+                    b.ToTable("service_usages");
                 });
 
             modelBuilder.Entity("backend.Models.Transaction", b =>
@@ -1439,6 +1957,14 @@ namespace backend.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("GatewayReference")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("gateway_reference");
+
+                    b.Property<string>("GatewayResponse")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("gateway_response");
+
                     b.Property<long>("InvoiceId")
                         .HasColumnType("bigint")
                         .HasColumnName("invoice_id");
@@ -1463,7 +1989,7 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("SUCCESS")
+                        .HasDefaultValue("INITIATED")
                         .HasColumnName("status");
 
                     b.Property<string>("TransactionCode")
@@ -1472,20 +1998,21 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("transaction_code");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
 
+                    b.HasIndex("PaymentDate");
+
                     b.HasIndex("TransactionCode")
                         .IsUnique();
 
-                    b.ToTable("transactions");
+                    b.ToTable("transactions", t =>
+                        {
+                            t.HasCheckConstraint("CK_transactions_payment_method", "payment_method IN ('BANK_TRANSFER', 'CASH', 'EWALLET', 'GATEWAY_MOCK')");
+
+                            t.HasCheckConstraint("CK_transactions_status", "status IN ('INITIATED', 'PROCESSING', 'SUCCESS', 'FAILED', 'CANCELLED')");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.User", b =>
@@ -1619,6 +2146,15 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("AnomalyNote")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("anomaly_note");
+
+                    b.Property<decimal>("Consumption")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("consumption");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -1630,6 +2166,10 @@ namespace backend.Migrations
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("current_reading");
 
+                    b.Property<bool>("IsAnomaly")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_anomaly");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
@@ -1640,9 +2180,9 @@ namespace backend.Migrations
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("previous_reading");
 
-                    b.Property<DateTime>("ReadingDate")
+                    b.Property<DateTime>("ReadingMonth")
                         .HasColumnType("datetime2")
-                        .HasColumnName("reading_date");
+                        .HasColumnName("reading_month");
 
                     b.Property<long?>("RecordedBy")
                         .HasColumnType("bigint")
@@ -1652,15 +2192,9 @@ namespace backend.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("room_id");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomId", "ReadingDate");
+                    b.HasIndex("RoomId", "ReadingMonth");
 
                     b.ToTable("water_meter_readings");
                 });
@@ -1693,21 +2227,21 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("backend.Models.FAQ", "FAQ")
+                    b.HasOne("backend.Models.FAQ", "MatchedFaq")
                         .WithMany()
-                        .HasForeignKey("FaqId")
+                        .HasForeignKey("MatchedFaqId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("backend.Models.Regulation", "Regulation")
+                    b.HasOne("backend.Models.Regulation", "MatchedRegulation")
                         .WithMany()
-                        .HasForeignKey("RegulationId")
+                        .HasForeignKey("MatchedRegulationId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Conversation");
 
-                    b.Navigation("FAQ");
+                    b.Navigation("MatchedFaq");
 
-                    b.Navigation("Regulation");
+                    b.Navigation("MatchedRegulation");
                 });
 
             modelBuilder.Entity("backend.Models.Complaint", b =>
@@ -1745,13 +2279,64 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.Deposit", b =>
                 {
+                    b.HasOne("backend.Models.Residency", "Residency")
+                        .WithOne()
+                        .HasForeignKey("backend.Models.Deposit", "ResidencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Residency", null)
+                        .WithOne("Deposit")
+                        .HasForeignKey("backend.Models.Deposit", "ResidencyId1");
+
+                    b.HasOne("backend.Models.Resident", "Resident")
+                        .WithMany()
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("backend.Models.Room", "Room")
                         .WithMany("Deposits")
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Residency");
+
+                    b.Navigation("Resident");
+
                     b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("backend.Models.ElectricityPriceSnapshot", b =>
+                {
+                    b.HasOne("backend.Models.PriceConfig", "PriceConfig")
+                        .WithMany()
+                        .HasForeignKey("PriceConfigId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("PriceConfig");
+                });
+
+            modelBuilder.Entity("backend.Models.ElectricityTier", b =>
+                {
+                    b.HasOne("backend.Models.PriceConfig", "PriceConfig")
+                        .WithMany()
+                        .HasForeignKey("PriceConfigId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("PriceConfig");
+                });
+
+            modelBuilder.Entity("backend.Models.ElectricityTierSnapshot", b =>
+                {
+                    b.HasOne("backend.Models.ElectricityPriceSnapshot", "Snapshot")
+                        .WithMany("TierSnapshots")
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Snapshot");
                 });
 
             modelBuilder.Entity("backend.Models.Floor", b =>
@@ -1811,8 +2396,7 @@ namespace backend.Migrations
                     b.HasOne("backend.Models.User", "User")
                         .WithMany("Notifications")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("User");
                 });
@@ -1866,6 +2450,58 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Floor");
+                });
+
+            modelBuilder.Entity("backend.Models.ServicePriceAdjustment", b =>
+                {
+                    b.HasOne("backend.Models.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("backend.Models.ServicePriceSnapshot", b =>
+                {
+                    b.HasOne("backend.Models.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("backend.Models.ServiceUsage", b =>
+                {
+                    b.HasOne("backend.Models.Residency", "Residency")
+                        .WithMany()
+                        .HasForeignKey("ResidencyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Resident", "Resident")
+                        .WithMany()
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("backend.Models.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Service", null)
+                        .WithMany("ServiceUsages")
+                        .HasForeignKey("ServiceId1");
+
+                    b.Navigation("Residency");
+
+                    b.Navigation("Resident");
+
+                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("backend.Models.Transaction", b =>
@@ -1923,6 +2559,11 @@ namespace backend.Migrations
                     b.Navigation("Responses");
                 });
 
+            modelBuilder.Entity("backend.Models.ElectricityPriceSnapshot", b =>
+                {
+                    b.Navigation("TierSnapshots");
+                });
+
             modelBuilder.Entity("backend.Models.Floor", b =>
                 {
                     b.Navigation("Rooms");
@@ -1933,6 +2574,11 @@ namespace backend.Migrations
                     b.Navigation("LineItems");
 
                     b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("backend.Models.Residency", b =>
+                {
+                    b.Navigation("Deposit");
                 });
 
             modelBuilder.Entity("backend.Models.Resident", b =>
@@ -1953,6 +2599,11 @@ namespace backend.Migrations
                     b.Navigation("Residencies");
 
                     b.Navigation("WaterMeterReadings");
+                });
+
+            modelBuilder.Entity("backend.Models.Service", b =>
+                {
+                    b.Navigation("ServiceUsages");
                 });
 
             modelBuilder.Entity("backend.Models.Transaction", b =>

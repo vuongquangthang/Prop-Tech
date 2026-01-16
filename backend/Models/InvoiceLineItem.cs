@@ -18,8 +18,16 @@ public class InvoiceLineItem
     [Column("invoice_id")]
     public long InvoiceId { get; set; }
 
+    [ForeignKey(nameof(InvoiceId))]
+    public Invoice Invoice { get; set; } = null!;
+
     [Required]
-    [StringLength(100)]
+    [StringLength(50)]
+    [Column("item_type")]
+    public string ItemType { get; set; } = null!; // ROOM, WATER, ELECTRICITY, ELECTRICITY_TIER, SERVICE, ADJUSTMENT, LATE_FEE
+
+    [Required]
+    [StringLength(255)]
     [Column("description")]
     public string Description { get; set; } = null!;
 
@@ -30,7 +38,7 @@ public class InvoiceLineItem
 
     [Required]
     [Column("unit_price")]
-    [Precision(15, 2)]
+    [Precision(15, 4)]
     public decimal UnitPrice { get; set; }
 
     [Required]
@@ -42,10 +50,9 @@ public class InvoiceLineItem
     [Column("unit")]
     public string? Unit { get; set; }
 
+    [Column("tier_info")]
+    public string? TierInfo { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    // Navigation properties
-    [ForeignKey("InvoiceId")]
-    public Invoice Invoice { get; set; } = null!;
 }

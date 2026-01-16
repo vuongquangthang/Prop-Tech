@@ -11,12 +11,12 @@ public class FAQ
 {
     [Key]
     [Column("id")]
-    public int Id { get; set; }
+    public long Id { get; set; }
 
     [Required]
     [StringLength(50)]
     [Column("category")]
-    public string Category { get; set; } = null!; // BILLING, SERVICES, COMPLAINT, FACILITY, OTHER
+    public string Category { get; set; } = null!; // BILLING, SERVICES, COMPLAINT, FACILITY, GENERAL, OTHER
 
     [Required]
     [StringLength(500)]
@@ -31,6 +31,9 @@ public class FAQ
     [Column("keywords")]
     public string? Keywords { get; set; }
 
+    [Column("display_order")]
+    public int DisplayOrder { get; set; } = 0;
+
     [Column("view_count")]
     public int ViewCount { get; set; } = 0;
 
@@ -40,9 +43,6 @@ public class FAQ
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [Column("created_by")]
     public long? CreatedBy { get; set; }

@@ -13,14 +13,26 @@ public class Notification
     [Column("id")]
     public long Id { get; set; }
 
-    [Required]
     [Column("user_id")]
-    public long UserId { get; set; }
+    public long? UserId { get; set; }
+
+    [ForeignKey(nameof(UserId))]
+    public User? User { get; set; }
+
+    [Column("recipient_id")]
+    public long? RecipientId { get; set; }
+
+    [StringLength(20)]
+    [Column("scope_type")]
+    public string? ScopeType { get; set; } // USER, ROOM, FLOOR, BUILDING, ALL
+
+    [Column("scope_id")]
+    public long? ScopeId { get; set; }
 
     [Required]
     [StringLength(50)]
-    [Column("type")]
-    public string Type { get; set; } = null!; // INVOICE, PAYMENT, COMPLAINT, SYSTEM, ANNOUNCEMENT
+    [Column("notification_type")]
+    public string NotificationType { get; set; } = null!; // INVOICE, PAYMENT, COMPLAINT, SYSTEM, ANNOUNCEMENT
 
     [Required]
     [StringLength(200)]
@@ -30,6 +42,13 @@ public class Notification
     [Required]
     [Column("content", TypeName = "NVARCHAR(MAX)")]
     public string Content { get; set; } = null!;
+
+    [StringLength(20)]
+    [Column("priority")]
+    public string Priority { get; set; } = "NORMAL"; // NORMAL, URGENT
+
+    [Column("link_url")]
+    public string? LinkUrl { get; set; }
 
     [Column("related_id")]
     public long? RelatedId { get; set; }
@@ -46,8 +65,4 @@ public class Notification
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    // Navigation properties
-    [ForeignKey("UserId")]
-    public User User { get; set; } = null!;
 }

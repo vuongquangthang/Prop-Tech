@@ -5,20 +5,21 @@ using Microsoft.EntityFrameworkCore;
 namespace backend.Models;
 
 /// <summary>
-/// Bậc thang điện - Định nghĩa giá điện theo bậc tiêu thụ
+/// Snapshot bậc thang điện - Lưu chi tiết bậc thang tại thời điểm
 /// </summary>
-[Table("electricity_tiers")]
-public class ElectricityTier
+[Table("electricity_tier_snapshots")]
+public class ElectricityTierSnapshot
 {
     [Key]
     [Column("id")]
     public long Id { get; set; }
 
-    [Column("price_config_id")]
-    public long? PriceConfigId { get; set; }
+    [Required]
+    [Column("snapshot_id")]
+    public long SnapshotId { get; set; }
 
-    [ForeignKey(nameof(PriceConfigId))]
-    public PriceConfig? PriceConfig { get; set; }
+    [ForeignKey(nameof(SnapshotId))]
+    public ElectricityPriceSnapshot Snapshot { get; set; } = null!;
 
     [Required]
     [Column("tier_level")]
@@ -37,10 +38,4 @@ public class ElectricityTier
     [Column("unit_price")]
     [Precision(15, 4)]
     public decimal UnitPrice { get; set; }
-
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("created_by")]
-    public long? CreatedBy { get; set; }
 }
