@@ -83,7 +83,7 @@ public class Invoice
     [Required]
     [StringLength(20)]
     [Column("status")]
-    public string Status { get; set; } = "UNPAID"; // UNPAID, PARTIAL, PAID, OVERDUE, VOIDED
+    public string Status { get; set; } = "DRAFT"; // DRAFT, CONFIRMED, UNPAID, PARTIAL, PAID, VOIDED
 
     [Column("snapshot_water_price")]
     [Precision(15, 4)]

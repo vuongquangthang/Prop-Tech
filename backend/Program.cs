@@ -58,8 +58,22 @@ builder.Services.AddScoped<backend.Repositories.IUserSessionRepository, backend.
 builder.Services.AddScoped<backend.Repositories.IBuildingRepository, backend.Repositories.BuildingRepository>();
 builder.Services.AddScoped<backend.Repositories.IFloorRepository, backend.Repositories.FloorRepository>();
 builder.Services.AddScoped<backend.Repositories.IRoomRepository, backend.Repositories.RoomRepository>();
-// TODO: Add more repositories as they are implemented
-// builder.Services.AddScoped<IResidentRepository, ResidentRepository>();
+builder.Services.AddScoped<backend.Repositories.IFAQRepository, backend.Repositories.FAQRepository>();
+builder.Services.AddScoped<backend.Repositories.IRegulationRepository, backend.Repositories.RegulationRepository>();
+builder.Services.AddScoped<backend.Repositories.IResidentRepository, backend.Repositories.ResidentRepository>();
+builder.Services.AddScoped<backend.Repositories.IResidencyRepository, backend.Repositories.ResidencyRepository>();
+builder.Services.AddScoped<backend.Repositories.IDepositRepository, backend.Repositories.DepositRepository>();
+builder.Services.AddScoped<backend.Repositories.IPriceConfigRepository, backend.Repositories.PriceConfigRepository>();
+builder.Services.AddScoped<backend.Repositories.IMeterReadingRepository, backend.Repositories.MeterReadingRepository>();
+builder.Services.AddScoped<backend.Repositories.IWaterMeterReadingRepository, backend.Repositories.WaterMeterReadingRepository>();
+builder.Services.AddScoped<backend.Repositories.IBillingPeriodRepository, backend.Repositories.BillingPeriodRepository>();
+builder.Services.AddScoped<backend.Repositories.IInvoiceRepository, backend.Repositories.InvoiceRepository>();
+builder.Services.AddScoped<backend.Repositories.IInvoiceLineItemRepository, backend.Repositories.InvoiceLineItemRepository>();
+builder.Services.AddScoped<backend.Repositories.ITransactionRepository, backend.Repositories.TransactionRepository>();
+builder.Services.AddScoped<backend.Repositories.INotificationRepository, backend.Repositories.NotificationRepository>();
+builder.Services.AddScoped<backend.Repositories.IComplaintRepository, backend.Repositories.ComplaintRepository>();
+builder.Services.AddScoped<backend.Repositories.IComplaintResponseRepository, backend.Repositories.ComplaintResponseRepository>();
+builder.Services.AddScoped<backend.Repositories.IAuditLogRepository, backend.Repositories.AuditLogRepository>();
 
 // Register Services
 builder.Services.AddScoped<backend.Services.IJwtService, backend.Services.JwtService>();
@@ -67,6 +81,21 @@ builder.Services.AddScoped<backend.Services.IAuthService, backend.Services.AuthS
 builder.Services.AddScoped<backend.Services.IBuildingService, backend.Services.BuildingService>();
 builder.Services.AddScoped<backend.Services.IFloorService, backend.Services.FloorService>();
 builder.Services.AddScoped<backend.Services.IRoomService, backend.Services.RoomService>();
+builder.Services.AddScoped<backend.Services.IFAQService, backend.Services.FAQService>();
+builder.Services.AddScoped<backend.Services.IRegulationService, backend.Services.RegulationService>();
+builder.Services.AddScoped<backend.Services.IResidentService, backend.Services.ResidentService>();
+builder.Services.AddScoped<backend.Services.IResidencyService, backend.Services.ResidencyService>();
+builder.Services.AddScoped<backend.Services.IDepositService, backend.Services.DepositService>();
+builder.Services.AddScoped<backend.Services.IPriceConfigService, backend.Services.PriceConfigService>();
+builder.Services.AddScoped<backend.Services.IMeterReadingService, backend.Services.MeterReadingService>();
+builder.Services.AddScoped<backend.Services.IWaterMeterReadingService, backend.Services.WaterMeterReadingService>();
+builder.Services.AddScoped<backend.Services.IBillingPeriodService, backend.Services.BillingPeriodService>();
+builder.Services.AddScoped<backend.Services.IInvoiceService, backend.Services.InvoiceService>();
+builder.Services.AddScoped<backend.Services.ITransactionService, backend.Services.TransactionService>();
+builder.Services.AddScoped<backend.Services.INotificationService, backend.Services.NotificationService>();
+builder.Services.AddScoped<backend.Services.IComplaintService, backend.Services.ComplaintService>();
+builder.Services.AddScoped<backend.Services.IReportService, backend.Services.ReportService>();
+builder.Services.AddScoped<backend.Services.IAuditLogService, backend.Services.AuditLogService>();
 
 // Configure Swagger
 builder.Services.AddEndpointsApiExplorer();

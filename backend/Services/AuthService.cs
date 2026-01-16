@@ -11,6 +11,7 @@ public interface IAuthService
     Task<LoginResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request);
     Task ChangePasswordAsync(long userId, ChangePasswordRequestDto request);
     Task<UserDto> GetUserByIdAsync(long userId);
+    Task LogoutAsync(long userId);
 }
 
 public class AuthService : IAuthService
@@ -160,6 +161,17 @@ public class AuthService : IAuthService
             FullName = user.FullName,
             CreatedAt = user.CreatedAt
         };
+    }
+
+    public async Task LogoutAsync(long userId)
+    {
+        // Revoke all sessions for this user
+        var sessions = await _sessionRepository.FindAsync(s => s.UserId == userId);
+        foreach (var session in sessions)
+        {
+            _sessionRepository.Remove(session);
+        }
+        await _sessionRepository.SaveChangesAsync();
     }
 
     private async Task<LoginResponseDto> CreateLoginResponseAsync(User user)

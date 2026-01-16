@@ -68,9 +68,19 @@ coverage/
 ################################
 draft.txt
 promt.txt
+db.txt
+backlog.txt
+
+
+
 Prop-Tech.sln
 
 
 
 .notebook
 
+backend/test_fulltext_search.sql
+API_COVERAGE_ANALYSIS.md
+API_DEVELOPMENT_ROADMAP.md
+backend/README_FULLTEXT_SEARCH.md
+TEST_BUILDING_API.md
