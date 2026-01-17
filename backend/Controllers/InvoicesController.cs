@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using backend.DTOs;
+using backend.Repositories;
 using backend.Services;
 
 namespace backend.Controllers;
@@ -12,11 +13,16 @@ namespace backend.Controllers;
 public class InvoicesController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
+    private readonly IResidencyRepository _residencyRepository;
     private readonly ILogger<InvoicesController> _logger;
 
-    public InvoicesController(IInvoiceService invoiceService, ILogger<InvoicesController> logger)
+    public InvoicesController(
+        IInvoiceService invoiceService, 
+        IResidencyRepository residencyRepository,
+        ILogger<InvoicesController> logger)
     {
         _invoiceService = invoiceService;
+        _residencyRepository = residencyRepository;
         _logger = logger;
     }
 
@@ -56,8 +62,13 @@ public class InvoicesController : ControllerBase
             if (userRole == "RESIDENT")
             {
                 // Residents can only view invoices for their rooms
-                // TODO: Check if resident owns this room
-                return Forbid();
+                var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!long.TryParse(userIdStr, out var userId))
+                    return Unauthorized(new { message = "Không xác định được người dùng" });
+
+                var residentRooms = await _residencyRepository.GetActiveRoomIdsByResidentAsync(userId);
+                if (!residentRooms.Contains(invoice.RoomId))
+                    return Forbid();
             }
 
             return Ok(invoice);
@@ -81,6 +92,36 @@ public class InvoicesController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting invoices for period {PeriodId}", billingPeriodId);
+            return StatusCode(500, new { message = "Lỗi khi lấy danh sách hóa đơn" });
+        }
+    }
+
+    [HttpGet("my")]
+    [Authorize(Roles = "RESIDENT")]
+    public async Task<ActionResult<List<InvoiceDto>>> GetMyInvoices()
+    {
+        try
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!long.TryParse(userIdStr, out var userId))
+                return Unauthorized(new { message = "Không xác định được người dùng" });
+
+            var residentRooms = await _residencyRepository.GetActiveRoomIdsByResidentAsync(userId);
+            if (!residentRooms.Any())
+                return Ok(new List<InvoiceDto>());
+
+            var invoices = new List<InvoiceDto>();
+            foreach (var roomId in residentRooms)
+            {
+                var roomInvoices = await _invoiceService.GetByRoomAsync(roomId);
+                invoices.AddRange(roomInvoices);
+            }
+
+            return Ok(invoices.OrderByDescending(i => i.IssueDate).ToList());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting resident invoices for user");
             return StatusCode(500, new { message = "Lỗi khi lấy danh sách hóa đơn" });
         }
     }

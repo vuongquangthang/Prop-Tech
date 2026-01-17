@@ -12,6 +12,7 @@ public interface IResidencyRepository : IRepository<Residency>
     Task<bool> HasActiveResidencyAsync(long roomId);
     Task<Residency?> GetPrimaryResidentAsync(long roomId);
     Task<List<Residency>> GetActiveResidentsByRoomsAsync(List<long> roomIds);
+    Task<List<long>> GetActiveRoomIdsByResidentAsync(long residentId);
 }
 
 public class ResidencyRepository : Repository<Residency>, IResidencyRepository
@@ -78,4 +79,11 @@ public class ResidencyRepository : Repository<Residency>, IResidencyRepository
             .Include(r => r.Resident)
             .ToListAsync();
     }
-}
+
+    public async Task<List<long>> GetActiveRoomIdsByResidentAsync(long residentId)
+    {
+        return await _context.Residencies
+            .Where(r => r.ResidentId == residentId && r.Status == "ACTIVE")
+            .Select(r => r.RoomId)
+            .ToListAsync();
+    }}

@@ -24,6 +24,8 @@ public class InvoiceService : IInvoiceService
     private readonly IBillingPeriodRepository _billingPeriodRepository;
     private readonly IRoomRepository _roomRepository;
     private readonly IResidencyService _residencyService;
+    private readonly IResidencyRepository _residencyRepository;
+    private readonly IDepositRepository _depositRepository;
     private readonly IMeterReadingRepository _meterReadingRepository;
     private readonly IWaterMeterReadingRepository _waterMeterReadingRepository;
     private readonly IPriceConfigService _priceConfigService;
@@ -35,6 +37,8 @@ public class InvoiceService : IInvoiceService
         IBillingPeriodRepository billingPeriodRepository,
         IRoomRepository roomRepository,
         IResidencyService residencyService,
+        IResidencyRepository residencyRepository,
+        IDepositRepository depositRepository,
         IMeterReadingRepository meterReadingRepository,
         IWaterMeterReadingRepository waterMeterReadingRepository,
         IPriceConfigService priceConfigService,
@@ -45,6 +49,8 @@ public class InvoiceService : IInvoiceService
         _billingPeriodRepository = billingPeriodRepository;
         _roomRepository = roomRepository;
         _residencyService = residencyService;
+        _residencyRepository = residencyRepository;
+        _depositRepository = depositRepository;
         _meterReadingRepository = meterReadingRepository;
         _waterMeterReadingRepository = waterMeterReadingRepository;
         _priceConfigService = priceConfigService;
@@ -125,7 +131,34 @@ public class InvoiceService : IInvoiceService
             var servicePrice = await _priceConfigService.GetLatestByServiceTypeAsync("SERVICE", period.CutoffDate);
             decimal serviceCharge = headcount * (servicePrice?.UnitPrice ?? 0);
 
-            decimal totalAmount = roomCharge + waterCharge + elecCharge + serviceCharge;
+            // Check if this is the first invoice for any active residency in this room
+            var activeResidencies = await _residencyRepository.GetActiveByRoomAsync(room.Id, period.CutoffDate);
+            decimal depositAmount = 0;
+            long? depositIdToInclude = null;
+
+            if (activeResidencies.Any())
+            {
+                // Get all invoices for this room to check if this is the first one
+                var allInvoices = await _invoiceRepository.GetByRoomAsync(room.Id);
+                
+                // Only include deposit on the first invoice
+                if (!allInvoices.Any())
+                {
+                    // Get the earliest residency (primary resident)
+                    var earliestResidency = activeResidencies.OrderBy(r => r.CheckInDate).FirstOrDefault();
+                    if (earliestResidency != null)
+                    {
+                        var deposit = await _depositRepository.GetByResidencyAsync(earliestResidency.Id);
+                        if (deposit != null && deposit.Status == "UNPAID")
+                        {
+                            depositAmount = deposit.Amount;
+                            depositIdToInclude = deposit.Id;
+                        }
+                    }
+                }
+            }
+
+            decimal totalAmount = roomCharge + waterCharge + elecCharge + serviceCharge + depositAmount;
 
             // Create invoice
             var invoice = new Invoice
@@ -159,6 +192,12 @@ public class InvoiceService : IInvoiceService
                 new() { InvoiceId = invoice.Id, ItemType = "ELECTRICITY", Description = $"Tiền điện ({elecConsumption:F2} kWh × {elecPrice?.UnitPrice ?? 0}/kWh)", Quantity = elecConsumption, UnitPrice = elecPrice?.UnitPrice ?? 0, Amount = elecCharge, CreatedAt = DateTime.UtcNow },
                 new() { InvoiceId = invoice.Id, ItemType = "SERVICE", Description = $"Tiền dịch vụ ({headcount} người × {servicePrice?.UnitPrice ?? 0}/người)", Quantity = headcount, UnitPrice = servicePrice?.UnitPrice ?? 0, Amount = serviceCharge, CreatedAt = DateTime.UtcNow }
             };
+
+            // Add deposit line item if applicable
+            if (depositAmount > 0)
+            {
+                lineItems.Add(new() { InvoiceId = invoice.Id, ItemType = "DEPOSIT", Description = $"Tiền cọc", Quantity = 1, UnitPrice = depositAmount, Amount = depositAmount, CreatedAt = DateTime.UtcNow });
+            }
 
             await _lineItemRepository.AddRangeAsync(lineItems);
             await _lineItemRepository.SaveChangesAsync();

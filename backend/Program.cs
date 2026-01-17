@@ -72,6 +72,7 @@ builder.Services.AddScoped<backend.Repositories.IInvoiceLineItemRepository, back
 builder.Services.AddScoped<backend.Repositories.ITransactionRepository, backend.Repositories.TransactionRepository>();
 builder.Services.AddScoped<backend.Repositories.INotificationRepository, backend.Repositories.NotificationRepository>();
 builder.Services.AddScoped<backend.Repositories.IComplaintRepository, backend.Repositories.ComplaintRepository>();
+builder.Services.AddScoped<backend.Repositories.IComplaintAttachmentRepository, backend.Repositories.ComplaintAttachmentRepository>();
 builder.Services.AddScoped<backend.Repositories.IComplaintResponseRepository, backend.Repositories.ComplaintResponseRepository>();
 builder.Services.AddScoped<backend.Repositories.IAuditLogRepository, backend.Repositories.AuditLogRepository>();
 
