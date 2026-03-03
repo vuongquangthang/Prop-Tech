@@ -591,6 +591,13 @@ const styles = StyleSheet.create({
   },
   utilityIcon: {
     position: 'relative',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   utilityBadge: {
     position: 'absolute',
@@ -608,13 +615,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
   },
   utilityText: {
     fontSize: 14,

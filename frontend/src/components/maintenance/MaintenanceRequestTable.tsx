@@ -340,8 +340,8 @@ export function MaintenanceRequestTable() {
 
       return {
         code: incident.id,
-        room: incident.apartment,
-        type: typeMap[incident.category] || 'Khác',
+        room: incident.location || incident.apartment,
+        type: typeMap[incident.category] || incident.category || 'Khác',
         time: formatTime(incident.reportedAt),
         waitingHours,
         status: statusMap[incident.status] || 'new',

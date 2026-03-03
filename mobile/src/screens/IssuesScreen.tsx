@@ -156,6 +156,18 @@ export default function IssuesScreen() {
           })
         )}
       </ScrollView>
+
+      {/* Report New Issue Button */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.reportButton}
+          // @ts-ignore - Navigation typing issue
+          onPress={() => navigation.navigate('ReportIssue' as never)}
+        >
+          <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.reportButtonText}>Báo cáo sự cố mới</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -245,6 +257,27 @@ const styles = StyleSheet.create({
   retryText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E3A8A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  reportButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
