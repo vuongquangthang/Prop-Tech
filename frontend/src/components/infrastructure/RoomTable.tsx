@@ -1,33 +1,75 @@
-import { Plus, Edit2, Trash2, Filter, X, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Edit2, Trash2, Filter, X, AlertTriangle, Loader2, Home } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { roomService } from '../../services/api.service';
 
-const roomsData = [
-  { code: 'A-101', area: '45', maxPeople: '4', price: '8.500.000', status: 'empty' },
-  { code: 'A-102', area: '50', maxPeople: '5', price: '9.000.000', status: 'rented' },
-  { code: 'A-103', area: '42', maxPeople: '3', price: '7.800.000', status: 'empty' },
-  { code: 'A-104', area: '48', maxPeople: '4', price: '8.800.000', status: 'maintenance' },
-  { code: 'A-105', area: '55', maxPeople: '6', price: '10.000.000', status: 'rented' },
-  { code: 'A-106', area: '45', maxPeople: '4', price: '8.500.000', status: 'empty' },
-  { code: 'A-107', area: '50', maxPeople: '5', price: '9.200.000', status: 'rented' },
-  { code: 'A-108', area: '43', maxPeople: '3', price: '8.000.000', status: 'empty' },
-];
+interface RoomData {
+  id: number;
+  code: string;
+  roomNumber: string;
+  area: number;
+  maxPeople: number;
+  price: number;
+  status: string;
+}
 
 const statusConfig = {
   empty: { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
+  'Trống': { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
   rented: { label: 'Đã thuê', bgColor: '#FEE2E2', textColor: '#991B1B', borderColor: '#FECACA' },
+  'Đã thuê': { label: 'Đã thuê', bgColor: '#FEE2E2', textColor: '#991B1B', borderColor: '#FECACA' },
   maintenance: { label: 'Bảo trì', bgColor: '#FED7AA', textColor: '#9A3412', borderColor: '#FDBA74' },
+  'Bảo trì': { label: 'Bảo trì', bgColor: '#FED7AA', textColor: '#9A3412', borderColor: '#FDBA74' },
 };
 
 export function RoomTable() {
+  const [rooms, setRooms] = useState<RoomData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
 
+  useEffect(() => {
+    fetchRooms();
+  }, []);
+
+  const fetchRooms = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await roomService.getAll();
+      
+      // Map rooms to table format
+      const roomData: RoomData[] = data.map((room: any) => ({
+        id: room.id || room.phongId || 0,
+        code: room.roomCode || room.maPhong || '',
+        roomNumber: room.roomNumber || room.soPhong || '',
+        area: room.area || room.dienTich || 0,
+        maxPeople: room.maxOccupants || room.soNguoiToiDa || 0,
+        price: room.monthlyRent || room.giaThue || 0,
+        status: room.status || room.trangThai || 'Trống',
+      }));
+      
+      setRooms(roomData);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách phòng');
+      console.error('Error fetching rooms:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredRooms = filter === 'all' 
-    ? roomsData 
-    : roomsData.filter(room => room.status === filter);
+    ? rooms 
+    : rooms.filter(room => {
+        const statusLower = room.status.toLowerCase();
+        if (filter === 'empty') return statusLower === 'trống' || statusLower === 'empty';
+        if (filter === 'rented') return statusLower === 'đã thuê' || statusLower === 'rented';
+        if (filter === 'maintenance') return statusLower === 'bảo trì' || statusLower === 'maintenance';
+        return true;
+      });
 
   const handleEditClick = (room: any) => {
     setSelectedRoom(room);
@@ -38,13 +80,43 @@ export function RoomTable() {
     setSelectedRoom(room);
     setShowDeleteModal(true);
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Loader2 size={48} className="animate-spin text-gray-400" />
+          <span className="text-gray-600">Đang tải danh sách phòng...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button
+            onClick={fetchRooms}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="bg-white border-2 border-gray-300 rounded">
       {/* Header */}
       <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h2 className="text-lg text-gray-800">Danh sách phòng - Tòa A, Tầng 1</h2>
+          <h2 className="text-lg text-gray-800">Danh sách phòng - {filteredRooms.length} phòng</h2>
           
           {/* Filter */}
           <div className="flex items-center space-x-2">
@@ -62,17 +134,33 @@ export function RoomTable() {
           </div>
         </div>
         
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
-        >
-          <Plus size={16} />
-          <span>Thêm Phòng</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={fetchRooms}
+            disabled={loading}
+            className="px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Filter size={16} />}
+            <span>Làm mới</span>
+          </button>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+          >
+            <Plus size={16} />
+            <span>Thêm Phòng</span>
+          </button>
+        </div>
       </div>
       
       {/* Table */}
-      <div className="overflow-x-auto">
+      {filteredRooms.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Home size={48} className="text-gray-300" />
+          <p className="text-gray-500">Không tìm thấy phòng nào</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-300">
             <tr>
@@ -85,50 +173,56 @@ export function RoomTable() {
             </tr>
           </thead>
           <tbody>
-            {filteredRooms.map((room, index) => (
-              <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm text-gray-800">{room.code}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{room.area}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{room.maxPeople}</td>
-                <td className="px-6 py-4 text-sm text-gray-800 text-right">{room.price}</td>
-                <td className="px-6 py-4 text-center">
-                  <span 
-                    className="inline-block rounded"
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: 'var(--type-caption)',
-                      fontWeight: 600,
-                      backgroundColor: statusConfig[room.status as keyof typeof statusConfig].bgColor,
-                      color: statusConfig[room.status as keyof typeof statusConfig].textColor,
-                      border: `1px solid ${statusConfig[room.status as keyof typeof statusConfig].borderColor}`
-                    }}
-                  >
-                    {statusConfig[room.status as keyof typeof statusConfig].label}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-center sticky right-0 bg-white">
-                  <div className="flex items-center justify-center space-x-2">
-                    <button 
-                      onClick={() => handleEditClick(room)}
-                      className="p-2 hover:bg-gray-100 rounded" 
-                      title="Sửa"
+            {filteredRooms.map((room) => {
+              const statusKey = room.status.toLowerCase();
+              const config = statusConfig[statusKey as keyof typeof statusConfig] || statusConfig[room.status as keyof typeof statusConfig] || statusConfig.empty;
+              
+              return (
+                <tr key={room.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm text-gray-800">{room.code || room.roomNumber}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{room.area}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{room.maxPeople || '-'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-800 text-right">{room.price.toLocaleString('vi-VN')}</td>
+                  <td className="px-6 py-4 text-center">
+                    <span 
+                      className="inline-block rounded"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: 'var(--type-caption)',
+                        fontWeight: 600,
+                        backgroundColor: config.bgColor,
+                        color: config.textColor,
+                        border: `1px solid ${config.borderColor}`
+                      }}
                     >
-                      <Edit2 size={16} className="text-gray-600" />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteClick(room)}
-                      className="p-2 hover:bg-gray-100 rounded" 
-                      title="Xóa"
-                    >
-                      <Trash2 size={16} className="text-gray-600" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {config.label}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center sticky right-0 bg-white">
+                    <div className="flex items-center justify-center space-x-2">
+                      <button 
+                        onClick={() => handleEditClick(room)}
+                        className="p-2 hover:bg-gray-100 rounded" 
+                        title="Sửa"
+                      >
+                        <Edit2 size={16} className="text-gray-600" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteClick(room)}
+                        className="p-2 hover:bg-gray-100 rounded" 
+                        title="Xóa"
+                      >
+                        <Trash2 size={16} className="text-gray-600" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-      </div>
+        </div>
+      )}
 
       {/* Add Room Modal */}
       {showAddModal && (

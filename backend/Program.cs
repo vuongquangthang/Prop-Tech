@@ -165,6 +165,9 @@ builder.Services.AddScoped<backend.Services.IReportService, backend.Services.Rep
 // Payment Service (Realtime QR Payment)
 builder.Services.AddScoped<backend.Services.IPaymentService, backend.Services.PaymentService>();
 
+// Utility Reading & Invoice Workflow Services
+builder.Services.AddScoped<backend.Services.IUtilityReadingService, backend.Services.UtilityReadingService>();
+
 // Configure Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -216,8 +219,38 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("🔨 Creating new database...");
         context.Database.EnsureCreated();
         
-        // Seed demo users
-        DatabaseSeeder.SeedDemoUsers(context);
+        // Apply column additions for existing databases
+        try {
+            context.Database.ExecuteSqlRaw(@"
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOA_DON') AND name = 'APPROVED_BY')
+                    ALTER TABLE HOA_DON ADD APPROVED_BY INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOA_DON') AND name = 'APPROVED_AT')
+                    ALTER TABLE HOA_DON ADD APPROVED_AT DATETIME2 NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOA_DON') AND name = 'REJECTED_REASON')
+                    ALTER TABLE HOA_DON ADD REJECTED_REASON NVARCHAR(500) NULL;
+            ");
+            Console.WriteLine("✅ HOA_DON columns ensured");
+
+            // Fix seeded invoices: move from current month to 2 months ago so draft workflow is available
+            // Only moves invoices with no line items and no payments (pure seeded data)
+            context.Database.ExecuteSqlRaw(@"
+                UPDATE HOA_DON
+                SET THANG = MONTH(DATEADD(MONTH, -2, GETDATE())),
+                    NAM   = YEAR(DATEADD(MONTH, -2, GETDATE())),
+                    DUE_DATE = DATEADD(DAY, 15, DATEADD(MONTH, DATEDIFF(MONTH, 0, DATEADD(MONTH, -1, GETDATE())), 0))
+                WHERE THANG = MONTH(GETDATE())
+                  AND NAM   = YEAR(GETDATE())
+                  AND TRANG_THAI IN (N'Chưa thanh toán', N'Đã thanh toán')
+                  AND HOA_DON_ID NOT IN (SELECT DISTINCT HOA_DON_ID FROM CHI_TIET_HOA_DON)
+                  AND HOA_DON_ID NOT IN (SELECT DISTINCT HOA_DON_ID FROM THANH_TOAN WHERE HOA_DON_ID IS NOT NULL)
+            ");
+            Console.WriteLine("✅ Seeded invoices migrated to past month (if any)");
+        } catch (Exception colEx) {
+            Console.WriteLine($"⚠️ Column migration note: {colEx.Message}");
+        }
+        
+        // Seed complete demo data with all tables
+        DatabaseSeeder.SeedCompleteData(context);
     }
     catch (Exception ex)
     {

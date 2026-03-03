@@ -121,12 +121,10 @@ export function SendInvoiceModal({ invoice, onClose }: ActionModalProps) {
   const [sendMethod, setSendMethod] = useState('app-notification');
   const [isSending, setIsSending] = useState(false);
   
-  const members = [
-    { id: 'member1', name: 'Nguyễn Văn A', role: 'Chủ hộ', phone: '0912345678', appInstalled: true },
-    { id: 'member2', name: 'Nguyễn Thị B', role: 'Vợ/Chồng', phone: '0987654321', appInstalled: true },
-    { id: 'member3', name: 'Nguyễn Văn C', role: 'Con', phone: '0909123456', appInstalled: false },
-    { id: 'member4', name: 'Nguyễn Thị D', role: 'Con', phone: '0901234567', appInstalled: true },
-  ];
+  // TODO: Fetch actual family members from API based on invoice's contract
+  // Endpoint: GET /api/HopDong/{contractId}/residents
+  // For now, start with empty array - users can still send via "all residents" option
+  const members: Array<{id: string; name: string; role: string; phone: string; appInstalled: boolean}> = [];
   
   const toggleMember = (id: string) => {
     if (id === 'all') {
@@ -144,7 +142,7 @@ export function SendInvoiceModal({ invoice, onClose }: ActionModalProps) {
   const handleSend = () => {
     setIsSending(true);
     setTimeout(() => {
-      const count = selectedMembers.includes('all') ? 4 : selectedMembers.length;
+      const count = selectedMembers.includes('all') ? members.length : selectedMembers.length;
       
       // Update invoice status to 'pending'
       updateInvoiceStatus(invoice?.id, 'pending');
@@ -169,7 +167,7 @@ export function SendInvoiceModal({ invoice, onClose }: ActionModalProps) {
     }, 1500);
   };
   
-  const selectedCount = selectedMembers.includes('all') ? 4 : selectedMembers.length;
+  const selectedCount = selectedMembers.includes('all') ? members.length : selectedMembers.length;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -209,7 +207,9 @@ export function SendInvoiceModal({ invoice, onClose }: ActionModalProps) {
                     className="w-4 h-4" 
                   />
                   <div>
-                    <p className="text-sm text-blue-900 font-bold">Gửi cho tất cả (4 thành viên)</p>
+                    <p className="text-sm text-blue-900 font-bold">
+                      Gửi cho tất cả {members.length > 0 ? `(${members.length} thành viên)` : '(Tất cả cư dân)'}
+                    </p>
                     <p className="text-xs text-blue-700">Khuyến nghị để đảm bảo thông tin đến đầy đủ</p>
                   </div>
                 </div>
@@ -217,7 +217,12 @@ export function SendInvoiceModal({ invoice, onClose }: ActionModalProps) {
               </label>
               
               <div className="pl-4 border-l-2 border-gray-300 ml-2 space-y-2">
-                {members.map(member => (
+                {members.length === 0 ? (
+                  <div className="p-3 text-center text-sm text-gray-500 bg-gray-50 border border-gray-300 rounded">
+                    Chưa có thông tin thành viên cụ thể. Hệ thống sẽ gửi cho tất cả cư dân trong phòng.
+                  </div>
+                ) : (
+                  members.map(member => (
                   <label 
                     key={member.id}
                     className="flex items-center justify-between p-2 border border-gray-300 rounded cursor-pointer hover:bg-gray-50"
@@ -245,7 +250,8 @@ export function SendInvoiceModal({ invoice, onClose }: ActionModalProps) {
                       </span>
                     )}
                   </label>
-                ))}
+                ))
+                )}
               </div>
             </div>
           </div>

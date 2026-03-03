@@ -8,17 +8,11 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
-  Linking,
-  Image,
-  Share,
-  ActionSheetIOS,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import invoiceService, { Invoice } from '../services/invoice.service';
-import paymentService, { InitiatePaymentResponse } from '../services/payment.service';
-import signalRService from '../services/signalr.service';
+import paymentService from '../services/payment.service';
 
 type RootStackParamList = {
   BillDetail: { id: number };
@@ -35,7 +29,7 @@ export default function BillDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paymentTransaction, setPaymentTransaction] = useState<InitiatePaymentResponse | null>(null);
+  const [showPaymentSection, setShowPaymentSection] = useState(false);
 
   const loadInvoice = async () => {
     if (!invoiceId) {
@@ -56,223 +50,34 @@ export default function BillDetailScreen() {
     }
   };
 
-  const handlePayment = async () => {
+  const handlePayment = () => {
     if (!invoice || invoice.status === 'Đã thanh toán') return;
-
-    Alert.alert(
-      'Xác nhận thanh toán',
-      `Bạn muốn thanh toán hóa đơn ${invoiceService.formatPeriod(invoice.month, invoice.year)}?\nSố tiền: ${invoiceService.formatCurrency(invoice.totalAmount)}`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Thanh toán',
-          onPress: async () => {
-            try {
-              setIsPaymentProcessing(true);
-              
-              // Initiate payment transaction
-              const response = await paymentService.initiatePayment({
-                invoiceId: invoice.id,
-                amount: invoice.totalAmount,
-                paymentMethod: 'QR',
-              });
-              
-              setPaymentTransaction(response);
-              
-              // Open payment gateway in browser
-              const gatewayUrl = paymentService.getGatewayUrl(response.paymentUrl);
-              const supported = await Linking.canOpenURL(gatewayUrl);
-              
-              if (supported) {
-                await Linking.openURL(gatewayUrl);
-                Alert.alert(
-                  'Chờ xác nhận thanh toán',
-                  'Vui lòng hoàn tất thanh toán trên trang cổng thanh toán.\n\nỨng dụng sẽ tự động cập nhật khi thanh toán thành công.',
-                  [{ text: 'OK' }]
-                );
-              } else {
-                Alert.alert('Lỗi', 'Không thể mở cổng thanh toán');
-              }
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể khởi tạo thanh toán');
-            } finally {
-              setIsPaymentProcessing(false);
-            }
-          },
-        },
-      ]
-    );
+    setShowPaymentSection(true);
   };
 
-  const handleDownloadQR = async () => {
-    if (!paymentTransaction?.qrCodeUrl) {
-      Alert.alert('Lỗi', 'Không tìm thấy mã QR');
-      return;
-    }
-
+  const handleConfirmPayment = async () => {
+    if (!invoice) return;
     try {
-      await Share.share({
-        message: `Thanh toán hóa đơn ${invoiceService.formatPeriod(invoice!.month, invoice!.year)}\nMã giao dịch: ${paymentTransaction.transactionCode}\nSố tiền: ${invoiceService.formatCurrency(paymentTransaction.amount)}`,
-        url: paymentTransaction.qrCodeUrl,
-        title: 'Mã QR thanh toán',
+      setIsPaymentProcessing(true);
+      // Create a PENDING transaction then immediately confirm it as SUCCESS
+      const response = await paymentService.initiatePayment({
+        invoiceId: invoice.id,
+        amount: invoice.totalAmount,
+        paymentMethod: 'QR',
       });
-    } catch (error: any) {
-      console.error('Share QR error:', error);
-      if (error.message !== 'User did not share') {
-        Alert.alert('Lỗi', 'Không thể chia sẻ mã QR');
-      }
-    }
-  };
-
-  const handleOpenBankingApp = () => {
-    const bankingApps = [
-      { name: 'Vietcombank', scheme: 'vietcombank://' },
-      { name: 'VietinBank', scheme: 'viettinbank://' },
-      { name: 'BIDV', scheme: 'bidv://' },
-      { name: 'Techcombank', scheme: 'tcb://' },
-      { name: 'ACB', scheme: 'acb://' },
-      { name: 'MBBank', scheme: 'mbbank://' },
-      { name: 'TPBank', scheme: 'tpbank://' },
-      { name: 'Agribank', scheme: 'agribank://' },
-      { name: 'VPBank', scheme: 'vpbank://' },
-      { name: 'Sacombank', scheme: 'sacombank://' },
-      { name: 'SHB', scheme: 'shb://' },
-      { name: 'MoMo', scheme: 'momo://' },
-      { name: 'ZaloPay', scheme: 'zalopay://' },
-      { name: 'VNPay', scheme: 'vnpay://' },
-    ];
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [...bankingApps.map(app => app.name), 'Hủy'],
-          cancelButtonIndex: bankingApps.length,
-          title: 'Chọn ứng dụng ngân hàng',
-        },
-        async (buttonIndex) => {
-          if (buttonIndex < bankingApps.length) {
-            const selectedApp = bankingApps[buttonIndex];
-            try {
-              const canOpen = await Linking.canOpenURL(selectedApp.scheme);
-              if (canOpen) {
-                await Linking.openURL(selectedApp.scheme);
-              } else {
-                Alert.alert(
-                  'Không thể mở ứng dụng',
-                  `Vui lòng cài đặt ứng dụng ${selectedApp.name} hoặc sử dụng cách thanh toán khác.`
-                );
-              }
-            } catch (error) {
-              Alert.alert('Lỗi', `Không thể mở ứng dụng ${selectedApp.name}`);
-            }
-          }
-        }
-      );
-    } else {
-      // Android: Show alert with buttons
-      Alert.alert(
-        'Chọn ứng dụng ngân hàng',
-        'Chọn ứng dụng bạn muốn sử dụng để thanh toán',
-        [
-          ...bankingApps.slice(0, 6).map(app => ({
-            text: app.name,
-            onPress: async () => {
-              try {
-                const canOpen = await Linking.canOpenURL(app.scheme);
-                if (canOpen) {
-                  await Linking.openURL(app.scheme);
-                } else {
-                  Alert.alert(
-                    'Không thể mở ứng dụng',
-                    `Vui lòng cài đặt ứng dụng ${app.name} hoặc sử dụng cách thanh toán khác.`
-                  );
-                }
-              } catch (error) {
-                Alert.alert('Lỗi', `Không thể mở ứng dụng ${app.name}`);
-              }
-            },
-          })),
-          { text: 'Xem thêm', onPress: () => {
-            // Show remaining apps
-            Alert.alert(
-              'Ứng dụng khác',
-              'Chọn ứng dụng bạn muốn sử dụng',
-              [
-                ...bankingApps.slice(6).map(app => ({
-                  text: app.name,
-                  onPress: async () => {
-                    try {
-                      const canOpen = await Linking.canOpenURL(app.scheme);
-                      if (canOpen) {
-                        await Linking.openURL(app.scheme);
-                      } else {
-                        Alert.alert(
-                          'Không thể mở ứng dụng',
-                          `Vui lòng cài đặt ứng dụng ${app.name} hoặc sử dụng cách thanh toán khác.`
-                        );
-                      }
-                    } catch (error) {
-                      Alert.alert('Lỗi', `Không thể mở ứng dụng ${app.name}`);
-                    }
-                  },
-                })),
-                { text: 'Hủy', style: 'cancel' },
-              ]
-            );
-          }},
-          { text: 'Hủy', style: 'cancel' },
-        ]
-      );
+      await paymentService.confirmPayment(response.transactionCode);
+      setShowPaymentSection(false);
+      await loadInvoice();
+      Alert.alert('✅ Thanh toán thành công', 'Hóa đơn đã được xác nhận thanh toán.');
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể xác nhận thanh toán');
+    } finally {
+      setIsPaymentProcessing(false);
     }
   };
 
   useEffect(() => {
     loadInvoice();
-
-    // Subscribe to payment updates
-    const unsubscribe = signalRService.onPaymentUpdate((payment) => {
-      console.log('📱 Payment update received:', payment);
-      
-      // Only handle updates for this invoice
-      if (payment.invoiceId !== invoiceId) return;
-
-      if (payment.type === 'SUCCESS') {
-        Alert.alert(
-          '✅ Thanh toán thành công',
-          `Hóa đơn đã được thanh toán.\nSố tiền: ${payment.amount?.toLocaleString()} VNĐ`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Reload invoice to get updated status
-                loadInvoice();
-                // Clear payment transaction
-                setPaymentTransaction(null);
-              },
-            },
-          ]
-        );
-      } else if (payment.type === 'FAILED') {
-        Alert.alert(
-          '❌ Thanh toán thất bại',
-          'Giao dịch không thành công. Vui lòng thử lại.',
-          [
-            {
-              text: 'Thử lại',
-              onPress: () => {
-                setPaymentTransaction(null);
-                handlePayment();
-              },
-            },
-            { text: 'Đóng', style: 'cancel' },
-          ]
-        );
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
   }, [invoiceId]);
 
   return (
@@ -337,73 +142,70 @@ export default function BillDetailScreen() {
               </Text>
             </View>
 
-        {/* QR Code Section - Show when payment initiated */}
-        {paymentTransaction && invoice.status !== 'Đã thanh toán' && (
+        {/* Mock Payment Section - Show when resident taps "Thanh toán ngay" */}
+        {showPaymentSection && invoice.status !== 'Đã thanh toán' && (
           <View style={styles.qrSection}>
-            <Text style={styles.sectionTitle}>Thông tin thanh toán</Text>
-            {paymentTransaction.qrCodeUrl ? (
-              <View style={styles.qrCode}>
-                <Image
-                  source={{ uri: paymentTransaction.qrCodeUrl }}
-                  style={styles.qrImage}
-                  resizeMode="contain"
-                />
-              </View>
-            ) : (
-              <View style={styles.qrCode}>
-                <Ionicons name="qr-code-outline" size={120} color="#1F2937" />
-                <Text style={styles.qrPlaceholder}>QR Code</Text>
-              </View>
-            )}
+            <Text style={styles.sectionTitle}>Thông tin chuyển khoản</Text>
+            <View style={styles.qrCode}>
+              <Ionicons name="qr-code" size={160} color="#1F2937" />
+            </View>
             <View style={styles.bankInfo}>
               <View style={styles.bankRow}>
-                <Text style={styles.bankLabel}>Mã giao dịch</Text>
-                <Text style={styles.bankValue}>{paymentTransaction.transactionCode}</Text>
+                <Text style={styles.bankLabel}>Ngân hàng</Text>
+                <Text style={styles.bankValue}>MB Bank</Text>
+              </View>
+              <View style={styles.bankRow}>
+                <Text style={styles.bankLabel}>Số tài khoản</Text>
+                <Text style={styles.bankValue}>QTHANG315</Text>
+              </View>
+              <View style={styles.bankRow}>
+                <Text style={styles.bankLabel}>Tên tài khoản</Text>
+                <Text style={styles.bankValue}>VUONG QUANG THANG</Text>
               </View>
               <View style={styles.bankRow}>
                 <Text style={styles.bankLabel}>Số tiền</Text>
-                <Text style={styles.bankValue}>
-                  {invoiceService.formatCurrency(paymentTransaction.amount)}
+                <Text style={[styles.bankValue, { color: '#2563EB' }]}>
+                  {invoiceService.formatCurrency(invoice.totalAmount)}
                 </Text>
               </View>
               <View style={styles.bankRow}>
-                <Text style={styles.bankLabel}>Trạng thái</Text>
-                <Text style={[styles.bankValue, styles.statusPending]}>
-                  ⏱️ {paymentTransaction.status}
+                <Text style={styles.bankLabel}>Nội dung CK</Text>
+                <Text style={styles.bankValue}>
+                  {`PROPTECH T${invoice.month.toString().padStart(2,'0')}/${invoice.year}`}
                 </Text>
               </View>
             </View>
-            <View style={styles.qrActions}>
-              <TouchableOpacity
-                style={styles.qrActionButton}
-                onPress={handleDownloadQR}
-              >
-                <Ionicons name="download-outline" size={20} color="#059669" />
-                <Text style={styles.qrActionText}>Tải ảnh QR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.qrActionButton}
-                onPress={handleOpenBankingApp}
-              >
-                <Ionicons name="wallet-outline" size={20} color="#7C3AED" />
-                <Text style={styles.qrActionText}>Mở app ngân hàng</Text>
-              </TouchableOpacity>
-            </View>
             <TouchableOpacity
-              style={styles.openGatewayButton}
-              onPress={() => {
-                const gatewayUrl = paymentService.getGatewayUrl(paymentTransaction.paymentUrl);
-                Linking.openURL(gatewayUrl);
-              }}
+              style={[styles.confirmPayButton, isPaymentProcessing && styles.buttonDisabled]}
+              onPress={handleConfirmPayment}
+              disabled={isPaymentProcessing}
             >
-              <Ionicons name="open-outline" size={20} color="#2563EB" />
-              <Text style={styles.openGatewayText}>Mở cổng thanh toán giả lập</Text>
+              {isPaymentProcessing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.confirmPayText}>Xác nhận đã thanh toán</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelPayButton}
+              onPress={() => setShowPaymentSection(false)}
+              disabled={isPaymentProcessing}
+            >
+              <Text style={styles.cancelPayText}>Hủy</Text>
             </TouchableOpacity>
           </View>
         )}
 
             <View style={styles.actions}>
-              {invoice.status !== 'Đã thanh toán' ? (
+              {invoice.status === 'Đã thanh toán' ? (
+                <View style={styles.paidBadge}>
+                  <Ionicons name="checkmark-circle" size={24} color="#059669" />
+                  <Text style={styles.paidBadgeText}>Đã thanh toán</Text>
+                </View>
+              ) : !showPaymentSection ? (
                 <TouchableOpacity 
                   style={[styles.primaryButton, isPaymentProcessing && styles.buttonDisabled]} 
                   onPress={handlePayment}
@@ -415,12 +217,7 @@ export default function BillDetailScreen() {
                     <Text style={styles.primaryButtonText}>Thanh toán ngay</Text>
                   )}
                 </TouchableOpacity>
-              ) : (
-                <View style={styles.paidBadge}>
-                  <Ionicons name="checkmark-circle" size={24} color="#059669" />
-                  <Text style={styles.paidBadgeText}>Đã thanh toán</Text>
-                </View>
-              )}
+              ) : null}
             </View>
           </>
         )}
@@ -638,6 +435,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#059669',
+  },
+  confirmPayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    marginTop: 20,
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  confirmPayText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cancelPayButton: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 10,
+  },
+  cancelPayText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   statusPending: {
     color: '#D97706',

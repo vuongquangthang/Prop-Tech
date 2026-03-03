@@ -9,12 +9,14 @@ const STORAGE_KEYS = {
 export type NotificationHandler = (notification: any) => void;
 export type MaintenanceUpdateHandler = (update: any) => void;
 export type PaymentUpdateHandler = (payment: any) => void;
+export type InvoiceUpdateHandler = (invoice: any) => void;
 
 class SignalRService {
   private connection: SignalR.HubConnection | null = null;
   private notificationHandlers: NotificationHandler[] = [];
   private maintenanceHandlers: MaintenanceUpdateHandler[] = [];
   private paymentHandlers: PaymentUpdateHandler[] = [];
+  private invoiceHandlers: InvoiceUpdateHandler[] = [];
   private isConnecting: boolean = false;
 
   /**
@@ -35,9 +37,9 @@ class SignalRService {
       this.isConnecting = true;
       console.log('🔌 Connecting to SignalR...');
 
-      // Get token from SecureStore
-      const token = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
-      if (!token) {
+      // Verify token exists before connecting
+      const initialToken = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+      if (!initialToken) {
         console.warn('⚠️ No auth token, skipping SignalR connection');
         this.isConnecting = false;
         return;
@@ -45,7 +47,10 @@ class SignalRService {
 
       this.connection = new SignalR.HubConnectionBuilder()
         .withUrl(`${API_BASE_URL}/hubs/notifications`, {
-          accessTokenFactory: () => token,
+          accessTokenFactory: async () => {
+            const t = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+            return t || '';
+          },
           transport: SignalR.HttpTransportType.WebSockets,
         })
         .withAutomaticReconnect({
@@ -64,6 +69,11 @@ class SignalRService {
       this.connection.on('ReceiveNotification', (notification) => {
         console.log('📬 Received notification:', notification);
         this.notificationHandlers.forEach(handler => handler(notification));
+        // Route invoice-type notifications to invoice handlers for real-time refresh
+        if (notification?.type === 'INVOICE') {
+          console.log('📄 Invoice approved notification:', notification);
+          this.invoiceHandlers.forEach(handler => handler(notification));
+        }
       });
 
       // Listen for new maintenance requests (from other residents - useful for admin)
@@ -101,6 +111,8 @@ class SignalRService {
           })
         );
       });
+
+      // Invoice approved - sent when admin approves a draft invoice (handled in ReceiveNotification above)
 
       // Payment events
       this.connection.on('PaymentInitiated', (payment) => {
@@ -222,6 +234,19 @@ class SignalRService {
       const index = this.paymentHandlers.indexOf(handler);
       if (index > -1) {
         this.paymentHandlers.splice(index, 1);
+      }
+    };
+  }
+
+  /**
+   * Subscribe to invoice updates (approval notifications)
+   */
+  onInvoiceUpdate(handler: InvoiceUpdateHandler): () => void {
+    this.invoiceHandlers.push(handler);
+    return () => {
+      const index = this.invoiceHandlers.indexOf(handler);
+      if (index > -1) {
+        this.invoiceHandlers.splice(index, 1);
       }
     };
   }

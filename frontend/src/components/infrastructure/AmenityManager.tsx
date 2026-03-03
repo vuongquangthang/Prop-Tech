@@ -1,14 +1,14 @@
 import { Plus, Edit2, Trash2, X, AlertTriangle, Tag } from 'lucide-react';
 import { useState } from 'react';
 
-const amenitiesData = [
-  { id: 1, name: 'Điều hòa', icon: '❄️', defaultChecked: true },
-  { id: 2, name: 'Nước nóng', icon: '🚿', defaultChecked: true },
-  { id: 3, name: 'Tủ lạnh', icon: '🧊', defaultChecked: false },
-  { id: 4, name: 'Máy giặt', icon: '🧺', defaultChecked: false },
-  { id: 5, name: 'Giường', icon: '🛏️', defaultChecked: true },
-  { id: 6, name: 'Bàn làm việc', icon: '🪑', defaultChecked: true },
-];
+// TODO: Fetch amenities from API when backend implements amenities management
+// GET /api/Amenities - List all amenities
+const amenitiesData: Array<{
+  id: number;
+  name: string;
+  icon: string;
+  defaultChecked: boolean;
+}> = [];
 
 export function AmenityManager() {
   const [showAddModal, setShowAddModal] = useState(false);

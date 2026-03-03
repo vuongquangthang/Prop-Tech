@@ -1,18 +1,18 @@
-import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { serviceService } from '../../services/api.service';
 
-const servicesData = [
-  { id: 1, name: 'Tiền phòng', type: 'Cố định', unit: 'Tháng', price: '8.500.000', date: '01/01/2026', mandatory: true },
-  { id: 2, name: 'Tiền điện', type: 'Biến đổi', unit: 'kWh', price: '3.500', date: '01/01/2026', mandatory: true },
-  { id: 3, name: 'Tiền nước', type: 'Biến đổi', unit: 'm³', price: '25.000', date: '01/01/2026', mandatory: true },
-  { id: 4, name: 'Phí quản lý', type: 'Cố định', unit: 'Tháng', price: '500.000', date: '01/01/2026', mandatory: true },
-  { id: 5, name: 'Phí xe máy', type: 'Cố định', unit: 'Xe/tháng', price: '100.000', date: '01/01/2026', mandatory: false },
-  { id: 6, name: 'Phí xe ô tô', type: 'Cố định', unit: 'Xe/tháng', price: '1.500.000', date: '01/01/2026', mandatory: false },
-  { id: 7, name: 'Internet', type: 'Cố định', unit: 'Tháng', price: '200.000', date: '01/01/2026', mandatory: false },
-  { id: 8, name: 'Phí dọn rác', type: 'Cố định', unit: 'Tháng', price: '50.000', date: '01/01/2026', mandatory: true },
-];
+interface ServiceData {
+  id: number;
+  name: string;
+  type: string;
+  unit: string;
+  price: number;
+  date: string;
+  mandatory: boolean;
+}
 
-// Mock price history data
+// Mock price history data - TODO: Fetch from API when backend implements history endpoint
 const priceHistoryData: any = {
   'Tiền điện': [
     { date: '01/01/2026', price: '3.500', reason: 'Theo quy định EVN 2026' },
@@ -26,12 +26,44 @@ const priceHistoryData: any = {
 };
 
 export function ServiceTable() {
+  const [services, setServices] = useState<ServiceData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpdatePriceModal, setShowUpdatePriceModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
   const [serviceType, setServiceType] = useState<'fixed' | 'variable'>('fixed');
+
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  const fetchServices = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await serviceService.getAll();
+      
+      const serviceData: ServiceData[] = data.map((service: any) => ({
+        id: service.id || 0,
+        name: service.serviceName || service.tenDichVu || '',
+        type: service.serviceType || service.loaiDichVu || 'Cố định',
+        unit: service.unit || service.donVi || '',
+        price: service.unitPrice || service.donGia || 0,
+        date: service.effectiveDate || service.ngayHieuLuc || '01/01/2026',
+        mandatory: service.isMandatory !== undefined ? service.isMandatory : true,
+      }));
+      
+      setServices(serviceData);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách dịch vụ');
+      console.error('Error fetching services:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleUpdatePriceClick = (service: any) => {
     setSelectedService(service);
@@ -56,6 +88,36 @@ export function ServiceTable() {
   const handleDeleteCancel = () => {
     setShowDeleteModal(false);
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Loader2 size={48} className="animate-spin text-gray-400" />
+          <span className="text-gray-600">Đang tải danh sách dịch vụ...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button 
+            onClick={fetchServices}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -82,71 +144,88 @@ export function ServiceTable() {
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá</h2>
+        <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá - {services.length} dịch vụ</h2>
+          <button 
+            onClick={fetchServices}
+            disabled={loading}
+            className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <History size={14} />}
+            <span>Làm mới</span>
+          </button>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-300">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Tên dịch vụ</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Loại phí</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Đơn vị tính</th>
-                <th className="px-6 py-3 text-right text-sm text-gray-600">Đơn giá hiện tại (VNĐ)</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày áp dụng</th>
-                <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {servicesData.map((service, index) => (
-                <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-800">{service.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    <span className={`inline-block px-3 py-1 text-xs rounded border ${
-                      service.type === 'Cố định' 
-                        ? 'bg-blue-100 text-blue-800 border-blue-300'
-                        : 'bg-purple-100 text-purple-800 border-purple-300'
-                    }`}>
-                      {service.type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{service.unit}</td>
-                  <td className="px-6 py-4 text-sm text-gray-800 text-right">{service.price}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{service.date}</td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center space-x-2">
-                      <button
-                        onClick={() => handleUpdatePriceClick(service)}
-                        className="px-3 py-1 bg-white border border-gray-800 text-gray-800 text-xs rounded hover:bg-gray-800 hover:text-white transition-colors flex items-center space-x-1"
-                        title="Cập nhật đơn giá"
-                      >
-                        <Edit2 size={14} />
-                        <span>Cập nhật giá</span>
-                      </button>
-                      <button
-                        onClick={() => handleShowHistory(service)}
-                        className="p-2 hover:bg-gray-100 rounded"
-                        title="Xem lịch sử thay đổi"
-                      >
-                        <History size={16} className="text-gray-600" />
-                      </button>
-                      {!service.mandatory && (
-                        <button
-                          onClick={() => handleDeleteClick(service)}
-                          className="p-2 hover:bg-gray-100 rounded"
-                          title="Xóa dịch vụ"
-                        >
-                          <Trash2 size={16} className="text-gray-600" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+        {services.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <FileX size={48} className="text-gray-300" />
+            <p className="text-gray-500">Chưa có dịch vụ nào được cấu hình</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-300">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Tên dịch vụ</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Loại phí</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Đơn vị tính</th>
+                  <th className="px-6 py-3 text-right text-sm text-gray-600">Đơn giá hiện tại (VNĐ)</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày áp dụng</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {services.map((service) => (
+                  <tr key={service.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-800">{service.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      <span className={`inline-block px-3 py-1 text-xs rounded border ${
+                        service.type === 'Cố định' || service.type === 'Fixed'
+                          ? 'bg-blue-100 text-blue-800 border-blue-300'
+                          : 'bg-purple-100 text-purple-800 border-purple-300'
+                      }`}>
+                        {service.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{service.unit}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800 text-right">
+                      {typeof service.price === 'number' ? service.price.toLocaleString('vi-VN') : service.price}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{service.date}</td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <button
+                          onClick={() => handleUpdatePriceClick(service)}
+                          className="px-3 py-1 bg-white border border-gray-800 text-gray-800 text-xs rounded hover:bg-gray-800 hover:text-white transition-colors flex items-center space-x-1"
+                          title="Cập nhật đơn giá"
+                        >
+                          <Edit2 size={14} />
+                          <span>Cập nhật giá</span>
+                        </button>
+                        <button
+                          onClick={() => handleShowHistory(service)}
+                          className="p-2 hover:bg-gray-100 rounded"
+                          title="Xem lịch sử thay đổi"
+                        >
+                          <History size={16} className="text-gray-600" />
+                        </button>
+                        {!service.mandatory && (
+                          <button
+                            onClick={() => handleDeleteClick(service)}
+                            className="p-2 hover:bg-gray-100 rounded"
+                            title="Xóa dịch vụ"
+                          >
+                            <Trash2 size={16} className="text-gray-600" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       
       {/* Info Box */}

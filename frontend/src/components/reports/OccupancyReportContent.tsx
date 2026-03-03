@@ -1,23 +1,127 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { useState, useEffect } from 'react';
+import { Loader2, AlertTriangle } from 'lucide-react';
+import { roomService } from '../../services/api.service';
 
-const occupancyData = [
-  { name: 'Đã thuê', value: 142, color: '#10b981' },
-  { name: 'Trống', value: 18, color: '#6b7280' },
-  { name: 'Bảo trì', value: 5, color: '#f59e0b' },
-];
+interface OccupancyData {
+  name: string;
+  value: number;
+  color: string;
+}
 
-const buildingStats = [
-  { building: 'Tòa A', total: 48, vacant: 5, occupancy: 89.6 },
-  { building: 'Tòa B', total: 42, vacant: 3, occupancy: 92.9 },
-  { building: 'Tòa C', total: 38, vacant: 6, occupancy: 84.2 },
-  { building: 'Tòa D', total: 37, vacant: 4, occupancy: 89.2 },
-];
-
-const totalRooms = buildingStats.reduce((sum, b) => sum + b.total, 0);
-const totalVacant = buildingStats.reduce((sum, b) => sum + b.vacant, 0);
-const overallOccupancy = (((totalRooms - totalVacant) / totalRooms) * 100).toFixed(1);
+interface BuildingStat {
+  building: string;
+  total: number;
+  vacant: number;
+  occupancy: number;
+}
 
 export function OccupancyReportContent() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [occupancyData, setOccupancyData] = useState<OccupancyData[]>([]);
+  const [buildingStats, setBuildingStats] = useState<BuildingStat[]>([]);
+
+  useEffect(() => {
+    fetchOccupancyData();
+  }, []);
+
+  const fetchOccupancyData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const rooms = await roomService.getAll();
+      
+      // Count rooms by status
+      const statusCounts: Record<string, number> = {};
+      const buildingCounts: Record<string, { total: number; vacant: number }> = {};
+      
+      rooms.forEach((room: any) => {
+        const status = (room.status || room.trangThai || 'Trống').toLowerCase();
+        const roomNumber = room.roomCode || room.maPhong || '';
+        const building = roomNumber.split('-')[0] || 'Unknown';
+        
+        // Count by status
+        let statusKey = 'Trống';
+        if (status === 'đã thuê' || status === 'rented') {
+          statusKey = 'Đã thuê';
+        } else if (status === 'bảo trì' || status === 'maintenance') {
+          statusKey = 'Bảo trì';
+        }
+        statusCounts[statusKey] = (statusCounts[statusKey] || 0) + 1;
+        
+        // Count by building
+        if (!buildingCounts[building]) {
+          buildingCounts[building] = { total: 0, vacant: 0 };
+        }
+        buildingCounts[building].total++;
+        if (statusKey === 'Trống') {
+          buildingCounts[building].vacant++;
+        }
+      });
+      
+      // Prepare occupancy chart data
+      const chartData: OccupancyData[] = [
+        { name: 'Đã thuê', value: statusCounts['Đã thuê'] || 0, color: '#10b981' },
+        { name: 'Trống', value: statusCounts['Trống'] || 0, color: '#6b7280' },
+        { name: 'Bảo trì', value: statusCounts['Bảo trì'] || 0, color: '#f59e0b' },
+      ];
+      
+      // Prepare building stats
+      const stats: BuildingStat[] = Object.entries(buildingCounts)
+        .map(([building, counts]) => ({
+          building: `Tòa ${building}`,
+          total: counts.total,
+          vacant: counts.vacant,
+          occupancy: counts.total > 0 ? parseFloat((((counts.total - counts.vacant) / counts.total) * 100).toFixed(1)) : 0,
+        }))
+        .sort((a, b) => a.building.localeCompare(b.building));
+      
+      setOccupancyData(chartData);
+      setBuildingStats(stats);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải dữ liệu công suất');
+      console.error('Error fetching occupancy data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalRooms = buildingStats.reduce((sum, b) => sum + b.total, 0);
+  const totalVacant = buildingStats.reduce((sum, b) => sum + b.vacant, 0);
+  const totalRented = occupancyData.find(d => d.name === 'Đã thuê')?.value || 0;
+  const overallOccupancy = totalRooms > 0 ? (((totalRooms - totalVacant) / totalRooms) * 100).toFixed(1) : '0.0';
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Loader2 size={48} className="animate-spin text-gray-400" />
+          <span className="text-gray-600">Đang tải dữ liệu công suất...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button 
+            onClick={fetchOccupancyData}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
@@ -29,7 +133,7 @@ export function OccupancyReportContent() {
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-gray-600 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Đã cho thuê</p>
-          <p className="text-green-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{occupancyData[0].value}</p>
+          <p className="text-green-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{totalRented}</p>
           <p className="text-gray-600 mt-1" style={{ fontSize: 'var(--type-caption)' }}>phòng</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">

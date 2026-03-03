@@ -1,10 +1,13 @@
-import { Save, LogOut, Camera } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { Save, LogOut, Camera, Loader2, AlertTriangle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { authService } from '../../services/api.service';
 
 export function MyProfileForm() {
-  const [fullName, setFullName] = useState('Admin Hệ thống');
-  const [email, setEmail] = useState('admin@building.com');
-  const [phone, setPhone] = useState('0912345678');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -13,6 +16,41 @@ export function MyProfileForm() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Only fetch profile if user is logged in (has token)
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetchUserProfile();
+    } else {
+      // If not logged in, just set loading to false and show empty form
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const user = await authService.getCurrentUser();
+      
+      // Set form fields from user data
+      setFullName(user.residentName || user.phoneNumber || '');
+      setPhone(user.phoneNumber || '');
+      // Email and address not available in UserDto - leave empty
+      // User can manually enter if needed
+    } catch (err: any) {
+      // If 401/403 (not authenticated), show empty form instead of error
+      if (err.message?.includes('401') || err.message?.includes('403') || err.message?.includes('Unauthorized')) {
+        setLoading(false);
+        return;
+      }
+      setError(err.message || 'Không thể tải thông tin người dùng');
+      console.error('Error fetching user profile:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChangePhoto = () => {
     fileInputRef.current?.click();
@@ -86,6 +124,36 @@ export function MyProfileForm() {
     // In a real app, this would redirect to login page
     alert('Đã đăng xuất thành công');
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Loader2 size={48} className="animate-spin text-gray-400" />
+          <span className="text-gray-600">Đang tải thông tin người dùng...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button 
+            onClick={fetchUserProfile}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

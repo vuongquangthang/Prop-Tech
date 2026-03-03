@@ -2,50 +2,15 @@ import { Plus, Upload, Edit, Trash2, Filter, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { AddKnowledgeModal, EditKnowledgeModal, DeleteKnowledgeModal, UploadFileModal, ManageCategoryModal } from './KnowledgeModals';
 
-const knowledgeData = [
-  { 
-    id: 'KB-001', 
-    question: 'Giờ truy cập hồ bơi là mấy giờ?', 
-    answer: 'Hồ bơi mở cửa từ 6:00 - 22:00 hàng ngày. Vui lòng mang theo thẻ cư dân.', 
-    category: 'Nội quy',
-    active: true
-  },
-  { 
-    id: 'KB-002', 
-    question: 'Làm thế nào để đăng ký thẻ xe?', 
-    answer: 'Quý cư dân vui lòng mang CMND + Giấy đăng ký xe đến văn phòng quản lý tầng trệt, thời gian làm việc 8:00-17:00.', 
-    category: 'Thủ tục hành chính',
-    active: true
-  },
-  { 
-    id: 'KB-003', 
-    question: 'Giá dịch vụ quản lý là bao nhiêu?', 
-    answer: 'Phí quản lý: 15.000 VNĐ/m²/tháng. Phí gửi xe máy: 100.000 VNĐ/tháng. Phí gửi ô tô: 1.500.000 VNĐ/tháng.', 
-    category: 'Giá dịch vụ',
-    active: true
-  },
-  { 
-    id: 'KB-004', 
-    question: 'Khi nào phải nộp hóa đơn hàng tháng?', 
-    answer: 'Hóa đơn phát hành vào ngày 1 hàng tháng. Hạn thanh toán là ngày 5. Sau ngày 5 sẽ bị tính phí trễ hạn.', 
-    category: 'Tài chính',
-    active: true
-  },
-  { 
-    id: 'KB-005', 
-    question: 'Tôi có thể nuôi thú cưng trong căn hộ không?', 
-    answer: 'Được phép nuôi chó/mèo dưới 5kg. Cần đăng ký với Ban quản lý và có đầy đủ giấy tờ tiêm phòng.', 
-    category: 'Nội quy',
-    active: false
-  },
-  { 
-    id: 'KB-006', 
-    question: 'Làm sao để báo sửa chữa?', 
-    answer: 'Vui lòng sử dụng tính năng "Báo sự cố" trong App cư dân hoặc gọi hotline 1900xxxx.', 
-    category: 'Kỹ thuật',
-    active: true
-  },
-];
+// TODO: Fetch knowledge base items from API when chatbot backend is implemented
+// GET /api/Knowledge - List all knowledge base entries
+const knowledgeData: Array<{
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  active: boolean;
+}> = [];
 
 const categoryColors: Record<string, string> = {
   'Nội quy': 'bg-blue-100 text-blue-800 border-blue-300',

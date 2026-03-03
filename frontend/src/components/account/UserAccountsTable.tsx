@@ -1,75 +1,24 @@
-import { Filter, Key, Lock, Unlock, Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { Filter, Key, Lock, Unlock, Eye, EyeOff, Loader2, AlertTriangle, UserX } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { userService } from '../../services/api.service';
 
-const usersData = [
-  { 
-    id: 'USR-001',
-    username: '0912345678', 
-    fullName: 'Admin Hệ thống', 
-    role: 'Admin',
-    status: 'active',
-    lastLogin: '05/02/2026 14:30',
-    isLocked: false
-  },
-  { 
-    id: 'USR-002',
-    username: '0923456789', 
-    fullName: 'Nguyễn Văn A', 
-    role: 'Cư dân',
-    status: 'active',
-    lastLogin: '05/02/2026 10:15',
-    isLocked: false
-  },
-  { 
-    id: 'USR-003',
-    username: '0934567890', 
-    fullName: 'Trần Thị B', 
-    role: 'Cư dân',
-    status: 'locked',
-    lastLogin: '03/02/2026 16:20',
-    isLocked: true
-  },
-  { 
-    id: 'USR-004',
-    username: '0945678901', 
-    fullName: 'Lê Văn C', 
-    role: 'Cư dân',
-    status: 'active',
-    lastLogin: '04/02/2026 09:45',
-    isLocked: false
-  },
-  { 
-    id: 'USR-005',
-    username: '0956789012', 
-    fullName: 'Phạm Thị D', 
-    role: 'Cư dân',
-    status: 'inactive',
-    lastLogin: 'Chưa kích hoạt',
-    isLocked: false
-  },
-  { 
-    id: 'USR-006',
-    username: 'admin2', 
-    fullName: 'Quản lý Tòa A', 
-    role: 'Admin',
-    status: 'active',
-    lastLogin: '05/02/2026 08:00',
-    isLocked: false
-  },
-  { 
-    id: 'USR-007',
-    username: '0978901234', 
-    fullName: 'Hoàng Văn E', 
-    role: 'Cư dân',
-    status: 'locked',
-    lastLogin: '02/02/2026 11:30',
-    isLocked: true
-  },
-];
+interface UserData {
+  id: number | string;
+  username: string;
+  fullName: string;
+  role: string;
+  status: string;
+  lastLogin: string;
+  isLocked: boolean;
+}
 
 const roleColors = {
   Admin: 'bg-purple-100 text-purple-800 border-purple-300',
+  'QuanLy': 'bg-orange-100 text-orange-800 border-orange-300',
+  'Manager': 'bg-orange-100 text-orange-800 border-orange-300',
   'Cư dân': 'bg-blue-100 text-blue-800 border-blue-300',
+  'CuDan': 'bg-blue-100 text-blue-800 border-blue-300',
+  'Resident': 'bg-blue-100 text-blue-800 border-blue-300',
 };
 
 const statusColors = {
@@ -85,6 +34,9 @@ const statusLabels = {
 };
 
 export function UserAccountsTable() {
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -95,6 +47,53 @@ export function UserAccountsTable() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await userService.getAll();
+      
+      const userData: UserData[] = data.map((user: any) => {
+        // Determine status from isLocked field
+        let status = 'active';
+        if (user.isLocked) {
+          status = 'locked';
+        } else if (!user.lastLogin) {
+          status = 'inactive';
+        }
+
+        return {
+          id: user.id || user.userId || 0,
+          username: user.username || user.tenDangNhap || '',
+          fullName: user.fullName || user.hoTen || '',
+          role: user.role || user.vaiTro || 'Cư dân',
+          status,
+          lastLogin: user.lastLogin 
+            ? new Date(user.lastLogin).toLocaleString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : 'Chưa kích hoạt',
+          isLocked: user.isLocked || false,
+        };
+      });
+      
+      setUsers(userData);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách tài khoản');
+      console.error('Error fetching users:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleResetPassword = (user: any) => {
     setSelectedUser(user);
@@ -109,8 +108,10 @@ export function UserAccountsTable() {
   };
 
   // Filter data based on selections
-  const filteredUsers = usersData.filter(user => {
-    const roleMatch = roleFilter === 'all' || user.role === roleFilter;
+  const filteredUsers = users.filter(user => {
+    const roleMatch = roleFilter === 'all' || user.role === roleFilter || 
+      (roleFilter === 'Admin' && user.role === 'Admin') ||
+      (roleFilter === 'Cư dân' && (user.role === 'Cư dân' || user.role === 'CuDan' || user.role === 'Resident'));
     const statusMatch = statusFilter === 'all' || user.status === statusFilter;
     const searchMatch = searchText === '' || 
       user.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -118,28 +119,58 @@ export function UserAccountsTable() {
     return roleMatch && statusMatch && searchMatch;
   });
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Loader2 size={48} className="animate-spin text-gray-400" />
+          <span className="text-gray-600">Đang tải danh sách tài khoản...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button 
+            onClick={fetchUsers}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-gray-600 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Tổng tài khoản</p>
-          <p className="text-gray-900" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{usersData.length}</p>
+          <p className="text-gray-900" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{users.length}</p>
           <p className="text-gray-600 mt-1" style={{ fontSize: 'var(--type-caption)' }}>tài khoản</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-gray-600 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Đang hoạt động</p>
-          <p className="text-green-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{usersData.filter(u => u.status === 'active').length}</p>
+          <p className="text-green-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{users.filter(u => u.status === 'active').length}</p>
           <p className="text-gray-600 mt-1" style={{ fontSize: 'var(--type-caption)' }}>tài khoản</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-gray-600 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Đang bị khóa</p>
-          <p className="text-red-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{usersData.filter(u => u.status === 'locked').length}</p>
+          <p className="text-red-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{users.filter(u => u.status === 'locked').length}</p>
           <p className="text-gray-600 mt-1" style={{ fontSize: 'var(--type-caption)' }}>tài khoản</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-gray-600 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Chưa kích hoạt</p>
-          <p className="text-gray-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{usersData.filter(u => u.status === 'inactive').length}</p>
+          <p className="text-gray-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{users.filter(u => u.status === 'inactive').length}</p>
           <p className="text-gray-600 mt-1" style={{ fontSize: 'var(--type-caption)' }}>tài khoản</p>
         </div>
       </div>
@@ -201,21 +232,31 @@ export function UserAccountsTable() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user, index) => (
-                <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{user.username}</td>
-                  <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.fullName}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`inline-block px-3 py-1 rounded border ${roleColors[user.role as keyof typeof roleColors]}`} style={{ fontSize: 'var(--type-caption)' }}>
-                      {user.role}
-                    </span>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center space-y-4">
+                      <UserX size={48} className="text-gray-300" />
+                      <p className="text-gray-500">Không tìm thấy tài khoản nào</p>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`inline-block px-3 py-1 rounded border ${statusColors[user.status as keyof typeof statusColors]}`} style={{ fontSize: 'var(--type-caption)' }}>
-                      {statusLabels[user.status as keyof typeof statusLabels]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.lastLogin}</td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => (
+                  <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{user.username}</td>
+                    <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.fullName}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded border ${roleColors[user.role as keyof typeof roleColors] || 'bg-gray-100 text-gray-800 border-gray-300'}`} style={{ fontSize: 'var(--type-caption)' }}>
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded border ${statusColors[user.status as keyof typeof statusColors]}`} style={{ fontSize: 'var(--type-caption)' }}>
+                        {statusLabels[user.status as keyof typeof statusLabels]}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.lastLogin}</td>
                   <td className="px-6 py-4 text-center">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
@@ -237,13 +278,7 @@ export function UserAccountsTable() {
                     </button>
                   </td>
                 </tr>
-              ))}
-              {filteredUsers.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500" style={{ fontSize: 'var(--type-body)' }}>
-                    Không có tài khoản nào phù hợp với bộ lọc
-                  </td>
-                </tr>
+              ))
               )}
             </tbody>
           </table>

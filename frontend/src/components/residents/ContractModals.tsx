@@ -17,35 +17,8 @@ interface FamilyMember {
 }
 
 export function CreateContractModal({ onClose }: ContractModalProps) {
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([
-    {
-      id: '1',
-      name: 'Trần Thị B',
-      relationship: 'Vợ/Chồng',
-      phone: '0923456789',
-      idCard: '001234567891',
-      email: 'tranthib@email.com',
-      avatar: '👤'
-    },
-    {
-      id: '2',
-      name: 'Nguyễn Văn C',
-      relationship: 'Con',
-      phone: '0934567890',
-      idCard: '001234567892',
-      email: '',
-      avatar: '👶'
-    },
-    {
-      id: '3',
-      name: 'Nguyễn Thị D',
-      relationship: 'Mẹ/Bố',
-      phone: '0945678901',
-      idCard: '001234567893',
-      email: '',
-      avatar: '👵'
-    }
-  ]);
+  // Start with empty family members array - user can add manually
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
 
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 

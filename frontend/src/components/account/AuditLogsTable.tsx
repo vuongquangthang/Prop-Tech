@@ -1,88 +1,18 @@
 import { Filter, Monitor, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 
-const auditLogsData = [
-  { 
-    time: '05/02/2026 14:35:22', 
-    account: 'admin', 
-    fullName: 'Admin Hệ thống',
-    action: 'Phê duyệt & Gửi hóa đơn', 
-    details: 'Gửi 45 hóa đơn tháng 02/2026',
-    ip: '192.168.1.100',
-    device: 'Chrome / Windows',
-    accountType: 'admin'
-  },
-  { 
-    time: '05/02/2026 14:30:15', 
-    account: '0912345678', 
-    fullName: 'Admin Hệ thống',
-    action: 'Đăng nhập', 
-    details: 'Đăng nhập thành công vào Web Admin',
-    ip: '192.168.1.100',
-    device: 'Chrome / Windows',
-    accountType: 'admin'
-  },
-  { 
-    time: '05/02/2026 10:20:45', 
-    account: '0923456789', 
-    fullName: 'Nguyễn Văn A',
-    action: 'Xem hóa đơn', 
-    details: 'Xem hóa đơn INV-2026-001',
-    ip: '113.161.45.123',
-    device: 'Mobile App / iOS',
-    accountType: 'resident'
-  },
-  { 
-    time: '05/02/2026 09:15:30', 
-    account: 'admin', 
-    fullName: 'Admin Hệ thống',
-    action: 'Cập nhật tri thức AI', 
-    details: 'Thêm câu hỏi KB-007 về phí gửi xe',
-    ip: '192.168.1.100',
-    device: 'Chrome / Windows',
-    accountType: 'admin'
-  },
-  { 
-    time: '04/02/2026 16:45:12', 
-    account: 'admin', 
-    fullName: 'Admin Hệ thống',
-    action: 'Sửa hợp đồng', 
-    details: 'Cập nhật ngày kết thúc HĐ CON-2026-012',
-    ip: '192.168.1.100',
-    device: 'Chrome / Windows',
-    accountType: 'admin'
-  },
-  { 
-    time: '04/02/2026 11:30:20', 
-    account: 'admin', 
-    fullName: 'Admin Hệ thống',
-    action: 'Khóa tài khoản', 
-    details: 'Khóa tài khoản 0934567890 - Lý do: Nợ quá hạn 35 ngày',
-    ip: '192.168.1.100',
-    device: 'Chrome / Windows',
-    accountType: 'admin'
-  },
-  { 
-    time: '04/02/2026 09:00:05', 
-    account: 'admin2', 
-    fullName: 'Quản lý Tòa A',
-    action: 'Đăng nhập', 
-    details: 'Đăng nhập thành công vào Web Admin',
-    ip: '192.168.1.105',
-    device: 'Firefox / Windows',
-    accountType: 'admin'
-  },
-  { 
-    time: '03/02/2026 15:20:30', 
-    account: 'admin', 
-    fullName: 'Admin Hệ thống',
-    action: 'Xóa hợp đồng', 
-    details: 'Xóa hợp đồng CON-2025-089',
-    ip: '192.168.1.100',
-    device: 'Chrome / Windows',
-    accountType: 'admin'
-  },
-];
+// TODO: Fetch audit logs from API - backend endpoint available
+// GET /api/AuditLog - List all audit log entries
+const auditLogsData: Array<{
+  time: string;
+  account: string;
+  fullName: string;
+  action: string;
+  details: string;
+  ip: string;
+  device: string;
+  accountType: string;
+}> = [];
 
 const actionColors: Record<string, string> = {
   'Đăng nhập': 'text-green-700',

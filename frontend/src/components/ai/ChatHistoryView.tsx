@@ -1,83 +1,26 @@
-import { ThumbsUp, ThumbsDown, Filter, Plus } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Filter, Plus, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 
-const chatSessions = [
-  { 
-    id: 'CHAT-001',
-    resident: 'Nguyễn Văn A', 
-    phone: '0934567890',
-    time: '05/02/2026 14:30',
-    satisfied: true,
-    lastMessage: 'Cảm ơn bạn!'
-  },
-  { 
-    id: 'CHAT-002',
-    resident: 'Trần Thị B', 
-    phone: '0945678901',
-    time: '05/02/2026 10:15',
-    satisfied: false,
-    lastMessage: 'Không giải quyết được vấn đề'
-  },
-  { 
-    id: 'CHAT-003',
-    resident: 'Lê Văn C', 
-    phone: '0956789012',
-    time: '04/02/2026 16:20',
-    satisfied: true,
-    lastMessage: 'OK rồi'
-  },
-  { 
-    id: 'CHAT-004',
-    resident: 'Phạm Thị D', 
-    phone: '0967890123',
-    time: '04/02/2026 11:45',
-    satisfied: true,
-    lastMessage: 'Đã hiểu'
-  },
-  { 
-    id: 'CHAT-005',
-    resident: 'Hoàng Văn E', 
-    phone: '0978901234',
-    time: '03/02/2026 09:30',
-    satisfied: false,
-    lastMessage: 'Câu trả lời không rõ ràng'
-  },
-];
+// TODO: Fetch chat sessions from API when chatbot backend is implemented
+// GET /api/Chatbot/sessions - List all chat sessions
+// GET /api/Chatbot/sessions/{sessionId}/messages - Get messages for a session
+const chatSessions: Array<{
+  id: string;
+  resident: string;
+  phone: string;
+  time: string;
+  satisfied: boolean;
+  lastMessage: string;
+}> = [];
 
-const chatMessages = {
-  'CHAT-001': [
-    { sender: 'user', text: 'Hồ bơi mở cửa mấy giờ vậy?', time: '14:30' },
-    { sender: 'ai', text: 'Hồ bơi mở cửa từ 6:00 - 22:00 hàng ngày. Vui lòng mang theo thẻ cư dân khi sử dụng.', time: '14:30' },
-    { sender: 'user', text: 'Cảm ơn bạn!', time: '14:31' },
-  ],
-  'CHAT-002': [
-    { sender: 'user', text: 'Làm sao để thanh toán hóa đơn online?', time: '10:15' },
-    { sender: 'ai', text: 'Bạn có thể thanh toán qua VietQR hoặc chuyển khoản ngân hàng. Vui lòng xem mã QR trong App.', time: '10:15' },
-    { sender: 'user', text: 'Tôi không tìm thấy mã QR ở đâu cả', time: '10:16' },
-    { sender: 'ai', text: 'Xin lỗi, để tôi kết nối với nhân viên hỗ trợ.', time: '10:16' },
-    { sender: 'user', text: 'Không giải quyết được vấn đề', time: '10:17' },
-  ],
-  'CHAT-003': [
-    { sender: 'user', text: 'Phí quản lý là bao nhiêu?', time: '16:20' },
-    { sender: 'ai', text: 'Phí quản lý: 15.000 VNĐ/m²/tháng. Phí gửi xe máy: 100.000 VNĐ/tháng. Phí gửi ô tô: 1.500.000 VNĐ/tháng.', time: '16:20' },
-    { sender: 'user', text: 'OK rồi', time: '16:21' },
-  ],
-  'CHAT-004': [
-    { sender: 'user', text: 'Tôi có thể nuôi chó không?', time: '11:45' },
-    { sender: 'ai', text: 'Được phép nuôi chó/mèo dưới 5kg. Cần đăng ký với Ban quản lý và có đầy đủ giấy tờ tiêm phòng.', time: '11:45' },
-    { sender: 'user', text: 'Đã hiểu', time: '11:46' },
-  ],
-  'CHAT-005': [
-    { sender: 'user', text: 'Tôi muốn khiếu nại về tiếng ồn', time: '09:30' },
-    { sender: 'ai', text: 'Vui lòng liên hệ Ban quản lý qua hotline 1900xxxx.', time: '09:30' },
-    { sender: 'user', text: 'Có cách nào khác không?', time: '09:31' },
-    { sender: 'ai', text: 'Bạn có thể gửi phản ánh qua tính năng "Góp ý" trong App.', time: '09:31' },
-    { sender: 'user', text: 'Câu trả lời không rõ ràng', time: '09:32' },
-  ],
-};
+const chatMessages: Record<string, Array<{
+  sender: string;
+  text: string;
+  time: string;
+}>> = {};
 
 export function ChatHistoryView() {
-  const [selectedChat, setSelectedChat] = useState<string>('CHAT-001');
+  const [selectedChat, setSelectedChat] = useState<string>('');
   const [filter, setFilter] = useState<'all' | 'satisfied' | 'unsatisfied'>('all');
   
   const filteredSessions = chatSessions.filter(session => {
@@ -143,8 +86,16 @@ export function ChatHistoryView() {
               </div>
             ))
           ) : (
-            <div className="p-8 text-center">
-              <p className="text-sm text-gray-500">Chưa có cư dân nào đặt câu hỏi hôm nay</p>
+            <div className="flex flex-col items-center justify-center p-8 space-y-3">
+              <MessageSquare size={48} className="text-gray-300" />
+              <p className="text-sm text-gray-500 text-center">
+                {chatSessions.length === 0 
+                  ? 'Chưa có lịch sử hội thoại nào' 
+                  : 'Không tìm thấy hội thoại phù hợp với bộ lọc'}
+              </p>
+              <p className="text-xs text-gray-400 text-center">
+                Các cuộc hội thoại với chatbot AI sẽ được hiển thị ở đây
+              </p>
             </div>
           )}
         </div>

@@ -1,13 +1,25 @@
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Download } from 'lucide-react';
-import { useData } from '../../contexts/DataContext';
+
+const mockBill = {
+  id: 'bill-demo-1',
+  apartment: 'A-1205',
+  period: 'Tháng 02/2026',
+  dueDate: '28/02/2026',
+  status: 'pending' as const,
+  items: [
+    { name: 'Tiền thuê phòng', price: 4500000, total: 4500000 },
+    { name: 'Điện', quantity: 120, unit: 'kWh', price: 3500, total: 420000 },
+    { name: 'Nước', quantity: 8, unit: 'm³', price: 15000, total: 120000 },
+    { name: 'Phí quản lý', price: 200000, total: 200000 },
+    { name: 'Internet', price: 180000, total: 180000 },
+  ],
+};
 
 export function BillDetail() {
   const navigate = useNavigate();
-  const { bills } = useData();
 
-  // Get the current pending bill
-  const currentBill = bills.find(b => b.status === 'pending') || bills[0];
+  const currentBill = mockBill;
   const total = currentBill.items.reduce((sum, item) => sum + item.total, 0);
 
   return (
@@ -31,7 +43,7 @@ export function BillDetail() {
                 Kỳ thanh toán
               </p>
               <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                Tháng 02/2026
+                {currentBill.period}
               </p>
             </div>
             <div className="text-right">
@@ -39,7 +51,7 @@ export function BillDetail() {
                 Căn hộ
               </p>
               <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                A-1205
+                {currentBill.apartment}
               </p>
             </div>
           </div>
@@ -78,7 +90,7 @@ export function BillDetail() {
           {/* Due Date */}
           <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded-lg">
             <p style={{ fontSize: '12px', color: '#E67E22', textAlign: 'center' }}>
-              <strong>Hạn thanh toán:</strong> 30/02/2026
+              <strong>Hạn thanh toán:</strong> {currentBill.dueDate}
             </p>
           </div>
         </div>

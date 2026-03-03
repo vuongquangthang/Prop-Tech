@@ -1,68 +1,18 @@
 import { Plus, Edit2, Trash2, Filter, X, AlertTriangle, Package, QrCode } from 'lucide-react';
 import { useState } from 'react';
 
-const assetsData = [
-  { 
-    id: 1,
-    image: '🖼️', 
-    name: 'Điều hòa Daikin 12000BTU', 
-    code: 'AC-001', 
-    room: 'A-101', 
-    price: '8.000.000',
-    purchaseDate: '15/01/2025',
-    warranty: '24 tháng'
-  },
-  { 
-    id: 2,
-    image: '🖼️', 
-    name: 'Tủ lạnh Panasonic 180L', 
-    code: 'FR-001', 
-    room: 'A-101', 
-    price: '5.500.000',
-    purchaseDate: '15/01/2025',
-    warranty: '12 tháng'
-  },
-  { 
-    id: 3,
-    image: '🖼️', 
-    name: 'Máy giặt LG 9kg', 
-    code: 'WM-001', 
-    room: 'A-102', 
-    price: '6.000.000',
-    purchaseDate: '20/01/2025',
-    warranty: '12 tháng'
-  },
-  { 
-    id: 4,
-    image: '🖼️', 
-    name: 'Điều hòa Daikin 12000BTU', 
-    code: 'AC-002', 
-    room: 'A-102', 
-    price: '8.000.000',
-    purchaseDate: '15/01/2025',
-    warranty: '24 tháng'
-  },
-  { 
-    id: 5,
-    image: '🖼️', 
-    name: 'Bàn làm việc gỗ', 
-    code: 'TB-001', 
-    room: 'A-103', 
-    price: '2.500.000',
-    purchaseDate: '10/01/2025',
-    warranty: 'Không'
-  },
-  { 
-    id: 6,
-    image: '🖼️', 
-    name: 'Giường ngủ 1m6', 
-    code: 'BD-001', 
-    room: 'A-103', 
-    price: '4.000.000',
-    purchaseDate: '10/01/2025',
-    warranty: '6 tháng'
-  },
-];
+// TODO: Fetch assets from API when backend implements asset tracking
+// GET /api/Assets - List all assets
+const assetsData: Array<{
+  id: number;
+  image: string;
+  name: string;
+  code: string;
+  room: string;
+  price: string;
+  purchaseDate: string;
+  warranty: string;
+}> = [];
 
 export function AssetTable() {
   const [roomFilter, setRoomFilter] = useState<string>('all');

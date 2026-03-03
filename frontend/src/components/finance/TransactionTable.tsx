@@ -1,68 +1,69 @@
-import { CheckCircle, AlertCircle, Link2, Filter, X } from 'lucide-react';
-import { useState } from 'react';
+import { CheckCircle, AlertCircle, Link2, Filter, X, Loader2, AlertTriangle, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { paymentService } from '../../services/api.service';
 
-const transactionsData = [
-  { 
-    id: 1,
-    bankCode: 'VCB-20260205-001', 
-    time: '05/02/2026 14:30', 
-    amount: '12.350.000', 
-    content: 'INV-2026-001 A-101', 
-    invoice: 'INV-2026-001',
-    status: 'matched'
-  },
-  { 
-    id: 2,
-    bankCode: 'VCB-20260205-002', 
-    time: '05/02/2026 15:45', 
-    amount: '13.200.000', 
-    content: 'INV-2026-002 B-205', 
-    invoice: 'INV-2026-002',
-    status: 'matched'
-  },
-  { 
-    id: 3,
-    bankCode: 'VCB-20260205-003', 
-    time: '05/02/2026 16:20', 
-    amount: '14.500.000', 
-    content: 'Tran Thi B tien phong', 
-    invoice: '-',
-    status: 'unmatched'
-  },
-  { 
-    id: 4,
-    bankCode: 'VCB-20260205-004', 
-    time: '05/02/2026 17:10', 
-    amount: '12.000.000', 
-    content: 'INV-2026-005 A-203', 
-    invoice: 'INV-2026-005',
-    status: 'matched'
-  },
-  { 
-    id: 5,
-    bankCode: 'VCB-20260204-089', 
-    time: '04/02/2026 10:15', 
-    amount: '10.000.000', 
-    content: 'Chuyen tien', 
-    invoice: '-',
-    status: 'unmatched'
-  },
-  { 
-    id: 6,
-    bankCode: 'VCB-20260204-090', 
-    time: '04/02/2026 11:30', 
-    amount: '13.800.000', 
-    content: 'INV-2026-006 B-115', 
-    invoice: 'INV-2026-006',
-    status: 'matched'
-  },
-];
+interface TransactionData {
+  id: number;
+  bankCode: string;
+  time: string;
+  amount: number;
+  content: string;
+  invoice: string;
+  status: 'matched' | 'unmatched';
+  invoiceId?: number;
+  paymentMethod?: string;
+}
 
 export function TransactionTable() {
-  const [transactions, setTransactions] = useState(transactionsData);
+  const [transactions, setTransactions] = useState<TransactionData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [invoiceCode, setInvoiceCode] = useState('');
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const payments = await paymentService.getAll();
+      
+      // Map payments to transaction format
+      const transactionData: TransactionData[] = payments.map((payment: any) => {
+        const paidAt = payment.paidAt ? new Date(payment.paidAt) : new Date();
+        const time = paidAt.toLocaleString('vi-VN', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        return {
+          id: payment.id || 0,
+          bankCode: payment.transactionCode || `TXN-${payment.id}`,
+          time,
+          amount: payment.amount || 0,
+          content: payment.notes || 'Thanh toán',
+          invoice: payment.invoiceId ? `INV-${payment.invoiceId}` : '-',
+          status: payment.invoiceId ? 'matched' : 'unmatched',
+          invoiceId: payment.invoiceId,
+          paymentMethod: payment.paymentMethod || payment.paymentType || 'Tiền mặt',
+        };
+      });
+      
+      setTransactions(transactionData);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách giao dịch');
+      console.error('Error fetching transactions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMatchClick = (transaction: any) => {
     setSelectedTransaction(transaction);
@@ -88,8 +89,51 @@ export function TransactionTable() {
     }
   };
 
+  // Calculate total amount
+  const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 space-y-4">
+        <Loader2 size={48} className="animate-spin text-gray-400" />
+        <span className="text-gray-600">Đang tải dữ liệu giao dịch...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button
+            onClick={fetchTransactions}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={fetchTransactions}
+          disabled={loading}
+          className="px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2"
+        >
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Filter size={16} />}
+          <span>Làm mới</span>
+        </button>
+      </div>
+
       {/* Filter Bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -115,17 +159,23 @@ export function TransactionTable() {
         </div>
         
         <div className="text-sm text-gray-700">
-          Tổng tiền: <span className="text-lg text-gray-900">76.050.000 VNĐ</span>
+          Tổng tiền: <span className="text-lg text-gray-900">{totalAmount.toLocaleString('vi-VN')} VNĐ</span>
         </div>
       </div>
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Lịch sử giao dịch - {transactionsData.length} giao dịch</h2>
+          <h2 className="text-lg text-gray-800">Lịch sử giao dịch - {transactions.length} giao dịch</h2>
         </div>
         
-        <div className="overflow-x-auto">
+        {transactions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <FileText size={48} className="text-gray-300" />
+            <p className="text-gray-500">Chưa có giao dịch nào</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-300">
               <tr>
@@ -139,11 +189,11 @@ export function TransactionTable() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((transaction, index) => (
-                <tr key={index} className={`border-b border-gray-200 hover:bg-gray-50 ${transaction.status === 'matched' ? 'bg-green-50' : ''}`}>
+              {transactions.map((transaction) => (
+                <tr key={transaction.id} className={`border-b border-gray-200 hover:bg-gray-50 ${transaction.status === 'matched' ? 'bg-green-50' : ''}`}>
                   <td className="px-6 py-4 text-sm text-gray-800">{transaction.bankCode}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{transaction.time}</td>
-                  <td className="px-6 py-4 text-sm text-gray-800 text-right">{transaction.amount}</td>
+                  <td className="px-6 py-4 text-sm text-gray-800 text-right">{transaction.amount.toLocaleString('vi-VN')}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{transaction.content}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {transaction.invoice !== '-' ? (
@@ -177,7 +227,8 @@ export function TransactionTable() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        )}
       </div>
       
       {/* Info Box */}

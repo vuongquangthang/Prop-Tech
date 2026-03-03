@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BillCard } from '../components/BillCard';
 import invoiceService, { Invoice } from '../services/invoice.service';
+import signalRService from '../services/signalr.service';
 
 export default function BillsScreen() {
   const navigation = useNavigation();
@@ -44,6 +45,14 @@ export default function BillsScreen() {
 
   useEffect(() => {
     loadInvoices();
+  }, []);
+
+  // Listen for new invoice approvals via SignalR
+  useEffect(() => {
+    const unsub = signalRService.onInvoiceUpdate(() => {
+      loadInvoices();
+    });
+    return unsub;
   }, []);
 
   useFocusEffect(
@@ -143,17 +152,26 @@ export default function BillsScreen() {
           </View>
         ) : (
           <View style={styles.billList}>
-            {filteredInvoices.map((invoice) => (
-              <BillCard
-                key={invoice.id}
-                month={invoiceService.formatPeriod(invoice.month, invoice.year)}
-                status={getStatusDisplay(invoice)}
-                amount={invoiceService.formatCurrency(invoice.totalAmount)}
-                isActive={invoice.status === 'Chưa thanh toán'}
-                // @ts-ignore - Navigation typing issue
-                onPress={() => navigation.navigate('BillDetail' as never, { id: invoice.id })}
-              />
-            ))}
+            {filteredInvoices.map((invoice) => {
+              const isNew = invoiceService.isNew(invoice);
+              return (
+                <View key={invoice.id} style={{ position: 'relative' }}>
+                  {isNew && (
+                    <View style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, backgroundColor: '#16a34a', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>MỚI</Text>
+                    </View>
+                  )}
+                  <BillCard
+                    month={invoiceService.formatPeriod(invoice.month, invoice.year)}
+                    status={getStatusDisplay(invoice)}
+                    amount={invoiceService.formatCurrency(invoice.totalAmount)}
+                    isActive={invoice.status === 'Chưa thanh toán'}
+                    // @ts-ignore - Navigation typing issue
+                    onPress={() => navigation.navigate('BillDetail' as never, { id: invoice.id })}
+                  />
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>

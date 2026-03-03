@@ -2,6 +2,9 @@ using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using backend.Hubs;
+using backend.Data;
 
 namespace backend.Services;
 
@@ -10,9 +13,15 @@ public interface IHoaDonService
     Task<List<HoaDonDto>> GetAllAsync();
     Task<List<HoaDonDto>> GetByContractIdAsync(int contractId);
     Task<List<HoaDonDto>> GetUnpaidInvoicesAsync();
+    Task<List<HoaDonDto>> GetDraftInvoicesAsync();
     Task<HoaDonDto?> GetByIdAsync(int id);
     Task<HoaDonDto> CreateAsync(CreateHoaDonDto dto);
     Task<HoaDonDto> PayInvoiceAsync(int id, PayHoaDonDto dto);
+    Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month);
+    Task<HoaDonDto> EditDraftAsync(int id, EditDraftInvoiceDto dto);
+    Task<HoaDonDto> ApproveAsync(int id, int approvedByUserId);
+    Task<BatchReadingResultDto> BatchApproveAsync(List<int> invoiceIds, int approvedByUserId);
+    Task<HoaDonDto> RejectAsync(int id, string reason);
     Task DeleteAsync(int id);
 }
 
@@ -22,17 +31,23 @@ public class HoaDonService : IHoaDonService
     private readonly IHopDongRepository _hopDongRepository;
     private readonly IServiceRepository _serviceRepository;
     private readonly IThanhToanRepository _thanhToanRepository;
+    private readonly ApplicationDbContext _context;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public HoaDonService(
         IHoaDonRepository hoaDonRepository,
         IHopDongRepository hopDongRepository,
         IServiceRepository serviceRepository,
-        IThanhToanRepository thanhToanRepository)
+        IThanhToanRepository thanhToanRepository,
+        ApplicationDbContext context,
+        IHubContext<NotificationHub> hubContext)
     {
         _hoaDonRepository = hoaDonRepository;
         _hopDongRepository = hopDongRepository;
         _serviceRepository = serviceRepository;
         _thanhToanRepository = thanhToanRepository;
+        _context = context;
+        _hubContext = hubContext;
     }
 
     public async Task<List<HoaDonDto>> GetAllAsync()
@@ -52,6 +67,332 @@ public class HoaDonService : IHoaDonService
         var invoices = await _hoaDonRepository.FindAsync(i => 
             i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần");
         return invoices.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<HoaDonDto>> GetDraftInvoicesAsync()
+    {
+        var invoices = await _context.HoaDons
+            .Include(hd => hd.HopDong).ThenInclude(hd => hd.Room).ThenInclude(r => r.Floor).ThenInclude(f => f.Building)
+            .Include(hd => hd.HopDong).ThenInclude(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident)
+            .Include(hd => hd.ChiTietHoaDons).ThenInclude(ct => ct.Service)
+            .Include(hd => hd.ThanhToans)
+            .Where(hd => hd.Status == "Nháp")
+            .OrderByDescending(hd => hd.Year).ThenByDescending(hd => hd.Month)
+            .ToListAsync();
+        return invoices.Select(MapToDto).ToList();
+    }
+
+    /// <summary>
+    /// Tính toán hóa đơn nháp từ chỉ số điện/nước đã chốt
+    /// </summary>
+    public async Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month)
+    {
+        var result = new CalculateInvoiceResultDto();
+
+        // Lấy tất cả hợp đồng đang active (có cư dân)
+        var contracts = await _context.HopDongs
+            .Include(hd => hd.Room).ThenInclude(r => r.ChiTietSuDungDichVus).ThenInclude(u => u.Service)
+            .Include(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
+            .Where(hd => hd.ChiTietOs.Any())
+            .ToListAsync();
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            foreach (var contract in contracts)
+            {
+                // Bỏ qua nếu đã có hóa đơn ACTIVE tháng này (không bỏ qua nếu đã bị từ chối)
+                var existingInvoice = await _context.HoaDons
+                    .FirstOrDefaultAsync(hd => hd.ContractId == contract.Id && hd.Month == month && hd.Year == year
+                                               && hd.Status != "Bị từ chối");
+                if (existingInvoice != null)
+                {
+                    result.Skipped++;
+                    result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
+                    continue;
+                }
+
+                var room = contract.Room;
+                var lineItems = new List<ChiTietHoaDon>();
+                decimal total = 0;
+
+                // 1. Tiền phòng
+                var rentItem = new ChiTietHoaDon
+                {
+                    ItemType = "TienPhong",
+                    Description = $"Tiền thuê phòng tháng {month}/{year}",
+                    Quantity = 1,
+                    UnitPrice = contract.ActualRentPrice
+                };
+                total += contract.ActualRentPrice;
+                lineItems.Add(rentItem);
+
+                // 2. Tiền điện
+                var elecUsage = room.ChiTietSuDungDichVus
+                    .FirstOrDefault(u => u.Service.ServiceType == "Điện" && u.ApplyTo == null);
+                if (elecUsage != null)
+                {
+                    var prevElec = await _context.ChiSoDiens
+                        .Where(c => c.ServiceUsageDetailId == elecUsage.Id
+                                    && (c.Year < year || (c.Year == year && c.Month < month)))
+                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
+                        .FirstOrDefaultAsync();
+
+                    var currElec = await _context.ChiSoDiens
+                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == elecUsage.Id
+                                                  && c.Month == month && c.Year == year);
+
+                    if (currElec != null)
+                    {
+                        var oldReading = prevElec?.NewReading ?? 0;
+                        var consumption = currElec.NewReading - oldReading;
+                        var unitPrice = elecUsage.OverrideUnitPrice ?? elecUsage.Service.CommonUnitPrice ?? 0;
+
+                        var elecItem = new ChiTietHoaDon
+                        {
+                            ItemType = "Dien",
+                            ServiceId = elecUsage.ServiceId,
+                            ServiceUsageDetailId = elecUsage.Id,
+                            Description = $"Điện tháng {month}/{year}: {oldReading} → {currElec.NewReading} = {consumption} kWh",
+                            Quantity = consumption,
+                            UnitPrice = unitPrice
+                        };
+                        total += consumption * unitPrice;
+                        lineItems.Add(elecItem);
+                    }
+                    else
+                    {
+                        result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số điện tháng {month}/{year}");
+                    }
+                }
+
+                // 3. Tiền nước
+                var waterUsage = room.ChiTietSuDungDichVus
+                    .FirstOrDefault(u => u.Service.ServiceType == "Nước" && u.ApplyTo == null);
+                if (waterUsage != null)
+                {
+                    var prevWater = await _context.ChiSoNuocs
+                        .Where(c => c.ServiceUsageDetailId == waterUsage.Id
+                                    && (c.Year < year || (c.Year == year && c.Month < month)))
+                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
+                        .FirstOrDefaultAsync();
+
+                    var currWater = await _context.ChiSoNuocs
+                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == waterUsage.Id
+                                                  && c.Month == month && c.Year == year);
+
+                    if (currWater != null)
+                    {
+                        var oldReading = prevWater?.NewReading ?? 0;
+                        var consumption = currWater.NewReading - oldReading;
+                        var unitPrice = waterUsage.OverrideUnitPrice ?? waterUsage.Service.CommonUnitPrice ?? 0;
+
+                        var waterItem = new ChiTietHoaDon
+                        {
+                            ItemType = "Nuoc",
+                            ServiceId = waterUsage.ServiceId,
+                            ServiceUsageDetailId = waterUsage.Id,
+                            Description = $"Nước tháng {month}/{year}: {oldReading} → {currWater.NewReading} = {consumption} m³",
+                            Quantity = consumption,
+                            UnitPrice = unitPrice
+                        };
+                        total += consumption * unitPrice;
+                        lineItems.Add(waterItem);
+                    }
+                    else
+                    {
+                        result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số nước tháng {month}/{year}");
+                    }
+                }
+
+                // 4. Các dịch vụ khác (không phải điện/nước)
+                var otherServices = room.ChiTietSuDungDichVus
+                    .Where(u => u.Service.ServiceType != "Điện" && u.Service.ServiceType != "Nước" && u.ApplyTo == null)
+                    .ToList();
+                foreach (var svc in otherServices)
+                {
+                    var unitPrice = svc.OverrideUnitPrice ?? svc.Service.CommonUnitPrice ?? 0;
+                    var qty = svc.Quantity ?? 1;
+                    var svcItem = new ChiTietHoaDon
+                    {
+                        ItemType = "DichVu",
+                        ServiceId = svc.ServiceId,
+                        ServiceUsageDetailId = svc.Id,
+                        Description = svc.Service.Name,
+                        Quantity = qty,
+                        UnitPrice = unitPrice
+                    };
+                    total += qty * unitPrice;
+                    lineItems.Add(svcItem);
+                }
+
+                // Tạo hóa đơn nháp
+                var invoice = new HoaDon
+                {
+                    ContractId = contract.Id,
+                    Month = month,
+                    Year = year,
+                    TotalAmount = total,
+                    Status = "Nháp",
+                    DueDate = new DateTime(year, month, 15).AddMonths(1)
+                };
+                _context.HoaDons.Add(invoice);
+                await _context.SaveChangesAsync();
+
+                foreach (var item in lineItems)
+                {
+                    item.InvoiceId = invoice.Id;
+                    _context.ChiTietHoaDons.Add(item);
+                }
+                await _context.SaveChangesAsync();
+
+                result.TotalInvoices++;
+                result.TotalAmount += total;
+            }
+
+            await transaction.CommitAsync();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw new InvalidOperationException($"Lỗi khi tính toán hóa đơn: {ex.Message}", ex);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Chỉnh sửa hóa đơn nháp
+    /// </summary>
+    public async Task<HoaDonDto> EditDraftAsync(int id, EditDraftInvoiceDto dto)
+    {
+        var invoice = await _hoaDonRepository.GetWithDetailsAsync(id);
+        if (invoice == null) throw new InvalidOperationException("Hóa đơn không tồn tại");
+        if (invoice.Status != "Nháp") throw new InvalidOperationException("Chỉ có thể chỉnh sửa hóa đơn ở trạng thái Nháp");
+
+        // Xóa line items cũ
+        _context.ChiTietHoaDons.RemoveRange(invoice.ChiTietHoaDons);
+
+        // Thêm line items mới
+        decimal newTotal = 0;
+        foreach (var item in dto.LineItems)
+        {
+            var lineItem = new ChiTietHoaDon
+            {
+                InvoiceId = id,
+                ItemType = item.ItemType,
+                ServiceId = item.ServiceId,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                Description = item.Description
+            };
+            newTotal += (item.Quantity ?? 0) * (item.UnitPrice ?? 0);
+            _context.ChiTietHoaDons.Add(lineItem);
+        }
+
+        invoice.TotalAmount = newTotal;
+        _hoaDonRepository.Update(invoice);
+        await _hoaDonRepository.SaveChangesAsync();
+
+        var updated = await _hoaDonRepository.GetWithDetailsAsync(id);
+        return MapToDto(updated!);
+    }
+
+    /// <summary>
+    /// Phê duyệt 1 hóa đơn và thông báo qua SignalR
+    /// </summary>
+    public async Task<HoaDonDto> ApproveAsync(int id, int approvedByUserId)
+    {
+        var invoice = await _hoaDonRepository.GetWithDetailsAsync(id);
+        if (invoice == null) throw new InvalidOperationException("Hóa đơn không tồn tại");
+        if (invoice.Status != "Nháp") throw new InvalidOperationException("Chỉ có thể phê duyệt hóa đơn ở trạng thái Nháp");
+
+        invoice.Status = "Chưa thanh toán";
+        invoice.ApprovedBy = approvedByUserId;
+        invoice.ApprovedAt = DateTime.UtcNow;
+        _hoaDonRepository.Update(invoice);
+        await _hoaDonRepository.SaveChangesAsync();
+
+        // Gửi SignalR notification cho cư dân
+        await NotifyResidentAsync(invoice);
+
+        var updated = await _hoaDonRepository.GetWithDetailsAsync(id);
+        return MapToDto(updated!);
+    }
+
+    /// <summary>
+    /// Phê duyệt hàng loạt
+    /// </summary>
+    public async Task<BatchReadingResultDto> BatchApproveAsync(List<int> invoiceIds, int approvedByUserId)
+    {
+        var result = new BatchReadingResultDto();
+
+        foreach (var id in invoiceIds)
+        {
+            try
+            {
+                await ApproveAsync(id, approvedByUserId);
+                result.Success++;
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add($"Hóa đơn #{id}: {ex.Message}");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Từ chối hóa đơn
+    /// </summary>
+    public async Task<HoaDonDto> RejectAsync(int id, string reason)
+    {
+        var invoice = await _hoaDonRepository.GetByIdAsync(id);
+        if (invoice == null) throw new InvalidOperationException("Hóa đơn không tồn tại");
+        if (invoice.Status != "Nháp") throw new InvalidOperationException("Chỉ có thể từ chối hóa đơn ở trạng thái Nháp");
+
+        invoice.Status = "Bị từ chối";
+        invoice.RejectedReason = reason;
+        _hoaDonRepository.Update(invoice);
+        await _hoaDonRepository.SaveChangesAsync();
+
+        var updated = await _hoaDonRepository.GetWithDetailsAsync(id);
+        return MapToDto(updated!);
+    }
+
+    private async Task NotifyResidentAsync(HoaDon invoice)
+    {
+        try
+        {
+            // Lấy tất cả users của cư dân trong hợp đồng
+            var contractId = invoice.ContractId;
+            var residentUsers = await _context.ChiTietOs
+                .Where(ct => ct.ContractId == contractId)
+                .SelectMany(ct => ct.Resident.Users)
+                .ToListAsync();
+
+            foreach (var user in residentUsers)
+            {
+                await NotificationHub.Notifications.SendNotificationToUser(
+                    _hubContext,
+                    user.Id.ToString(),
+                    new
+                    {
+                        type = "INVOICE",
+                        message = $"Hóa đơn tháng {invoice.Month}/{invoice.Year} đã được phát hành. Vui lòng thanh toán.",
+                        invoiceId = invoice.Id,
+                        month = invoice.Month,
+                        year = invoice.Year,
+                        totalAmount = invoice.TotalAmount
+                    });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ SignalR notify failed: {ex.Message}");
+        }
     }
 
     public async Task<HoaDonDto?> GetByIdAsync(int id)
@@ -205,8 +546,10 @@ public class HoaDonService : IHoaDonService
 
     private HoaDonDto MapToDto(HoaDon invoice)
     {
-        // Calculate paid amount from ThanhToan collection (eager loaded)
-        var paidAmount = invoice.ThanhToans?.Sum(t => t.Amount) ?? 0;
+        // Calculate paid amount from SUCCESS ThanhToan only (exclude PENDING)
+        var successPayments = invoice.ThanhToans?.Where(t => t.Status == "SUCCESS").ToList();
+        var paidAmount = successPayments?.Sum(t => t.Amount) ?? 0;
+        var paidDate = successPayments?.Where(t => t.PaidAt.HasValue).OrderByDescending(t => t.PaidAt).FirstOrDefault()?.PaidAt;
 
         return new HoaDonDto
         {
@@ -214,13 +557,18 @@ public class HoaDonService : IHoaDonService
             ContractId = invoice.ContractId,
             RoomId = invoice.HopDong?.RoomId,
             RoomNumber = invoice.HopDong?.Room?.RoomCode,
+            ResidentName = invoice.HopDong?.ChiTietOs?.FirstOrDefault()?.Resident?.FullName,
             Month = invoice.Month,
             Year = invoice.Year,
             TotalAmount = invoice.TotalAmount,
             PaidAmount = paidAmount,
+            PaidDate = paidDate,
             Status = invoice.Status,
             DueDate = invoice.DueDate,
             QrCodeUrl = invoice.QrCodeUrl,
+            ApprovedBy = invoice.ApprovedBy,
+            ApprovedAt = invoice.ApprovedAt,
+            RejectedReason = invoice.RejectedReason,
             LineItems = invoice.ChiTietHoaDons?.Select(ct => new ChiTietHoaDonDto
             {
                 Id = ct.Id,

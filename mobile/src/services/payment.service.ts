@@ -1,7 +1,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from './api.service';
 
-const API_URL = 'http://10.0.2.2:5138'; // Android emulator localhost
+const API_URL = API_BASE_URL;
 
 const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
@@ -80,6 +81,25 @@ class PaymentService {
       }
       console.error('Get pending payment error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Không thể kiểm tra giao dịch');
+    }
+  }
+
+  /**
+   * Confirm payment as SUCCESS (mock - resident confirms they've transferred)
+   */
+  async confirmPayment(transactionCode: string): Promise<void> {
+    try {
+      await axios.post(
+        `${API_URL}/api/Payment/callback`,
+        {
+          transactionCode,
+          status: 'SUCCESS',
+          paidAt: new Date().toISOString(),
+        }
+      );
+    } catch (error: any) {
+      console.error('Confirm payment error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Không thể xác nhận thanh toán');
     }
   }
 

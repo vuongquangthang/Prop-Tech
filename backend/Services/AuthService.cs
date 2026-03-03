@@ -196,11 +196,27 @@ public class AuthService : IAuthService
         {
             Id = user.Id,
             PhoneNumber = user.PhoneNumber,
-            Role = user.Role,
+            Role = MapRoleToEnglish(user.Role),
             ResidentId = user.ResidentId,
             ResidentName = residentName,
             IsLocked = user.IsLocked,
             LastLoginAt = user.LastLoginAt
+        };
+    }
+
+    /// <summary>
+    /// Map Vietnamese role names from database to English role names for frontend
+    /// </summary>
+    private string MapRoleToEnglish(string vietnameseRole)
+    {
+        return vietnameseRole switch
+        {
+            "Admin" => "Admin",
+            "QuanLy" => "Manager",
+            "KeToan" => "Accountant",
+            "NhanVien" => "Staff",
+            "CuDan" => "Resident",
+            _ => vietnameseRole // Return as-is if not recognized
         };
     }
 }

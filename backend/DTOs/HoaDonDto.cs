@@ -9,14 +9,19 @@ public class HoaDonDto
     public int ContractId { get; set; }
     public int? RoomId { get; set; }
     public string? RoomNumber { get; set; }
+    public string? ResidentName { get; set; }
     public byte Month { get; set; }
     public short Year { get; set; }
     public decimal TotalAmount { get; set; }
-    public decimal PaidAmount { get; set; } // Calculated from ThanhToan
+    public decimal PaidAmount { get; set; } // Calculated from SUCCESS ThanhToan only
     public decimal RemainingAmount => TotalAmount - PaidAmount;
     public string Status { get; set; } = "Chưa thanh toán";
     public DateTime? DueDate { get; set; }
+    public DateTime? PaidDate { get; set; } // Date of last successful payment
     public string? QrCodeUrl { get; set; }
+    public int? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public string? RejectedReason { get; set; }
     public List<ChiTietHoaDonDto> LineItems { get; set; } = new();
 }
 
@@ -68,4 +73,40 @@ public class PayHoaDonDto
     public decimal Amount { get; set; }
     public string PaymentType { get; set; } = "Tiền mặt"; // Tiền mặt, Chuyển khoản, Thẻ, Khác
     public string? TransactionCode { get; set; }
+}
+
+/// <summary>
+/// DTO kết quả tính hóa đơn nháp
+/// </summary>
+public class CalculateInvoiceResultDto
+{
+    public int TotalInvoices { get; set; }
+    public decimal TotalAmount { get; set; }
+    public int Skipped { get; set; }
+    public List<string> SkippedReasons { get; set; } = new();
+    public List<string> Errors { get; set; } = new();
+}
+
+/// <summary>
+/// DTO để chỉnh sửa hóa đơn nháp
+/// </summary>
+public class EditDraftInvoiceDto
+{
+    public List<CreateChiTietHoaDonDto> LineItems { get; set; } = new();
+}
+
+/// <summary>
+/// DTO để phê duyệt hàng loạt
+/// </summary>
+public class BatchApproveDto
+{
+    public List<int> InvoiceIds { get; set; } = new();
+}
+
+/// <summary>
+/// DTO để từ chối hóa đơn
+/// </summary>
+public class RejectInvoiceDto
+{
+    public string Reason { get; set; } = null!;
 }

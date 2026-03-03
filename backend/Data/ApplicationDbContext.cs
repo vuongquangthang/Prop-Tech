@@ -211,6 +211,10 @@ public class ApplicationDbContext : DbContext
                 .WithMany(e => e.HoaDons)
                 .HasForeignKey(e => e.ContractId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ApprovedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ApprovedBy)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<ChiTietHoaDon>(entity =>

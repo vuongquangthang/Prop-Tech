@@ -1,66 +1,71 @@
-import { Plus, Search, Eye, FileText, AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { CreateContractModal, ViewContractModal, PrintContractModal } from './ContractModals';
+import { contractService } from '../../services/api.service';
 
-const contractsData = [
-  { 
-    code: 'HD-2026-001', 
-    room: 'A-101', 
-    tenant: 'Nguyễn Văn A', 
-    startDate: '01/01/2026',
-    endDate: '31/12/2026',
-    deposit: '8.500.000',
-    monthlyRent: '8.500.000',
-    daysLeft: 330,
-    status: 'active'
-  },
-  { 
-    code: 'HD-2026-002', 
-    room: 'B-205', 
-    tenant: 'Trần Thị B', 
-    startDate: '15/01/2026',
-    endDate: '14/01/2027',
-    deposit: '9.000.000',
-    monthlyRent: '9.000.000',
-    daysLeft: 344,
-    status: 'active'
-  },
-  { 
-    code: 'HD-2025-089', 
-    room: 'C-312', 
-    tenant: 'Lê Văn C', 
-    startDate: '01/03/2025',
-    endDate: '28/02/2026',
-    deposit: '10.000.000',
-    monthlyRent: '10.000.000',
-    daysLeft: 23,
-    status: 'warning'
-  },
-  { 
-    code: 'HD-2025-078', 
-    room: 'D-108', 
-    tenant: 'Phạm Thị D', 
-    startDate: '10/12/2025',
-    endDate: '09/02/2026',
-    deposit: '7.800.000',
-    monthlyRent: '7.800.000',
-    daysLeft: 4,
-    status: 'danger'
-  },
-  { 
-    code: 'HD-2024-045', 
-    room: 'A-203', 
-    tenant: 'Hoàng Văn E', 
-    startDate: '01/06/2024',
-    endDate: '31/01/2026',
-    deposit: '8.000.000',
-    monthlyRent: '8.000.000',
-    daysLeft: -4,
-    status: 'expired'
-  },
-];
+interface ContractData {
+  id: number;
+  code: string;
+  contractCode: string;
+  room: string;
+  tenant: string;
+  startDate: string;
+  endDate: string;
+  deposit: number;
+  monthlyRent: number;
+  daysLeft: number;
+  status: string;
+}
 
 export function ContractList() {
+  const [contracts, setContracts] = useState<ContractData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchContracts();
+  }, []);
+
+  const fetchContracts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await contractService.getAll();
+      
+      // Map contracts to table format
+      const contractData: ContractData[] = data.map((contract: any) => {
+        const endDate = contract.endDate ? new Date(contract.endDate) : null;
+        const today = new Date();
+        const daysLeft = endDate ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+        
+        let status = 'active';
+        if (daysLeft < 0) status = 'expired';
+        else if (daysLeft <= 7) status = 'danger';
+        else if (daysLeft <= 30) status = 'warning';
+        
+        return {
+          id: contract.id || contract.hopDongId || 0,
+          code: contract.contractCode || contract.maHopDong || '',
+          contractCode: contract.contractCode || contract.maHopDong || '',
+          room: contract.roomNumber || contract.soPhong || '-',
+          tenant: contract.tenantName || contract.tenCuDan || '-',
+          startDate: contract.startDate ? new Date(contract.startDate).toLocaleDateString('vi-VN') : '-',
+          endDate: contract.endDate ? new Date(contract.endDate).toLocaleDateString('vi-VN') : '-',
+          deposit: contract.deposit || contract.tienCoc || 0,
+          monthlyRent: contract.monthlyRent || contract.giaThue || 0,
+          daysLeft,
+          status,
+        };
+      });
+      
+      setContracts(contractData);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách hợp đồng');
+      console.error('Error fetching contracts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
   const getRowColor = (status: string) => {
     if (status === 'danger') return 'bg-yellow-50';
     if (status === 'expired') return 'bg-red-50';
@@ -109,6 +114,36 @@ export function ContractList() {
     setIsPrintModalOpen(true);
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Loader2 size={48} className="animate-spin text-gray-400" />
+          <span className="text-gray-600">Đang tải danh sách hợp đồng...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button
+            onClick={fetchContracts}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Filter Bar */}
@@ -140,52 +175,59 @@ export function ContractList() {
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Danh sách hợp đồng - {contractsData.length} hợp đồng</h2>
+          <h2 className="text-lg text-gray-800">Danh sách hợp đồng - {contracts.length} hợp đồng</h2>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-300">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Mã hợp đồng</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày bắt đầu</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày kết thúc</th>
-                <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền cọc (VNĐ)</th>
-                <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền thuê/tháng</th>
-                <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
-                <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contractsData.map((contract, index) => (
-                <tr key={index} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(contract.status)}`}>
-                  <td className="px-6 py-4 text-sm text-gray-800">{contract.code}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{contract.room}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{contract.tenant}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{contract.startDate}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{contract.endDate}</td>
-                  <td className="px-6 py-4 text-sm text-gray-800 text-right">{contract.deposit}</td>
-                  <td className="px-6 py-4 text-sm text-gray-800 text-right">{contract.monthlyRent}</td>
-                  <td className="px-6 py-4 text-center">
-                    {getStatusBadge(contract.daysLeft, contract.status)}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center space-x-2">
-                      <button className="p-2 hover:bg-gray-100 rounded" title="Xem chi tiết" onClick={() => openViewModal(contract)}>
-                        <Eye size={16} className="text-gray-600" />
-                      </button>
-                      <button className="p-2 hover:bg-gray-100 rounded" title="In hợp đồng" onClick={() => openPrintModal(contract)}>
-                        <FileText size={16} className="text-gray-600" />
-                      </button>
-                    </div>
-                  </td>
+        {contracts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <FileX size={48} className="text-gray-300" />
+            <p className="text-gray-500">Chưa có hợp đồng nào</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-300">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Mã hợp đồng</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày bắt đầu</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày kết thúc</th>
+                  <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền cọc (VNĐ)</th>
+                  <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền thuê/tháng</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {contracts.map((contract) => (
+                  <tr key={contract.id} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(contract.status)}`}>
+                    <td className="px-6 py-4 text-sm text-gray-800">{contract.code}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{contract.room}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{contract.tenant}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{contract.startDate}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{contract.endDate}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800 text-right">{contract.deposit.toLocaleString('vi-VN')}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800 text-right">{contract.monthlyRent.toLocaleString('vi-VN')}</td>
+                    <td className="px-6 py-4 text-center">
+                      {getStatusBadge(contract.daysLeft, contract.status)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <button className="p-2 hover:bg-gray-100 rounded" title="Xem chi tiết" onClick={() => openViewModal(contract)}>
+                          <Eye size={16} className="text-gray-600" />
+                        </button>
+                        <button className="p-2 hover:bg-gray-100 rounded" title="In hợp đồng" onClick={() => openPrintModal(contract)}>
+                          <FileText size={16} className="text-gray-600" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       
       {/* Warning Box */}

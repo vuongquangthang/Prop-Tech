@@ -10,6 +10,22 @@ public class HoaDonRepository : Repository<HoaDon>, IHoaDonRepository
     {
     }
 
+    public override async Task<IEnumerable<HoaDon>> GetAllAsync()
+    {
+        return await _dbSet
+            .Include(hd => hd.HopDong)
+                .ThenInclude(hd => hd.Room)
+            .Include(hd => hd.HopDong)
+                .ThenInclude(hd => hd.ChiTietOs)
+                    .ThenInclude(ct => ct.Resident)
+            .Include(hd => hd.ChiTietHoaDons)
+                .ThenInclude(ct => ct.Service)
+            .Include(hd => hd.ThanhToans)
+            .OrderByDescending(hd => hd.Year)
+            .ThenByDescending(hd => hd.Month)
+            .ToListAsync();
+    }
+
     public async Task<IEnumerable<HoaDon>> GetByContractIdAsync(int hopDongId)
     {
         return await _dbSet

@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
     REFRESH: '/api/Auth/refresh',
     CHANGE_PASSWORD: '/api/Auth/change-password',
     LOGOUT: '/api/Auth/logout',
+    ME: '/api/Auth/me',
   },
   
   // Users
@@ -71,9 +72,22 @@ export const API_ENDPOINTS = {
   INVOICES: {
     BASE: '/api/HoaDon',
     BY_ID: (id: number) => `/api/HoaDon/${id}`,
+    UNPAID: '/api/HoaDon/unpaid',
+    DRAFTS: '/api/HoaDon/drafts',
+    CALCULATE: (year: number, month: number) => `/api/HoaDon/calculate/${year}/${month}`,
+    APPROVE: (id: number) => `/api/HoaDon/${id}/approve`,
+    APPROVE_BATCH: '/api/HoaDon/approve-batch',
+    REJECT: (id: number) => `/api/HoaDon/${id}/reject`,
+    EDIT_DRAFT: (id: number) => `/api/HoaDon/${id}/edit-draft`,
     GENERATE: '/api/HoaDon/generate',
     FINALIZE: (id: number) => `/api/HoaDon/${id}/finalize`,
     DETAILS: (id: number) => `/api/HoaDon/${id}/details`,
+  },
+  
+  // Utility Readings
+  UTILITY_READINGS: {
+    MONTH: (year: number, month: number) => `/api/UtilityReadings/month/${year}/${month}`,
+    RECORD_BATCH: '/api/UtilityReadings/record-batch',
   },
   
   // Payments
@@ -81,6 +95,10 @@ export const API_ENDPOINTS = {
     BASE: '/api/ThanhToan',
     BY_ID: (id: number) => `/api/ThanhToan/${id}`,
     BY_INVOICE: (invoiceId: number) => `/api/ThanhToan/invoice/${invoiceId}`,
+    INITIATE: '/api/Payment/initiate',
+    CALLBACK: '/api/Payment/callback',
+    PENDING: (invoiceId: number) => `/api/Payment/pending/${invoiceId}`,
+    CANCEL: (transactionId: number) => `/api/Payment/cancel/${transactionId}`,
   },
   
   // Meter Readings

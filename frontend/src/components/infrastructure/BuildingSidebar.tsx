@@ -1,26 +1,86 @@
-import { Plus, ChevronRight, ChevronDown, X } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, ChevronRight, ChevronDown, X, Loader2, Building2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { buildingService, floorService } from '../../services/api.service';
 
-const buildingsData = [
-  {
-    name: 'Tòa A',
-    floors: ['Tầng 1', 'Tầng 2', 'Tầng 3', 'Tầng 4', 'Tầng 5'],
-  },
-  {
-    name: 'Tòa B',
-    floors: ['Tầng 1', 'Tầng 2', 'Tầng 3', 'Tầng 4'],
-  },
-  {
-    name: 'Tòa C',
-    floors: ['Tầng 1', 'Tầng 2', 'Tầng 3'],
-  },
-];
+interface FloorData {
+  id: number;
+  floorNumber: number;
+  floorCode: string;
+}
+
+interface BuildingData {
+  id: number;
+  buildingName: string;
+  buildingCode: string;
+  totalFloors: number;
+  floors: FloorData[];
+}
 
 export function BuildingSidebar() {
-  const [expandedBuilding, setExpandedBuilding] = useState<string>('Tòa A');
-  const [selectedFloor, setSelectedFloor] = useState<string>('Tầng 1');
+  const [buildings, setBuildings] = useState<BuildingData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedBuilding, setExpandedBuilding] = useState<number | null>(null);
+  const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addType, setAddType] = useState<'building' | 'floor'>('building');
+
+  useEffect(() => {
+    fetchBuildings();
+  }, []);
+
+  const fetchBuildings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const buildingsData = await buildingService.getAll();
+      
+      // Fetch floors for each building
+      const buildingsWithFloors = await Promise.all(
+        buildingsData.map(async (building) => {
+          try {
+            const floors = await floorService.getByBuilding(building.id);
+            return {
+              ...building,
+              id: building.id || building.toaNhaId || 0,
+              buildingName: building.buildingName || building.tenToaNha || '',
+              buildingCode: building.buildingCode || building.maToaNha || '',
+              totalFloors: building.totalFloors || building.soTang || 0,
+              floors: floors.map((f: any) => ({
+                id: f.id || f.tangId || 0,
+                floorNumber: f.floorNumber || f.soTang || 0,
+                floorCode: f.floorCode || f.maTang || '',
+              }))
+            };
+          } catch {
+            return {
+              ...building,
+              id: building.id || building.toaNhaId || 0,
+              buildingName: building.buildingName || building.tenToaNha || '',
+              buildingCode: building.buildingCode || building.maToaNha || '',
+              totalFloors: building.totalFloors || building.soTang || 0,
+              floors: []
+            };
+          }
+        })
+      );
+      
+      setBuildings(buildingsWithFloors);
+      
+      // Auto-expand first building
+      if (buildingsWithFloors.length > 0) {
+        setExpandedBuilding(buildingsWithFloors[0].id);
+        if (buildingsWithFloors[0].floors.length > 0) {
+          setSelectedFloor(buildingsWithFloors[0].floors[0].id);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách tòa nhà');
+      console.error('Error fetching buildings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddClick = () => {
     setShowAddModal(true);
@@ -60,54 +120,83 @@ export function BuildingSidebar() {
       
       {/* Tree View */}
       <div className="flex-1 overflow-y-auto" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {buildingsData.map((building, index) => (
-            <div key={index}>
-              {/* Building */}
-              <button
-                onClick={() => setExpandedBuilding(expandedBuilding === building.name ? '' : building.name)}
-                className="w-full flex items-center justify-between rounded transition-colors hover:bg-[var(--brand-surface)]"
-                style={{
-                  padding: '12px 16px',
-                  fontSize: 'var(--type-body)',
-                  color: 'var(--text-primary)',
-                  gap: '8px'
-                }}
-              >
-                <div className="flex items-center" style={{ gap: '8px' }}>
-                  {expandedBuilding === building.name ? (
-                    <ChevronDown size={18} />
-                  ) : (
-                    <ChevronRight size={18} />
-                  )}
-                  <span style={{ fontWeight: 600 }}>{building.name}</span>
-                </div>
-              </button>
-              
-              {/* Floors */}
-              {expandedBuilding === building.name && (
-                <div style={{ marginLeft: '24px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {building.floors.map((floor, floorIndex) => (
-                    <button
-                      key={floorIndex}
-                      onClick={() => setSelectedFloor(floor)}
-                      className="w-full text-left rounded transition-colors"
-                      style={{
-                        padding: '10px 16px',
-                        fontSize: 'var(--type-body)',
-                        backgroundColor: selectedFloor === floor ? 'var(--brand-surface)' : 'transparent',
-                        color: selectedFloor === floor ? 'var(--brand-primary)' : 'var(--text-secondary)',
-                        fontWeight: selectedFloor === floor ? 600 : 400
-                      }}
-                    >
-                      {floor}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 size={32} className="animate-spin text-gray-400 mb-3" />
+            <span className="text-gray-600 text-sm">Đang tải...</span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Building2 size={32} className="text-gray-300 mb-3" />
+            <p className="text-gray-500 text-sm mb-3">{error}</p>
+            <button 
+              onClick={fetchBuildings}
+              className="px-3 py-1 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : buildings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Building2 size={32} className="text-gray-300 mb-3" />
+            <p className="text-gray-500 text-sm">Chưa có tòa nhà nào</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {buildings.map((building) => (
+              <div key={building.id}>
+                {/* Building */}
+                <button
+                  onClick={() => setExpandedBuilding(expandedBuilding === building.id ? null : building.id)}
+                  className="w-full flex items-center justify-between rounded transition-colors hover:bg-[var(--brand-surface)]"
+                  style={{
+                    padding: '12px 16px',
+                    fontSize: 'var(--type-body)',
+                    color: 'var(--text-primary)',
+                    gap: '8px'
+                  }}
+                >
+                  <div className="flex items-center" style={{ gap: '8px' }}>
+                    {expandedBuilding === building.id ? (
+                      <ChevronDown size={18} />
+                    ) : (
+                      <ChevronRight size={18} />
+                    )}
+                    <span style={{ fontWeight: 600 }}>
+                      {building.buildingName} ({building.floors.length}/{building.totalFloors} tầng)
+                    </span>
+                  </div>
+                </button>
+                
+                {/* Floors */}
+                {expandedBuilding === building.id && (
+                  <div style={{ marginLeft: '24px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {building.floors.length === 0 ? (
+                      <div className="text-sm text-gray-400 px-4 py-2">Chưa có tầng nào</div>
+                    ) : (
+                      building.floors.map((floor) => (
+                        <button
+                          key={floor.id}
+                          onClick={() => setSelectedFloor(floor.id)}
+                          className="w-full text-left rounded transition-colors"
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: 'var(--type-body)',
+                            backgroundColor: selectedFloor === floor.id ? 'var(--brand-surface)' : 'transparent',
+                            color: selectedFloor === floor.id ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                            fontWeight: selectedFloor === floor.id ? 600 : 400
+                          }}
+                        >
+                          Tầng {floor.floorNumber}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Add Building/Floor Modal */}
@@ -188,9 +277,17 @@ export function BuildingSidebar() {
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Chọn tòa nhà *</label>
                     <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-                      <option>Tòa A</option>
-                      <option>Tòa B</option>
-                      <option>Tòa C</option>
+                      {loading ? (
+                        <option>Đang tải...</option>
+                      ) : buildings.length === 0 ? (
+                        <option>Chưa có tòa nhà</option>
+                      ) : (
+                        buildings.map(building => (
+                          <option key={building.id} value={building.id}>
+                            {building.buildingName}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
 

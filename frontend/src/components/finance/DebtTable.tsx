@@ -1,49 +1,18 @@
-import { Send, Ban, Eye, Filter } from 'lucide-react';
-import { useState } from 'react';
+import { Send, Ban, Eye, Filter, Loader2, AlertTriangle, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { ViewDebtModal, SendReminderModal, BlockAccountModal, BatchSendReminderModal } from './DebtModals';
+import { invoiceService } from '../../services/api.service';
 
-const debtData = [
-  { 
-    room: 'C-312', 
-    tenant: 'Lê Văn C', 
-    phone: '0934567890', 
-    amount: '14.500.000', 
-    daysLate: 22,
-    reminderLevel: 2
-  },
-  { 
-    room: 'D-108', 
-    tenant: 'Phạm Thị D', 
-    phone: '0945678901', 
-    amount: '11.800.000', 
-    daysLate: 18,
-    reminderLevel: 2
-  },
-  { 
-    room: 'A-205', 
-    tenant: 'Trương Văn H', 
-    phone: '0978901234', 
-    amount: '12.300.000', 
-    daysLate: 12,
-    reminderLevel: 1
-  },
-  { 
-    room: 'B-310', 
-    tenant: 'Đỗ Thị I', 
-    phone: '0989012345', 
-    amount: '13.500.000', 
-    daysLate: 8,
-    reminderLevel: 1
-  },
-  { 
-    room: 'C-401', 
-    tenant: 'Mai Văn G', 
-    phone: '0990123456', 
-    amount: '10.500.000', 
-    daysLate: 35,
-    reminderLevel: 3
-  },
-];
+interface DebtData {
+  invoiceId: number;
+  room: string;
+  tenant: string;
+  phone: string;
+  amount: number;
+  daysLate: number;
+  reminderLevel: number;
+  dueDate: Date | null;
+}
 
 const getReminderBadge = (level: number) => {
   const configs = {
@@ -61,7 +30,26 @@ const getRowColor = (daysLate: number) => {
   return '';
 };
 
+const calculateDaysLate = (dueDate: Date | null): number => {
+  if (!dueDate) return 0;
+  const now = new Date();
+  const due = new Date(dueDate);
+  const diffTime = now.getTime() - due.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+};
+
+const calculateReminderLevel = (daysLate: number): number => {
+  if (daysLate >= 30) return 3;
+  if (daysLate >= 15) return 2;
+  if (daysLate >= 7) return 1;
+  return 1;
+};
+
 export function DebtTable() {
+  const [debtData, setDebtData] = useState<DebtData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedDebt, setSelectedDebt] = useState(null);
   const [isViewDebtModalOpen, setIsViewDebtModalOpen] = useState(false);
   const [isSendReminderModalOpen, setIsSendReminderModalOpen] = useState(false);
@@ -69,17 +57,53 @@ export function DebtTable() {
   const [isBatchSendReminderModalOpen, setIsBatchSendReminderModalOpen] = useState(false);
   const [reminderLevelFilter, setReminderLevelFilter] = useState('all');
 
-  const openViewDebtModal = (debt) => {
+  useEffect(() => {
+    fetchDebtData();
+  }, []);
+
+  const fetchDebtData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const invoices = await invoiceService.getUnpaid();
+      
+      // Map invoices to debt data format
+      const debts: DebtData[] = invoices.map((invoice: any) => {
+        const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+        const daysLate = calculateDaysLate(dueDate);
+        
+        return {
+          invoiceId: invoice.id || 0,
+          room: invoice.roomNumber || '-',
+          tenant: invoice.residentName || '-',
+          phone: '-', // Not available in invoice DTO
+          amount: invoice.remainingAmount || invoice.totalAmount || 0,
+          daysLate,
+          reminderLevel: calculateReminderLevel(daysLate),
+          dueDate,
+        };
+      });
+      
+      setDebtData(debts);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách công nợ');
+      console.error('Error fetching debt data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openViewDebtModal = (debt: any) => {
     setSelectedDebt(debt);
     setIsViewDebtModalOpen(true);
   };
 
-  const openSendReminderModal = (debt) => {
+  const openSendReminderModal = (debt: any) => {
     setSelectedDebt(debt);
     setIsSendReminderModalOpen(true);
   };
 
-  const openBlockAccountModal = (debt) => {
+  const openBlockAccountModal = (debt: any) => {
     setSelectedDebt(debt);
     setIsBlockAccountModalOpen(true);
   };
@@ -94,14 +118,52 @@ export function DebtTable() {
   });
 
   // Tính toán số liệu thống kê dựa trên dữ liệu đã lọc
-  const totalDebt = filteredData.reduce((sum, debt) => 
-    sum + parseFloat(debt.amount.replace(/\./g, '')), 0
-  );
+  const totalDebt = filteredData.reduce((sum, debt) => sum + debt.amount, 0);
   const totalRooms = filteredData.length;
   const over30Days = filteredData.filter(debt => debt.daysLate >= 30).length;
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 space-y-4">
+        <Loader2 size={48} className="animate-spin text-gray-400" />
+        <span className="text-gray-600">Đang tải dữ liệu công nợ...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button
+            onClick={fetchDebtData}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={fetchDebtData}
+          disabled={loading}
+          className="px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2"
+        >
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Filter size={16} />}
+          <span>Làm mới</span>
+        </button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
@@ -153,58 +215,67 @@ export function DebtTable() {
           <h2 className="text-lg text-gray-800">Danh sách công nợ - {filteredData.length} phòng</h2>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-300">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Số điện thoại</th>
-                <th className="px-6 py-3 text-right text-sm text-gray-600">Số tiền nợ (VNĐ)</th>
-                <th className="px-6 py-3 text-center text-sm text-gray-600">Số ngày trễ</th>
-                <th className="px-6 py-3 text-center text-sm text-gray-600">Cấp độ nhắc</th>
-                <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((debt, index) => (
-                <tr key={index} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysLate)}`}>
-                  <td className="px-6 py-4 text-sm text-gray-800">{debt.room}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{debt.tenant}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{debt.phone}</td>
-                  <td className="px-6 py-4 text-sm text-red-600 text-right">{debt.amount}</td>
-                  <td className="px-6 py-4 text-sm text-gray-800 text-center">{debt.daysLate}</td>
-                  <td className="px-6 py-4 text-center">
-                    {getReminderBadge(debt.reminderLevel)}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center space-x-2">
-                      <button className="p-2 hover:bg-gray-100 rounded" title="Xem lịch sử nhắc nợ" onClick={() => openViewDebtModal(debt)}>
-                        <Eye size={16} className="text-gray-600" />
-                      </button>
-                      <button className="p-2 hover:bg-gray-100 rounded" title="Gửi nhắc nợ" onClick={() => openSendReminderModal(debt)}>
-                        <Send size={16} className="text-gray-600" />
-                      </button>
-                      {debt.daysLate >= 30 && (
-                        <button className="p-2 hover:bg-gray-100 rounded" title="Chặn truy cập App" onClick={() => openBlockAccountModal(debt)}>
-                          <Ban size={16} className="text-red-600" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+        {filteredData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <FileText size={48} className="text-gray-300" />
+            <p className="text-gray-500">Không có công nợ nào</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-300">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Số điện thoại</th>
+                  <th className="px-6 py-3 text-right text-sm text-gray-600">Số tiền nợ (VNĐ)</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">Số ngày trễ</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">Cấp độ nhắc</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredData.map((debt) => (
+                  <tr key={debt.invoiceId} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysLate)}`}>
+                    <td className="px-6 py-4 text-sm text-gray-800">{debt.room}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{debt.tenant}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{debt.phone || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-red-600 text-right">{debt.amount.toLocaleString('vi-VN')}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800 text-center">{debt.daysLate}</td>
+                    <td className="px-6 py-4 text-center">
+                      {getReminderBadge(debt.reminderLevel)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <button className="p-2 hover:bg-gray-100 rounded" title="Xem lịch sử nhắc nợ" onClick={() => openViewDebtModal(debt)}>
+                          <Eye size={16} className="text-gray-600" />
+                        </button>
+                        <button className="p-2 hover:bg-gray-100 rounded" title="Gửi nhắc nợ" onClick={() => openSendReminderModal(debt)}>
+                          <Send size={16} className="text-gray-600" />
+                        </button>
+                        {debt.daysLate >= 30 && (
+                          <button className="p-2 hover:bg-gray-100 rounded" title="Chặn truy cập App" onClick={() => openBlockAccountModal(debt)}>
+                            <Ban size={16} className="text-red-600" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       
       {/* Warning Box */}
-      <div className="bg-red-50 border border-red-300 rounded p-4">
-        <p className="text-sm text-red-800">
-          <strong>⚠️ Cảnh báo:</strong> Phòng C-401 đã nợ quá 30 ngày. Nên áp dụng biện pháp "Chặn truy cập App" để nhắc nhở nghiêm khắc. Các phòng có nền màu đỏ/cam cần ưu tiên xử lý.
-        </p>
-      </div>
+      {over30Days > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded p-4">
+          <p className="text-sm text-red-800">
+            <strong>⚠️ Cảnh báo:</strong> Có {over30Days} phòng đã nợ quá 30 ngày. Nên áp dụng biện pháp "Chặn truy cập App" để nhắc nhở nghiêm khắc. Các phòng có nền màu đỏ/cam cần ưu tiên xử lý.
+          </p>
+        </div>
+      )}
 
       {/* Modals */}
       {isViewDebtModalOpen && selectedDebt && (

@@ -1,36 +1,94 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Download, Check } from 'lucide-react';
+import { ArrowLeft, Download, Check, Loader2 } from 'lucide-react';
 import { Home, X } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
+import { QRCodeSVG } from 'qrcode.react';
+import api from '../../lib/api';
+import { API_ENDPOINTS } from '../../lib/api-config';
 
 export function PaymentQR() {
   const navigate = useNavigate();
   const { bills, updateBillStatus } = useData();
   const [downloaded, setDownloaded] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [transactionCode, setTransactionCode] = useState('');
 
-  // Get current pending bill
+  // Get current pending bill (DEMO - in production, get from route params)
   const currentBill = bills.find(b => b.status === 'pending') || bills[0];
+  const total = currentBill.items.reduce((sum, item) => sum + item.total, 0);
+
+  // Initialize payment transaction on mount
+  useEffect(() => {
+    initializePayment();
+  }, []);
+
+  const initializePayment = async () => {
+    setLoading(true);
+    try {
+      // DEMO: For now, generate demo payment data
+      // In production, call: api.post(API_ENDPOINTS.PAYMENTS.INITIATE, {...})
+      
+      // Generate demo QR data
+      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(4, '0')}`;
+      const txnCode = `TXN-${Date.now()}`;
+      
+      // VietQR format: BankID|AccountNumber|Amount|Description|Template
+      const qrContent = `970436|1234567890|${total}|${currentBill.apartment} ${new Date().getMonth() + 1}/${new Date().getFullYear()}|qr_only`;
+      
+      setPaymentData({
+        qrContent,
+        invoiceNumber,
+        amount: total,
+        bankName: 'Vietcombank',
+        accountNumber: '1234567890',
+        accountName: 'BAN QUAN LY CHUNG CU ABC',
+        content: `${currentBill.apartment} ${invoiceNumber}`,
+      });
+      setTransactionCode(txnCode);
+    } catch (error) {
+      console.error('Error initializing payment:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDownload = () => {
     setDownloaded(true);
     setTimeout(() => setDownloaded(false), 2000);
   };
 
-  const handlePaymentSimulation = () => {
-    // Simulate payment success
-    setShowSuccess(true);
+  const handlePaymentConfirmation = async () => {
+    if (processing) return;
     
-    // Update bill status after 2 seconds
-    setTimeout(() => {
+    setProcessing(true);
+    try {
+      // DEMO: Call payment callback API to mark as paid
+      // In production: api.post(API_ENDPOINTS.PAYMENTS.CALLBACK, {...})
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Show success message
+      setShowSuccess(true);
+      
+      // Update bill status
       updateBillStatus(currentBill.id, 'paid');
       
-      // Navigate back to home after payment
+      // Navigate back to home after success
       setTimeout(() => {
         navigate('/resident');
-      }, 1500);
-    }, 2000);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error confirming payment:', error);
+      alert('Có lỗi xảy ra khi xác nhận thanh toán. Vui lòng thử lại!');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const onClose = () => {
@@ -98,48 +156,32 @@ export function PaymentQR() {
           </div>
 
           <div className="p-4 space-y-4">
-            {/* QR Code Card */}
-            <div className="bg-white rounded-xl p-5 border border-gray-200 text-center">
-              <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
-                Quét mã QR để thanh toán
-              </p>
-
-              {/* QR Code Image */}
-              <div className="flex justify-center mb-4">
-                <div className="bg-white p-3 rounded-xl border-4 border-gray-800 shadow-lg">
-                  {/* QR Code SVG - Smaller for mobile */}
-                  <svg width="200" height="200" viewBox="0 0 280 280" fill="none">
-                    <rect width="280" height="280" fill="white"/>
-                    {/* QR Pattern - Simplified */}
-                    <rect x="20" y="20" width="60" height="60" fill="black"/>
-                    <rect x="30" y="30" width="40" height="40" fill="white"/>
-                    <rect x="40" y="40" width="20" height="20" fill="black"/>
-                    
-                    <rect x="200" y="20" width="60" height="60" fill="black"/>
-                    <rect x="210" y="30" width="40" height="40" fill="white"/>
-                    <rect x="220" y="40" width="20" height="20" fill="black"/>
-                    
-                    <rect x="20" y="200" width="60" height="60" fill="black"/>
-                    <rect x="30" y="210" width="40" height="40" fill="white"/>
-                    <rect x="40" y="220" width="20" height="20" fill="black"/>
-
-                    {/* Random QR blocks */}
-                    <rect x="100" y="30" width="20" height="20" fill="black"/>
-                    <rect x="140" y="30" width="20" height="20" fill="black"/>
-                    <rect x="160" y="50" width="20" height="20" fill="black"/>
-                    <rect x="100" y="70" width="20" height="20" fill="black"/>
-                    <rect x="120" y="90" width="20" height="20" fill="black"/>
-                    <rect x="180" y="100" width="20" height="20" fill="black"/>
-                    <rect x="220" y="120" width="20" height="20" fill="black"/>
-                    <rect x="100" y="140" width="20" height="20" fill="black"/>
-                    <rect x="160" y="160" width="20" height="20" fill="black"/>
-                    <rect x="200" y="180" width="20" height="20" fill="black"/>
-                    <rect x="120" y="200" width="20" height="20" fill="black"/>
-                    <rect x="140" y="220" width="20" height="20" fill="black"/>
-                    <rect x="180" y="240" width="20" height="20" fill="black"/>
-                  </svg>
-                </div>
+            {loading ? (
+              <div className="bg-white rounded-xl p-8 border border-gray-200 text-center">
+                <Loader2 className="animate-spin mx-auto mb-3" size={32} color="var(--brand-primary)" />
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                  Đang tạo mã thanh toán...
+                </p>
               </div>
+            ) : paymentData ? (
+              <>
+                {/* QR Code Card */}
+                <div className="bg-white rounded-xl p-5 border border-gray-200 text-center">
+                  <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
+                    Quét mã QR để thanh toán
+                  </p>
+
+                  {/* QR Code Image */}
+                  <div className="flex justify-center mb-4">
+                    <div className="bg-white p-3 rounded-xl border-4 border-gray-800 shadow-lg">
+                      <QRCodeSVG 
+                        value={paymentData.qrContent}
+                        size={200}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                  </div>
 
               {/* Amount */}
               <div className="mb-4 p-3 bg-blue-50 rounded-xl">
@@ -147,7 +189,7 @@ export function PaymentQR() {
                   Số tiền thanh toán
                 </p>
                 <p style={{ fontSize: '20px', fontWeight: 700, color: 'var(--brand-primary)', marginTop: '2px' }}>
-                  2.450.000đ
+                  {paymentData.amount.toLocaleString('vi-VN')}đ
                 </p>
               </div>
 
@@ -189,7 +231,7 @@ export function PaymentQR() {
                     Ngân hàng
                   </p>
                   <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Vietcombank
+                    {paymentData.bankName}
                   </p>
                 </div>
 
@@ -198,7 +240,7 @@ export function PaymentQR() {
                     Số tài khoản
                   </p>
                   <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    1234567890
+                    {paymentData.accountNumber}
                   </p>
                 </div>
 
@@ -207,7 +249,7 @@ export function PaymentQR() {
                     Chủ tài khoản
                   </p>
                   <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Smart Building
+                    {paymentData.accountName}
                   </p>
                 </div>
 
@@ -216,7 +258,7 @@ export function PaymentQR() {
                     Nội dung
                   </p>
                   <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right' }}>
-                    A1205 022026
+                    {paymentData.content}
                   </p>
                 </div>
               </div>
@@ -235,20 +277,39 @@ export function PaymentQR() {
               </ol>
             </div>
 
-            {/* Simulate Payment Button - For Demo */}
+            {/* Payment Confirmation Button - Demo */}
             <button
-              onClick={handlePaymentSimulation}
-              className="w-full py-3 rounded-xl text-center shadow-md hover:shadow-lg transition-shadow"
+              onClick={handlePaymentConfirmation}
+              className="w-full py-3 rounded-xl text-center shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2"
               style={{
-                backgroundColor: '#1E7E34',
+                backgroundColor: showSuccess ? '#1E7E34' : '#FF5733',
                 color: '#FFF',
                 fontSize: '15px',
                 fontWeight: 700,
+                opacity: processing ? 0.7 : 1,
               }}
-              disabled={showSuccess}
+              disabled={showSuccess || processing}
             >
-              {showSuccess ? '✓ Đã thanh toán thành công!' : '🎯 Mô phỏng thanh toán (Demo)'}
+              {processing ? (
+                <>
+                  <Loader2 className="animate-spin" size={20} />
+                  <span>Đang xử lý...</span>
+                </>
+              ) : showSuccess ? (
+                <>
+                  <Check size={20} />
+                  <span>Thanh toán thành công!</span>
+                </>
+              ) : (
+                <>
+                  <span>✓ Đã hoàn thành chuyển khoản</span>
+                </>
+              )}
             </button>
+
+            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+              Nút này dành cho demo - Ấn sau khi bạn đã chuyển khoản thành công
+            </p>
 
             {/* Support */}
             <div className="text-center">
@@ -262,6 +323,8 @@ export function PaymentQR() {
                 Liên hệ hỗ trợ
               </button>
             </div>
+          </>
+        ) : null}
           </div>
         </div>
       </div>

@@ -78,6 +78,27 @@ export interface Payment {
   notes?: string;
 }
 
+export interface Service {
+  id: number;
+  serviceName: string;
+  serviceType: string;
+  unitPrice: number;
+  unit: string;
+  isMandatory: boolean;
+  description?: string;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  fullName?: string;
+  phoneNumber?: string;
+  role: string;
+  isLocked: boolean;
+  lastLogin?: string;
+  residentId?: number;
+}
+
 // Building Services
 export const buildingService = {
   getAll: async () => {
@@ -346,6 +367,15 @@ export const invoiceService = {
     }
   },
 
+  getUnpaid: async () => {
+    try {
+      const response = await api.get<Invoice[]>(API_ENDPOINTS.INVOICES.UNPAID);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
   getById: async (id: number) => {
     try {
       const response = await api.get<Invoice>(API_ENDPOINTS.INVOICES.BY_ID(id));
@@ -401,6 +431,104 @@ export const paymentService = {
   create: async (data: Omit<Payment, 'id' | 'paidAt'>) => {
     try {
       const response = await api.post<Payment>(API_ENDPOINTS.PAYMENTS.BASE, data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+};
+
+// Service Services
+export const serviceService = {
+  getAll: async () => {
+    try {
+      const response = await api.get<Service[]>(API_ENDPOINTS.SERVICES.BASE);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getById: async (id: number) => {
+    try {
+      const response = await api.get<Service>(API_ENDPOINTS.SERVICES.BY_ID(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  create: async (data: Omit<Service, 'id'>) => {
+    try {
+      const response = await api.post<Service>(API_ENDPOINTS.SERVICES.BASE, data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  update: async (id: number, data: Partial<Service>) => {
+    try {
+      const response = await api.put<Service>(API_ENDPOINTS.SERVICES.BY_ID(id), data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  delete: async (id: number) => {
+    try {
+      await api.delete(API_ENDPOINTS.SERVICES.BY_ID(id));
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+};
+
+// User Services
+export const userService = {
+  getAll: async () => {
+    try {
+      const response = await api.get<User[]>(API_ENDPOINTS.USERS.BASE);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getById: async (id: number) => {
+    try {
+      const response = await api.get<User>(API_ENDPOINTS.USERS.BY_ID(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  lock: async (id: number) => {
+    try {
+      const response = await api.post<User>(API_ENDPOINTS.USERS.LOCK(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  unlock: async (id: number) => {
+    try {
+      const response = await api.post<User>(API_ENDPOINTS.USERS.UNLOCK(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+};
+
+// Auth Services
+export const authService = {
+  getCurrentUser: async () => {
+    try {
+      const response = await api.get<User>(API_ENDPOINTS.AUTH.ME);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

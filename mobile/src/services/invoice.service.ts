@@ -56,10 +56,12 @@ class InvoiceService {
   private baseUrl = '/api/HoaDon';
 
   /**
-   * Get all invoices
+   * Get all invoices (only approved/paid - excludes Nháp)
    */
   async getAll(): Promise<Invoice[]> {
-    return apiService.get<Invoice[]>(this.baseUrl);
+    const all = await apiService.get<Invoice[]>(this.baseUrl);
+    // Filter out draft invoices - residents should not see Nháp
+    return all.filter(inv => inv.status !== 'Nháp' && inv.status !== 'Bị từ chối');
   }
 
   /**
@@ -152,6 +154,20 @@ class InvoiceService {
   isOverdue(invoice: Invoice): boolean {
     if (!invoice.dueDate || invoice.status === 'Đã thanh toán') return false;
     return new Date(invoice.dueDate) < new Date();
+  }
+
+  /**
+   * Check if invoice is "new" (approved/created within 48 hours)
+   */
+  isNew(invoice: Invoice): boolean {
+    if (!invoice.dueDate) return false;
+    // We use dueDate as a proxy; ideally use approvedAt but it's not in this DTO
+    // For now mark as new if created in the last 48h based on current date vs month/year
+    const now = new Date();
+    const invoiceDate = new Date(invoice.year, invoice.month - 1, 1);
+    const diffMs = now.getTime() - invoiceDate.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    return diffDays <= 2 && invoice.status === 'Chưa thanh toán';
   }
 
   /**

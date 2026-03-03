@@ -1,16 +1,19 @@
-import { Send, Filter } from 'lucide-react';
-import { useState } from 'react';
+import { Send, Filter, Loader2, AlertTriangle, FileX } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { BatchSendReminderModal } from '../finance/DebtModals';
+import { invoiceService } from '../../services/api.service';
 
-const debtData = [
-  { room: 'A-308', tenant: 'Nguyễn Văn X', phone: '0912345678', amount: 12350000, daysOverdue: 3, reminderCount: 0, category: 'under5', building: 'A', members: 4 },
-  { room: 'B-205', tenant: 'Trần Thị Y', phone: '0923456789', amount: 13200000, daysOverdue: 4, reminderCount: 0, category: 'under5', building: 'B', members: 3 },
-  { room: 'C-412', tenant: 'Lê Văn Z', phone: '0934567890', amount: 14500000, daysOverdue: 8, reminderCount: 1, category: 'mid', building: 'C', members: 2 },
-  { room: 'D-108', tenant: 'Phạm Thị M', phone: '0945678901', amount: 11800000, daysOverdue: 12, reminderCount: 2, category: 'mid', building: 'D', members: 4 },
-  { room: 'A-510', tenant: 'Hoàng Văn N', phone: '0956789012', amount: 15200000, daysOverdue: 14, reminderCount: 2, category: 'mid', building: 'A', members: 3 },
-  { room: 'B-615', tenant: 'Vũ Thị P', phone: '0967890123', amount: 10500000, daysOverdue: 35, reminderCount: 3, category: 'hard', building: 'B', members: 5 },
-  { room: 'C-203', tenant: 'Đỗ Văn Q', phone: '0978901234', amount: 16800000, daysOverdue: 42, reminderCount: 3, category: 'hard', building: 'C', members: 4 },
-];
+interface DebtData {
+  room: string;
+  tenant: string;
+  phone: string;
+  amount: number;
+  daysOverdue: number;
+  reminderCount: number;
+  category: string;
+  building: string;
+  members: number;
+}
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('vi-VN').format(value);
@@ -22,10 +25,67 @@ const getRowColor = (daysOverdue: number) => {
   return 'bg-yellow-50';
 };
 
+const getDaysOverdue = (dueDate: string): number => {
+  const due = new Date(dueDate);
+  const today = new Date();
+  const diffTime = today.getTime() - due.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return Math.max(0, diffDays);
+};
+
+const categorizeDebt = (daysOverdue: number): string => {
+  if (daysOverdue < 5) return 'under5';
+  if (daysOverdue <= 15) return 'mid';
+  return 'hard';
+};
+
 export function DebtReportContent() {
+  const [debtData, setDebtData] = useState<DebtData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [buildingFilter, setBuildingFilter] = useState('all');
   const [isBatchSendReminderModalOpen, setIsBatchSendReminderModalOpen] = useState(false);
+
+  useEffect(() => {
+    fetchDebtData();
+  }, []);
+
+  const fetchDebtData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const unpaidInvoices = await invoiceService.getUnpaid();
+      
+      const debts: DebtData[] = unpaidInvoices.map((invoice: any) => {
+        const daysOverdue = getDaysOverdue(invoice.dueDate || invoice.ngayHetHan || '');
+        const category = categorizeDebt(daysOverdue);
+        
+        // Extract building code from room number (e.g., "A-101" -> "A")
+        const roomNumber = invoice.roomNumber || invoice.soPhong || '';
+        const building = roomNumber.split('-')[0] || 'Unknown';
+        
+        return {
+          room: roomNumber,
+          tenant: invoice.tenantName || invoice.tenCuDan || 'N/A',
+          phone: invoice.phoneNumber || invoice.soDienThoai || '',
+          amount: invoice.totalAmount || invoice.tongTien || 0,
+          daysOverdue,
+          reminderCount: invoice.reminderCount || 0,
+          category,
+          building,
+          members: 1, // TODO: Get actual member count from contract/residency
+        };
+      });
+      
+      setDebtData(debts);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải dữ liệu công nợ');
+      console.error('Error fetching debt data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter data based on selections
   const filteredData = debtData.filter(debt => {
@@ -66,6 +126,49 @@ export function DebtReportContent() {
     reminderLevel: debt.reminderCount,
     members: debt.members
   }));
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <Loader2 size={48} className="animate-spin text-gray-400" />
+          <span className="text-gray-600">Đang tải dữ liệu công nợ...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertTriangle size={48} className="text-red-500" />
+          <p className="text-red-600 text-center">{error}</p>
+          <button 
+            onClick={fetchDebtData}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state
+  if (debtData.length === 0) {
+    return (
+      <div className="bg-white border-2 border-gray-300 rounded p-8">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <FileX size={48} className="text-gray-300" />
+          <p className="text-gray-500">Không có hóa đơn nợ nào</p>
+          <p className="text-sm text-gray-400">Tất cả hóa đơn đã được thanh toán</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
