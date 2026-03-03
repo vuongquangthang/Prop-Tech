@@ -28,7 +28,14 @@ public class HoaDonController : ControllerBase
     [HttpGet("unpaid")]
     public async Task<ActionResult<List<HoaDonDto>>> GetUnpaid()
     {
-        try { return Ok(await _hoaDonService.GetUnpaidInvoicesAsync()); }
+        try
+        {
+            var userId = GetCurrentUserId();
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+            // CuDan only sees their own unpaid invoices; staff sees all
+            int? filterUserId = (userRole == "CuDan") ? userId : null;
+            return Ok(await _hoaDonService.GetUnpaidInvoicesAsync(filterUserId));
+        }
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 

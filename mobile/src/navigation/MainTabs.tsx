@@ -40,8 +40,8 @@ export const MainTabs = () => {
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
-          height: 60,
-          paddingBottom: 8,
+          height: 84,
+          paddingBottom: 28,
           paddingTop: 8,
         },
         tabBarLabelStyle: {

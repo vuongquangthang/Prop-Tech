@@ -12,7 +12,7 @@ public interface IHoaDonService
 {
     Task<List<HoaDonDto>> GetAllAsync();
     Task<List<HoaDonDto>> GetByContractIdAsync(int contractId);
-    Task<List<HoaDonDto>> GetUnpaidInvoicesAsync();
+    Task<List<HoaDonDto>> GetUnpaidInvoicesAsync(int? userId = null);
     Task<List<HoaDonDto>> GetDraftInvoicesAsync();
     Task<HoaDonDto?> GetByIdAsync(int id);
     Task<HoaDonDto> CreateAsync(CreateHoaDonDto dto);
@@ -62,11 +62,29 @@ public class HoaDonService : IHoaDonService
         return invoices.Select(MapToDto).ToList();
     }
 
-    public async Task<List<HoaDonDto>> GetUnpaidInvoicesAsync()
+    public async Task<List<HoaDonDto>> GetUnpaidInvoicesAsync(int? userId = null)
     {
-        var invoices = await _hoaDonRepository.FindAsync(i => 
+        if (userId.HasValue && userId.Value > 0)
+        {
+            // Filter by current user's active contracts only
+            var invoices = await _context.HoaDons
+                .Include(hd => hd.HopDong).ThenInclude(hd => hd.Room)
+                .Include(hd => hd.HopDong).ThenInclude(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
+                .Include(hd => hd.ChiTietHoaDons).ThenInclude(ct => ct.Service)
+                .Include(hd => hd.ThanhToans)
+                .Where(hd =>
+                    (hd.Status == "Chưa thanh toán" || hd.Status == "Đã thanh toán một phần") &&
+                    hd.HopDong.ChiTietOs.Any(ct =>
+                        ct.Resident.Users.Any(u => u.Id == userId.Value) &&
+                        (ct.ToDate == null || ct.ToDate > DateTime.Now)))
+                .OrderByDescending(hd => hd.Year).ThenByDescending(hd => hd.Month)
+                .ToListAsync();
+            return invoices.Select(MapToDto).ToList();
+        }
+
+        var allInvoices = await _hoaDonRepository.FindAsync(i => 
             i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần");
-        return invoices.Select(MapToDto).ToList();
+        return allInvoices.Select(MapToDto).ToList();
     }
 
     public async Task<List<HoaDonDto>> GetDraftInvoicesAsync()

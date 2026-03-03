@@ -65,11 +65,6 @@ public class PaymentService : IPaymentService
         var remainingAmount = invoice.TotalAmount - paidAmount;
 
         // Validate payment amount
-        if (dto.Amount > remainingAmount)
-        {
-            throw new InvalidOperationException($"Số tiền thanh toán vượt quá số tiền còn lại ({remainingAmount:N0} VNĐ)");
-        }
-
         if (dto.Amount <= 0)
         {
             throw new InvalidOperationException("Số tiền thanh toán phải lớn hơn 0");
