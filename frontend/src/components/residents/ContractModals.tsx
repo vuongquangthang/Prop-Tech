@@ -1,9 +1,12 @@
 import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Mail, Plus, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
+import { Loader2 } from 'lucide-react';
 
 interface ContractModalProps {
   contract?: any;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
 interface FamilyMember {
@@ -16,23 +19,110 @@ interface FamilyMember {
   avatar: string;
 }
 
-export function CreateContractModal({ onClose }: ContractModalProps) {
-  // Start with empty family members array - user can add manually
+export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+
+  // API data
+  const [buildings, setBuildings] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+
+  // Form state - Step 1
+  const [selectedBuildingId, setSelectedBuildingId] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState('');
+
+  // Form state - Step 2 (tenant)
+  const [tenantName, setTenantName] = useState('');
+  const [tenantIdCard, setTenantIdCard] = useState('');
+  const [tenantPhone, setTenantPhone] = useState('');
+
+  // Form state - Step 3 (contract terms)
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [durationMonths, setDurationMonths] = useState('12');
+  const [monthlyRent, setMonthlyRent] = useState('');
+  const [deposit, setDeposit] = useState('');
+
+  // Loading/error
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    buildingService.getAll().then((data: any) => setBuildings(Array.isArray(data) ? data : data?.data ?? [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (selectedBuildingId) {
+      roomService.getAll().then((data: any) => {
+        const all = Array.isArray(data) ? data : data?.data ?? [];
+        const filtered = all.filter((r: any) => {
+          const floor = r.floor || r.floorId;
+          return floor?.buildingId?.toString() === selectedBuildingId || r.buildingId?.toString() === selectedBuildingId;
+        });
+        setRooms(filtered.length ? filtered : all);
+      }).catch(() => {});
+    }
+  }, [selectedBuildingId]);
 
   const handleRemoveMember = (id: string) => {
     setFamilyMembers(familyMembers.filter(member => member.id !== id));
   };
 
   const handleAddMember = (newMember: Omit<FamilyMember, 'id'>) => {
-    const member: FamilyMember = {
-      ...newMember,
-      id: Date.now().toString()
-    };
+    const member: FamilyMember = { ...newMember, id: Date.now().toString() };
     setFamilyMembers([...familyMembers, member]);
     setShowAddMemberModal(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedRoomId || !tenantName.trim() || !tenantIdCard.trim() || !tenantPhone.trim() || !startDate || !monthlyRent) {
+      setError('Vui lòng điền đầy đủ: Phòng, Họ tên, CCCD, SĐT chủ hộ, Ngày bắt đầu, Tiền thuê');
+      return;
+    }
+    setLoading(true); setError(null);
+    try {
+      // Create head of household resident
+      const tenantRes: any = await residentService.create({
+        fullName: tenantName.trim(),
+        phoneNumber: tenantPhone.trim(),
+        idCardNumber: tenantIdCard.trim(),
+      } as any);
+      const tenantResidentId = tenantRes?.id ?? tenantRes?.residentId ?? tenantRes?.data?.id;
+
+      // Create family member residents
+      const memberResidentIds: number[] = [];
+      for (const m of familyMembers) {
+        try {
+          const mr: any = await residentService.create({ fullName: m.name, phoneNumber: m.phone, idCardNumber: m.idCard } as any);
+          const mid = mr?.id ?? mr?.residentId ?? mr?.data?.id;
+          if (mid) memberResidentIds.push(mid);
+        } catch {}
+      }
+
+      // Calculate expected end date
+      const end = new Date(startDate);
+      end.setMonth(end.getMonth() + parseInt(durationMonths));
+
+      // Build residents array
+      const residentsPayload: any[] = [];
+      if (tenantResidentId) residentsPayload.push({ residentId: tenantResidentId, residencyRole: 'Người thuê chính', fromDate: startDate });
+      memberResidentIds.forEach(mid => residentsPayload.push({ residentId: mid, residencyRole: 'Thành viên', fromDate: startDate }));
+
+      await contractService.create({
+        roomId: parseInt(selectedRoomId),
+        startDate,
+        expectedEndDate: end.toISOString().split('T')[0],
+        actualRentPrice: parseFloat(monthlyRent.replace(/[^0-9.]/g, '')),
+        depositAmount: deposit ? parseFloat(deposit.replace(/[^0-9.]/g, '')) : undefined,
+        residents: residentsPayload,
+      } as any);
+
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Có lỗi xảy ra khi tạo hợp đồng');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,27 +149,38 @@ export function CreateContractModal({ onClose }: ContractModalProps) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Tòa nhà *</label>
-                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500">
+                <select
+                  value={selectedBuildingId}
+                  onChange={e => { setSelectedBuildingId(e.target.value); setSelectedRoomId(''); }}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                >
                   <option value="">Chọn tòa nhà...</option>
-                  <option value="A">Tòa A (15 phòng)</option>
-                  <option value="B">Tòa B (12 phòng)</option>
-                  <option value="C">Tòa C (18 phòng)</option>
-                  <option value="D">Tòa D (10 phòng)</option>
+                  {buildings.map((b: any) => (
+                    <option key={b.id ?? b.buildingId} value={b.id ?? b.buildingId}>{b.buildingName ?? b.name}</option>
+                  ))}
                 </select>
               </div>
               
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Phòng *</label>
-                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500">
+                <select
+                  value={selectedRoomId}
+                  onChange={e => setSelectedRoomId(e.target.value)}
+                  disabled={!selectedBuildingId}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500 disabled:bg-gray-100"
+                >
                   <option value="">Chọn phòng...</option>
-                  <option value="A-104">A-104 - 50m² (Đang trống) ✅</option>
-                  <option value="A-105">A-105 - 65m² (Đang trống) ✅</option>
-                  <option value="A-106">A-106 - 45m² (Đang trống) ✅</option>
-                  <option disabled>A-101 - 50m² (Đã thuê)</option>
-                  <option disabled>A-102 - 55m² (Đã thuê)</option>
+                  {rooms.map((r: any) => {
+                    const id = r.id ?? r.roomId;
+                    const code = r.roomCode ?? r.code ?? r.name;
+                    const area = r.area ? ` - ${r.area}m²` : '';
+                    const status = r.status ?? '';
+                    const isEmpty = status === 'Trống' || status === '' || status === 'empty';
+                    return <option key={id} value={id} disabled={!isEmpty}>{code}{area} ({isEmpty ? '✅ Trống' : status})</option>;
+                  })}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  🔗 Danh sách phòng đồng bộ từ <strong>Quản lý Hạ tầng → Cơ cấu tòa nhà</strong>
+                  🔗 Danh sách phòng từ <strong>Quản lý Hạ tầng → Cơ cấu tòa nhà</strong>
                 </p>
               </div>
             </div>
@@ -112,6 +213,8 @@ export function CreateContractModal({ onClose }: ContractModalProps) {
                   <input 
                     type="text"
                     placeholder="VD: Nguyễn Văn A"
+                    value={tenantName}
+                    onChange={e => setTenantName(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
@@ -120,6 +223,8 @@ export function CreateContractModal({ onClose }: ContractModalProps) {
                   <input 
                     type="text"
                     placeholder="VD: 001234567890"
+                    value={tenantIdCard}
+                    onChange={e => setTenantIdCard(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
@@ -128,6 +233,8 @@ export function CreateContractModal({ onClose }: ContractModalProps) {
                   <input 
                     type="text"
                     placeholder="VD: 0912345678"
+                    value={tenantPhone}
+                    onChange={e => setTenantPhone(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
@@ -253,17 +360,21 @@ export function CreateContractModal({ onClose }: ContractModalProps) {
                 <label className="block text-sm text-gray-700 mb-2">Ngày bắt đầu *</label>
                 <input 
                   type="date"
-                  defaultValue="2026-02-05"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Thời hạn *</label>
-                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" defaultValue="12">
+                <select
+                  value={durationMonths}
+                  onChange={e => setDurationMonths(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                >
                   <option value="6">6 tháng</option>
                   <option value="12">12 tháng</option>
                   <option value="24">24 tháng</option>
-                  <option value="custom">Tùy chỉnh...</option>
                 </select>
               </div>
             </div>
@@ -273,15 +384,19 @@ export function CreateContractModal({ onClose }: ContractModalProps) {
                 <label className="block text-sm text-gray-700 mb-2">Tiền thuê/tháng (VNĐ) *</label>
                 <input 
                   type="text"
-                  placeholder="VD: 8.500.000"
+                  placeholder="VD: 8500000"
+                  value={monthlyRent}
+                  onChange={e => setMonthlyRent(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Tiền cọc (VNĐ) *</label>
+                <label className="block text-sm text-gray-700 mb-2">Tiền cọc (VNĐ)</label>
                 <input 
                   type="text"
                   placeholder="Thường = 1 tháng thuê"
+                  value={deposit}
+                  onChange={e => setDeposit(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
@@ -365,29 +480,36 @@ export function CreateContractModal({ onClose }: ContractModalProps) {
           <div className="bg-blue-50 border border-blue-300 rounded p-4">
             <h4 className="text-sm text-blue-800 font-bold mb-2">📊 Tổng quan hợp đồng:</h4>
             <div className="grid grid-cols-2 gap-3 text-sm text-blue-800">
-              <div>• Phòng: <strong>A-104</strong> (50m²)</div>
-              <div>• Chủ hộ: <strong>Nguyễn Văn A</strong></div>
-              <div>• Số người ở: <strong>4 người</strong> (1 chủ + 3 thành viên)</div>
-              <div>• Thời hạn: <strong>05/02/2026 → 04/02/2027</strong></div>
-              <div>• Tiền thuê: <strong>8.500.000 VNĐ/tháng</strong></div>
-              <div>• Tiền cọc: <strong>8.500.000 VNĐ</strong></div>
+              <div>• Phòng: <strong>{selectedRoomId ? rooms.find(r => (r.id ?? r.roomId)?.toString() === selectedRoomId)?.roomCode ?? selectedRoomId : '(chưa chọn)'}</strong></div>
+              <div>• Chủ hộ: <strong>{tenantName || '(chưa nhập)'}</strong></div>
+              <div>• Số người ở: <strong>{1 + familyMembers.length} người</strong> (1 chủ + {familyMembers.length} thành viên)</div>
+              <div>• Thời hạn: <strong>{durationMonths} tháng</strong> từ {startDate}</div>
+              <div>• Tiền thuê: <strong>{monthlyRent || '—'} VNĐ/tháng</strong></div>
+              <div>• Tiền cọc: <strong>{deposit || '—'} VNĐ</strong></div>
             </div>
           </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{error}</p>
+          )}
         </div>
         
         <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
           <button 
             onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+            disabled={loading}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
           >
             Hủy
           </button>
           <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2 disabled:opacity-50"
           >
+            {loading && <Loader2 size={16} className="animate-spin" />}
             <Check size={16} />
-            <span>Tạo hợp đồng & Gửi Email cho 4 người</span>
+            <span>Tạo hợp đồng ({1 + familyMembers.length} người)</span>
           </button>
         </div>
       </div>

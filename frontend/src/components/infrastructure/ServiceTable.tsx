@@ -36,6 +36,22 @@ export function ServiceTable() {
   const [selectedService, setSelectedService] = useState<any>(null);
   const [serviceType, setServiceType] = useState<'fixed' | 'variable'>('fixed');
 
+  // Add form state
+  const [addName, setAddName] = useState('');
+  const [addUnit, setAddUnit] = useState('');
+  const [addPrice, setAddPrice] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // UpdatePrice form state
+  const [updateNewPrice, setUpdateNewPrice] = useState('');
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  // Delete state
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchServices();
   }, []);
@@ -48,12 +64,12 @@ export function ServiceTable() {
       
       const serviceData: ServiceData[] = data.map((service: any) => ({
         id: service.id || 0,
-        name: service.serviceName || service.tenDichVu || '',
+        name: service.name || service.serviceName || service.tenDichVu || '',
         type: service.serviceType || service.loaiDichVu || 'Cố định',
         unit: service.unit || service.donVi || '',
-        price: service.unitPrice || service.donGia || 0,
+        price: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
         date: service.effectiveDate || service.ngayHieuLuc || '01/01/2026',
-        mandatory: service.isMandatory !== undefined ? service.isMandatory : true,
+        mandatory: service.isActive !== undefined ? service.isActive : (service.isMandatory !== undefined ? service.isMandatory : true),
       }));
       
       setServices(serviceData);
@@ -67,11 +83,14 @@ export function ServiceTable() {
 
   const handleUpdatePriceClick = (service: any) => {
     setSelectedService(service);
+    setUpdateNewPrice('');
+    setUpdateError(null);
     setShowUpdatePriceModal(true);
   };
 
   const handleDeleteClick = (service: any) => {
     setSelectedService(service);
+    setDeleteError(null);
     setShowDeleteModal(true);
   };
 
@@ -80,9 +99,64 @@ export function ServiceTable() {
     setShowHistoryModal(true);
   };
 
-  const handleDeleteConfirm = () => {
-    // Logic to delete the service
-    setShowDeleteModal(false);
+  const openAddModal = () => {
+    setAddName(''); setAddUnit(''); setAddPrice(''); setAddError(null);
+    setServiceType('fixed');
+    setShowAddModal(true);
+  };
+
+  const handleAddSubmit = async () => {
+    if (!addName.trim() || !addPrice) {
+      setAddError('Vui lòng nhập tên dịch vụ và đơn giá');
+      return;
+    }
+    setAddLoading(true); setAddError(null);
+    try {
+      await serviceService.create({
+        name: addName.trim(),
+        serviceType: serviceType === 'fixed' ? 'Cố định' : 'Biến đổi',
+        unit: addUnit.trim() || undefined,
+        commonUnitPrice: parseFloat(addPrice),
+      } as any);
+      await fetchServices();
+      setShowAddModal(false);
+    } catch (err: any) {
+      setAddError(err.message || 'Có lỗi xảy ra, vui lòng thử lại');
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const handleUpdatePriceSubmit = async () => {
+    if (!updateNewPrice) {
+      setUpdateError('Vui lòng nhập đơn giá mới');
+      return;
+    }
+    setUpdateLoading(true); setUpdateError(null);
+    try {
+      await serviceService.update(selectedService.id, {
+        commonUnitPrice: parseFloat(updateNewPrice),
+      } as any);
+      await fetchServices();
+      setShowUpdatePriceModal(false);
+    } catch (err: any) {
+      setUpdateError(err.message || 'Có lỗi xảy ra, vui lòng thử lại');
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true); setDeleteError(null);
+    try {
+      await serviceService.delete(selectedService.id);
+      await fetchServices();
+      setShowDeleteModal(false);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Có lỗi xảy ra, vui lòng thử lại');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleDeleteCancel = () => {
@@ -131,10 +205,7 @@ export function ServiceTable() {
         </div>
         
         <button 
-          onClick={() => {
-            setServiceType('fixed'); // Reset to default
-            setShowAddModal(true);
-          }}
+          onClick={openAddModal}
           className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
         >
           <Plus size={16} />
@@ -256,6 +327,8 @@ export function ServiceTable() {
                 <input 
                   type="text"
                   placeholder="VD: Phí giặt ủi, Phí an ninh..."
+                  value={addName}
+                  onChange={e => setAddName(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
@@ -266,22 +339,14 @@ export function ServiceTable() {
                 <div className="flex space-x-2">
                   <button 
                     type="button"
-                    className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${
-                      serviceType === 'fixed'
-                        ? 'bg-gray-800 text-white border-gray-800'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
+                    className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${serviceType === 'fixed' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                     onClick={() => setServiceType('fixed')}
                   >
                     Cố định
                   </button>
                   <button 
                     type="button"
-                    className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${
-                      serviceType === 'variable'
-                        ? 'bg-gray-800 text-white border-gray-800'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
+                    className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${serviceType === 'variable' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                     onClick={() => setServiceType('variable')}
                   >
                     Biến đổi
@@ -300,73 +365,43 @@ export function ServiceTable() {
                   <input 
                     type="text"
                     placeholder="VD: Tháng, kWh, m³..."
+                    value={addUnit}
+                    onChange={e => setAddUnit(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Đơn giá (VNĐ) *</label>
                   <input 
-                    type="text"
-                    placeholder="VD: 200.000"
+                    type="number"
+                    placeholder="VD: 200000"
+                    value={addPrice}
+                    onChange={e => setAddPrice(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
               </div>
 
-              {/* Apply Date */}
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">Ngày áp dụng *</label>
-                <input 
-                  type="date"
-                  defaultValue="2026-02-05"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                />
-              </div>
-
-              {/* Mandatory Service */}
-              <div className="flex items-start space-x-2 pt-2">
-                <input type="checkbox" id="mandatory" className="w-4 h-4 mt-1" />
-                <div>
-                  <label htmlFor="mandatory" className="text-sm text-gray-700 cursor-pointer">
-                    Dịch vụ bắt buộc
-                  </label>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Dịch vụ bắt buộc không thể xóa và sẽ áp dụng cho tất cả hóa đơn
-                  </p>
-                </div>
-              </div>
-
-              {/* Sync with Invoice */}
-              <div className="bg-blue-50 border border-blue-300 rounded p-4">
-                <p className="text-xs text-blue-800">
-                  💡 <strong>Đồng bộ dữ liệu:</strong> Dịch vụ này sẽ tự động xuất hiện trong phần{' '}
-                  <strong>Hóa đơn & Tài chính → Quản lý Hóa đơn</strong> khi tạo hóa đơn mới
-                </p>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">Mô tả</label>
-                <textarea 
-                  rows={2}
-                  placeholder="Mô tả chi tiết về dịch vụ..."
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                />
-              </div>
+              {addError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{addError}</p>
+              )}
             </div>
             
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
               <button 
                 onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                disabled={addLoading}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 Hủy
               </button>
               <button 
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+                onClick={handleAddSubmit}
+                disabled={addLoading}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
               >
-                Xác nhận thêm
+                {addLoading && <Loader2 size={14} className="animate-spin" />}
+                <span>Xác nhận thêm</span>
               </button>
             </div>
           </div>
@@ -405,8 +440,10 @@ export function ServiceTable() {
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Đơn giá mới (VNĐ) *</label>
                 <input 
-                  type="text"
-                  placeholder={selectedService.price}
+                  type="number"
+                  placeholder={String(selectedService.price)}
+                  value={updateNewPrice}
+                  onChange={e => setUpdateNewPrice(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
@@ -441,20 +478,27 @@ export function ServiceTable() {
                   Bạn có thể xem lại bằng cách nhấn vào nút <History size={12} className="inline" /> ở bảng danh sách.
                 </p>
               </div>
+
+              {updateError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{updateError}</p>
+              )}
             </div>
             
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
               <button 
                 onClick={() => setShowUpdatePriceModal(false)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                disabled={updateLoading}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 Hủy
               </button>
               <button 
-                onClick={() => setShowUpdatePriceModal(false)}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+                onClick={handleUpdatePriceSubmit}
+                disabled={updateLoading}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
               >
-                Xác nhận cập nhật
+                {updateLoading && <Loader2 size={14} className="animate-spin" />}
+                <span>Xác nhận cập nhật</span>
               </button>
             </div>
           </div>
@@ -560,20 +604,27 @@ export function ServiceTable() {
                   Các hóa đơn đã tạo trước đó vẫn giữ nguyên thông tin dịch vụ này.
                 </p>
               </div>
+
+              {deleteError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{deleteError}</p>
+              )}
             </div>
             
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
               <button 
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                onClick={handleDeleteCancel}
+                disabled={deleteLoading}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 Hủy
               </button>
               <button 
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
               >
-                Xác nhận xóa
+                {deleteLoading && <Loader2 size={14} className="animate-spin" />}
+                <span>Xác nhận xóa</span>
               </button>
             </div>
           </div>

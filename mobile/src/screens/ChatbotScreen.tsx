@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import apiService from '../services/api.service';
 
 interface Message {
   id: string;
@@ -58,15 +57,21 @@ export default function ChatbotScreen() {
     setIsTyping(true);
 
     try {
-      // Call backend chatbot API
-      const response = await apiService.post<{ messageText: string }>('/api/Chat/send', {
-        messageText: userMessageText,
-      });
+      // Call n8n AI webhook directly (no CORS issue on mobile)
+      const res = await fetch(
+        'https://lhdpo.app.n8n.cloud/webhook/4091fa09-fb9a-4039-9411-7104d213f601/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatInput: userMessageText }),
+        }
+      );
+      const data = await res.json();
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        text: response.messageText || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?',
+        text: data.output || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?',
       };
       setMessages(prev => [...prev, botMessage]);
     } catch (error: any) {

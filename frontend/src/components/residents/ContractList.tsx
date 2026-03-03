@@ -248,7 +248,7 @@ export function ContractList() {
 
       {/* Modals */}
       {isCreateModalOpen && (
-        <CreateContractModal onClose={() => setIsCreateModalOpen(false)} />
+        <CreateContractModal onClose={() => setIsCreateModalOpen(false)} onSuccess={fetchContracts} />
       )}
       
       {isViewModalOpen && selectedContract && (

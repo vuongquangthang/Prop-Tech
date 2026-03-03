@@ -58,5 +58,13 @@
       port: 3000,
       strictPort: false, // Tự động dùng port khác nếu 3000 bị chiếm
       open: true,
+      proxy: {
+        '/n8n-proxy': {
+          target: 'https://lhdpo.app.n8n.cloud',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/n8n-proxy/, ''),
+          secure: true,
+        },
+      },
     },
   });

@@ -4,28 +4,31 @@ import { API_ENDPOINTS } from '../lib/api-config';
 // Types
 export interface Building {
   id: number;
-  buildingCode: string;
+  buildingCode?: string;
   buildingName: string;
   address?: string;
-  totalFloors: number;
+  numberOfFloors: number;
+  totalRooms?: number;
   description?: string;
 }
 
 export interface Floor {
   id: number;
   buildingId: number;
-  floorCode: string;
+  buildingName?: string;
   floorNumber: number;
-  description?: string;
+  totalRooms?: number;
 }
 
 export interface Room {
   id: number;
   floorId: number;
+  buildingId?: number;
+  buildingName?: string;
+  floorNumber?: number;
   roomCode: string;
-  roomNumber: string;
-  area: number;
-  monthlyRent: number;
+  area?: number;
+  defaultRentPrice?: number;
   status: string;
   description?: string;
 }
@@ -80,12 +83,11 @@ export interface Payment {
 
 export interface Service {
   id: number;
-  serviceName: string;
+  name: string;
   serviceType: string;
-  unitPrice: number;
-  unit: string;
-  isMandatory: boolean;
-  description?: string;
+  unit?: string;
+  commonUnitPrice?: number;
+  isActive: boolean;
 }
 
 export interface User {

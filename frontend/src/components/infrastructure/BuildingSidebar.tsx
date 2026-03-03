@@ -24,6 +24,16 @@ export function BuildingSidebar() {
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addType, setAddType] = useState<'building' | 'floor'>('building');
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  // Building form fields
+  const [buildingName, setBuildingName] = useState('');
+  const [totalFloorsInput, setTotalFloorsInput] = useState('');
+  const [address, setAddress] = useState('');
+  // Floor form fields
+  const [selectedBuildingId, setSelectedBuildingId] = useState<number>(0);
+  const [floorCode, setFloorCode] = useState('');
+  const [floorNumber, setFloorNumber] = useState('');
 
   useEffect(() => {
     fetchBuildings();
@@ -45,7 +55,7 @@ export function BuildingSidebar() {
               id: building.id || building.toaNhaId || 0,
               buildingName: building.buildingName || building.tenToaNha || '',
               buildingCode: building.buildingCode || building.maToaNha || '',
-              totalFloors: building.totalFloors || building.soTang || 0,
+              totalFloors: (building as any).numberOfFloors || building.totalFloors || building.soTang || 0,
               floors: floors.map((f: any) => ({
                 id: f.id || f.tangId || 0,
                 floorNumber: f.floorNumber || f.soTang || 0,
@@ -58,7 +68,7 @@ export function BuildingSidebar() {
               id: building.id || building.toaNhaId || 0,
               buildingName: building.buildingName || building.tenToaNha || '',
               buildingCode: building.buildingCode || building.maToaNha || '',
-              totalFloors: building.totalFloors || building.soTang || 0,
+              totalFloors: (building as any).numberOfFloors || building.totalFloors || building.soTang || 0,
               floors: []
             };
           }
@@ -85,6 +95,49 @@ export function BuildingSidebar() {
   const handleAddClick = () => {
     setShowAddModal(true);
     setAddType('building');
+    setBuildingName('');
+    setTotalFloorsInput('');
+    setAddress('');
+    setFloorCode('');
+    setFloorNumber('');
+    setSelectedBuildingId(buildings.length > 0 ? buildings[0].id : 0);
+    setFormError(null);
+  };
+
+  const handleSubmit = async () => {
+    setFormError(null);
+    setFormLoading(true);
+    try {
+      if (addType === 'building') {
+        if (!buildingName.trim() || !totalFloorsInput) {
+          setFormError('Vui lòng nhập tên tòa nhà và số tầng');
+          setFormLoading(false);
+          return;
+        }
+        await buildingService.create({
+          buildingName: buildingName.trim(),
+          address: address.trim() || '',
+          numberOfFloors: parseInt(totalFloorsInput),
+        } as any);
+      } else {
+        const bid = selectedBuildingId || (buildings[0]?.id ?? 0);
+        if (!bid || !floorNumber) {
+          setFormError('Vui lòng chọn tòa nhà và nhập số thứ tự tầng');
+          setFormLoading(false);
+          return;
+        }
+        await floorService.create({
+          buildingId: bid,
+          floorNumber: parseInt(floorNumber),
+        } as any);
+      }
+      await fetchBuildings();
+      setShowAddModal(false);
+    } catch (err: any) {
+      setFormError(err.message || 'Có lỗi xảy ra, vui lòng thử lại');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   return (
@@ -246,6 +299,8 @@ export function BuildingSidebar() {
                     <input 
                       type="text"
                       placeholder="VD: Tòa D, Tòa E..."
+                      value={buildingName}
+                      onChange={e => setBuildingName(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     />
                   </div>
@@ -257,6 +312,8 @@ export function BuildingSidebar() {
                       type="number"
                       placeholder="VD: 5"
                       min="1"
+                      value={totalFloorsInput}
+                      onChange={e => setTotalFloorsInput(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     />
                   </div>
@@ -267,6 +324,8 @@ export function BuildingSidebar() {
                     <textarea 
                       rows={2}
                       placeholder="Nhập địa chỉ chi tiết..."
+                      value={address}
+                      onChange={e => setAddress(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     />
                   </div>
@@ -276,7 +335,10 @@ export function BuildingSidebar() {
                   {/* Select Building */}
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Chọn tòa nhà *</label>
-                    <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+                    <select
+                      value={selectedBuildingId}
+                      onChange={e => setSelectedBuildingId(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
                       {loading ? (
                         <option>Đang tải...</option>
                       ) : buildings.length === 0 ? (
@@ -291,12 +353,27 @@ export function BuildingSidebar() {
                     </select>
                   </div>
 
-                  {/* Floor Name */}
+                  {/* Floor Code */}
                   <div>
-                    <label className="block text-sm text-gray-700 mb-2">Tên tầng *</label>
+                    <label className="block text-sm text-gray-700 mb-2">Mã tầng *</label>
                     <input 
                       type="text"
-                      placeholder="VD: Tầng 6, Tầng Hầm..."
+                      placeholder="VD: T1, T2, TH..."
+                      value={floorCode}
+                      onChange={e => setFloorCode(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    />
+                  </div>
+
+                  {/* Floor Number */}
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Số thứ tự tầng *</label>
+                    <input 
+                      type="number"
+                      placeholder="VD: 1, 2, 3..."
+                      min="1"
+                      value={floorNumber}
+                      onChange={e => setFloorNumber(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     />
                   </div>
@@ -312,20 +389,27 @@ export function BuildingSidebar() {
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
+
+              {formError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{formError}</p>
+              )}
             </div>
             
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
               <button 
                 onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                disabled={formLoading}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 Hủy
               </button>
               <button 
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+                onClick={handleSubmit}
+                disabled={formLoading}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
               >
-                Xác nhận thêm
+                {formLoading && <Loader2 size={14} className="animate-spin" />}
+                <span>Xác nhận thêm</span>
               </button>
             </div>
           </div>

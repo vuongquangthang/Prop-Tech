@@ -111,7 +111,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex flex-col" style={{ width: '340px', backgroundColor: 'var(--surface-card)', borderRight: '1px solid var(--surface-border)', marginTop: '10px' }}>
+    <aside className="flex flex-col" style={{ width: '340px', backgroundColor: 'var(--surface-card)', borderRight: '1px solid var(--surface-border)' }}>
       {/* Logo */}
       <div className="h-16 flex items-center" style={{ borderBottom: '1px solid var(--surface-border)', paddingLeft: '24px', gap: '12px' }}>
         {/* Icon Box */}

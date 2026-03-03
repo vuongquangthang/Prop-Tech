@@ -228,14 +228,16 @@ export function ResidentTable() {
       {/* Modals */}
       {showAddModal && (
         <AddResidentModal 
-          onClose={() => setShowAddModal(false)} 
+          onClose={() => setShowAddModal(false)}
+          onSuccess={fetchResidents}
         />
       )}
 
       {showEditModal && selectedResident && (
         <EditResidentModal 
           resident={selectedResident} 
-          onClose={() => setShowEditModal(false)} 
+          onClose={() => setShowEditModal(false)}
+          onSuccess={fetchResidents}
         />
       )}
 
@@ -249,14 +251,16 @@ export function ResidentTable() {
       {showLockModal && selectedResident && (
         <LockAccountModal 
           resident={selectedResident} 
-          onClose={() => setShowLockModal(false)} 
+          onClose={() => setShowLockModal(false)}
+          onSuccess={fetchResidents}
         />
       )}
 
       {showUnlockModal && selectedResident && (
         <UnlockAccountModal 
           resident={selectedResident} 
-          onClose={() => setShowUnlockModal(false)} 
+          onClose={() => setShowUnlockModal(false)}
+          onSuccess={fetchResidents}
         />
       )}
     </div>
