@@ -1,32 +1,42 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Eye, Send, Filter, CheckCircle, X, RefreshCw, AlertTriangle, ChevronRight, FileText } from 'lucide-react';
+import { Eye, Send, Filter, CheckCircle, X, RefreshCw, FileText, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
+import { InvoiceDetailModal } from './InvoiceDetailModal';
 
 interface LineItem {
   id: number;
   itemType: string;
-  serviceId?: number;
-  serviceName?: string;
+  description?: string;
   quantity?: number;
   unitPrice?: number;
-  subtotal: number;
-  description?: string;
+  amount: number;
+  tierInfo?: string;
 }
 
 interface Invoice {
   id: number;
-  contractId: number;
-  roomId?: number;
-  roomNumber?: string;
-  residentName?: string;
-  month: number;
-  year: number;
+  invoiceNumber: string;
+  billingPeriodId: number;
+  roomId: number;
+  roomCode: string;
+  headcount?: number;
+  roomCharge?: number;
+  waterCharge?: number;
+  electricityCharge?: number;
+  serviceCharge?: number;
   totalAmount: number;
   paidAmount: number;
   status: string;
+  issueDate?: string;
   dueDate?: string;
-  lineItems: LineItem[];
+  confirmedAt?: string;
+  paidAt?: string;
+  lineItems?: LineItem[];
+  // extra fields that may come from detail endpoint
+  residentName?: string;
+  month?: number;
+  year?: number;
 }
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
@@ -39,32 +49,46 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
 };
 
 const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
-  'Nháp': { label: 'Nháp', color: 'bg-gray-100 text-gray-800 border-gray-300' },
+  'Draft':     { label: 'Nháp',          color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  'Nháp':      { label: 'Nháp',          color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  'Issued':    { label: 'Chờ thanh toán', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
   'Chưa thanh toán': { label: 'Chờ thanh toán', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+  'PartiallyPaid': { label: 'TT một phần', color: 'bg-blue-100 text-blue-800 border-blue-300' },
   'Đã thanh toán một phần': { label: 'TT một phần', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  'Paid':      { label: 'Đã thanh toán', color: 'bg-green-100 text-green-800 border-green-300' },
   'Đã thanh toán': { label: 'Đã thanh toán', color: 'bg-green-100 text-green-800 border-green-300' },
-  'Bị từ chối': { label: 'Bị từ chối', color: 'bg-red-100 text-red-800 border-red-300' },
+  'Overdue':   { label: 'Quá hạn',       color: 'bg-red-100 text-red-800 border-red-300' },
+  'Void':      { label: 'Đã hủy',        color: 'bg-gray-200 text-gray-500 border-gray-300' },
+  'Bị từ chối': { label: 'Bị từ chối',  color: 'bg-red-100 text-red-800 border-red-300' },
 };
+
+const isDraft = (inv: Invoice) => inv.status === 'Draft' || inv.status === 'Nháp';
+const isPending = (inv: Invoice) => inv.status === 'Issued' || inv.status === 'Chưa thanh toán' || inv.status === 'PartiallyPaid' || inv.status === 'Đã thanh toán một phần';
+const isPaid = (inv: Invoice) => inv.status === 'Paid' || inv.status === 'Đã thanh toán';
 
 export function InvoiceTable() {
   const currentDate = new Date();
   const [activeTab, setActiveTab] = useState('draft');
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
 
   // Calculate state (draft tab)
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
   const [calculating, setCalculating] = useState(false);
   const [calcResult, setCalcResult] = useState<{ totalInvoices: number; totalAmount: number; skipped: number; skippedReasons: string[]; errors: string[] } | null>(null);
+  const [showCalcPanel, setShowCalcPanel] = useState(false);
 
   // Selection & approve state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [approving, setApproving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Detail state
+  // Detail modal state
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [modalInvoiceId, setModalInvoiceId] = useState<number | null>(null);
+  const modalInvoice = modalInvoiceId ? allInvoices.find(i => i.id === modalInvoiceId) : null;
 
   // Messages
   const [successMsg, setSuccessMsg] = useState('');
@@ -86,23 +110,30 @@ export function InvoiceTable() {
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
 
   const isOverdue = (inv: Invoice) =>
-    (inv.status === 'Chưa thanh toán' || inv.status === 'Đã thanh toán một phần') &&
-    !!inv.dueDate && new Date(inv.dueDate) < currentDate;
+    isPending(inv) && !!inv.dueDate && new Date(inv.dueDate) < currentDate;
 
   const tabs = [
-    { key: 'draft', label: 'Nháp', count: allInvoices.filter(i => i.status === 'Nháp').length },
-    { key: 'pending', label: 'Chờ thanh toán', count: allInvoices.filter(i => (i.status === 'Chưa thanh toán' || i.status === 'Đã thanh toán một phần') && !isOverdue(i)).length },
-    { key: 'paid', label: 'Đã thanh toán', count: allInvoices.filter(i => i.status === 'Đã thanh toán').length },
-    { key: 'overdue', label: 'Quá hạn', count: allInvoices.filter(i => isOverdue(i)).length },
+    { key: 'draft',   label: 'Nhập',           count: allInvoices.filter(isDraft).length },
+    { key: 'pending', label: 'Chờ thanh toán',  count: allInvoices.filter(i => isPending(i) && !isOverdue(i)).length },
+    { key: 'paid',    label: 'Đã thanh toán',   count: allInvoices.filter(isPaid).length },
+    { key: 'overdue', label: 'Quá hạn',         count: allInvoices.filter(isOverdue).length },
   ];
 
-  const filteredInvoices = allInvoices.filter(inv => {
-    if (activeTab === 'draft') return inv.status === 'Nháp';
-    if (activeTab === 'pending') return (inv.status === 'Chưa thanh toán' || inv.status === 'Đã thanh toán một phần') && !isOverdue(inv);
-    if (activeTab === 'paid') return inv.status === 'Đã thanh toán';
+  const tabFiltered = allInvoices.filter(inv => {
+    if (activeTab === 'draft')   return isDraft(inv);
+    if (activeTab === 'pending') return isPending(inv) && !isOverdue(inv);
+    if (activeTab === 'paid')    return isPaid(inv);
     if (activeTab === 'overdue') return isOverdue(inv);
     return true;
   });
+
+  const filteredInvoices = search.trim()
+    ? tabFiltered.filter(inv =>
+        inv.invoiceNumber?.toLowerCase().includes(search.toLowerCase()) ||
+        inv.roomCode?.toLowerCase().includes(search.toLowerCase()) ||
+        inv.residentName?.toLowerCase().includes(search.toLowerCase())
+      )
+    : tabFiltered;
 
   const handleCalculate = async () => {
     setCalculating(true);
@@ -133,10 +164,14 @@ export function InvoiceTable() {
     setErrors([]);
     setSuccessMsg('');
     setShowConfirm(false);
+    // If none selected, approve all drafts
+    const idsToApprove = selectedIds.size > 0
+      ? Array.from(selectedIds)
+      : filteredInvoices.filter(isDraft).map(i => i.id);
     try {
       const res = await api.post<{ success: number; failed: number; errors: string[] }>(
         API_ENDPOINTS.INVOICES.APPROVE_BATCH,
-        { invoiceIds: Array.from(selectedIds) }
+        { invoiceIds: idsToApprove }
       );
       if (res.data.errors.length > 0) setErrors(res.data.errors);
       setSuccessMsg(`✅ Đã phê duyệt ${res.data.success} hóa đơn và gửi thông báo cho cư dân.${res.data.failed > 0 ? ` ${res.data.failed} lỗi.` : ''}`);
@@ -186,109 +221,138 @@ export function InvoiceTable() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-between)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>Quản lý Hóa đơn</h1>
-          <p style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
             Tính toán, xem xét và theo dõi toàn bộ hóa đơn
           </p>
         </div>
         <button
           onClick={loadInvoices}
           disabled={loading}
-          style={{ padding: '8px 16px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          style={{ padding: '8px 16px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}
         >
           <RefreshCw size={16} />
           Làm mới
         </button>
       </div>
 
-      {/* Calculate section — shown only in Draft tab */}
-      {activeTab === 'draft' && (
-        <div style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)', padding: 'var(--space-card)' }}>
-          <h2 style={{ fontSize: 'var(--type-section-title)', fontWeight: 600, marginBottom: '16px' }}>Tính toán hóa đơn</h2>
-          <div className="flex items-center gap-4">
-            <Filter size={18} style={{ color: 'var(--text-secondary)' }} />
+      {/* Messages */}
+      {successMsg && (
+        <div className="bg-green-50 border border-green-300 rounded-lg p-3 flex items-center gap-2">
+          <CheckCircle size={16} className="text-green-600 shrink-0" />
+          <span className="text-sm text-green-800">{successMsg}</span>
+          <button onClick={() => setSuccessMsg('')} className="ml-auto"><X size={14} /></button>
+        </div>
+      )}
+      {errors.length > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded-lg p-3">
+          {errors.map((e, i) => <p key={i} className="text-sm text-red-800">⚠️ {e}</p>)}
+          <button onClick={() => setErrors([])} className="text-xs text-red-600 mt-1">Đóng</button>
+        </div>
+      )}
+
+      {/* Tabs row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0' }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => { setActiveTab(tab.key); setSelectedInvoice(null); setSelectedIds(new Set()); setSearch(''); }}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: activeTab === tab.key ? 600 : 400,
+              border: '1px solid',
+              borderBottom: activeTab === tab.key ? '1px solid white' : '1px solid var(--surface-border)',
+              borderColor: activeTab === tab.key ? 'var(--surface-border)' : 'transparent',
+              borderRadius: '6px 6px 0 0',
+              backgroundColor: activeTab === tab.key ? 'white' : 'transparent',
+              color: activeTab === tab.key ? 'var(--text-primary)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              position: 'relative',
+              bottom: '-1px',
+            }}
+          >
+            {tab.label}{' '}
+            <span style={{ fontWeight: 400 }}>({tab.count})</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Toolbar: filter left, actions right */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Filter size={18} style={{ color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }} />
+        <input
+          type="text"
+          placeholder="Tìm mã hóa đơn, phòng..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ padding: '7px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: '14px', width: '220px', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
+        />
+        <div style={{ flex: 1 }} />
+        {activeTab === 'draft' && (
+          <>
+            {/* Collapse-able calculate panel trigger */}
+            <button
+              onClick={() => setShowCalcPanel(v => !v)}
+              style={{ padding: '8px 14px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: 'var(--text-secondary)' }}
+            >
+              Tính hóa đơn
+              {showCalcPanel ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            <button
+              onClick={() => { if (selectedIds.size === 0) { setSelectedIds(new Set(filteredInvoices.map(i => i.id))); setShowConfirm(true); } else setShowConfirm(true); }}
+              disabled={approving || filteredInvoices.length === 0}
+              style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', opacity: (approving || filteredInvoices.length === 0) ? 0.5 : 1 }}
+            >
+              <Send size={16} />
+              Phê duyệt &amp; Gửi hàng loạt
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Collapsible Calculate panel */}
+      {activeTab === 'draft' && showCalcPanel && (
+        <div style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)', padding: '16px' }}>
+          <div className="flex items-center gap-4 flex-wrap">
             <select
               value={selectedMonth}
               onChange={e => setSelectedMonth(Number(e.target.value))}
-              style={{ padding: '10px 14px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
+              style={{ padding: '8px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'white', color: 'var(--text-primary)', fontSize: '14px' }}
             >
               {monthOptions.map(m => <option key={m} value={m}>Tháng {String(m).padStart(2, '0')}</option>)}
             </select>
             <select
               value={selectedYear}
               onChange={e => setSelectedYear(Number(e.target.value))}
-              style={{ padding: '10px 14px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
+              style={{ padding: '8px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'white', color: 'var(--text-primary)', fontSize: '14px' }}
             >
               {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <button
               onClick={handleCalculate}
               disabled={calculating}
-              style={{ padding: '10px 24px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', opacity: calculating ? 0.6 : 1 }}
+              style={{ padding: '8px 20px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: '14px', opacity: calculating ? 0.6 : 1 }}
             >
-              {calculating ? 'Đang tính...' : `Tính hóa đơn tháng ${String(selectedMonth).padStart(2,'0')}/${selectedYear}`}
+              {calculating ? 'Đang tính...' : `Tính tháng ${String(selectedMonth).padStart(2,'0')}/${selectedYear}`}
             </button>
           </div>
           {calcResult && (
-            <div style={{ marginTop: '12px', fontSize: '14px' }}>
-              {calcResult.totalInvoices > 0 && (
-                <div style={{ color: '#15803d' }}>
-                  Đã tạo <strong>{calcResult.totalInvoices}</strong> hóa đơn nháp, tổng <strong>{calcResult.totalAmount.toLocaleString('vi-VN')} đ</strong>
-                </div>
-              )}
-              {calcResult.skipped > 0 && (
-                <div style={{ color: '#b45309', marginTop: '4px' }}>
-                  ⚠️ Bỏ qua <strong>{calcResult.skipped}</strong> hợp đồng đã có hóa đơn tháng này.
-                </div>
-              )}
-              {calcResult.errors.length > 0 && (
-                <div style={{ color: '#b45309', marginTop: '4px' }}>
-                  ⚠️ {calcResult.errors.length} phòng chưa có chỉ số điện/nước
-                </div>
-              )}
+            <div style={{ marginTop: '10px', fontSize: '13px' }}>
+              {calcResult.totalInvoices > 0 && <div style={{ color: '#15803d' }}>✅ Đã tạo <strong>{calcResult.totalInvoices}</strong> hóa đơn nháp, tổng <strong>{calcResult.totalAmount.toLocaleString('vi-VN')} đ</strong></div>}
+              {calcResult.skipped > 0 && <div style={{ color: '#b45309', marginTop: '2px' }}>⚠️ Bỏ qua <strong>{calcResult.skipped}</strong> hợp đồng đã có hóa đơn tháng này.</div>}
+              {calcResult.errors.length > 0 && <div style={{ color: '#b45309', marginTop: '2px' }}>⚠️ {calcResult.errors.length} phòng chưa có chỉ số điện/nước</div>}
             </div>
           )}
         </div>
       )}
 
-      {/* Messages */}
-      {successMsg && (
-        <div className="bg-green-50 border border-green-300 rounded p-3 flex items-center gap-2">
-          <CheckCircle size={16} className="text-green-600" />
-          <span className="text-sm text-green-800">{successMsg}</span>
-          <button onClick={() => setSuccessMsg('')} className="ml-auto"><X size={14} /></button>
-        </div>
-      )}
-      {errors.length > 0 && (
-        <div className="bg-red-50 border border-red-300 rounded p-3">
-          {errors.map((e, i) => <p key={i} className="text-sm text-red-800">⚠️ {e}</p>)}
-          <button onClick={() => setErrors([])} className="text-xs text-red-600 mt-1">Đóng</button>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex items-center space-x-2">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => { setActiveTab(tab.key); setSelectedInvoice(null); setSelectedIds(new Set()); }}
-            className={`px-4 py-2 text-sm rounded-t border-2 border-b-0 transition-colors ${
-              activeTab === tab.key
-                ? 'bg-white border-gray-300 text-gray-900'
-                : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {tab.label} <span className={`ml-1 ${activeTab === tab.key ? 'text-gray-900' : 'text-gray-500'}`}>({tab.count})</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Action bar */}
-      {activeTab === 'draft' && selectedIds.size > 0 && (
+      {/* old action bar placeholder — removed, now in toolbar */}
+      {false && activeTab === 'draft' && selectedIds.size > 0 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Đã chọn {selectedIds.size} hóa đơn</span>
           <button
@@ -298,7 +362,7 @@ export function InvoiceTable() {
             style={{ opacity: approving ? 0.6 : 1 }}
           >
             <Send size={16} />
-            <span>Phê duyệt & Gửi {selectedIds.size} hóa đơn đã chọn</span>
+            <span>Phê duyệt & Gửi</span>
           </button>
         </div>
       )}
@@ -307,9 +371,9 @@ export function InvoiceTable() {
       <div style={{ display: 'flex', gap: '16px' }}>
         {/* Table */}
         <div style={{ flex: 1, backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)' }}>
-          <div style={{ padding: 'var(--space-card)', borderBottom: '1px solid var(--surface-border)' }}>
-            <h2 style={{ fontSize: 'var(--type-section-title)', fontWeight: 600 }}>
-              Danh sách — {filteredInvoices.length} hóa đơn
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--surface-border)' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 600 }}>
+              Danh sách hóa đơn — {filteredInvoices.length} hóa đơn
             </h2>
           </div>
 
@@ -327,18 +391,19 @@ export function InvoiceTable() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead style={{ backgroundColor: 'var(--surface-bg)', borderBottom: '1px solid var(--surface-border)' }}>
-                  <tr>
+                  <tr style={{ backgroundColor: 'var(--surface-bg)' }}>
                     {activeTab === 'draft' && (
-                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <th style={{ padding: '10px 16px', textAlign: 'center', width: '40px' }}>
                         <input type="checkbox" checked={selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0} onChange={toggleSelectAll} />
                       </th>
                     )}
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '14px', fontWeight: 700 }}>Phòng</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '14px', fontWeight: 700 }}>Cư dân</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 700 }}>Kỳ</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', fontWeight: 700 }}>Tổng tiền</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 700 }}>Trạng thái</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 700 }}>Thao tác</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Mã hóa đơn</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Phòng</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Chủ hộ</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Kỳ thanh toán</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Tổng tiền (VND)</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Trạng thái</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -349,52 +414,68 @@ export function InvoiceTable() {
                       style={{
                         borderBottom: '1px solid var(--surface-border)',
                         cursor: 'pointer',
-                        backgroundColor: selectedInvoice?.id === inv.id ? 'var(--brand-surface)' : activeTab === 'overdue' ? '#fef2f2' : undefined
+                        backgroundColor: selectedInvoice?.id === inv.id
+                          ? '#f0f9ff'
+                          : activeTab === 'overdue'
+                          ? '#fef2f2'
+                          : undefined
                       }}
-                      className="hover:bg-[var(--surface-bg)] transition-colors"
+                      className="hover:bg-gray-50 transition-colors"
                     >
                       {activeTab === 'draft' && (
                         <td style={{ padding: '12px 16px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                           <input type="checkbox" checked={selectedIds.has(inv.id)} onChange={() => toggleSelect(inv.id)} />
                         </td>
                       )}
-                      <td style={{ padding: '12px 16px', fontWeight: 700 }}>{inv.roomNumber || '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-secondary)' }}>{inv.residentName || '—'}</td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
-                        {String(inv.month).padStart(2,'0')}/{inv.year}
+                      <td style={{ padding: '12px 16px', fontWeight: 600, fontSize: '14px', color: 'var(--brand-primary)' }}>
+                        {inv.invoiceNumber || `INV-${String(inv.id).padStart(3,'0')}`}
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--brand-primary)' }}>
-                        {inv.totalAmount.toLocaleString('vi-VN')} đ
+                      <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 600 }}>
+                        {inv.roomCode || '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                        {inv.residentName || '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                        {inv.month && inv.year
+                          ? `${String(inv.month).padStart(2,'0')}/${inv.year}`
+                          : inv.issueDate
+                          ? `${String(new Date(inv.issueDate).getMonth()+1).padStart(2,'0')}/${new Date(inv.issueDate).getFullYear()}`
+                          : '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, fontSize: '14px' }}>
+                        {inv.totalAmount.toLocaleString('vi-VN')}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                        <span className={`inline-block px-3 py-1 text-xs rounded border ${STATUS_DISPLAY[inv.status]?.color || 'bg-gray-100 text-gray-800 border-gray-300'}`}>
+                        <span style={{ display: 'inline-block', padding: '2px 10px', fontSize: '12px', borderRadius: '4px', border: '1px solid' }}
+                          className={STATUS_DISPLAY[inv.status]?.color || 'bg-gray-100 text-gray-800 border-gray-300'}
+                        >
                           {STATUS_DISPLAY[inv.status]?.label || inv.status}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-2">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                           <button
-                            onClick={() => setSelectedInvoice(inv)}
+                            onClick={() => setModalInvoiceId(inv.id)}
                             title="Xem chi tiết"
-                            style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--brand-primary)' }}
+                            style={{ padding: '5px', border: '1px solid #e5e7eb', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#4b5563', display: 'flex' }}
                           >
-                            <ChevronRight size={16} />
+                            <Eye size={14} />
                           </button>
-                          {inv.status === 'Nháp' && (
+                          {isDraft(inv) && (
                             <>
                               <button
-                                onClick={() => handleApprove(inv.id, inv.roomNumber)}
-                                title="Phê duyệt & Gửi"
-                                style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: '#16a34a' }}
+                                title="Chỉnh sửa"
+                                style={{ padding: '5px', border: '1px solid #e5e7eb', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#4b5563', display: 'flex' }}
                               >
-                                <CheckCircle size={16} />
+                                <Pencil size={14} />
                               </button>
                               <button
-                                onClick={() => handleReject(inv.id)}
-                                title="Từ chối"
-                                style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626' }}
+                                onClick={() => handleApprove(inv.id, inv.roomCode)}
+                                title="Phê duyệt & Gửi"
+                                style={{ padding: '5px', border: '1px solid #e5e7eb', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#16a34a', display: 'flex' }}
                               >
-                                <X size={16} />
+                                <Send size={14} />
                               </button>
                             </>
                           )}
@@ -408,97 +489,35 @@ export function InvoiceTable() {
           )}
         </div>
 
-        {/* Detail sidebar */}
-        {selectedInvoice && (
-          <div style={{ width: '360px', backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)', flexShrink: 0 }}>
-            <div style={{ padding: '16px', borderBottom: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Chi tiết — Phòng {selectedInvoice.roomNumber}</h3>
-              <button onClick={() => setSelectedInvoice(null)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={18} /></button>
-            </div>
-            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                Kỳ: <strong>Tháng {String(selectedInvoice.month).padStart(2,'0')}/{selectedInvoice.year}</strong>
-              </div>
-              {selectedInvoice.residentName && (
-                <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                  Cư dân: <strong>{selectedInvoice.residentName}</strong>
-                </div>
-              )}
-              {selectedInvoice.dueDate && (
-                <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                  Hạn TT: <strong>{new Date(selectedInvoice.dueDate).toLocaleDateString('vi-VN')}</strong>
-                </div>
-              )}
-              {selectedInvoice.paidAmount > 0 && (
-                <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                  Đã thanh toán: <strong style={{ color: '#16a34a' }}>{selectedInvoice.paidAmount.toLocaleString('vi-VN')} đ</strong>
-                </div>
-              )}
-
-              {/* Line items */}
-              {selectedInvoice.lineItems.length > 0 && (
-                <div style={{ border: '1px solid var(--surface-border)', borderRadius: '8px', overflow: 'hidden' }}>
-                  {selectedInvoice.lineItems.map(item => (
-                    <div key={item.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{ITEM_TYPE_LABELS[item.itemType] || item.itemType}</div>
-                        {item.description && <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.description}</div>}
-                      </div>
-                      <div style={{ fontSize: '14px', fontWeight: 700, textAlign: 'right', flexShrink: 0, marginLeft: '8px' }}>
-                        {item.subtotal.toLocaleString('vi-VN')} đ
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{ padding: '12px 14px', backgroundColor: 'var(--surface-bg)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 700 }}>Tổng cộng</span>
-                    <span style={{ fontWeight: 700, color: 'var(--brand-primary)', fontSize: '16px' }}>
-                      {selectedInvoice.totalAmount.toLocaleString('vi-VN')} đ
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Actions for draft */}
-              {selectedInvoice.status === 'Nháp' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                  <button
-                    onClick={() => handleApprove(selectedInvoice.id, selectedInvoice.roomNumber)}
-                    style={{ padding: '10px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                  >
-                    <CheckCircle size={16} /> Phê duyệt hóa đơn này
-                  </button>
-                  <button
-                    onClick={() => handleReject(selectedInvoice.id)}
-                    style={{ padding: '10px', backgroundColor: 'white', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    Từ chối
-                  </button>
-                  <div style={{ padding: '10px', backgroundColor: '#fef9c3', border: '1px solid #fde047', borderRadius: '8px', fontSize: '12px', color: '#854d0e' }}>
-                    <AlertTriangle size={12} className="inline mr-1" />
-                    Sau khi phê duyệt, cư dân sẽ nhận thông báo và thấy hóa đơn này trên app.
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Invoice detail modal */}
+      {modalInvoiceId && (
+        <InvoiceDetailModal
+          invoiceId={modalInvoiceId}
+          invoiceNumber={modalInvoice?.invoiceNumber}
+          isDraft={modalInvoice ? isDraft(modalInvoice) : false}
+          onClose={() => setModalInvoiceId(null)}
+          onApprove={(id) => { handleApprove(id, modalInvoice?.roomCode); setModalInvoiceId(null); }}
+          onReject={(id) => { handleReject(id); setModalInvoiceId(null); }}
+        />
+      )}
 
       {/* Confirm batch approve dialog */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-[420px] p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle size={24} className="text-green-600" />
-              <h3 className="text-lg font-semibold">Xác nhận phê duyệt</h3>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <CheckCircle size={24} style={{ color: '#16a34a' }} />
+              <h3 style={{ fontSize: '17px', fontWeight: 700 }}>Xác nhận phê duyệt hàng loạt</h3>
             </div>
-            <p className="text-sm text-gray-700">
-              Bạn có chắc muốn phê duyệt và gửi <strong>{selectedIds.size} hóa đơn</strong> cho cư dân?
+            <p style={{ fontSize: '14px', color: '#374151' }}>
+              Bạn có chắc muốn phê duyệt và gửi <strong>{selectedIds.size > 0 ? selectedIds.size : filteredInvoices.length} hóa đơn</strong> cho cư dân?
               Sau khi phê duyệt, cư dân sẽ nhận thông báo qua app.
             </p>
-            <div className="flex justify-end gap-3 pt-2 border-t">
-              <button onClick={() => setShowConfirm(false)} className="px-5 py-2 border border-gray-300 rounded text-sm">Hủy</button>
-              <button onClick={handleBatchApprove} disabled={approving} className="px-5 py-2 bg-green-600 text-white rounded text-sm font-semibold" style={{ opacity: approving ? 0.6 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+              <button onClick={() => setShowConfirm(false)} style={{ padding: '8px 20px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', background: 'white' }}>Hủy</button>
+              <button onClick={handleBatchApprove} disabled={approving} style={{ padding: '8px 20px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', opacity: approving ? 0.6 : 1 }}>
                 {approving ? 'Đang phê duyệt...' : 'Xác nhận phê duyệt'}
               </button>
             </div>
