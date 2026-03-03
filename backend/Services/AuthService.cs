@@ -1,70 +1,37 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
 public interface IAuthService
 {
-    Task<LoginResponseDto> RegisterAsync(RegisterRequestDto request);
     Task<LoginResponseDto> LoginAsync(LoginRequestDto request);
-    Task<LoginResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request);
-    Task ChangePasswordAsync(long userId, ChangePasswordRequestDto request);
-    Task<UserDto> GetUserByIdAsync(long userId);
-    Task LogoutAsync(long userId);
+    Task<LoginResponseDto> RegisterAsync(RegisterRequestDto request);
+    Task<LoginResponseDto> RefreshTokenAsync(string refreshToken);
+    Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request);
+    Task<UserDto?> GetUserByIdAsync(int userId);
 }
 
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
-    private readonly IUserSessionRepository _sessionRepository;
+    private readonly IResidentRepository _residentRepository;
     private readonly IJwtService _jwtService;
-    private readonly IConfiguration _configuration;
-    private readonly int _refreshTokenExpirationDays;
 
     public AuthService(
         IUserRepository userRepository,
-        IUserSessionRepository sessionRepository,
-        IJwtService jwtService,
-        IConfiguration configuration)
+        IResidentRepository residentRepository,
+        IJwtService jwtService)
     {
         _userRepository = userRepository;
-        _sessionRepository = sessionRepository;
+        _residentRepository = residentRepository;
         _jwtService = jwtService;
-        _configuration = configuration;
-        _refreshTokenExpirationDays = int.Parse(configuration["Jwt:RefreshTokenExpirationDays"] ?? "30");
-    }
-
-    public async Task<LoginResponseDto> RegisterAsync(RegisterRequestDto request)
-    {
-        // Check if phone number already exists
-        if (await _userRepository.PhoneNumberExistsAsync(request.PhoneNumber))
-        {
-            throw new InvalidOperationException("Số điện thoại đã được đăng ký");
-        }
-
-        // Create new user
-        var user = new User
-        {
-            PhoneNumber = request.PhoneNumber,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            Role = request.Role ?? "resident",
-            Status = "active",
-            FullName = request.FullName,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        await _userRepository.AddAsync(user);
-        await _userRepository.SaveChangesAsync();
-
-        // Generate tokens
-        return await CreateLoginResponseAsync(user);
     }
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request)
     {
-        // Find user by phone number
         var user = await _userRepository.GetByPhoneNumberAsync(request.PhoneNumber);
         
         if (user == null)
@@ -72,84 +39,157 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Số điện thoại hoặc mật khẩu không đúng");
         }
 
-        // Verify password
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             throw new UnauthorizedAccessException("Số điện thoại hoặc mật khẩu không đúng");
         }
 
-        // Check if user is active
-        if (user.Status.ToUpper() != "ACTIVE")
+        if (user.IsLocked)
         {
             throw new UnauthorizedAccessException("Tài khoản đã bị khóa");
         }
 
-        // Update last modified time
-        user.UpdatedAt = DateTime.UtcNow;
+        // Update last login
+        user.LastLoginAt = DateTime.UtcNow;
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync();
+
+        var accessToken = _jwtService.GenerateAccessToken(user);
+        var refreshToken = _jwtService.GenerateRefreshToken();
+
+        // Save refresh token to user
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        _userRepository.Update(user);
+        await _userRepository.SaveChangesAsync();
+
+        var userDto = await MapToUserDto(user);
+
+        return new LoginResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            TokenType = "Bearer",
+            ExpiresIn = 3600, // 1 hour in seconds
+            User = userDto
+        };
+    }
+
+    public async Task<LoginResponseDto> RegisterAsync(RegisterRequestDto request)
+    {
+        // Check if phone number already exists
+        var existingUser = await _userRepository.GetByPhoneNumberAsync(request.PhoneNumber);
+        if (existingUser != null)
+        {
+            throw new InvalidOperationException("Số điện thoại đã được đăng ký");
+        }
+
+        // Create resident first
+        var resident = new Resident
+        {
+            FullName = request.FullName,
+            PhoneNumber = request.PhoneNumber,
+            IdCardNumber = request.IdCardNumber,
+            Hometown = request.Hometown
+        };
+        await _residentRepository.AddAsync(resident);
+
+        // Create user account
+        var user = new User
+        {
+            PhoneNumber = request.PhoneNumber,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            Role = "CuDan",
+            ResidentId = resident.Id,
+            IsLocked = false
+        };
+        await _userRepository.AddAsync(user);
 
         // Generate tokens
-        return await CreateLoginResponseAsync(user);
+        var accessToken = _jwtService.GenerateAccessToken(user);
+        var refreshToken = _jwtService.GenerateRefreshToken();
+
+        // Save refresh token
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        _userRepository.Update(user);
+        await _userRepository.SaveChangesAsync();
+
+        var userDto = await MapToUserDto(user);
+
+        return new LoginResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            TokenType = "Bearer",
+            ExpiresIn = 3600,
+            User = userDto
+        };
     }
 
-    public async Task<LoginResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request)
+    public async Task<LoginResponseDto> RefreshTokenAsync(string refreshToken)
     {
-        // Validate refresh token
-        var session = await _sessionRepository.GetByRefreshTokenAsync(request.RefreshToken);
+        var user = await _userRepository.GetByRefreshTokenAsync(refreshToken);
         
-        if (session == null)
+        if (user == null || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
         {
-            throw new UnauthorizedAccessException("Refresh token không hợp lệ");
+            throw new UnauthorizedAccessException("Refresh token không hợp lệ hoặc đã hết hạn");
         }
 
-        if (session.ExpiresAt <= DateTime.UtcNow)
+        var accessToken = _jwtService.GenerateAccessToken(user);
+        var newRefreshToken = _jwtService.GenerateRefreshToken();
+
+        user.RefreshToken = newRefreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        _userRepository.Update(user);
+        await _userRepository.SaveChangesAsync();
+
+        var userDto = await MapToUserDto(user);
+
+        return new LoginResponseDto
         {
-            throw new UnauthorizedAccessException("Refresh token đã hết hạn");
-        }
-
-        // Revoke old session
-        session.RevokedAt = DateTime.UtcNow;
-        _sessionRepository.Update(session);
-        await _sessionRepository.SaveChangesAsync();
-
-        // Generate new tokens
-        return await CreateLoginResponseAsync(session.User!);
+            AccessToken = accessToken,
+            RefreshToken = newRefreshToken,
+            TokenType = "Bearer",
+            ExpiresIn = 3600,
+            User = userDto
+        };
     }
 
-    public async Task ChangePasswordAsync(long userId, ChangePasswordRequestDto request)
+    public async Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request)
     {
         var user = await _userRepository.GetByIdAsync(userId);
         
         if (user == null)
         {
-            throw new InvalidOperationException("Không tìm thấy người dùng");
+            throw new InvalidOperationException("Người dùng không tồn tại");
         }
 
-        // Verify current password
         if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
         {
-            throw new UnauthorizedAccessException("Mật khẩu hiện tại không đúng");
+            throw new UnauthorizedAccessException("Mật khẩu cũ không đúng");
         }
 
-        // Update password
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        user.UpdatedAt = DateTime.UtcNow;
         _userRepository.Update(user);
-
-        // Invalidate all existing sessions
-        await _sessionRepository.InvalidateUserSessionsAsync(userId);
-        
         await _userRepository.SaveChangesAsync();
     }
 
-    public async Task<UserDto> GetUserByIdAsync(long userId)
+    public async Task<UserDto?> GetUserByIdAsync(int userId)
     {
         var user = await _userRepository.GetByIdAsync(userId);
-        
-        if (user == null)
+        if (user == null) return null;
+
+        return await MapToUserDto(user);
+    }
+
+    private async Task<UserDto> MapToUserDto(User user)
+    {
+        string? residentName = null;
+        if (user.ResidentId.HasValue)
         {
-            throw new InvalidOperationException("Không tìm thấy người dùng");
+            var resident = await _residentRepository.GetByIdAsync(user.ResidentId.Value);
+            residentName = resident?.FullName;
         }
 
         return new UserDto
@@ -157,56 +197,10 @@ public class AuthService : IAuthService
             Id = user.Id,
             PhoneNumber = user.PhoneNumber,
             Role = user.Role,
-            Status = user.Status,
-            FullName = user.FullName,
-            CreatedAt = user.CreatedAt
-        };
-    }
-
-    public async Task LogoutAsync(long userId)
-    {
-        // Revoke all sessions for this user
-        var sessions = await _sessionRepository.FindAsync(s => s.UserId == userId);
-        foreach (var session in sessions)
-        {
-            _sessionRepository.Remove(session);
-        }
-        await _sessionRepository.SaveChangesAsync();
-    }
-
-    private async Task<LoginResponseDto> CreateLoginResponseAsync(User user)
-    {
-        // Generate tokens
-        var accessToken = _jwtService.GenerateAccessToken(user);
-        var refreshToken = _jwtService.GenerateRefreshToken();
-
-        // Create session
-        var session = new UserSession
-        {
-            UserId = user.Id,
-            RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _sessionRepository.AddAsync(session);
-        await _sessionRepository.SaveChangesAsync();
-
-        return new LoginResponseDto
-        {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
-            TokenType = "Bearer",
-            ExpiresIn = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60") * 60,
-            User = new UserDto
-            {
-                Id = user.Id,
-                PhoneNumber = user.PhoneNumber,
-                Role = user.Role,
-                Status = user.Status,
-                FullName = user.FullName,
-                CreatedAt = user.CreatedAt
-            }
+            ResidentId = user.ResidentId,
+            ResidentName = residentName,
+            IsLocked = user.IsLocked,
+            LastLoginAt = user.LastLoginAt
         };
     }
 }

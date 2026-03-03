@@ -1,135 +1,144 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
 public interface IFloorService
 {
-    Task<List<FloorDto>> GetByBuildingIdAsync(long buildingId);
-    Task<FloorDto?> GetByIdAsync(long id);
+    Task<List<FloorDto>> GetAllAsync();
+    Task<List<FloorDto>> GetByBuildingIdAsync(int buildingId);
+    Task<FloorDetailDto?> GetByIdAsync(int id);
     Task<FloorDto> CreateAsync(CreateFloorDto dto);
-    Task<FloorDto> UpdateAsync(long id, UpdateFloorDto dto);
-    Task DeleteAsync(long id);
+    Task DeleteAsync(int id);
 }
 
 public class FloorService : IFloorService
 {
     private readonly IFloorRepository _floorRepository;
     private readonly IBuildingRepository _buildingRepository;
+    private readonly IRoomRepository _roomRepository;
 
-    public FloorService(IFloorRepository floorRepository, IBuildingRepository buildingRepository)
+    public FloorService(
+        IFloorRepository floorRepository,
+        IBuildingRepository buildingRepository,
+        IRoomRepository roomRepository)
     {
         _floorRepository = floorRepository;
         _buildingRepository = buildingRepository;
+        _roomRepository = roomRepository;
     }
 
-    public async Task<List<FloorDto>> GetByBuildingIdAsync(long buildingId)
+    public async Task<List<FloorDto>> GetAllAsync()
+    {
+        var floors = await _floorRepository.GetAllAsync();
+        var floorDtos = new List<FloorDto>();
+        foreach (var floor in floors)
+        {
+            floorDtos.Add(await MapToDto(floor));
+        }
+        return floorDtos;
+    }
+
+    public async Task<List<FloorDto>> GetByBuildingIdAsync(int buildingId)
     {
         var floors = await _floorRepository.GetByBuildingIdAsync(buildingId);
-        
-        return floors.Select(f => new FloorDto
+        var floorDtos = new List<FloorDto>();
+        foreach (var floor in floors)
         {
-            Id = f.Id,
-            BuildingId = f.BuildingId,
-            BuildingName = f.Building?.BuildingName ?? "",
-            FloorNumber = f.FloorNumber,
-            FloorName = f.FloorName,
-            CreatedAt = f.CreatedAt
-        }).ToList();
+            floorDtos.Add(await MapToDto(floor));
+        }
+        return floorDtos;
     }
 
-    public async Task<FloorDto?> GetByIdAsync(long id)
+    public async Task<FloorDetailDto?> GetByIdAsync(int id)
     {
-        var floor = await _floorRepository.GetWithRoomsAsync(id);
-        
-        if (floor == null)
-            return null;
+        var floor = await _floorRepository.GetByIdAsync(id);
+        if (floor == null) return null;
 
-        return new FloorDto
+        var building = await _buildingRepository.GetByIdAsync(floor.BuildingId);
+        var rooms = await _roomRepository.GetByFloorIdAsync(id);
+
+        return new FloorDetailDto
         {
             Id = floor.Id,
             BuildingId = floor.BuildingId,
-            BuildingName = floor.Building?.BuildingName ?? "",
+            BuildingName = building?.BuildingName ?? "",
             FloorNumber = floor.FloorNumber,
-            FloorName = floor.FloorName,
-            CreatedAt = floor.CreatedAt
+            TotalRooms = rooms.Count(),
+            Rooms = rooms.Select(r => new RoomDto
+            {
+                Id = r.Id,
+                FloorId = r.FloorId,
+                BuildingId = floor.BuildingId,
+                BuildingName = building?.BuildingName ?? "",
+                FloorNumber = floor.FloorNumber,
+                RoomCode = r.RoomCode,
+                Area = r.Area,
+                DefaultRentPrice = r.DefaultRentPrice,
+                Status = r.Status
+            }).ToList()
         };
     }
 
     public async Task<FloorDto> CreateAsync(CreateFloorDto dto)
     {
-        // Check if building exists
+        // Validate building exists
         var building = await _buildingRepository.GetByIdAsync(dto.BuildingId);
         if (building == null)
         {
-            throw new InvalidOperationException("Không tìm thấy tòa nhà");
+            throw new InvalidOperationException("Tòa nhà không tồn tại");
         }
 
-        // Check if floor number exists in building
-        if (await _floorRepository.FloorNumberExistsAsync(dto.BuildingId, dto.FloorNumber))
+        // Check for duplicate floor number in building
+        var existing = await _floorRepository.GetByBuildingAndFloorNumberAsync(dto.BuildingId, dto.FloorNumber);
+        if (existing != null)
         {
-            throw new InvalidOperationException($"Tầng {dto.FloorNumber} đã tồn tại trong tòa nhà");
+            throw new InvalidOperationException($"Tầng {dto.FloorNumber} đã tồn tại trong tòa nhà này");
         }
 
         var floor = new Floor
         {
             BuildingId = dto.BuildingId,
-            FloorNumber = dto.FloorNumber,
-            FloorName = dto.FloorName,
-            CreatedAt = DateTime.UtcNow
+            FloorNumber = dto.FloorNumber
         };
 
         await _floorRepository.AddAsync(floor);
-        await _floorRepository.SaveChangesAsync();
-
-        return new FloorDto
-        {
-            Id = floor.Id,
-            BuildingId = floor.BuildingId,
-            BuildingName = building.BuildingName,
-            FloorNumber = floor.FloorNumber,
-            FloorName = floor.FloorName,
-            CreatedAt = floor.CreatedAt
-        };
+        return await MapToDto(floor);
     }
 
-    public async Task<FloorDto> UpdateAsync(long id, UpdateFloorDto dto)
-    {
-        var floor = await _floorRepository.GetWithRoomsAsync(id);
-        
-        if (floor == null)
-        {
-            throw new InvalidOperationException("Không tìm thấy tầng");
-        }
-
-        floor.FloorNumber = dto.FloorNumber;
-        floor.FloorName = dto.FloorName;
-
-        _floorRepository.Update(floor);
-        await _floorRepository.SaveChangesAsync();
-
-        return new FloorDto
-        {
-            Id = floor.Id,
-            BuildingId = floor.BuildingId,
-            BuildingName = floor.Building?.BuildingName ?? "",
-            FloorNumber = floor.FloorNumber,
-            FloorName = floor.FloorName,
-            CreatedAt = floor.CreatedAt
-        };
-    }
-
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(int id)
     {
         var floor = await _floorRepository.GetByIdAsync(id);
-        
         if (floor == null)
         {
-            throw new InvalidOperationException("Không tìm thấy tầng");
+            throw new InvalidOperationException("Tầng không tồn tại");
+        }
+
+        // Check if floor has rooms
+        var rooms = await _roomRepository.GetByFloorIdAsync(id);
+        if (rooms.Any())
+        {
+            throw new InvalidOperationException("Không thể xóa tầng đã có phòng");
         }
 
         _floorRepository.Remove(floor);
         await _floorRepository.SaveChangesAsync();
+    }
+
+    private async Task<FloorDto> MapToDto(Floor floor)
+    {
+        var building = await _buildingRepository.GetByIdAsync(floor.BuildingId);
+        var rooms = await _roomRepository.GetByFloorIdAsync(floor.Id);
+
+        return new FloorDto
+        {
+            Id = floor.Id,
+            BuildingId = floor.BuildingId,
+            BuildingName = building?.BuildingName ?? "",
+            FloorNumber = floor.FloorNumber,
+            TotalRooms = rooms.Count()
+        };
     }
 }

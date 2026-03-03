@@ -46,3 +46,20 @@ public class TransactionReceiptDto
     public InvoiceDetailDto Invoice { get; set; } = null!;
     public decimal RemainingBalance { get; set; }
 }
+
+public class InitiatePaymentResponseDto
+{
+    public long TransactionId { get; set; }
+    public string TransactionCode { get; set; } = null!;
+    public string Status { get; set; } = "PENDING";
+    public decimal Amount { get; set; }
+    public string QrCodeUrl { get; set; } = null!;
+    public string PaymentUrl { get; set; } = null!;
+}
+
+public class PaymentCallbackResponseDto
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = null!;
+    public string? InvoiceStatus { get; set; }
+}

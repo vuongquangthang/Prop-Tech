@@ -1,12 +1,17 @@
 namespace backend.DTOs;
 
-// Auth DTOs
+/// <summary>
+/// DTO cho đăng nhập
+/// </summary>
 public class LoginRequestDto
 {
     public string PhoneNumber { get; set; } = null!;
     public string Password { get; set; } = null!;
 }
 
+/// <summary>
+/// DTO response sau khi đăng nhập thành công
+/// </summary>
 public class LoginResponseDto
 {
     public string AccessToken { get; set; } = null!;
@@ -16,50 +21,32 @@ public class LoginResponseDto
     public UserDto User { get; set; } = null!;
 }
 
+/// <summary>
+/// DTO cho đăng ký
+/// </summary>
 public class RegisterRequestDto
 {
     public string PhoneNumber { get; set; } = null!;
     public string Password { get; set; } = null!;
     public string FullName { get; set; } = null!;
-    public string Role { get; set; } = "RESIDENT";
+    public string? IdCardNumber { get; set; }
+    public string? Hometown { get; set; }
 }
 
+/// <summary>
+/// DTO cho refresh token
+/// </summary>
 public class RefreshTokenRequestDto
 {
     public string RefreshToken { get; set; } = null!;
 }
 
+/// <summary>
+/// DTO cho đổi mật khẩu
+/// </summary>
 public class ChangePasswordRequestDto
 {
     public string OldPassword { get; set; } = null!;
     public string NewPassword { get; set; } = null!;
 }
 
-// User DTOs
-public class UserDto
-{
-    public long Id { get; set; }
-    public string PhoneNumber { get; set; } = null!;
-    public string Role { get; set; } = null!;
-    public string Status { get; set; } = null!;
-    public string? FullName { get; set; }
-    public DateTime CreatedAt { get; set; }
-}
-
-public class CreateUserRequestDto
-{
-    public string PhoneNumber { get; set; } = null!;
-    public string Password { get; set; } = null!;
-    public string FullName { get; set; } = null!;
-    public string Role { get; set; } = "RESIDENT";
-}
-
-public class UpdateUserStatusRequestDto
-{
-    public string Status { get; set; } = null!;
-}
-
-public class ResetPasswordRequestDto
-{
-    public string NewPassword { get; set; } = null!;
-}

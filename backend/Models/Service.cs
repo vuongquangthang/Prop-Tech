@@ -5,41 +5,38 @@ using Microsoft.EntityFrameworkCore;
 namespace backend.Models;
 
 /// <summary>
-/// Dịch vụ - Quản lý các dịch vụ (vệ sinh, bảo vệ, xe, v.v.)
+/// Dịch vụ - Quản lý các dịch vụ
 /// </summary>
-[Table("services")]
+[Table("DICH_VU")]
 public class Service
 {
     [Key]
-    [Column("id")]
-    public long Id { get; set; }
+    [Column("DICH_VU_ID")]
+    public int Id { get; set; }
 
     [Required]
-    [StringLength(100)]
-    [Column("name")]
+    [StringLength(200)]
+    [Column("TEN_DICH_VU")]
     public string Name { get; set; } = null!;
 
-    [Column("description")]
-    public string? Description { get; set; }
-
     [Required]
-    [Column("unit_price")]
-    [Precision(18, 2)]
-    public decimal UnitPrice { get; set; } = 0;
+    [StringLength(50)]
+    [Column("LOAI")]
+    public string ServiceType { get; set; } = null!; // Điện, Nước, Gửi xe, Internet, Vệ sinh, Bảo vệ, Khác
 
     [StringLength(50)]
-    [Column("unit")]
+    [Column("DON_VI")]
     public string? Unit { get; set; }
 
-    [Column("is_active")]
+    [Column("DON_GIA_CHUNG")]
+    [Precision(18, 2)]
+    public decimal? CommonUnitPrice { get; set; }
+
+    [Required]
+    [Column("IS_ACTIVE")]
     public bool IsActive { get; set; } = true;
 
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
     // Navigation properties
-    public ICollection<ServiceUsage> ServiceUsages { get; set; } = new List<ServiceUsage>();
+    public ICollection<ChiTietSuDungDichVu> ChiTietSuDungDichVus { get; set; } = new List<ChiTietSuDungDichVu>();
+    public ICollection<ChiTietHoaDon> ChiTietHoaDons { get; set; } = new List<ChiTietHoaDon>();
 }

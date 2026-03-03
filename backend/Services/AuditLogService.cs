@@ -1,89 +1,48 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
-using System.Text.Json;
 
 namespace backend.Services;
 
 public interface IAuditLogService
 {
-    Task<AuditLogDto> LogAsync(string entityType, long entityId, string action, long userId, object? oldValues = null, object? newValues = null, string? description = null);
-    Task<List<AuditLogDto>> GetByEntityAsync(string entityType, long entityId);
-    Task<List<AuditLogDto>> GetByUserAsync(long userId);
-    Task<List<AuditLogDto>> FilterAsync(AuditLogFilterDto filter);
+    Task<List<AuditLogDto>> GetByUserIdAsync(int userId, int limit = 100);
+    Task<List<AuditLogDto>> GetByEntityAsync(string entityType, int? entityId = null, int limit = 100);
+    Task<List<AuditLogDto>> GetByActionAsync(string action, int limit = 100);
+    Task<List<AuditLogDto>> GetRecentAsync(int limit = 100);
 }
 
 public class AuditLogService : IAuditLogService
 {
-    private readonly IAuditLogRepository _auditLogRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly ILogger<AuditLogService> _logger;
+    private readonly IAuditLogRepository _repository;
 
-    public AuditLogService(
-        IAuditLogRepository auditLogRepository,
-        IUserRepository userRepository,
-        ILogger<AuditLogService> logger)
+    public AuditLogService(IAuditLogRepository repository)
     {
-        _auditLogRepository = auditLogRepository;
-        _userRepository = userRepository;
-        _logger = logger;
+        _repository = repository;
     }
 
-    public async Task<AuditLogDto> LogAsync(string entityType, long entityId, string action, long userId, object? oldValues = null, object? newValues = null, string? description = null)
+    public async Task<List<AuditLogDto>> GetByUserIdAsync(int userId, int limit = 100)
     {
-        try
-        {
-            var auditLog = new AuditLog
-            {
-                EntityType = entityType,
-                EntityId = entityId,
-                Action = action,
-                UserId = userId,
-                OldValues = oldValues != null ? JsonSerializer.Serialize(oldValues) : null,
-                NewValues = newValues != null ? JsonSerializer.Serialize(newValues) : null,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _auditLogRepository.AddAsync(auditLog);
-            await _auditLogRepository.SaveChangesAsync();
-
-            return MapToDto(auditLog);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error logging audit entry for {entityType} {entityId}");
-            throw;
-        }
-    }
-
-    public async Task<List<AuditLogDto>> GetByEntityAsync(string entityType, long entityId)
-    {
-        var logs = await _auditLogRepository.GetByEntityAsync(entityType, entityId);
+        var logs = await _repository.GetByUserIdAsync(userId, limit);
         return logs.Select(MapToDto).ToList();
     }
 
-    public async Task<List<AuditLogDto>> GetByUserAsync(long userId)
+    public async Task<List<AuditLogDto>> GetByEntityAsync(string entityType, int? entityId = null, int limit = 100)
     {
-        var logs = await _auditLogRepository.GetByUserAsync(userId);
+        var logs = await _repository.GetByEntityAsync(entityType, entityId, limit);
         return logs.Select(MapToDto).ToList();
     }
 
-    public async Task<List<AuditLogDto>> FilterAsync(AuditLogFilterDto filter)
+    public async Task<List<AuditLogDto>> GetByActionAsync(string action, int limit = 100)
     {
-        var logs = await _auditLogRepository.FilterAsync(
-            filter.EntityType,
-            filter.Action,
-            filter.UserId,
-            filter.EntityId,
-            filter.StartDate,
-            filter.EndDate
-        );
+        var logs = await _repository.GetByActionAsync(action, limit);
+        return logs.Select(MapToDto).ToList();
+    }
 
-        var dtos = logs.Select(MapToDto).ToList();
-
-        // Apply pagination
-        var skip = (filter.PageNumber - 1) * filter.PageSize;
-        return dtos.Skip(skip).Take(filter.PageSize).ToList();
+    public async Task<List<AuditLogDto>> GetRecentAsync(int limit = 100)
+    {
+        var logs = await _repository.GetRecentAsync(limit);
+        return logs.Select(MapToDto).ToList();
     }
 
     private AuditLogDto MapToDto(AuditLog log)
@@ -95,11 +54,69 @@ public class AuditLogService : IAuditLogService
             EntityId = log.EntityId,
             Action = log.Action,
             UserId = log.UserId,
-            UserFullName = "", // Load from user context if available
+            UserFullName = log.User?.PhoneNumber,
             OldValues = log.OldValues,
             NewValues = log.NewValues,
             IpAddress = log.IpAddress,
             CreatedAt = log.CreatedAt
+        };
+    }
+}
+
+public interface INotificationService
+{
+    Task<List<NotificationDto>> GetByRecipientIdAsync(int recipientId, bool unreadOnly = false);
+    Task<NotificationDto?> GetByIdAsync(int id);
+    Task MarkAsReadAsync(int id);
+    Task MarkAllAsReadAsync(int recipientId);
+}
+
+public class NotificationService : INotificationService
+{
+    private readonly INotificationRepository _repository;
+
+    public NotificationService(INotificationRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<List<NotificationDto>> GetByRecipientIdAsync(int recipientId, bool unreadOnly = false)
+    {
+        var notifications = await _repository.GetByRecipientIdAsync(recipientId, unreadOnly);
+        return notifications.Select(MapToDto).ToList();
+    }
+
+    public async Task<NotificationDto?> GetByIdAsync(int id)
+    {
+        var notification = await _repository.GetByIdAsync(id);
+        return notification == null ? null : MapToDto(notification);
+    }
+
+    public async Task MarkAsReadAsync(int id)
+    {
+        await _repository.MarkAsReadAsync(id);
+    }
+
+    public async Task MarkAllAsReadAsync(int recipientId)
+    {
+        await _repository.MarkAllAsReadAsync(recipientId);
+    }
+
+    private NotificationDto MapToDto(Notification notification)
+    {
+        return new NotificationDto
+        {
+            Id = notification.Id,
+            RecipientId = notification.RecipientId ?? 0,
+            RecipientName = notification.User?.PhoneNumber ?? "",
+            Title = notification.Title,
+            Content = notification.Content,
+            Type = notification.NotificationType,
+            RelatedEntityType = notification.ScopeType,
+            RelatedEntityId = notification.ScopeId,
+            IsRead = notification.IsRead,
+            ReadAt = notification.ReadAt,
+            CreatedAt = notification.CreatedAt
         };
     }
 }

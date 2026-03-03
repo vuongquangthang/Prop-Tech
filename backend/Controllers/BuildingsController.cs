@@ -1,24 +1,25 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class BuildingsController : ControllerBase
 {
     private readonly IBuildingService _buildingService;
-    private readonly ILogger<BuildingsController> _logger;
 
-    public BuildingsController(IBuildingService buildingService, ILogger<BuildingsController> logger)
+    public BuildingsController(IBuildingService buildingService)
     {
         _buildingService = buildingService;
-        _logger = logger;
     }
 
+    /// <summary>
+    /// Lấy danh sách tất cả tòa nhà
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<BuildingDto>>> GetAll()
     {
@@ -29,32 +30,36 @@ public class BuildingsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting all buildings");
-            return StatusCode(500, new { message = "Lỗi khi lấy danh sách tòa nhà" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
+    /// <summary>
+    /// Lấy chi tiết tòa nhà theo ID
+    /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<BuildingDto>> GetById(long id)
+    public async Task<ActionResult<BuildingDetailDto>> GetById(int id)
     {
         try
         {
             var building = await _buildingService.GetByIdAsync(id);
-            
             if (building == null)
-                return NotFound(new { message = "Không tìm thấy tòa nhà" });
-
+            {
+                return NotFound(new { message = "Tòa nhà không tồn tại" });
+            }
             return Ok(building);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting building {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi lấy thông tin tòa nhà" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [Authorize(Roles = "MANAGER")]
+    /// <summary>
+    /// Tạo tòa nhà mới
+    /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<BuildingDto>> Create([FromBody] CreateBuildingDto dto)
     {
         try
@@ -68,14 +73,16 @@ public class BuildingsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating building");
-            return StatusCode(500, new { message = "Lỗi khi tạo tòa nhà" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [Authorize(Roles = "MANAGER")]
+    /// <summary>
+    /// Cập nhật tòa nhà
+    /// </summary>
     [HttpPut("{id}")]
-    public async Task<ActionResult<BuildingDto>> Update(long id, [FromBody] UpdateBuildingDto dto)
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<BuildingDto>> Update(int id, [FromBody] UpdateBuildingDto dto)
     {
         try
         {
@@ -84,32 +91,33 @@ public class BuildingsController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating building {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi cập nhật tòa nhà" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [Authorize(Roles = "MANAGER")]
+    /// <summary>
+    /// Xóa tòa nhà
+    /// </summary>
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(long id)
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
     {
         try
         {
             await _buildingService.DeleteAsync(id);
-            return NoContent();
+            return Ok(new { message = "Xóa tòa nhà thành công" });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting building {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi xóa tòa nhà" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 }

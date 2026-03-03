@@ -1,17 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Repositories;
-
-public interface IRoomRepository : IRepository<Room>
-{
-    Task<List<Room>> GetByFloorIdAsync(long floorId);
-    Task<List<Room>> GetByBuildingIdAsync(long buildingId);
-    Task<Room?> GetWithDetailsAsync(long id);
-    Task<bool> RoomNumberExistsAsync(long floorId, string roomNumber);
-    Task<List<Room>> GetAvailableRoomsAsync(long? buildingId = null);
-}
 
 public class RoomRepository : Repository<Room>, IRoomRepository
 {
@@ -19,57 +10,53 @@ public class RoomRepository : Repository<Room>, IRoomRepository
     {
     }
 
-    public async Task<List<Room>> GetByFloorIdAsync(long floorId)
+    public async Task<Room?> GetByRoomCodeAsync(string maPhong)
     {
         return await _dbSet
             .Include(r => r.Floor)
                 .ThenInclude(f => f.Building)
+            .FirstOrDefaultAsync(r => r.RoomCode == maPhong);
+    }
+
+    public async Task<IEnumerable<Room>> GetByFloorIdAsync(int floorId)
+    {
+        return await _dbSet
             .Where(r => r.FloorId == floorId)
-            .OrderBy(r => r.RoomNumber)
+            .OrderBy(r => r.RoomCode)
             .ToListAsync();
     }
 
-    public async Task<List<Room>> GetByBuildingIdAsync(long buildingId)
+    public async Task<IEnumerable<Room>> GetByStatusAsync(string status)
     {
         return await _dbSet
             .Include(r => r.Floor)
                 .ThenInclude(f => f.Building)
-            .Where(r => r.Floor.BuildingId == buildingId)
-            .OrderBy(r => r.Floor.FloorNumber)
-                .ThenBy(r => r.RoomNumber)
+            .Where(r => r.Status == status)
             .ToListAsync();
     }
 
-    public async Task<Room?> GetWithDetailsAsync(long id)
+    public async Task<Room?> GetWithDetailsAsync(int id)
     {
         return await _dbSet
             .Include(r => r.Floor)
                 .ThenInclude(f => f.Building)
-            .Include(r => r.Residencies)
+            .Include(r => r.HopDongs)
+            .Include(r => r.ChiTietTaiSanPhongs)
+                .ThenInclude(ct => ct.TaiSan)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
-    public async Task<bool> RoomNumberExistsAsync(long floorId, string roomNumber)
+    public async Task<IEnumerable<Room>> GetAvailableRoomsAsync()
     {
-        return await _dbSet.AnyAsync(r => r.FloorId == floorId && r.RoomNumber == roomNumber);
-    }
-
-    public async Task<List<Room>> GetAvailableRoomsAsync(long? buildingId = null)
-    {
-        var query = _dbSet
+        return await _dbSet
             .Include(r => r.Floor)
                 .ThenInclude(f => f.Building)
-            .Where(r => r.Status.ToUpper() == "AVAILABLE");
-
-        if (buildingId.HasValue)
-        {
-            query = query.Where(r => r.Floor.BuildingId == buildingId.Value);
-        }
-
-        return await query
-            .OrderBy(r => r.Floor.Building.BuildingCode)
-            .ThenBy(r => r.Floor.FloorNumber)
-            .ThenBy(r => r.RoomNumber)
+            .Where(r => r.Status == "Trống")
             .ToListAsync();
+    }
+
+    public async Task<bool> ExistsByCodeAsync(string maPhong)
+    {
+        return await _dbSet.AnyAsync(r => r.RoomCode == maPhong);
     }
 }

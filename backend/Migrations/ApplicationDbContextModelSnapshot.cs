@@ -38,13 +38,11 @@ namespace backend.Migrations
                         .HasColumnName("action");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("created_at");
 
-                    b.Property<long?>("EntityId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("EntityId")
+                        .HasColumnType("int")
                         .HasColumnName("entity_id");
 
                     b.Property<string>("EntityType")
@@ -71,83 +69,15 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("user_agent");
 
-                    b.Property<long?>("UserId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
-
                     b.HasIndex("UserId");
 
-                    b.HasIndex("EntityType", "EntityId");
-
-                    b.ToTable("audit_logs");
-                });
-
-            modelBuilder.Entity("backend.Models.BillingPeriod", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime>("CutoffDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("cutoff_date");
-
-                    b.Property<DateTime>("DueDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("due_date");
-
-                    b.Property<bool>("LateFeeEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false)
-                        .HasColumnName("late_fee_enabled");
-
-                    b.Property<decimal?>("LateFeeFixed")
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("late_fee_fixed");
-
-                    b.Property<decimal?>("LateFeePercent")
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("late_fee_percent");
-
-                    b.Property<DateTime>("PeriodMonth")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("period_month");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("DRAFT")
-                        .HasColumnName("status");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PeriodMonth")
-                        .IsUnique();
-
-                    b.ToTable("billing_periods", t =>
-                        {
-                            t.HasCheckConstraint("CK_billing_periods_status", "status IN ('DRAFT', 'CONFIRMED', 'CLOSED')");
-                        });
+                    b.ToTable("audit_logs", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.BlockedIp", b =>
@@ -160,20 +90,16 @@ namespace backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("BlockedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("blocked_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("blocked_at");
 
                     b.Property<long?>("BlockedBy")
                         .HasColumnType("bigint")
                         .HasColumnName("blocked_by");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("created_at");
 
                     b.Property<DateTime?>("ExpiresAt")
                         .HasColumnType("datetime2")
@@ -186,9 +112,7 @@ namespace backend.Migrations
                         .HasColumnName("ip_address");
 
                     b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
-                        .HasDefaultValue(true)
                         .HasColumnName("is_active");
 
                     b.Property<string>("Reason")
@@ -199,998 +123,627 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IpAddress");
-
-                    b.ToTable("blocked_ips");
+                    b.ToTable("blocked_ips", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("int")
+                        .HasColumnName("TOA_NHA_ID");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Address")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("address");
-
-                    b.Property<string>("BuildingCode")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("building_code");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("DIA_CHI");
 
                     b.Property<string>("BuildingName")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("building_name");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BuildingCode")
-                        .IsUnique();
-
-                    b.ToTable("buildings");
-                });
-
-            modelBuilder.Entity("backend.Models.ChatbotConversation", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("ConversationId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("conversation_id");
-
-                    b.Property<DateTime?>("SessionEnd")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("session_end");
-
-                    b.Property<DateTime>("SessionStart")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("session_start")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("ACTIVE")
-                        .HasColumnName("status");
-
-                    b.Property<int>("TotalMessages")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("total_messages");
-
-                    b.Property<long?>("UserId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConversationId")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("chatbot_conversations");
-                });
-
-            modelBuilder.Entity("backend.Models.ChatbotMessage", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("ConversationId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("conversation_id");
-
-                    b.Property<string>("Intent")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("intent");
-
-                    b.Property<long?>("MatchedFaqId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("matched_faq_id");
-
-                    b.Property<long?>("MatchedRegulationId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("matched_regulation_id");
-
-                    b.Property<string>("MessageContent")
-                        .IsRequired()
-                        .HasColumnType("NVARCHAR(MAX)")
-                        .HasColumnName("message_content");
-
-                    b.Property<string>("SenderType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("sender_type");
-
-                    b.Property<DateTime>("SentAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("sent_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConversationId");
-
-                    b.HasIndex("MatchedFaqId");
-
-                    b.HasIndex("MatchedRegulationId");
-
-                    b.ToTable("chatbot_messages", t =>
-                        {
-                            t.HasCheckConstraint("CK_chatbot_messages_sender_type", "sender_type IN ('USER', 'BOT')");
-                        });
-                });
-
-            modelBuilder.Entity("backend.Models.Complaint", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("AssignedTo")
-                        .HasColumnType("bigint")
-                        .HasColumnName("assigned_to");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("category");
-
-                    b.Property<string>("ComplaintCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("complaint_code");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("NVARCHAR(MAX)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("Priority")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("MEDIUM")
-                        .HasColumnName("priority");
-
-                    b.Property<long>("ResidentId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("resident_id");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("resolved_at");
-
-                    b.Property<long>("RoomId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("room_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("OPEN")
-                        .HasColumnName("status");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .HasColumnName("subject");
-
-                    b.Property<DateTime>("SubmittedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("submitted_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComplaintCode")
-                        .IsUnique();
-
-                    b.HasIndex("RoomId");
-
-                    b.HasIndex("Status", "Priority");
-
-                    b.ToTable("complaints", t =>
-                        {
-                            t.HasCheckConstraint("CK_complaints_priority", "priority IN ('LOW', 'MEDIUM', 'HIGH', 'URGENT')");
-
-                            t.HasCheckConstraint("CK_complaints_status", "status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')");
-                        });
-                });
-
-            modelBuilder.Entity("backend.Models.ComplaintAttachment", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("ComplaintId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("complaint_id");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("file_name");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("file_path");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint")
-                        .HasColumnName("file_size");
-
-                    b.Property<string>("FileType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("file_type");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("uploaded_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComplaintId");
-
-                    b.ToTable("complaint_attachments");
-                });
-
-            modelBuilder.Entity("backend.Models.ComplaintResponse", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("ComplaintId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("complaint_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<DateTime>("RespondedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("responded_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long>("RespondedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("responded_by");
-
-                    b.Property<string>("ResponseText")
-                        .IsRequired()
-                        .HasColumnType("NVARCHAR(MAX)")
-                        .HasColumnName("response_text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComplaintId");
-
-                    b.ToTable("complaint_responses");
-                });
-
-            modelBuilder.Entity("backend.Models.Deposit", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("notes");
-
-                    b.Property<DateTime?>("PaidDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("paid_date");
-
-                    b.Property<decimal?>("RefundAmount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("refund_amount");
-
-                    b.Property<DateTime?>("RefundDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("refund_date");
-
-                    b.Property<decimal>("RefundDeduction")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("refund_deduction");
-
-                    b.Property<string>("RefundReason")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("refund_reason");
-
-                    b.Property<long>("ResidencyId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("residency_id");
-
-                    b.Property<long?>("ResidencyId1")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("ResidentId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("resident_id");
-
-                    b.Property<long>("RoomId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("room_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("UNPAID")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
-
-                    b.Property<long?>("UpdatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ResidencyId")
-                        .IsUnique();
-
-                    b.HasIndex("ResidencyId1")
-                        .IsUnique()
-                        .HasFilter("[ResidencyId1] IS NOT NULL");
-
-                    b.HasIndex("ResidentId");
-
-                    b.HasIndex("RoomId");
-
-                    b.ToTable("deposits", t =>
-                        {
-                            t.HasCheckConstraint("CK_deposits_status", "status IN ('UNPAID', 'PAID', 'REFUNDED', 'FORFEITED')");
-                        });
-                });
-
-            modelBuilder.Entity("backend.Models.ElectricityPriceSnapshot", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime>("EffectiveDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("effective_date");
-
-                    b.Property<bool>("IsTiered")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_tiered");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("notes");
-
-                    b.Property<long?>("PriceConfigId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("price_config_id");
-
-                    b.Property<string>("PricingMethod")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("pricing_method");
-
-                    b.Property<string>("ServiceType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("service_type");
-
-                    b.Property<DateTime>("SnapshotDatetime")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("snapshot_datetime");
-
-                    b.Property<decimal?>("UnitPrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("unit_price");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PriceConfigId");
-
-                    b.HasIndex("SnapshotDatetime");
-
-                    b.ToTable("electricity_price_snapshots");
-                });
-
-            modelBuilder.Entity("backend.Models.ElectricityTier", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<decimal>("FromKwh")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("from_kwh");
-
-                    b.Property<long?>("PriceConfigId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("price_config_id");
-
-                    b.Property<int>("TierLevel")
-                        .HasColumnType("int")
-                        .HasColumnName("tier_level");
-
-                    b.Property<decimal?>("ToKwh")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("to_kwh");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("unit_price");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PriceConfigId", "TierLevel");
-
-                    b.ToTable("electricity_tiers");
-                });
-
-            modelBuilder.Entity("backend.Models.ElectricityTierSnapshot", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<decimal>("FromKwh")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("from_kwh");
-
-                    b.Property<long>("SnapshotId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("snapshot_id");
-
-                    b.Property<int>("TierLevel")
-                        .HasColumnType("int")
-                        .HasColumnName("tier_level");
-
-                    b.Property<decimal?>("ToKwh")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("to_kwh");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("unit_price");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SnapshotId");
-
-                    b.ToTable("electricity_tier_snapshots");
-                });
-
-            modelBuilder.Entity("backend.Models.FAQ", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Answer")
-                        .IsRequired()
-                        .HasColumnType("NVARCHAR(MAX)")
-                        .HasColumnName("answer");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("category");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<int>("DisplayOrder")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("display_order");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Keywords")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)")
-                        .HasColumnName("keywords");
-
-                    b.Property<string>("Question")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("question");
-
-                    b.Property<int>("ViewCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("view_count");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Category");
-
-                    b.ToTable("faqs");
-                });
-
-            modelBuilder.Entity("backend.Models.Floor", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("BuildingId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("building_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("FloorName")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("floor_name");
-
-                    b.Property<int>("FloorNumber")
-                        .HasColumnType("int")
-                        .HasColumnName("floor_number");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BuildingId", "FloorNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UK_floors_building_floor");
-
-                    b.ToTable("floors");
-                });
-
-            modelBuilder.Entity("backend.Models.Invoice", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<decimal?>("AdjustmentAmount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("adjustment_amount");
-
-                    b.Property<string>("AdjustmentNote")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("adjustment_note");
-
-                    b.Property<long>("BillingPeriodId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("billing_period_id");
-
-                    b.Property<DateTime?>("ConfirmedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("confirmed_at");
-
-                    b.Property<long?>("ConfirmedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("confirmed_by");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime>("DueDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("due_date");
-
-                    b.Property<decimal?>("ElectricityCharge")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("electricity_charge");
-
-                    b.Property<int?>("Headcount")
-                        .HasColumnType("int")
-                        .HasColumnName("headcount");
-
-                    b.Property<string>("InvoiceNumber")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("invoice_number");
-
-                    b.Property<DateTime>("IssueDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("issue_date");
-
-                    b.Property<decimal?>("LateFee")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("late_fee");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("notes");
-
-                    b.Property<decimal>("PaidAmount")
-                        .ValueGeneratedOnAdd()
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasDefaultValue(0m)
-                        .HasColumnName("paid_amount");
-
-                    b.Property<DateTime?>("PaidAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("paid_at");
-
-                    b.Property<decimal?>("RoomCharge")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("room_charge");
-
-                    b.Property<long>("RoomId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("room_id");
-
-                    b.Property<decimal?>("ServiceCharge")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("service_charge");
-
-                    b.Property<decimal?>("SnapshotElectricityPrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("snapshot_electricity_price");
-
-                    b.Property<decimal?>("SnapshotRoomRent")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("snapshot_room_rent");
-
-                    b.Property<decimal?>("SnapshotServicePrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("snapshot_service_price");
-
-                    b.Property<decimal?>("SnapshotWaterPrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("snapshot_water_price");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("UNPAID")
-                        .HasColumnName("status");
-
-                    b.Property<decimal>("TotalAmount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("total_amount");
-
-                    b.Property<string>("VoidReason")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("void_reason");
-
-                    b.Property<DateTime?>("VoidedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("voided_at");
-
-                    b.Property<long?>("VoidedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("voided_by");
-
-                    b.Property<decimal?>("WaterCharge")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("water_charge");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BillingPeriodId");
-
-                    b.HasIndex("DueDate");
-
-                    b.HasIndex("InvoiceNumber")
-                        .IsUnique();
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("RoomId", "BillingPeriodId");
-
-                    b.ToTable("invoices", t =>
-                        {
-                            t.HasCheckConstraint("CK_invoices_status", "status IN ('UNPAID', 'PARTIAL', 'PAID', 'OVERDUE', 'VOIDED')");
-                        });
-                });
-
-            modelBuilder.Entity("backend.Models.InvoiceLineItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("TEN_TOA_NHA");
 
                     b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("description");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("MO_TA");
 
-                    b.Property<long>("InvoiceId")
+                    b.Property<int>("NumberOfFloors")
+                        .HasColumnType("int")
+                        .HasColumnName("SO_TANG");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingName")
+                        .IsUnique();
+
+                    b.ToTable("TOA_NHA", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.ChiSoDien", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("CHI_SO_DIEN_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int")
+                        .HasColumnName("CREATED_BY");
+
+                    b.Property<string>("MeterImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("ANH_DONG_HO_URL");
+
+                    b.Property<byte>("Month")
+                        .HasColumnType("tinyint")
+                        .HasColumnName("KY_THANG");
+
+                    b.Property<decimal>("NewReading")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("CHI_SO_MOI");
+
+                    b.Property<long>("ServiceUsageDetailId")
                         .HasColumnType("bigint")
-                        .HasColumnName("invoice_id");
+                        .HasColumnName("CT_SDDV_ID");
+
+                    b.Property<short>("Year")
+                        .HasColumnType("smallint")
+                        .HasColumnName("KY_NAM");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("ServiceUsageDetailId", "Month", "Year")
+                        .IsUnique();
+
+                    b.ToTable("CHI_SO_DIEN", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.ChiSoNuoc", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("CHI_SO_NUOC_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int")
+                        .HasColumnName("CREATED_BY");
+
+                    b.Property<string>("MeterImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("ANH_DONG_HO_URL");
+
+                    b.Property<byte>("Month")
+                        .HasColumnType("tinyint")
+                        .HasColumnName("KY_THANG");
+
+                    b.Property<decimal>("NewReading")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("CHI_SO_MOI");
+
+                    b.Property<long>("ServiceUsageDetailId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("CT_SDDV_ID");
+
+                    b.Property<short>("Year")
+                        .HasColumnType("smallint")
+                        .HasColumnName("KY_NAM");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("ServiceUsageDetailId", "Month", "Year")
+                        .IsUnique();
+
+                    b.ToTable("CHI_SO_NUOC", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.ChiTietHoaDon", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("CHI_TIET_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("MO_TA");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int")
+                        .HasColumnName("HOA_DON_ID");
 
                     b.Property<string>("ItemType")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
-                        .HasColumnName("item_type");
+                        .HasColumnName("LOAI_KHOAN");
 
-                    b.Property<decimal>("Quantity")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("quantity");
+                    b.Property<decimal?>("Quantity")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("SO_LUONG");
 
-                    b.Property<string>("TierInfo")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("tier_info");
+                    b.Property<int?>("ServiceId")
+                        .HasColumnType("int")
+                        .HasColumnName("DICH_VU_ID");
 
-                    b.Property<string>("Unit")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("unit");
+                    b.Property<long?>("ServiceUsageDetailId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("CT_SDDV_ID");
 
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("unit_price");
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("DON_GIA");
 
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("invoice_line_items", t =>
-                        {
-                            t.HasCheckConstraint("CK_invoice_line_items_item_type", "item_type IN ('ROOM', 'WATER', 'ELECTRICITY', 'ELECTRICITY_TIER', 'SERVICE', 'ADJUSTMENT', 'LATE_FEE')");
-                        });
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("ServiceUsageDetailId");
+
+                    b.ToTable("CHI_TIET_HOA_DON", (string)null);
                 });
 
-            modelBuilder.Entity("backend.Models.MeterReading", b =>
+            modelBuilder.Entity("backend.Models.ChiTietO", b =>
+                {
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int")
+                        .HasColumnName("HOP_DONG_ID");
+
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int")
+                        .HasColumnName("CU_DAN_ID");
+
+                    b.Property<DateTime>("FromDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("TU_NGAY");
+
+                    b.Property<string>("ResidencyRole")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("VAI_TRO_O");
+
+                    b.Property<DateTime?>("ToDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("DEN_NGAY");
+
+                    b.HasKey("ContractId", "ResidentId");
+
+                    b.HasIndex("ResidentId");
+
+                    b.ToTable("CHI_TIET_O", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.ChiTietPhieuTatToan", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnName("CHI_TIET_ID");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("AnomalyNote")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("anomaly_note");
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("SO_TIEN");
 
-                    b.Property<decimal>("Consumption")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("consumption");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<decimal>("CurrentReading")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("current_reading");
-
-                    b.Property<bool>("IsAnomaly")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_anomaly");
-
-                    b.Property<string>("Notes")
+                    b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
-                        .HasColumnName("notes");
+                        .HasColumnName("MO_TA");
 
-                    b.Property<decimal>("PreviousReading")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("previous_reading");
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("LOAI_KHOAN");
 
-                    b.Property<DateTime>("ReadingMonth")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("reading_month");
-
-                    b.Property<long?>("RecordedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("recorded_by");
-
-                    b.Property<long>("RoomId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("room_id");
+                    b.Property<int>("SettlementId")
+                        .HasColumnType("int")
+                        .HasColumnName("TAT_TOAN_ID");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomId", "ReadingMonth");
+                    b.HasIndex("SettlementId");
 
-                    b.ToTable("meter_readings");
+                    b.ToTable("CHI_TIET_PHIEU_TAT_TOAN", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.ChiTietSuDungDichVu", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("CT_SDDV_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("ApplyFrom")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("AP_DUNG_TU");
+
+                    b.Property<DateTime?>("ApplyTo")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("AP_DUNG_DEN");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("GHI_CHU");
+
+                    b.Property<decimal?>("OverrideUnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("OVERRIDE_DON_GIA");
+
+                    b.Property<decimal?>("Quantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("SO_LUONG");
+
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int")
+                        .HasColumnName("CU_DAN_ID");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int")
+                        .HasColumnName("PHONG_ID");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("int")
+                        .HasColumnName("DICH_VU_ID");
+
+                    b.Property<int?>("VehicleId")
+                        .HasColumnType("int")
+                        .HasColumnName("XE_ID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResidentId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("VehicleId");
+
+                    b.ToTable("CHI_TIET_SU_DUNG_DICH_VU", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.ChiTietTaiSanPhong", b =>
+                {
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int")
+                        .HasColumnName("PHONG_ID");
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("int")
+                        .HasColumnName("TAI_SAN_ID");
+
+                    b.Property<string>("Condition")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("TINH_TRANG");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("GHI_CHU");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int")
+                        .HasColumnName("SO_LUONG");
+
+                    b.HasKey("RoomId", "AssetId");
+
+                    b.HasIndex("AssetId");
+
+                    b.ToTable("CHI_TIET_TAI_SAN_PHONG", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.Floor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("TANG_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BuildingId")
+                        .HasColumnType("int")
+                        .HasColumnName("TOA_NHA_ID");
+
+                    b.Property<int>("FloorNumber")
+                        .HasColumnType("int")
+                        .HasColumnName("SO_TANG");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId", "FloorNumber")
+                        .IsUnique();
+
+                    b.ToTable("TANG", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.HoaDon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("HOA_DON_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int")
+                        .HasColumnName("HOP_DONG_ID");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("DUE_DATE");
+
+                    b.Property<byte>("Month")
+                        .HasColumnType("tinyint")
+                        .HasColumnName("THANG");
+
+                    b.Property<string>("QrCodeUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("QR_CODE_URL");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("TRANG_THAI");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TONG_TIEN");
+
+                    b.Property<short>("Year")
+                        .HasColumnType("smallint")
+                        .HasColumnName("NAM");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractId", "Month", "Year")
+                        .IsUnique();
+
+                    b.ToTable("HOA_DON", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.HopDong", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("HOP_DONG_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("ActualRentPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("GIA_THUE_THUC_TE");
+
+                    b.Property<decimal?>("DepositAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TIEN_COC");
+
+                    b.Property<DateTime?>("ExpectedEndDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("NGAY_KET_THUC_DU_KIEN");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int")
+                        .HasColumnName("PHONG_ID");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("NGAY_BAT_DAU");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomId");
+
+                    b.ToTable("HOP_DONG", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.KnowledgeBase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("KB_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("THE_LOAI");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("NOI_DUNG");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit")
+                        .HasColumnName("IS_ACTIVE");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("TAGS");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("TIEU_DE");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("UPDATED_AT");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int")
+                        .HasColumnName("UPDATED_BY");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("KNOWLEDGE_BASE", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.LichSuChat", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("CHAT_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<string>("MessageRole")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("MESSAGE_ROLE");
+
+                    b.Property<string>("MessageText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("MESSAGE_TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int")
+                        .HasColumnName("USER_ID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("LICH_SU_CHAT", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.NhatKyNhacNo", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("NHAC_NO_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Content")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("NOI_DUNG");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("ERROR_MESSAGE");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int")
+                        .HasColumnName("HOA_DON_ID");
+
+                    b.Property<int>("ReminderCount")
+                        .HasColumnType("int")
+                        .HasColumnName("LAN_NHAC");
+
+                    b.Property<string>("ReminderMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("HINH_THUC");
+
+                    b.Property<DateTime>("ReminderTime")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("NHAC_LUC");
+
+                    b.Property<string>("SendStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("TRANG_THAI_GUI");
+
+                    b.Property<int?>("SentByUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("SENT_BY_USER_ID");
+
+                    b.Property<int>("SentToUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("SENT_TO_USER_ID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("SentByUserId");
+
+                    b.HasIndex("SentToUserId");
+
+                    b.ToTable("NHAT_KY_NHAC_NO", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.Notification", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("int")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Content")
                         .IsRequired()
@@ -1198,15 +751,11 @@ namespace backend.Migrations
                         .HasColumnName("content");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("created_at");
 
                     b.Property<bool>("IsRead")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
-                        .HasDefaultValue(false)
                         .HasColumnName("is_read");
 
                     b.Property<string>("LinkUrl")
@@ -1221,26 +770,24 @@ namespace backend.Migrations
 
                     b.Property<string>("Priority")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("NORMAL")
                         .HasColumnName("priority");
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("read_at");
 
-                    b.Property<long?>("RecipientId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("RecipientId")
+                        .HasColumnType("int")
                         .HasColumnName("recipient_id");
 
-                    b.Property<long?>("RelatedId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("RelatedId")
+                        .HasColumnType("int")
                         .HasColumnName("related_id");
 
-                    b.Property<long?>("ScopeId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("ScopeId")
+                        .HasColumnType("int")
                         .HasColumnName("scope_id");
 
                     b.Property<string>("ScopeType")
@@ -1249,10 +796,8 @@ namespace backend.Migrations
                         .HasColumnName("scope_type");
 
                     b.Property<DateTime>("SentAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("sent_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("sent_at");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -1260,829 +805,325 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(200)")
                         .HasColumnName("title");
 
-                    b.Property<long?>("UserId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ScopeType", "ScopeId");
+                    b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "IsRead");
-
-                    b.ToTable("notifications", t =>
-                        {
-                            t.HasCheckConstraint("CK_notifications_priority", "priority IN ('NORMAL', 'URGENT')");
-
-                            t.HasCheckConstraint("CK_notifications_scope_type", "scope_type IS NULL OR scope_type IN ('USER', 'ROOM', 'FLOOR', 'BUILDING', 'ALL')");
-                        });
-                });
-
-            modelBuilder.Entity("backend.Models.PaymentReconciliation", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<decimal>("BankAmount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("bank_amount");
-
-                    b.Property<DateTime>("BankDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("bank_date");
-
-                    b.Property<string>("BankStatementRef")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("bank_statement_ref");
-
-                    b.Property<string>("BankTransactionId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("bank_transaction_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<DateTime?>("MatchedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("matched_at");
-
-                    b.Property<long?>("MatchedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("matched_by");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("notes");
-
-                    b.Property<string>("ReconciliationStatus")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("PENDING")
-                        .HasColumnName("reconciliation_status");
-
-                    b.Property<long>("TransactionId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("transaction_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TransactionId");
-
-                    b.ToTable("payment_reconciliations", t =>
-                        {
-                            t.HasCheckConstraint("CK_payment_reconciliations_status", "reconciliation_status IN ('PENDING', 'MATCHED', 'UNMATCHED')");
-                        });
-                });
-
-            modelBuilder.Entity("backend.Models.PriceConfig", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("description");
-
-                    b.Property<DateTime>("EffectiveDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("effective_date")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<bool>("IsTiered")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_tiered");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("notes");
-
-                    b.Property<string>("PricingMethod")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("pricing_method");
-
-                    b.Property<string>("ServiceType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("service_type");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(15, 4)
-                        .HasColumnType("decimal(15,4)")
-                        .HasColumnName("unit_price");
-
-                    b.Property<string>("UnitType")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("unit_type");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceType", "EffectiveDate");
-
-                    b.ToTable("price_configs", t =>
-                        {
-                            t.HasCheckConstraint("CK_price_configs_pricing_method", "pricing_method IN ('PER_PERSON', 'PER_UNIT', 'FIXED', 'TIERED')");
-
-                            t.HasCheckConstraint("CK_price_configs_service_type", "service_type IN ('WATER', 'ELECTRICITY', 'SERVICE')");
-                        });
-                });
-
-            modelBuilder.Entity("backend.Models.Regulation", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("category");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("NVARCHAR(MAX)")
-                        .HasColumnName("content");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime?>("EffectiveDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("effective_date");
-
-                    b.Property<DateTime?>("ExpiryDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("expiry_date");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("RegulationCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("regulation_code");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
-                        .HasColumnName("title");
-
-                    b.Property<int>("ViewCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("view_count");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Category");
-
-                    b.HasIndex("RegulationCode")
-                        .IsUnique();
-
-                    b.ToTable("regulations");
-                });
-
-            modelBuilder.Entity("backend.Models.Residency", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CheckInDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("check_in_date");
-
-                    b.Property<DateTime?>("CheckOutDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("check_out_date");
-
-                    b.Property<DateTime?>("ContractEndDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("contract_end_date");
-
-                    b.Property<string>("ContractNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("contract_number");
-
-                    b.Property<DateTime?>("ContractStartDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("contract_start_date");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<bool>("IsPrimaryResident")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_primary_resident");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("notes");
-
-                    b.Property<string>("OwnershipType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("ownership_type");
-
-                    b.Property<long>("ResidentId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("resident_id");
-
-                    b.Property<long>("RoomId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("room_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("ACTIVE")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ResidentId");
-
-                    b.HasIndex("RoomId", "ResidentId", "OwnershipType")
-                        .HasDatabaseName("UK_residencies");
-
-                    b.ToTable("residencies", t =>
-                        {
-                            t.HasCheckConstraint("CK_residencies_ownership", "ownership_type IN ('OWNER', 'TENANT')");
-
-                            t.HasCheckConstraint("CK_residencies_status", "status IN ('ACTIVE', 'INACTIVE', 'ENDED')");
-                        });
+                    b.ToTable("notifications", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.Resident", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("int")
+                        .HasColumnName("CU_DAN_ID");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("date_of_birth");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("email");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FullName")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("full_name");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("HO_TEN");
 
-                    b.Property<string>("Gender")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasColumnName("gender");
+                    b.Property<string>("Hometown")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)")
+                        .HasColumnName("QUE_QUAN");
+
+                    b.Property<string>("IdCardBackUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("CCCD_BACK_URL");
+
+                    b.Property<string>("IdCardFrontUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("CCCD_FRONT_URL");
 
                     b.Property<string>("IdCardNumber")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasColumnName("id_card_number");
-
-                    b.Property<string>("PermanentAddress")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("permanent_address");
+                        .HasColumnName("SO_CCCD");
 
                     b.Property<string>("PhoneNumber")
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)")
-                        .HasColumnName("phone_number");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
-
-                    b.Property<long?>("UserId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("user_id");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("SO_DIEN_THOAI");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IdCardNumber");
+                    b.HasIndex("IdCardNumber")
+                        .IsUnique()
+                        .HasFilter("[SO_CCCD] IS NOT NULL");
 
-                    b.HasIndex("PhoneNumber");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("residents", t =>
-                        {
-                            t.HasCheckConstraint("CK_residents_gender", "gender IN ('MALE', 'FEMALE', 'OTHER')");
-                        });
+                    b.ToTable("CU_DAN", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.Room", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("int")
+                        .HasColumnName("PHONG_ID");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<decimal?>("AreaSqm")
+                    b.Property<decimal?>("Area")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
-                        .HasColumnName("area_sqm");
+                        .HasColumnName("DIEN_TICH");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                    b.Property<decimal?>("DefaultRentPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("DON_GIA_THUE_MAC_DINH");
 
-                    b.Property<long>("FloorId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("floor_id");
-
-                    b.Property<decimal>("MonthlyRent")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("monthly_rent");
+                    b.Property<int>("FloorId")
+                        .HasColumnType("int")
+                        .HasColumnName("TANG_ID");
 
                     b.Property<string>("RoomCode")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("room_code");
-
-                    b.Property<string>("RoomNumber")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("room_number");
-
-                    b.Property<string>("RoomType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("room_type");
-
-                    b.Property<decimal>("SalePrice")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("sale_price");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("MA_PHONG");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("VACANT")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("TRANG_THAI");
 
                     b.HasKey("Id");
 
                     b.HasIndex("FloorId");
 
-                    b.HasIndex("RoomCode");
+                    b.HasIndex("RoomCode")
+                        .IsUnique();
 
-                    b.ToTable("rooms", t =>
-                        {
-                            t.HasCheckConstraint("CK_rooms_room_type", "room_type IN ('FOR_RENT', 'FOR_SALE', 'SOLD')");
-
-                            t.HasCheckConstraint("CK_rooms_status", "status IN ('VACANT', 'OCCUPIED', 'INACTIVE')");
-                        });
+                    b.ToTable("PHONG", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.Service", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("int")
+                        .HasColumnName("DICH_VU_ID");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("description");
+                    b.Property<decimal?>("CommonUnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("DON_GIA_CHUNG");
 
                     b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
+                        .HasColumnName("IS_ACTIVE");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("name");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("TEN_DICH_VU");
+
+                    b.Property<string>("ServiceType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("LOAI");
 
                     b.Property<string>("Unit")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
-                        .HasColumnName("unit");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("unit_price");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
+                        .HasColumnName("DON_VI");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name");
-
-                    b.ToTable("services");
+                    b.ToTable("DICH_VU", (string)null);
                 });
 
-            modelBuilder.Entity("backend.Models.ServicePriceAdjustment", b =>
+            modelBuilder.Entity("backend.Models.TaiSan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("TAI_SAN_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AssetCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("MA_TAI_SAN");
+
+                    b.Property<string>("AssetName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("TEN_TAI_SAN");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetCode")
+                        .IsUnique();
+
+                    b.ToTable("TAI_SAN", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.TatToan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("TAT_TOAN_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int")
+                        .HasColumnName("HOP_DONG_ID");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("GHI_CHU");
+
+                    b.Property<string>("PdfUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("PDF_URL");
+
+                    b.Property<DateTime>("SettlementDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("NGAY_TAT_TOAN");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TONG_CONG");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractId")
+                        .IsUnique();
+
+                    b.ToTable("TAT_TOAN", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.ThanhToan", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("AdjustedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("adjusted_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("AdjustedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("adjusted_by");
-
-                    b.Property<string>("AdjustmentReason")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("adjustment_reason");
-
-                    b.Property<decimal>("NewPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("new_price");
-
-                    b.Property<decimal>("OldPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("old_price");
-
-                    b.Property<long>("ServiceId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("service_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceId");
-
-                    b.ToTable("service_price_adjustments");
-                });
-
-            modelBuilder.Entity("backend.Models.ServicePriceSnapshot", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("notes");
-
-                    b.Property<decimal>("PreviousPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("previous_price");
-
-                    b.Property<long>("ServiceId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("service_id");
-
-                    b.Property<DateTime>("SnapshotDatetime")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("snapshot_datetime")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceId");
-
-                    b.ToTable("service_price_snapshots");
-                });
-
-            modelBuilder.Entity("backend.Models.ServiceUsage", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<bool>("IsCharged")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_charged");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("notes");
-
-                    b.Property<decimal>("Quantity")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("quantity");
-
-                    b.Property<long>("ResidencyId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("residency_id");
-
-                    b.Property<long?>("ResidentId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("resident_id");
-
-                    b.Property<long>("ServiceId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("service_id");
-
-                    b.Property<long?>("ServiceId1")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("unit_price");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
-
-                    b.Property<DateTime>("UsageDatetime")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("usage_datetime");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ResidentId");
-
-                    b.HasIndex("ServiceId");
-
-                    b.HasIndex("ServiceId1");
-
-                    b.HasIndex("ResidencyId", "ServiceId", "UsageDatetime");
-
-                    b.ToTable("service_usages");
-                });
-
-            modelBuilder.Entity("backend.Models.Transaction", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnName("THANH_TOAN_ID");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)")
-                        .HasColumnName("amount");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("SO_TIEN");
 
-                    b.Property<string>("BankReference")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("bank_reference");
+                    b.Property<int?>("InvoiceId")
+                        .HasColumnType("int")
+                        .HasColumnName("HOA_DON_ID");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
+                    b.Property<DateTime>("PaidAt")
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("PAID_AT");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("GatewayReference")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("gateway_reference");
-
-                    b.Property<string>("GatewayResponse")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("gateway_response");
-
-                    b.Property<long>("InvoiceId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("invoice_id");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("notes");
-
-                    b.Property<DateTime>("PaymentDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("payment_date");
-
-                    b.Property<string>("PaymentMethod")
+                    b.Property<string>("PaymentType")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
-                        .HasColumnName("payment_method");
+                        .HasColumnName("LOAI");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("INITIATED")
-                        .HasColumnName("status");
+                    b.Property<int?>("SettlementId")
+                        .HasColumnType("int")
+                        .HasColumnName("TAT_TOAN_ID");
 
                     b.Property<string>("TransactionCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("transaction_code");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("MA_GIAO_DICH");
 
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
 
-                    b.HasIndex("PaymentDate");
+                    b.HasIndex("SettlementId");
 
-                    b.HasIndex("TransactionCode")
-                        .IsUnique();
-
-                    b.ToTable("transactions", t =>
+                    b.ToTable("THANH_TOAN", null, t =>
                         {
-                            t.HasCheckConstraint("CK_transactions_payment_method", "payment_method IN ('BANK_TRANSFER', 'CASH', 'EWALLET', 'GATEWAY_MOCK')");
-
-                            t.HasCheckConstraint("CK_transactions_status", "status IN ('INITIATED', 'PROCESSING', 'SUCCESS', 'FAILED', 'CANCELLED')");
+                            t.HasCheckConstraint("CHK_THANH_TOAN_REF", "([HOA_DON_ID] IS NOT NULL AND [TAT_TOAN_ID] IS NULL) OR ([HOA_DON_ID] IS NULL AND [TAT_TOAN_ID] IS NOT NULL)");
                         });
                 });
 
             modelBuilder.Entity("backend.Models.User", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("int")
+                        .HasColumnName("USER_ID");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit")
+                        .HasColumnName("IS_LOCKED");
+
+                    b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("FullName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("full_name");
+                        .HasColumnName("LAST_LOGIN_AT");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("password_hash");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("MAT_KHAU_HASH");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)")
-                        .HasColumnName("phone_number");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("SO_DIEN_THOAI");
+
+                    b.Property<string>("RefreshToken")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("REFRESH_TOKEN");
+
+                    b.Property<DateTime?>("RefreshTokenExpiryTime")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("REFRESH_TOKEN_EXPIRY_TIME");
+
+                    b.Property<int?>("ResidentId")
+                        .HasColumnType("int")
+                        .HasColumnName("CU_DAN_ID");
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("RESIDENT")
-                        .HasColumnName("role");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("ACTIVE")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long?>("UpdatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("updated_by");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("VAI_TRO");
 
                     b.HasKey("Id");
 
                     b.HasIndex("PhoneNumber")
                         .IsUnique();
 
-                    b.ToTable("users");
+                    b.HasIndex("ResidentId");
+
+                    b.ToTable("USER", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.UserSession", b =>
@@ -2095,10 +1136,8 @@ namespace backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("created_at");
 
                     b.Property<string>("DeviceInfo")
                         .HasMaxLength(255)
@@ -2124,219 +1163,272 @@ namespace backend.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("revoked_at");
 
-                    b.Property<long>("UserId")
-                        .HasColumnType("bigint")
+                    b.Property<int>("UserId")
+                        .HasColumnType("int")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RefreshToken");
-
                     b.HasIndex("UserId");
 
-                    b.ToTable("user_sessions");
+                    b.ToTable("user_sessions", (string)null);
                 });
 
-            modelBuilder.Entity("backend.Models.WaterMeterReading", b =>
+            modelBuilder.Entity("backend.Models.Xe", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("int")
+                        .HasColumnName("XE_ID");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AnomalyNote")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("anomaly_note");
-
-                    b.Property<decimal>("Consumption")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("consumption");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
+                    b.Property<DateTime?>("CancellationDate")
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("NGAY_HUY");
 
-                    b.Property<decimal>("CurrentReading")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("current_reading");
+                    b.Property<string>("LicensePlate")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("BIEN_SO");
 
-                    b.Property<bool>("IsAnomaly")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_anomaly");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("notes");
-
-                    b.Property<decimal>("PreviousReading")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("previous_reading");
-
-                    b.Property<DateTime>("ReadingMonth")
+                    b.Property<DateTime>("RegistrationDate")
                         .HasColumnType("datetime2")
-                        .HasColumnName("reading_month");
+                        .HasColumnName("NGAY_DANG_KY");
 
-                    b.Property<long?>("RecordedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("recorded_by");
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int")
+                        .HasColumnName("CU_DAN_ID");
 
-                    b.Property<long>("RoomId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("room_id");
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("LOAI_XE");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomId", "ReadingMonth");
+                    b.HasIndex("LicensePlate")
+                        .IsUnique();
 
-                    b.ToTable("water_meter_readings");
+                    b.HasIndex("ResidentId");
+
+                    b.ToTable("XE", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.YeuCauSuaChua", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("YEU_CAU_ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("GHI_CHU_ADMIN");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CLOSED_AT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("MO_TA");
+
+                    b.Property<string>("IssueType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("LOAI_SU_CO");
+
+                    b.Property<string>("MediaUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("MEDIA_URL");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int")
+                        .HasColumnName("PHONG_ID");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("TRANG_THAI");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int")
+                        .HasColumnName("USER_ID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("YEU_CAU_SUA_CHUA", (string)null);
                 });
 
             modelBuilder.Entity("backend.Models.AuditLog", b =>
                 {
                     b.HasOne("backend.Models.User", "User")
-                        .WithMany("AuditLogs")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .WithMany()
+                        .HasForeignKey("UserId");
 
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("backend.Models.ChatbotConversation", b =>
+            modelBuilder.Entity("backend.Models.ChiSoDien", b =>
                 {
-                    b.HasOne("backend.Models.User", "User")
+                    b.HasOne("backend.Models.User", "CreatedByUser")
                         .WithMany()
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("CreatedBy")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("backend.Models.ChatbotMessage", b =>
-                {
-                    b.HasOne("backend.Models.ChatbotConversation", "Conversation")
-                        .WithMany("Messages")
-                        .HasForeignKey("ConversationId")
+                    b.HasOne("backend.Models.ChiTietSuDungDichVu", "ServiceUsageDetail")
+                        .WithMany("ChiSoDiens")
+                        .HasForeignKey("ServiceUsageDetailId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("backend.Models.FAQ", "MatchedFaq")
-                        .WithMany()
-                        .HasForeignKey("MatchedFaqId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                    b.Navigation("CreatedByUser");
 
-                    b.HasOne("backend.Models.Regulation", "MatchedRegulation")
-                        .WithMany()
-                        .HasForeignKey("MatchedRegulationId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Conversation");
-
-                    b.Navigation("MatchedFaq");
-
-                    b.Navigation("MatchedRegulation");
+                    b.Navigation("ServiceUsageDetail");
                 });
 
-            modelBuilder.Entity("backend.Models.Complaint", b =>
+            modelBuilder.Entity("backend.Models.ChiSoNuoc", b =>
                 {
-                    b.HasOne("backend.Models.Room", "Room")
-                        .WithMany("Complaints")
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.HasOne("backend.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("Room");
-                });
-
-            modelBuilder.Entity("backend.Models.ComplaintAttachment", b =>
-                {
-                    b.HasOne("backend.Models.Complaint", "Complaint")
-                        .WithMany("Attachments")
-                        .HasForeignKey("ComplaintId")
+                    b.HasOne("backend.Models.ChiTietSuDungDichVu", "ServiceUsageDetail")
+                        .WithMany("ChiSoNuocs")
+                        .HasForeignKey("ServiceUsageDetailId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Complaint");
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("ServiceUsageDetail");
                 });
 
-            modelBuilder.Entity("backend.Models.ComplaintResponse", b =>
+            modelBuilder.Entity("backend.Models.ChiTietHoaDon", b =>
                 {
-                    b.HasOne("backend.Models.Complaint", "Complaint")
-                        .WithMany("Responses")
-                        .HasForeignKey("ComplaintId")
+                    b.HasOne("backend.Models.HoaDon", "HoaDon")
+                        .WithMany("ChiTietHoaDons")
+                        .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Complaint");
+                    b.HasOne("backend.Models.Service", "Service")
+                        .WithMany("ChiTietHoaDons")
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("backend.Models.ChiTietSuDungDichVu", "ServiceUsageDetail")
+                        .WithMany("ChiTietHoaDons")
+                        .HasForeignKey("ServiceUsageDetailId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("HoaDon");
+
+                    b.Navigation("Service");
+
+                    b.Navigation("ServiceUsageDetail");
                 });
 
-            modelBuilder.Entity("backend.Models.Deposit", b =>
+            modelBuilder.Entity("backend.Models.ChiTietO", b =>
                 {
-                    b.HasOne("backend.Models.Residency", "Residency")
-                        .WithOne()
-                        .HasForeignKey("backend.Models.Deposit", "ResidencyId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                    b.HasOne("backend.Models.HopDong", "HopDong")
+                        .WithMany("ChiTietOs")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("backend.Models.Residency", null)
-                        .WithOne("Deposit")
-                        .HasForeignKey("backend.Models.Deposit", "ResidencyId1");
 
                     b.HasOne("backend.Models.Resident", "Resident")
-                        .WithMany()
+                        .WithMany("ChiTietOs")
                         .HasForeignKey("ResidentId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("HopDong");
+
+                    b.Navigation("Resident");
+                });
+
+            modelBuilder.Entity("backend.Models.ChiTietPhieuTatToan", b =>
+                {
+                    b.HasOne("backend.Models.TatToan", "TatToan")
+                        .WithMany("ChiTietPhieuTatToans")
+                        .HasForeignKey("SettlementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TatToan");
+                });
+
+            modelBuilder.Entity("backend.Models.ChiTietSuDungDichVu", b =>
+                {
+                    b.HasOne("backend.Models.Resident", "Resident")
+                        .WithMany("ChiTietSuDungDichVus")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("backend.Models.Room", "Room")
-                        .WithMany("Deposits")
+                        .WithMany("ChiTietSuDungDichVus")
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Residency");
+                    b.HasOne("backend.Models.Service", "Service")
+                        .WithMany("ChiTietSuDungDichVus")
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Xe", "Vehicle")
+                        .WithMany("ChiTietSuDungDichVus")
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Resident");
 
                     b.Navigation("Room");
+
+                    b.Navigation("Service");
+
+                    b.Navigation("Vehicle");
                 });
 
-            modelBuilder.Entity("backend.Models.ElectricityPriceSnapshot", b =>
+            modelBuilder.Entity("backend.Models.ChiTietTaiSanPhong", b =>
                 {
-                    b.HasOne("backend.Models.PriceConfig", "PriceConfig")
-                        .WithMany()
-                        .HasForeignKey("PriceConfigId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("PriceConfig");
-                });
-
-            modelBuilder.Entity("backend.Models.ElectricityTier", b =>
-                {
-                    b.HasOne("backend.Models.PriceConfig", "PriceConfig")
-                        .WithMany()
-                        .HasForeignKey("PriceConfigId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("PriceConfig");
-                });
-
-            modelBuilder.Entity("backend.Models.ElectricityTierSnapshot", b =>
-                {
-                    b.HasOne("backend.Models.ElectricityPriceSnapshot", "Snapshot")
-                        .WithMany("TierSnapshots")
-                        .HasForeignKey("SnapshotId")
+                    b.HasOne("backend.Models.TaiSan", "TaiSan")
+                        .WithMany("ChiTietTaiSanPhongs")
+                        .HasForeignKey("AssetId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Snapshot");
+                    b.HasOne("backend.Models.Room", "Room")
+                        .WithMany("ChiTietTaiSanPhongs")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+
+                    b.Navigation("TaiSan");
                 });
 
             modelBuilder.Entity("backend.Models.Floor", b =>
@@ -2350,93 +1442,80 @@ namespace backend.Migrations
                     b.Navigation("Building");
                 });
 
-            modelBuilder.Entity("backend.Models.Invoice", b =>
+            modelBuilder.Entity("backend.Models.HoaDon", b =>
                 {
-                    b.HasOne("backend.Models.BillingPeriod", "BillingPeriod")
-                        .WithMany("Invoices")
-                        .HasForeignKey("BillingPeriodId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                    b.HasOne("backend.Models.HopDong", "HopDong")
+                        .WithMany("HoaDons")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("HopDong");
+                });
+
+            modelBuilder.Entity("backend.Models.HopDong", b =>
+                {
                     b.HasOne("backend.Models.Room", "Room")
-                        .WithMany("Invoices")
+                        .WithMany("HopDongs")
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("BillingPeriod");
 
                     b.Navigation("Room");
                 });
 
-            modelBuilder.Entity("backend.Models.InvoiceLineItem", b =>
+            modelBuilder.Entity("backend.Models.KnowledgeBase", b =>
                 {
-                    b.HasOne("backend.Models.Invoice", "Invoice")
-                        .WithMany("LineItems")
+                    b.HasOne("backend.Models.User", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("UpdatedByUser");
+                });
+
+            modelBuilder.Entity("backend.Models.LichSuChat", b =>
+                {
+                    b.HasOne("backend.Models.User", "User")
+                        .WithMany("LichSuChats")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.NhatKyNhacNo", b =>
+                {
+                    b.HasOne("backend.Models.HoaDon", "HoaDon")
+                        .WithMany("NhatKyNhacNos")
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Invoice");
-                });
+                    b.HasOne("backend.Models.User", "SentByUser")
+                        .WithMany("NhatKyNhacNosSentBy")
+                        .HasForeignKey("SentByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
-            modelBuilder.Entity("backend.Models.MeterReading", b =>
-                {
-                    b.HasOne("backend.Models.Room", "Room")
-                        .WithMany("MeterReadings")
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                    b.HasOne("backend.Models.User", "SentToUser")
+                        .WithMany("NhatKyNhacNosSentTo")
+                        .HasForeignKey("SentToUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Room");
+                    b.Navigation("HoaDon");
+
+                    b.Navigation("SentByUser");
+
+                    b.Navigation("SentToUser");
                 });
 
             modelBuilder.Entity("backend.Models.Notification", b =>
                 {
                     b.HasOne("backend.Models.User", "User")
-                        .WithMany("Notifications")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("backend.Models.PaymentReconciliation", b =>
-                {
-                    b.HasOne("backend.Models.Transaction", "Transaction")
-                        .WithMany("Reconciliations")
-                        .HasForeignKey("TransactionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Transaction");
-                });
-
-            modelBuilder.Entity("backend.Models.Residency", b =>
-                {
-                    b.HasOne("backend.Models.Resident", "Resident")
-                        .WithMany("Residencies")
-                        .HasForeignKey("ResidentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("backend.Models.Room", "Room")
-                        .WithMany("Residencies")
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Resident");
-
-                    b.Navigation("Room");
-                });
-
-            modelBuilder.Entity("backend.Models.Resident", b =>
-                {
-                    b.HasOne("backend.Models.User", "User")
-                        .WithMany("Residents")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .WithMany()
+                        .HasForeignKey("UserId");
 
                     b.Navigation("User");
                 });
@@ -2452,73 +1531,48 @@ namespace backend.Migrations
                     b.Navigation("Floor");
                 });
 
-            modelBuilder.Entity("backend.Models.ServicePriceAdjustment", b =>
+            modelBuilder.Entity("backend.Models.TatToan", b =>
                 {
-                    b.HasOne("backend.Models.Service", "Service")
-                        .WithMany()
-                        .HasForeignKey("ServiceId")
+                    b.HasOne("backend.Models.HopDong", "HopDong")
+                        .WithOne("TatToan")
+                        .HasForeignKey("backend.Models.TatToan", "ContractId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Service");
+                    b.Navigation("HopDong");
                 });
 
-            modelBuilder.Entity("backend.Models.ServicePriceSnapshot", b =>
+            modelBuilder.Entity("backend.Models.ThanhToan", b =>
                 {
-                    b.HasOne("backend.Models.Service", "Service")
-                        .WithMany()
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.HasOne("backend.Models.HoaDon", "HoaDon")
+                        .WithMany("ThanhToans")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
-                    b.Navigation("Service");
-                });
-
-            modelBuilder.Entity("backend.Models.ServiceUsage", b =>
-                {
-                    b.HasOne("backend.Models.Residency", "Residency")
-                        .WithMany()
-                        .HasForeignKey("ResidencyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("backend.Models.Resident", "Resident")
-                        .WithMany()
-                        .HasForeignKey("ResidentId")
+                    b.HasOne("backend.Models.TatToan", "TatToan")
+                        .WithMany("ThanhToans")
+                        .HasForeignKey("SettlementId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("backend.Models.Service", "Service")
-                        .WithMany()
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                    b.Navigation("HoaDon");
 
-                    b.HasOne("backend.Models.Service", null)
-                        .WithMany("ServiceUsages")
-                        .HasForeignKey("ServiceId1");
-
-                    b.Navigation("Residency");
-
-                    b.Navigation("Resident");
-
-                    b.Navigation("Service");
+                    b.Navigation("TatToan");
                 });
 
-            modelBuilder.Entity("backend.Models.Transaction", b =>
+            modelBuilder.Entity("backend.Models.User", b =>
                 {
-                    b.HasOne("backend.Models.Invoice", "Invoice")
-                        .WithMany("Transactions")
-                        .HasForeignKey("InvoiceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.HasOne("backend.Models.Resident", "Resident")
+                        .WithMany("Users")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("Invoice");
+                    b.Navigation("Resident");
                 });
 
             modelBuilder.Entity("backend.Models.UserSession", b =>
                 {
                     b.HasOne("backend.Models.User", "User")
-                        .WithMany("UserSessions")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2526,20 +1580,34 @@ namespace backend.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("backend.Models.WaterMeterReading", b =>
+            modelBuilder.Entity("backend.Models.Xe", b =>
+                {
+                    b.HasOne("backend.Models.Resident", "Resident")
+                        .WithMany("Xes")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Resident");
+                });
+
+            modelBuilder.Entity("backend.Models.YeuCauSuaChua", b =>
                 {
                     b.HasOne("backend.Models.Room", "Room")
-                        .WithMany("WaterMeterReadings")
+                        .WithMany("YeuCauSuaChuas")
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.User", "User")
+                        .WithMany("YeuCauSuaChuas")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Room");
-                });
 
-            modelBuilder.Entity("backend.Models.BillingPeriod", b =>
-                {
-                    b.Navigation("Invoices");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("backend.Models.Building", b =>
@@ -2547,21 +1615,13 @@ namespace backend.Migrations
                     b.Navigation("Floors");
                 });
 
-            modelBuilder.Entity("backend.Models.ChatbotConversation", b =>
+            modelBuilder.Entity("backend.Models.ChiTietSuDungDichVu", b =>
                 {
-                    b.Navigation("Messages");
-                });
+                    b.Navigation("ChiSoDiens");
 
-            modelBuilder.Entity("backend.Models.Complaint", b =>
-                {
-                    b.Navigation("Attachments");
+                    b.Navigation("ChiSoNuocs");
 
-                    b.Navigation("Responses");
-                });
-
-            modelBuilder.Entity("backend.Models.ElectricityPriceSnapshot", b =>
-                {
-                    b.Navigation("TierSnapshots");
+                    b.Navigation("ChiTietHoaDons");
                 });
 
             modelBuilder.Entity("backend.Models.Floor", b =>
@@ -2569,57 +1629,79 @@ namespace backend.Migrations
                     b.Navigation("Rooms");
                 });
 
-            modelBuilder.Entity("backend.Models.Invoice", b =>
+            modelBuilder.Entity("backend.Models.HoaDon", b =>
                 {
-                    b.Navigation("LineItems");
+                    b.Navigation("ChiTietHoaDons");
 
-                    b.Navigation("Transactions");
+                    b.Navigation("NhatKyNhacNos");
+
+                    b.Navigation("ThanhToans");
                 });
 
-            modelBuilder.Entity("backend.Models.Residency", b =>
+            modelBuilder.Entity("backend.Models.HopDong", b =>
                 {
-                    b.Navigation("Deposit");
+                    b.Navigation("ChiTietOs");
+
+                    b.Navigation("HoaDons");
+
+                    b.Navigation("TatToan");
                 });
 
             modelBuilder.Entity("backend.Models.Resident", b =>
                 {
-                    b.Navigation("Residencies");
+                    b.Navigation("ChiTietOs");
+
+                    b.Navigation("ChiTietSuDungDichVus");
+
+                    b.Navigation("Users");
+
+                    b.Navigation("Xes");
                 });
 
             modelBuilder.Entity("backend.Models.Room", b =>
                 {
-                    b.Navigation("Complaints");
+                    b.Navigation("ChiTietSuDungDichVus");
 
-                    b.Navigation("Deposits");
+                    b.Navigation("ChiTietTaiSanPhongs");
 
-                    b.Navigation("Invoices");
+                    b.Navigation("HopDongs");
 
-                    b.Navigation("MeterReadings");
-
-                    b.Navigation("Residencies");
-
-                    b.Navigation("WaterMeterReadings");
+                    b.Navigation("YeuCauSuaChuas");
                 });
 
             modelBuilder.Entity("backend.Models.Service", b =>
                 {
-                    b.Navigation("ServiceUsages");
+                    b.Navigation("ChiTietHoaDons");
+
+                    b.Navigation("ChiTietSuDungDichVus");
                 });
 
-            modelBuilder.Entity("backend.Models.Transaction", b =>
+            modelBuilder.Entity("backend.Models.TaiSan", b =>
                 {
-                    b.Navigation("Reconciliations");
+                    b.Navigation("ChiTietTaiSanPhongs");
+                });
+
+            modelBuilder.Entity("backend.Models.TatToan", b =>
+                {
+                    b.Navigation("ChiTietPhieuTatToans");
+
+                    b.Navigation("ThanhToans");
                 });
 
             modelBuilder.Entity("backend.Models.User", b =>
                 {
-                    b.Navigation("AuditLogs");
+                    b.Navigation("LichSuChats");
 
-                    b.Navigation("Notifications");
+                    b.Navigation("NhatKyNhacNosSentBy");
 
-                    b.Navigation("Residents");
+                    b.Navigation("NhatKyNhacNosSentTo");
 
-                    b.Navigation("UserSessions");
+                    b.Navigation("YeuCauSuaChuas");
+                });
+
+            modelBuilder.Entity("backend.Models.Xe", b =>
+                {
+                    b.Navigation("ChiTietSuDungDichVus");
                 });
 #pragma warning restore 612, 618
         }

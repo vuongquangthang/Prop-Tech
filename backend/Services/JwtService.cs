@@ -12,7 +12,7 @@ public interface IJwtService
     string GenerateAccessToken(User user);
     string GenerateRefreshToken();
     ClaimsPrincipal? ValidateToken(string token);
-    long? GetUserIdFromToken(string token);
+    int? GetUserIdFromToken(string token);
 }
 
 public class JwtService : IJwtService
@@ -21,36 +21,45 @@ public class JwtService : IJwtService
     private readonly string _secretKey;
     private readonly string _issuer;
     private readonly string _audience;
-    private readonly int _accessTokenExpirationMinutes;
+    private readonly int _accessTokenExpiryMinutes;
+    private readonly int _refreshTokenExpiryDays;
 
     public JwtService(IConfiguration configuration)
     {
         _configuration = configuration;
-        _secretKey = configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");
-        _issuer = configuration["Jwt:Issuer"] ?? "apartment_api";
-        _audience = configuration["Jwt:Audience"] ?? "apartment_app";
-        _accessTokenExpirationMinutes = int.Parse(configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+        _secretKey = _configuration["Jwt:Key"] 
+            ?? throw new InvalidOperationException("JWT Key not configured");
+        _issuer = _configuration["Jwt:Issuer"] ?? "PropTechAPI";
+        _audience = _configuration["Jwt:Audience"] ?? "PropTechClient";
+        _accessTokenExpiryMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+        _refreshTokenExpiryDays = int.Parse(_configuration["Jwt:RefreshTokenExpirationDays"] ?? "7");
     }
 
     public string GenerateAccessToken(User user)
     {
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.MobilePhone, user.PhoneNumber),
-            new Claim(ClaimTypes.Role, user.Role),
-            new Claim("status", user.Status),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.MobilePhone, user.PhoneNumber),
+            new(ClaimTypes.Role, user.Role),
+            new("UserId", user.Id.ToString()),
+            new("PhoneNumber", user.PhoneNumber),
+            new("Role", user.Role)
+        };
+
+        if (user.ResidentId.HasValue)
+        {
+            claims.Add(new Claim("ResidentId", user.ResidentId.Value.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _issuer,
             audience: _audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_accessTokenExpiryMinutes),
             signingCredentials: credentials
         );
 
@@ -74,17 +83,18 @@ public class JwtService : IJwtService
 
             var validationParameters = new TokenValidationParameters
             {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = _issuer,
-                ValidAudience = _audience,
                 IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidIssuer = _issuer,
+                ValidateAudience = true,
+                ValidAudience = _audience,
+                ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };
 
-            return tokenHandler.ValidateToken(token, validationParameters, out _);
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+            return principal;
         }
         catch
         {
@@ -92,13 +102,16 @@ public class JwtService : IJwtService
         }
     }
 
-    public long? GetUserIdFromToken(string token)
+    public int? GetUserIdFromToken(string token)
     {
         var principal = ValidateToken(token);
-        var userIdClaim = principal?.FindFirst(ClaimTypes.NameIdentifier);
+        var userIdClaim = principal?.FindFirst("UserId")?.Value;
         
-        return userIdClaim != null && long.TryParse(userIdClaim.Value, out var userId) 
-            ? userId 
-            : null;
+        if (int.TryParse(userIdClaim, out int userId))
+        {
+            return userId;
+        }
+
+        return null;
     }
 }

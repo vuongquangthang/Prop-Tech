@@ -1,14 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Repositories;
-
-public interface IUserRepository : IRepository<User>
-{
-    Task<User?> GetByPhoneNumberAsync(string phoneNumber);
-    Task<bool> PhoneNumberExistsAsync(string phoneNumber);
-}
 
 public class UserRepository : Repository<User>, IUserRepository
 {
@@ -16,13 +10,51 @@ public class UserRepository : Repository<User>, IUserRepository
     {
     }
 
-    public async Task<User?> GetByPhoneNumberAsync(string phoneNumber)
+    public async Task<User?> GetByPhoneAsync(string phone)
     {
-        return await _dbSet.FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber);
+        return await _dbSet
+            .Include(u => u.Resident)
+            .FirstOrDefaultAsync(u => u.PhoneNumber == phone);
     }
 
-    public async Task<bool> PhoneNumberExistsAsync(string phoneNumber)
+    public async Task<User?> GetByPhoneNumberAsync(string phoneNumber)
     {
-        return await _dbSet.AnyAsync(u => u.PhoneNumber == phoneNumber);
+        return await _dbSet
+            .Include(u => u.Resident)
+            .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber);
+    }
+
+    public async Task<User?> GetByRefreshTokenAsync(string refreshToken)
+    {
+        return await _dbSet
+            .Include(u => u.Resident)
+            .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+    }
+
+    public async Task<User?> GetWithResidentAsync(int id)
+    {
+        return await _dbSet
+            .Include(u => u.Resident)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
+
+    public async Task<bool> ExistsByPhoneAsync(string phone)
+    {
+        return await _dbSet.AnyAsync(u => u.PhoneNumber == phone);
+    }
+
+    public async Task<IEnumerable<User>> GetByRoleAsync(string role)
+    {
+        return await _dbSet
+            .Include(u => u.Resident)
+            .Where(u => u.Role == role)
+            .ToListAsync();
+    }
+
+    public async Task<User?> AuthenticateAsync(string phone)
+    {
+        return await _dbSet
+            .Include(u => u.Resident)
+            .FirstOrDefaultAsync(u => u.PhoneNumber == phone && !u.IsLocked);
     }
 }

@@ -7,8 +7,15 @@ using backend.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel to listen on all network interfaces
+builder.WebHost.UseUrls("http://0.0.0.0:5052", "https://0.0.0.0:5053");
+
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 
 // Configure SQL Server Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -37,6 +44,25 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero
     };
+
+    // Allow SignalR to authenticate via query string (for WebSocket)
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+
+            // If the request is for our hub...
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.StartsWithSegments("/hubs"))
+            {
+                // Read the token out of the query string
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -46,57 +72,98 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); // Required for SignalR
     });
 });
 
-// Register Repositories
+// Add SignalR
+// Configure SignalR with longer timeout
+builder.Services.AddSignalR(options =>
+{
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15); // Send ping every 15s
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60); // Client timeout after 60s
+    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+});
+
+// Phase 1: Register Core Repositories
 builder.Services.AddScoped<backend.Repositories.IUserRepository, backend.Repositories.UserRepository>();
-builder.Services.AddScoped<backend.Repositories.IUserSessionRepository, backend.Repositories.UserSessionRepository>();
 builder.Services.AddScoped<backend.Repositories.IBuildingRepository, backend.Repositories.BuildingRepository>();
 builder.Services.AddScoped<backend.Repositories.IFloorRepository, backend.Repositories.FloorRepository>();
 builder.Services.AddScoped<backend.Repositories.IRoomRepository, backend.Repositories.RoomRepository>();
-builder.Services.AddScoped<backend.Repositories.IFAQRepository, backend.Repositories.FAQRepository>();
-builder.Services.AddScoped<backend.Repositories.IRegulationRepository, backend.Repositories.RegulationRepository>();
 builder.Services.AddScoped<backend.Repositories.IResidentRepository, backend.Repositories.ResidentRepository>();
-builder.Services.AddScoped<backend.Repositories.IResidencyRepository, backend.Repositories.ResidencyRepository>();
-builder.Services.AddScoped<backend.Repositories.IDepositRepository, backend.Repositories.DepositRepository>();
-builder.Services.AddScoped<backend.Repositories.IPriceConfigRepository, backend.Repositories.PriceConfigRepository>();
-builder.Services.AddScoped<backend.Repositories.IMeterReadingRepository, backend.Repositories.MeterReadingRepository>();
-builder.Services.AddScoped<backend.Repositories.IWaterMeterReadingRepository, backend.Repositories.WaterMeterReadingRepository>();
-builder.Services.AddScoped<backend.Repositories.IBillingPeriodRepository, backend.Repositories.BillingPeriodRepository>();
-builder.Services.AddScoped<backend.Repositories.IInvoiceRepository, backend.Repositories.InvoiceRepository>();
-builder.Services.AddScoped<backend.Repositories.IInvoiceLineItemRepository, backend.Repositories.InvoiceLineItemRepository>();
-builder.Services.AddScoped<backend.Repositories.ITransactionRepository, backend.Repositories.TransactionRepository>();
-builder.Services.AddScoped<backend.Repositories.INotificationRepository, backend.Repositories.NotificationRepository>();
-builder.Services.AddScoped<backend.Repositories.IComplaintRepository, backend.Repositories.ComplaintRepository>();
-builder.Services.AddScoped<backend.Repositories.IComplaintAttachmentRepository, backend.Repositories.ComplaintAttachmentRepository>();
-builder.Services.AddScoped<backend.Repositories.IComplaintResponseRepository, backend.Repositories.ComplaintResponseRepository>();
-builder.Services.AddScoped<backend.Repositories.IAuditLogRepository, backend.Repositories.AuditLogRepository>();
 
-// Register Services
+// Phase 2: Contract & Invoice Repositories
+builder.Services.AddScoped<backend.Repositories.IHopDongRepository, backend.Repositories.HopDongRepository>();
+builder.Services.AddScoped<backend.Repositories.IChiTietORepository, backend.Repositories.ChiTietORepository>();
+builder.Services.AddScoped<backend.Repositories.IServiceRepository, backend.Repositories.ServiceRepository>();
+builder.Services.AddScoped<backend.Repositories.IHoaDonRepository, backend.Repositories.HoaDonRepository>();
+builder.Services.AddScoped<backend.Repositories.IThanhToanRepository, backend.Repositories.ThanhToanRepository>();
+
+// Phase 3: Additional Repositories
+builder.Services.AddScoped<backend.Repositories.IXeRepository, backend.Repositories.XeRepository>();
+builder.Services.AddScoped<backend.Repositories.IYeuCauSuaChuaRepository, backend.Repositories.YeuCauSuaChuaRepository>();
+builder.Services.AddScoped<backend.Repositories.IChiTietSuDungDichVuRepository, backend.Repositories.ChiTietSuDungDichVuRepository>();
+
+// Phase 4: Meter Readings & Settlement Repositories
+builder.Services.AddScoped<backend.Repositories.IChiSoDienRepository, backend.Repositories.ChiSoDienRepository>();
+builder.Services.AddScoped<backend.Repositories.IChiSoNuocRepository, backend.Repositories.ChiSoNuocRepository>();
+builder.Services.AddScoped<backend.Repositories.ITatToanRepository, backend.Repositories.TatToanRepository>();
+builder.Services.AddScoped<backend.Repositories.IChiTietPhieuTatToanRepository, backend.Repositories.ChiTietPhieuTatToanRepository>();
+builder.Services.AddScoped<backend.Repositories.ITaiSanRepository, backend.Repositories.TaiSanRepository>();
+builder.Services.AddScoped<backend.Repositories.IChiTietTaiSanPhongRepository, backend.Repositories.ChiTietTaiSanPhongRepository>();
+
+// Tier 2: KnowledgeBase & Notifications
+builder.Services.AddScoped<backend.Repositories.IKnowledgeBaseRepository, backend.Repositories.KnowledgeBaseRepository>();
+builder.Services.AddScoped<backend.Repositories.INhatKyNhacNoRepository, backend.Repositories.NhatKyNhacNoRepository>();
+builder.Services.AddScoped<backend.Repositories.IAuditLogRepository, backend.Repositories.AuditLogRepository>();
+builder.Services.AddScoped<backend.Repositories.INotificationRepository, backend.Repositories.NotificationRepository>();
+
+// Tier 3: Chatbot
+builder.Services.AddScoped<backend.Repositories.ILichSuChatRepository, backend.Repositories.LichSuChatRepository>();
+
+// Phase 1: Register Core Services
 builder.Services.AddScoped<backend.Services.IJwtService, backend.Services.JwtService>();
 builder.Services.AddScoped<backend.Services.IAuthService, backend.Services.AuthService>();
 builder.Services.AddScoped<backend.Services.IBuildingService, backend.Services.BuildingService>();
 builder.Services.AddScoped<backend.Services.IFloorService, backend.Services.FloorService>();
 builder.Services.AddScoped<backend.Services.IRoomService, backend.Services.RoomService>();
-builder.Services.AddScoped<backend.Services.IFAQService, backend.Services.FAQService>();
-builder.Services.AddScoped<backend.Services.IRegulationService, backend.Services.RegulationService>();
 builder.Services.AddScoped<backend.Services.IResidentService, backend.Services.ResidentService>();
-builder.Services.AddScoped<backend.Services.IResidencyService, backend.Services.ResidencyService>();
-builder.Services.AddScoped<backend.Services.IDepositService, backend.Services.DepositService>();
-builder.Services.AddScoped<backend.Services.IPriceConfigService, backend.Services.PriceConfigService>();
-builder.Services.AddScoped<backend.Services.IMeterReadingService, backend.Services.MeterReadingService>();
-builder.Services.AddScoped<backend.Services.IWaterMeterReadingService, backend.Services.WaterMeterReadingService>();
-builder.Services.AddScoped<backend.Services.IBillingPeriodService, backend.Services.BillingPeriodService>();
-builder.Services.AddScoped<backend.Services.IInvoiceService, backend.Services.InvoiceService>();
-builder.Services.AddScoped<backend.Services.ITransactionService, backend.Services.TransactionService>();
-builder.Services.AddScoped<backend.Services.INotificationService, backend.Services.NotificationService>();
-builder.Services.AddScoped<backend.Services.IComplaintService, backend.Services.ComplaintService>();
-builder.Services.AddScoped<backend.Services.IReportService, backend.Services.ReportService>();
+
+// Phase 2: Contract & Invoice Services
+builder.Services.AddScoped<backend.Services.IHopDongService, backend.Services.HopDongService>();
+builder.Services.AddScoped<backend.Services.IChiTietOService, backend.Services.ChiTietOService>();
+builder.Services.AddScoped<backend.Services.IServiceService, backend.Services.ServiceService>();
+builder.Services.AddScoped<backend.Services.IHoaDonService, backend.Services.HoaDonService>();
+
+// Phase 3: Additional Services
+builder.Services.AddScoped<backend.Services.IThanhToanService, backend.Services.ThanhToanService>();
+builder.Services.AddScoped<backend.Services.IXeService, backend.Services.XeService>();
+builder.Services.AddScoped<backend.Services.IYeuCauSuaChuaService, backend.Services.YeuCauSuaChuaService>();
+builder.Services.AddScoped<backend.Services.IChiTietSuDungDichVuService, backend.Services.ChiTietSuDungDichVuService>();
+
+// Phase 4: Meter Readings & Settlement Services
+builder.Services.AddScoped<backend.Services.IChiSoDienService, backend.Services.ChiSoDienService>();
+builder.Services.AddScoped<backend.Services.IChiSoNuocService, backend.Services.ChiSoNuocService>();
+builder.Services.AddScoped<backend.Services.ITatToanService, backend.Services.TatToanService>();
+builder.Services.AddScoped<backend.Services.ITaiSanService, backend.Services.TaiSanService>();
+builder.Services.AddScoped<backend.Services.IChiTietTaiSanPhongService, backend.Services.ChiTietTaiSanPhongService>();
+builder.Services.AddScoped<backend.Services.IUserService, backend.Services.UserService>();
+
+// Tier 2: KnowledgeBase & Notifications
+builder.Services.AddScoped<backend.Services.IKnowledgeBaseService, backend.Services.KnowledgeBaseService>();
+builder.Services.AddScoped<backend.Services.INhatKyNhacNoService, backend.Services.NhatKyNhacNoService>();
 builder.Services.AddScoped<backend.Services.IAuditLogService, backend.Services.AuditLogService>();
+builder.Services.AddScoped<backend.Services.INotificationService, backend.Services.NotificationService>();
+
+// Tier 3: Chatbot & Reports
+builder.Services.AddScoped<backend.Services.IChatService, backend.Services.ChatService>();
+builder.Services.AddScoped<backend.Services.IReportService, backend.Services.ReportService>();
+
+// Payment Service (Realtime QR Payment)
+builder.Services.AddScoped<backend.Services.IPaymentService, backend.Services.PaymentService>();
 
 // Configure Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -137,6 +204,27 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Seed demo users on startup
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        
+        // Ensure database is created
+        Console.WriteLine("🔨 Creating new database...");
+        context.Database.EnsureCreated();
+        
+        // Seed demo users
+        DatabaseSeeder.SeedDemoUsers(context);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error seeding database: {ex.Message}");
+    }
+}
+
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
@@ -147,14 +235,30 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+// Disable HTTPS redirect for mobile development
+// app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
+
+// Serve static files from uploads folder
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
+    Console.WriteLine($"📁 Created uploads directory: {uploadsPath}");
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<backend.Hubs.NotificationHub>("/hubs/notifications");
 
 app.Run();
 

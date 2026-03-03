@@ -1,70 +1,113 @@
+using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Repositories;
 
-public interface IAuditLogRepository : IRepository<AuditLog>
-{
-    Task<List<AuditLog>> GetByEntityAsync(string entityType, long entityId);
-    Task<List<AuditLog>> GetByUserAsync(long userId);
-    Task<List<AuditLog>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
-    Task<List<AuditLog>> FilterAsync(string? entityType, string? action, long? userId, long? entityId, DateTime? startDate, DateTime? endDate);
-}
-
 public class AuditLogRepository : Repository<AuditLog>, IAuditLogRepository
 {
-    public AuditLogRepository(Data.ApplicationDbContext context) : base(context)
+    public AuditLogRepository(ApplicationDbContext context) : base(context)
     {
     }
 
-    public async Task<List<AuditLog>> GetByEntityAsync(string entityType, long entityId)
+    public async Task<List<AuditLog>> GetByUserIdAsync(int userId, int limit = 100)
     {
         return await _context.AuditLogs
-            .Where(a => a.EntityType == entityType && a.EntityId == entityId)
-            .OrderByDescending(a => a.CreatedAt)
+            .Include(x => x.User)
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(limit)
             .ToListAsync();
     }
 
-    public async Task<List<AuditLog>> GetByUserAsync(long userId)
+    public async Task<List<AuditLog>> GetByEntityAsync(string entityType, int? entityId = null, int limit = 100)
     {
-        return await _context.AuditLogs
-            .Where(a => a.UserId == userId)
-            .OrderByDescending(a => a.CreatedAt)
-            .ToListAsync();
-    }
-
-    public async Task<List<AuditLog>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
-    {
-        return await _context.AuditLogs
-            .Where(a => a.CreatedAt >= startDate && a.CreatedAt <= endDate)
-            .OrderByDescending(a => a.CreatedAt)
-            .ToListAsync();
-    }
-
-    public async Task<List<AuditLog>> FilterAsync(string? entityType, string? action, long? userId, long? entityId, DateTime? startDate, DateTime? endDate)
-    {
-        var query = _context.AuditLogs.AsQueryable();
-
-        if (!string.IsNullOrEmpty(entityType))
-            query = query.Where(a => a.EntityType == entityType);
-
-        if (!string.IsNullOrEmpty(action))
-            query = query.Where(a => a.Action == action);
-
-        if (userId.HasValue)
-            query = query.Where(a => a.UserId == userId.Value);
+        var query = _context.AuditLogs
+            .Include(x => x.User)
+            .Where(x => x.EntityType == entityType);
 
         if (entityId.HasValue)
-            query = query.Where(a => a.EntityId == entityId.Value);
-
-        if (startDate.HasValue)
-            query = query.Where(a => a.CreatedAt >= startDate.Value);
-
-        if (endDate.HasValue)
-            query = query.Where(a => a.CreatedAt <= endDate.Value);
+        {
+            query = query.Where(x => x.EntityId == entityId.Value);
+        }
 
         return await query
-            .OrderByDescending(a => a.CreatedAt)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(limit)
             .ToListAsync();
+    }
+
+    public async Task<List<AuditLog>> GetByActionAsync(string action, int limit = 100)
+    {
+        return await _context.AuditLogs
+            .Include(x => x.User)
+            .Where(x => x.Action == action)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    public async Task<List<AuditLog>> GetRecentAsync(int limit = 100)
+    {
+        return await _context.AuditLogs
+            .Include(x => x.User)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
+    }
+}
+
+public class NotificationRepository : Repository<Notification>, INotificationRepository
+{
+    public NotificationRepository(ApplicationDbContext context) : base(context)
+    {
+    }
+
+    public async Task<List<Notification>> GetByRecipientIdAsync(int recipientId, bool unreadOnly = false)
+    {
+        var query = _context.Notifications
+            .Where(x => x.RecipientId == recipientId);
+
+        if (unreadOnly)
+        {
+            query = query.Where(x => !x.IsRead);
+        }
+
+        return await query
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<Notification?> GetByIdAsync(int id)
+    {
+        return await _context.Notifications
+            .FirstOrDefaultAsync(x => x.Id == id);
+    }
+
+    public async Task MarkAsReadAsync(int id)
+    {
+        var notification = await GetByIdAsync(id);
+        if (notification != null && !notification.IsRead)
+        {
+            notification.IsRead = true;
+            notification.ReadAt = DateTime.UtcNow;
+            Update(notification);
+            await SaveChangesAsync();
+        }
+    }
+
+    public async Task MarkAllAsReadAsync(int recipientId)
+    {
+        var unreadNotifications = await _context.Notifications
+            .Where(x => x.RecipientId == recipientId && !x.IsRead)
+            .ToListAsync();
+
+        foreach (var notification in unreadNotifications)
+        {
+            notification.IsRead = true;
+            notification.ReadAt = DateTime.UtcNow;
+        }
+
+        await SaveChangesAsync();
     }
 }

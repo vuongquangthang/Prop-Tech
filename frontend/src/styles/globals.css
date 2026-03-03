@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Color Tokens */
+  --brand-primary: #1A4B84;
+  --brand-surface: #E8F0F8;
+  --success: #1E7E34;
+  --error: #D32F2F;
+  --warning: #E67E22;
+  --text-primary: #121212;
+  --text-secondary: #4A4A4A;
+  --text-on-color: #FFFFFF;
+  --surface-bg: #F5F7FA;
+  --surface-card: #FFFFFF;
+  --surface-border: #D1D5DB;
+  
+  /* Typography Tokens */
+  --type-display: 44px;
+  --type-page-title: 35px;
+  --type-section-title: 28px;
+  --type-body-bold: 18px;
+  --type-body: 18px;
+  --type-caption: 15px;
+  
+  /* Size & Spacing Tokens */
+  --button-height: 56px;
+  --input-height: 52px;
+  --space-between: 16px;
+  --space-card: 24px;
+  --space-layout: 32px;
+  
+  /* Radius Tokens */
+  --radius-button: 8px;
+  --radius-card: 16px;
+  --radius-large: 24px;
+  
+  /* Legacy mappings for compatibility */
+  --font-size: 16px;
+  --background: var(--surface-bg);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --border: var(--surface-border);
+  --primary: var(--brand-primary);
+  --destructive: var(--error);
+}
+
+@theme inline {
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-surface: var(--brand-surface);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-on-color: var(--text-on-color);
+  --color-surface-bg: var(--surface-bg);
+  --color-surface-card: var(--surface-card);
+  --color-surface-border: var(--surface-border);
+}
+
+@layer base {
+  * {
+    @apply border-surface-border;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  }
+
+  body {
+    @apply bg-surface-bg text-text-primary;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: var(--type-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button, input, textarea, select {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  }
+}
+
+@layer base {
+  h1 {
+    font-size: var(--type-page-title);
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  h2 {
+    font-size: var(--type-section-title);
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  h3 {
+    font-size: var(--type-body-bold);
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  h4 {
+    font-size: var(--type-body);
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  p {
+    font-size: var(--type-body);
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  label {
+    font-size: var(--type-body);
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  button {
+    font-size: var(--type-body);
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  input, textarea, select {
+    font-size: var(--type-body);
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  small, .caption {
+    font-size: var(--type-caption);
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+}
+
+html {
+  font-size: var(--font-size);
+  overflow-x: auto;
+}
+
+body {
+  min-width: 1440px;
+  overflow-x: auto;
+}
+
+/* Force Inter font for all text size utilities */
+.text-xs, .text-sm, .text-base, .text-lg, .text-xl, .text-2xl, .text-3xl {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* Override Tailwind text sizes with design tokens */
+.text-xs { font-size: var(--type-caption) !important; }
+.text-sm { font-size: var(--type-caption) !important; }
+.text-base { font-size: var(--type-body) !important; }
+.text-lg { font-size: var(--type-body-bold) !important; }
+.text-xl { font-size: var(--type-section-title) !important; }
+.text-2xl { font-size: var(--type-section-title) !important; }
+.text-3xl { font-size: var(--type-page-title) !important; }

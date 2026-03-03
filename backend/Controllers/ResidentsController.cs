@@ -1,26 +1,26 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ResidentsController : ControllerBase
 {
     private readonly IResidentService _residentService;
-    private readonly ILogger<ResidentsController> _logger;
 
-    public ResidentsController(IResidentService residentService, ILogger<ResidentsController> logger)
+    public ResidentsController(IResidentService residentService)
     {
         _residentService = residentService;
-        _logger = logger;
     }
 
+    /// <summary>
+    /// Lấy danh sách tất cả cư dân
+    /// </summary>
     [HttpGet]
-    [Authorize(Roles = "MANAGER")]
     public async Task<ActionResult<List<ResidentDto>>> GetAll()
     {
         try
@@ -30,49 +30,58 @@ public class ResidentsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting all residents");
-            return StatusCode(500, new { message = "Lỗi khi lấy danh sách cư dân" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [HttpGet("{id}")]
-    [Authorize(Roles = "MANAGER")]
-    public async Task<ActionResult<ResidentDto>> GetById(long id)
+    /// <summary>
+    /// Tìm kiếm cư dân theo tên
+    /// </summary>
+    [HttpGet("search")]
+    public async Task<ActionResult<List<ResidentDto>>> SearchByName([FromQuery] string name)
     {
         try
         {
-            var resident = await _residentService.GetByIdAsync(id);
-            
-            if (resident == null)
-                return NotFound(new { message = "Không tìm thấy cư dân" });
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(new { message = "Tên tìm kiếm không được để trống" });
+            }
 
-            return Ok(resident);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting resident {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi lấy thông tin cư dân" });
-        }
-    }
-
-    [HttpGet("room/{roomId}")]
-    [Authorize(Roles = "MANAGER")]
-    public async Task<ActionResult<List<ResidentDto>>> GetByRoom(long roomId)
-    {
-        try
-        {
-            var residents = await _residentService.GetByRoomAsync(roomId);
+            var residents = await _residentService.SearchByNameAsync(name);
             return Ok(residents);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting residents for room {RoomId}", roomId);
-            return StatusCode(500, new { message = "Lỗi khi lấy danh sách cư dân" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
+    /// <summary>
+    /// Lấy chi tiết cư dân theo ID
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ResidentDetailDto>> GetById(int id)
+    {
+        try
+        {
+            var resident = await _residentService.GetByIdAsync(id);
+            if (resident == null)
+            {
+                return NotFound(new { message = "Cư dân không tồn tại" });
+            }
+            return Ok(resident);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tạo cư dân mới
+    /// </summary>
     [HttpPost]
-    [Authorize(Roles = "MANAGER")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<ResidentDto>> Create([FromBody] CreateResidentDto dto)
     {
         try
@@ -86,14 +95,16 @@ public class ResidentsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating resident");
-            return StatusCode(500, new { message = "Lỗi khi tạo cư dân" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
+    /// <summary>
+    /// Cập nhật cư dân
+    /// </summary>
     [HttpPut("{id}")]
-    [Authorize(Roles = "MANAGER")]
-    public async Task<ActionResult<ResidentDto>> Update(long id, [FromBody] UpdateResidentDto dto)
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<ResidentDto>> Update(int id, [FromBody] UpdateResidentDto dto)
     {
         try
         {
@@ -102,32 +113,33 @@ public class ResidentsController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating resident {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi cập nhật cư dân" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
+    /// <summary>
+    /// Xóa cư dân
+    /// </summary>
     [HttpDelete("{id}")]
-    [Authorize(Roles = "MANAGER")]
-    public async Task<IActionResult> Delete(long id)
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
     {
         try
         {
             await _residentService.DeleteAsync(id);
-            return NoContent();
+            return Ok(new { message = "Xóa cư dân thành công" });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting resident {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi xóa cư dân" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 }

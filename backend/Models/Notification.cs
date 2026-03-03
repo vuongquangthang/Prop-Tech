@@ -11,23 +11,23 @@ public class Notification
 {
     [Key]
     [Column("id")]
-    public long Id { get; set; }
+    public int Id { get; set; }
 
     [Column("user_id")]
-    public long? UserId { get; set; }
+    public int? UserId { get; set; }
 
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 
     [Column("recipient_id")]
-    public long? RecipientId { get; set; }
+    public int? RecipientId { get; set; }
 
     [StringLength(20)]
     [Column("scope_type")]
     public string? ScopeType { get; set; } // USER, ROOM, FLOOR, BUILDING, ALL
 
     [Column("scope_id")]
-    public long? ScopeId { get; set; }
+    public int? ScopeId { get; set; }
 
     [Required]
     [StringLength(50)]
@@ -51,7 +51,7 @@ public class Notification
     public string? LinkUrl { get; set; }
 
     [Column("related_id")]
-    public long? RelatedId { get; set; }
+    public int? RelatedId { get; set; }
 
     [Required]
     [Column("is_read")]

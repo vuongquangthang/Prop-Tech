@@ -1,57 +1,49 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Models;
 
 /// <summary>
 /// Cư dân - Thông tin cư dân
 /// </summary>
-[Table("residents")]
+[Table("CU_DAN")]
+[Index(nameof(IdCardNumber), IsUnique = true)]
 public class Resident
 {
     [Key]
-    [Column("id")]
-    public long Id { get; set; }
-
-    [Column("user_id")]
-    public long? UserId { get; set; }
+    [Column("CU_DAN_ID")]
+    public int Id { get; set; }
 
     [Required]
-    [StringLength(100)]
-    [Column("full_name")]
+    [StringLength(200)]
+    [Column("HO_TEN")]
     public string FullName { get; set; } = null!;
 
     [StringLength(20)]
-    [Column("id_card_number")]
-    public string? IdCardNumber { get; set; }
-
-    [StringLength(15)]
-    [Column("phone_number")]
+    [Column("SO_DIEN_THOAI")]
     public string? PhoneNumber { get; set; }
 
-    [StringLength(100)]
-    [Column("email")]
-    public string? Email { get; set; }
+    [StringLength(20)]
+    [Column("SO_CCCD")]
+    public string? IdCardNumber { get; set; }
 
-    [Column("date_of_birth")]
-    public DateTime? DateOfBirth { get; set; }
+    [StringLength(300)]
+    [Column("QUE_QUAN")]
+    public string? Hometown { get; set; }
 
-    [StringLength(10)]
-    [Column("gender")]
-    public string? Gender { get; set; } // MALE, FEMALE, OTHER
+    [StringLength(500)]
+    [Column("CCCD_FRONT_URL")]
+    public string? IdCardFrontUrl { get; set; }
 
-    [Column("permanent_address")]
-    public string? PermanentAddress { get; set; }
-
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [StringLength(500)]
+    [Column("CCCD_BACK_URL")]
+    public string? IdCardBackUrl { get; set; }
 
     // Navigation properties
-    [ForeignKey("UserId")]
-    public User? User { get; set; }
-    
-    public ICollection<Residency> Residencies { get; set; } = new List<Residency>();
+    public ICollection<User> Users { get; set; } = new List<User>();
+    public ICollection<ChiTietO> ChiTietOs { get; set; } = new List<ChiTietO>();
+    public ICollection<Xe> Xes { get; set; } = new List<Xe>();
+    public ICollection<ChiTietSuDungDichVu> ChiTietSuDungDichVus { get; set; } = new List<ChiTietSuDungDichVu>();
 }
+

@@ -1,28 +1,27 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
 public interface IResidentService
 {
     Task<List<ResidentDto>> GetAllAsync();
-    Task<ResidentDto?> GetByIdAsync(long id);
+    Task<List<ResidentDto>> SearchByNameAsync(string name);
+    Task<ResidentDetailDto?> GetByIdAsync(int id);
     Task<ResidentDto> CreateAsync(CreateResidentDto dto);
-    Task<ResidentDto> UpdateAsync(long id, UpdateResidentDto dto);
-    Task DeleteAsync(long id);
-    Task<List<ResidentDto>> GetByRoomAsync(long roomId);
+    Task<ResidentDto> UpdateAsync(int id, UpdateResidentDto dto);
+    Task DeleteAsync(int id);
 }
 
 public class ResidentService : IResidentService
 {
     private readonly IResidentRepository _residentRepository;
-    private readonly ILogger<ResidentService> _logger;
 
-    public ResidentService(IResidentRepository residentRepository, ILogger<ResidentService> logger)
+    public ResidentService(IResidentRepository residentRepository)
     {
         _residentRepository = residentRepository;
-        _logger = logger;
     }
 
     public async Task<List<ResidentDto>> GetAllAsync()
@@ -31,101 +30,142 @@ public class ResidentService : IResidentService
         return residents.Select(MapToDto).ToList();
     }
 
-    public async Task<ResidentDto?> GetByIdAsync(long id)
+    public async Task<List<ResidentDto>> SearchByNameAsync(string name)
+    {
+        var residents = await _residentRepository.SearchByNameAsync(name);
+        return residents.Select(MapToDto).ToList();
+    }
+
+    public async Task<ResidentDetailDto?> GetByIdAsync(int id)
     {
         var resident = await _residentRepository.GetByIdAsync(id);
-        return resident == null ? null : MapToDto(resident);
+        if (resident == null) return null;
+
+        return new ResidentDetailDto
+        {
+            Id = resident.Id,
+            FullName = resident.FullName,
+            PhoneNumber = resident.PhoneNumber,
+            IdCardNumber = resident.IdCardNumber,
+            Hometown = resident.Hometown,
+            IdCardFrontUrl = resident.IdCardFrontUrl,
+            IdCardBackUrl = resident.IdCardBackUrl,
+            Contracts = resident.ChiTietOs?
+                .Select(ct => new ContractSummaryDto
+                {
+                    Id = ct.ContractId,
+                    StartDate = ct.HopDong.StartDate,
+                    ExpectedEndDate = ct.HopDong.ExpectedEndDate,
+                    ActualRentPrice = ct.HopDong.ActualRentPrice,
+                    ResidentNames = ct.HopDong.ChiTietOs.Select(c => c.Resident.FullName).ToList()
+                }).ToList(),
+            Vehicles = resident.Xes?
+                .Where(x => x.CancellationDate == null)
+                .Select(x => new VehicleSummaryDto
+                {
+                    Id = x.Id,
+                    LicensePlate = x.LicensePlate,
+                    VehicleType = x.VehicleType,
+                    RegistrationDate = x.RegistrationDate,
+                    IsActive = x.CancellationDate == null
+                }).ToList()
+        };
     }
 
     public async Task<ResidentDto> CreateAsync(CreateResidentDto dto)
     {
-        // Validate unique constraints
-        if (!string.IsNullOrEmpty(dto.IdCardNumber) && await _residentRepository.IdCardExistsAsync(dto.IdCardNumber))
+        // Check for duplicate phone number or ID card
+        if (!string.IsNullOrEmpty(dto.PhoneNumber))
         {
-            throw new InvalidOperationException("CCCD đã tồn tại");
+            var existingByPhone = await _residentRepository.GetByPhoneNumberAsync(dto.PhoneNumber);
+            if (existingByPhone != null)
+            {
+                throw new InvalidOperationException($"Số điện thoại '{dto.PhoneNumber}' đã được đăng ký");
+            }
         }
 
-        if (!string.IsNullOrEmpty(dto.PhoneNumber) && await _residentRepository.PhoneExistsAsync(dto.PhoneNumber))
+        if (!string.IsNullOrEmpty(dto.IdCardNumber))
         {
-            throw new InvalidOperationException("Số điện thoại đã tồn tại");
+            var existingById = await _residentRepository.GetByIdCardNumberAsync(dto.IdCardNumber);
+            if (existingById != null)
+            {
+                throw new InvalidOperationException($"CCCD/CMND '{dto.IdCardNumber}' đã được đăng ký");
+            }
         }
 
         var resident = new Resident
         {
             FullName = dto.FullName,
-            IdCardNumber = dto.IdCardNumber,
             PhoneNumber = dto.PhoneNumber,
-            Email = dto.Email,
-            DateOfBirth = dto.DateOfBirth,
-            Gender = dto.Gender,
-            PermanentAddress = dto.PermanentAddress,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            IdCardNumber = dto.IdCardNumber,
+            Hometown = dto.Hometown,
+            IdCardFrontUrl = dto.IdCardFrontUrl,
+            IdCardBackUrl = dto.IdCardBackUrl
         };
 
         await _residentRepository.AddAsync(resident);
-        await _residentRepository.SaveChangesAsync();
-
         return MapToDto(resident);
     }
 
-    public async Task<ResidentDto> UpdateAsync(long id, UpdateResidentDto dto)
+    public async Task<ResidentDto> UpdateAsync(int id, UpdateResidentDto dto)
     {
         var resident = await _residentRepository.GetByIdAsync(id);
-        
         if (resident == null)
         {
-            throw new InvalidOperationException("Không tìm thấy cư dân");
+            throw new InvalidOperationException("Cư dân không tồn tại");
         }
 
-        // Validate CCCD uniqueness if changed
-        if (!string.IsNullOrEmpty(dto.IdCardNumber) && 
-            dto.IdCardNumber != resident.IdCardNumber && 
-            await _residentRepository.IdCardExistsAsync(dto.IdCardNumber))
+        // Check for duplicate phone number (if changed)
+        if (dto.PhoneNumber != null && dto.PhoneNumber != resident.PhoneNumber)
         {
-            throw new InvalidOperationException("CCCD đã tồn tại");
+            var existingByPhone = await _residentRepository.GetByPhoneNumberAsync(dto.PhoneNumber);
+            if (existingByPhone != null)
+            {
+                throw new InvalidOperationException($"Số điện thoại '{dto.PhoneNumber}' đã được đăng ký");
+            }
+            resident.PhoneNumber = dto.PhoneNumber;
         }
 
-        // Validate phone uniqueness if changed
-        if (!string.IsNullOrEmpty(dto.PhoneNumber) && 
-            dto.PhoneNumber != resident.PhoneNumber && 
-            await _residentRepository.PhoneExistsAsync(dto.PhoneNumber))
+        // Check for duplicate ID card (if changed)
+        if (dto.IdCardNumber != null && dto.IdCardNumber != resident.IdCardNumber)
         {
-            throw new InvalidOperationException("Số điện thoại đã tồn tại");
+            var existingById = await _residentRepository.GetByIdCardNumberAsync(dto.IdCardNumber);
+            if (existingById != null)
+            {
+                throw new InvalidOperationException($"CCCD/CMND '{dto.IdCardNumber}' đã được đăng ký");
+            }
+            resident.IdCardNumber = dto.IdCardNumber;
         }
 
-        resident.FullName = dto.FullName;
-        resident.IdCardNumber = dto.IdCardNumber;
-        resident.PhoneNumber = dto.PhoneNumber;
-        resident.Email = dto.Email;
-        resident.DateOfBirth = dto.DateOfBirth;
-        resident.Gender = dto.Gender;
-        resident.PermanentAddress = dto.PermanentAddress;
-        resident.UpdatedAt = DateTime.UtcNow;
+        if (dto.FullName != null) resident.FullName = dto.FullName;
+        if (dto.Hometown != null) resident.Hometown = dto.Hometown;
+        if (dto.IdCardFrontUrl != null) resident.IdCardFrontUrl = dto.IdCardFrontUrl;
+        if (dto.IdCardBackUrl != null) resident.IdCardBackUrl = dto.IdCardBackUrl;
 
         _residentRepository.Update(resident);
         await _residentRepository.SaveChangesAsync();
-
         return MapToDto(resident);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(int id)
     {
         var resident = await _residentRepository.GetByIdAsync(id);
-        
         if (resident == null)
         {
-            throw new InvalidOperationException("Không tìm thấy cư dân");
+            throw new InvalidOperationException("Cư dân không tồn tại");
+        }
+
+        // Check if resident has active contracts
+        var hasActiveContracts = resident.ChiTietOs?.Any(ct => 
+            ct.HopDong.ExpectedEndDate == null || ct.HopDong.ExpectedEndDate > DateTime.Now) ?? false;
+        
+        if (hasActiveContracts)
+        {
+            throw new InvalidOperationException("Không thể xóa cư dân đang có hợp đồng");
         }
 
         _residentRepository.Remove(resident);
         await _residentRepository.SaveChangesAsync();
-    }
-
-    public async Task<List<ResidentDto>> GetByRoomAsync(long roomId)
-    {
-        var residents = await _residentRepository.GetByRoomAsync(roomId);
-        return residents.Select(MapToDto).ToList();
     }
 
     private ResidentDto MapToDto(Resident resident)
@@ -133,15 +173,12 @@ public class ResidentService : IResidentService
         return new ResidentDto
         {
             Id = resident.Id,
-            UserId = resident.UserId,
             FullName = resident.FullName,
-            IdCardNumber = resident.IdCardNumber,
             PhoneNumber = resident.PhoneNumber,
-            Email = resident.Email,
-            DateOfBirth = resident.DateOfBirth,
-            Gender = resident.Gender,
-            PermanentAddress = resident.PermanentAddress,
-            CreatedAt = resident.CreatedAt
+            IdCardNumber = resident.IdCardNumber,
+            Hometown = resident.Hometown,
+            IdCardFrontUrl = resident.IdCardFrontUrl,
+            IdCardBackUrl = resident.IdCardBackUrl
         };
     }
 }

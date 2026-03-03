@@ -14,7 +14,7 @@ public class AuditLog
     public long Id { get; set; }
 
     [Column("user_id")]
-    public long? UserId { get; set; }
+    public int? UserId { get; set; }
 
     [Required]
     [StringLength(50)]
@@ -27,7 +27,7 @@ public class AuditLog
     public string EntityType { get; set; } = null!;
 
     [Column("entity_id")]
-    public long? EntityId { get; set; }
+    public int? EntityId { get; set; }
 
     [Column("old_values", TypeName = "NVARCHAR(MAX)")]
     public string? OldValues { get; set; }

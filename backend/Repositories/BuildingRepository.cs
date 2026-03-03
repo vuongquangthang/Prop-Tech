@@ -1,15 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Repositories;
-
-public interface IBuildingRepository : IRepository<Building>
-{
-    Task<Building?> GetByCodeAsync(string code);
-    Task<bool> CodeExistsAsync(string code);
-    Task<List<Building>> GetAllWithDetailsAsync();
-}
 
 public class BuildingRepository : Repository<Building>, IBuildingRepository
 {
@@ -17,23 +10,29 @@ public class BuildingRepository : Repository<Building>, IBuildingRepository
     {
     }
 
-    public async Task<Building?> GetByCodeAsync(string code)
+    public async Task<Building?> GetByNameAsync(string name)
+    {
+        return await _dbSet
+            .FirstOrDefaultAsync(b => b.BuildingName == name);
+    }
+
+    public async Task<IEnumerable<Building>> GetWithFloorsAsync()
     {
         return await _dbSet
             .Include(b => b.Floors)
-            .FirstOrDefaultAsync(b => b.BuildingCode == code);
-    }
-
-    public async Task<bool> CodeExistsAsync(string code)
-    {
-        return await _dbSet.AnyAsync(b => b.BuildingCode == code);
-    }
-
-    public async Task<List<Building>> GetAllWithDetailsAsync()
-    {
-        return await _dbSet
-            .Include(b => b.Floors)
-            .OrderBy(b => b.BuildingCode)
             .ToListAsync();
+    }
+
+    public async Task<Building?> GetWithFloorsAndRoomsAsync(int id)
+    {
+        return await _dbSet
+            .Include(b => b.Floors)
+                .ThenInclude(f => f.Rooms)
+            .FirstOrDefaultAsync(b => b.Id == id);
+    }
+
+    public async Task<bool> ExistsByNameAsync(string name)
+    {
+        return await _dbSet.AnyAsync(b => b.BuildingName == name);
     }
 }

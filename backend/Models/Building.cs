@@ -1,36 +1,37 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Models;
 
 /// <summary>
 /// Tòa nhà - Thông tin tòa nhà trong khu chung cư
 /// </summary>
-[Table("buildings")]
+[Table("TOA_NHA")]
+[Index(nameof(BuildingName), IsUnique = true)]
 public class Building
 {
     [Key]
-    [Column("id")]
-    public long Id { get; set; }
+    [Column("TOA_NHA_ID")]
+    public int Id { get; set; }
 
     [Required]
-    [StringLength(20)]
-    [Column("building_code")]
-    public string BuildingCode { get; set; } = null!;
-
-    [Required]
-    [StringLength(100)]
-    [Column("building_name")]
+    [StringLength(200)]
+    [Column("TEN_TOA_NHA")]
     public string BuildingName { get; set; } = null!;
 
-    [Column("address")]
-    public string? Address { get; set; }
+    [Required]
+    [StringLength(500)]
+    [Column("DIA_CHI")]
+    public string Address { get; set; } = null!;
 
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Required]
+    [Column("SO_TANG")]
+    public int NumberOfFloors { get; set; }
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [Column("MO_TA")]
+    [StringLength(1000)]
+    public string? Description { get; set; }
 
     // Navigation properties
     public ICollection<Floor> Floors { get; set; } = new List<Floor>();

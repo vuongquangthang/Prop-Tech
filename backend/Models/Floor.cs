@@ -1,31 +1,27 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Models;
 
 /// <summary>
 /// Tầng - Thông tin tầng trong tòa nhà
 /// </summary>
-[Table("floors")]
+[Table("TANG")]
+[Index(nameof(BuildingId), nameof(FloorNumber), IsUnique = true)]
 public class Floor
 {
     [Key]
-    [Column("id")]
-    public long Id { get; set; }
+    [Column("TANG_ID")]
+    public int Id { get; set; }
 
     [Required]
-    [Column("building_id")]
-    public long BuildingId { get; set; }
+    [Column("TOA_NHA_ID")]
+    public int BuildingId { get; set; }
 
-    [Column("floor_number")]
+    [Required]
+    [Column("SO_TANG")]
     public int FloorNumber { get; set; }
-
-    [StringLength(50)]
-    [Column("floor_name")]
-    public string? FloorName { get; set; }
-
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
     [ForeignKey("BuildingId")]

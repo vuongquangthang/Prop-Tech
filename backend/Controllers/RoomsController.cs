@@ -1,26 +1,44 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class RoomsController : ControllerBase
 {
     private readonly IRoomService _roomService;
-    private readonly ILogger<RoomsController> _logger;
 
-    public RoomsController(IRoomService roomService, ILogger<RoomsController> logger)
+    public RoomsController(IRoomService roomService)
     {
         _roomService = roomService;
-        _logger = logger;
     }
 
+    /// <summary>
+    /// Lấy danh sách tất cả phòng
+    /// </summary>
+    [HttpGet]
+    public async Task<ActionResult<List<RoomDto>>> GetAll()
+    {
+        try
+        {
+            var rooms = await _roomService.GetAllAsync();
+            return Ok(rooms);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lấy danh sách phòng theo tầng
+    /// </summary>
     [HttpGet("floor/{floorId}")]
-    public async Task<ActionResult<List<RoomDto>>> GetByFloorId(long floorId)
+    public async Task<ActionResult<List<RoomDto>>> GetByFloor(int floorId)
     {
         try
         {
@@ -29,62 +47,82 @@ public class RoomsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting rooms for floor {FloorId}", floorId);
-            return StatusCode(500, new { message = "Lỗi khi lấy danh sách phòng" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [HttpGet("building/{buildingId}")]
-    public async Task<ActionResult<List<RoomDto>>> GetByBuildingId(long buildingId)
+    /// <summary>
+    /// Lấy danh sách phòng theo trạng thái
+    /// </summary>
+    [HttpGet("status/{status}")]
+    public async Task<ActionResult<List<RoomDto>>> GetByStatus(string status)
     {
         try
         {
-            var rooms = await _roomService.GetByBuildingIdAsync(buildingId);
+            var rooms = await _roomService.GetByStatusAsync(status);
             return Ok(rooms);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting rooms for building {BuildingId}", buildingId);
-            return StatusCode(500, new { message = "Lỗi khi lấy danh sách phòng" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [HttpGet("available")]
-    public async Task<ActionResult<List<RoomDto>>> GetAvailable([FromQuery] long? buildingId = null)
-    {
-        try
-        {
-            var rooms = await _roomService.GetAvailableRoomsAsync(buildingId);
-            return Ok(rooms);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting available rooms");
-            return StatusCode(500, new { message = "Lỗi khi lấy danh sách phòng trống" });
-        }
-    }
-
+    /// <summary>
+    /// Lấy chi tiết phòng theo ID
+    /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<RoomDto>> GetById(long id)
+    public async Task<ActionResult<RoomDetailDto>> GetById(int id)
     {
         try
         {
             var room = await _roomService.GetByIdAsync(id);
-            
             if (room == null)
-                return NotFound(new { message = "Không tìm thấy phòng" });
-
+            {
+                return NotFound(new { message = "Phòng không tồn tại" });
+            }
             return Ok(room);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting room {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi lấy thông tin phòng" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [Authorize(Roles = "MANAGER")]
+    /// <summary>
+    /// Lấy thông tin phòng của cư dân hiện tại
+    /// </summary>
+    [HttpGet("my-room")]
+    [Authorize(Roles = "CuDan")]
+    public async Task<ActionResult<MyRoomDto>> GetMyRoom()
+    {
+        try
+        {
+            var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (userId == 0)
+            {
+                return Unauthorized(new { message = "Không thể xác thực người dùng" });
+            }
+
+            var myRoom = await _roomService.GetMyRoomAsync(userId);
+            if (myRoom == null)
+            {
+                return NotFound(new { message = "Không tìm thấy thông tin phòng" });
+            }
+
+            return Ok(myRoom);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tạo phòng mới
+    /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<RoomDto>> Create([FromBody] CreateRoomDto dto)
     {
         try
@@ -98,14 +136,16 @@ public class RoomsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating room");
-            return StatusCode(500, new { message = "Lỗi khi tạo phòng" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [Authorize(Roles = "MANAGER")]
+    /// <summary>
+    /// Cập nhật phòng
+    /// </summary>
     [HttpPut("{id}")]
-    public async Task<ActionResult<RoomDto>> Update(long id, [FromBody] UpdateRoomDto dto)
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<RoomDto>> Update(int id, [FromBody] UpdateRoomDto dto)
     {
         try
         {
@@ -114,32 +154,33 @@ public class RoomsController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating room {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi cập nhật phòng" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 
-    [Authorize(Roles = "MANAGER")]
+    /// <summary>
+    /// Xóa phòng
+    /// </summary>
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(long id)
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
     {
         try
         {
             await _roomService.DeleteAsync(id);
-            return NoContent();
+            return Ok(new { message = "Xóa phòng thành công" });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting room {Id}", id);
-            return StatusCode(500, new { message = "Lỗi khi xóa phòng" });
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
 }

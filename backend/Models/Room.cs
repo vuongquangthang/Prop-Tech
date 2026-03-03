@@ -5,65 +5,44 @@ using Microsoft.EntityFrameworkCore;
 namespace backend.Models;
 
 /// <summary>
-/// Căn hộ - Thông tin căn hộ
+/// Phòng - Thông tin phòng
 /// </summary>
-[Table("rooms")]
+[Table("PHONG")]
+[Index(nameof(RoomCode), IsUnique = true)]
 public class Room
 {
     [Key]
-    [Column("id")]
-    public long Id { get; set; }
+    [Column("PHONG_ID")]
+    public int Id { get; set; }
 
     [Required]
-    [Column("floor_id")]
-    public long FloorId { get; set; }
+    [Column("TANG_ID")]
+    public int FloorId { get; set; }
 
     [Required]
-    [StringLength(20)]
-    [Column("room_code")]
+    [StringLength(50)]
+    [Column("MA_PHONG")]
     public string RoomCode { get; set; } = null!;
 
-    [Required]
-    [StringLength(20)]
-    [Column("room_number")]
-    public string RoomNumber { get; set; } = null!;
-
-    [Required]
-    [StringLength(20)]
-    [Column("room_type")]
-    public string RoomType { get; set; } = "FOR_RENT"; // FOR_RENT, FOR_SALE, SOLD
-
-    [Column("monthly_rent")]
-    [Precision(15, 2)]
-    public decimal MonthlyRent { get; set; } = 0;
-
-    [Column("sale_price")]
-    [Precision(15, 2)]
-    public decimal SalePrice { get; set; } = 0;
-
-    [Required]
-    [StringLength(20)]
-    [Column("status")]
-    public string Status { get; set; } = "VACANT"; // VACANT, OCCUPIED, INACTIVE
-
-    [Column("area_sqm")]
+    [Column("DIEN_TICH")]
     [Precision(10, 2)]
-    public decimal? AreaSqm { get; set; }
+    public decimal? Area { get; set; }
 
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Column("DON_GIA_THUE_MAC_DINH")]
+    [Precision(18, 2)]
+    public decimal? DefaultRentPrice { get; set; }
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [Required]
+    [StringLength(50)]
+    [Column("TRANG_THAI")]
+    public string Status { get; set; } = "Trống"; // Trống, Đã thuê, Bảo trì, Khác
 
     // Navigation properties
     [ForeignKey("FloorId")]
     public Floor Floor { get; set; } = null!;
     
-    public ICollection<Residency> Residencies { get; set; } = new List<Residency>();
-    public ICollection<Deposit> Deposits { get; set; } = new List<Deposit>();
-    public ICollection<WaterMeterReading> WaterMeterReadings { get; set; } = new List<WaterMeterReading>();
-    public ICollection<MeterReading> MeterReadings { get; set; } = new List<MeterReading>();
-    public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
-    public ICollection<Complaint> Complaints { get; set; } = new List<Complaint>();
+    public ICollection<HopDong> HopDongs { get; set; } = new List<HopDong>();
+    public ICollection<ChiTietSuDungDichVu> ChiTietSuDungDichVus { get; set; } = new List<ChiTietSuDungDichVu>();
+    public ICollection<ChiTietTaiSanPhong> ChiTietTaiSanPhongs { get; set; } = new List<ChiTietTaiSanPhong>();
+    public ICollection<YeuCauSuaChua> YeuCauSuaChuas { get; set; } = new List<YeuCauSuaChua>();
 }

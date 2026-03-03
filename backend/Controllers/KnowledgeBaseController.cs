@@ -1,0 +1,175 @@
+using Microsoft.AspNetCore.Mvc;
+using backend.DTOs;
+using backend.Services;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class KnowledgeBaseController : ControllerBase
+{
+    private readonly IKnowledgeBaseService _service;
+
+    public KnowledgeBaseController(IKnowledgeBaseService service)
+    {
+        _service = service;
+    }
+
+    /// <summary>
+    /// Lấy tất cả kiến thức (Admin/QuanLy xem tất cả, User thường chỉ xem active)
+    /// </summary>
+    [HttpGet]
+    public async Task<ActionResult<List<KnowledgeBaseDto>>> GetAll([FromQuery] bool activeOnly = true)
+    {
+        try
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            // Admin/QuanLy có thể xem cả inactive entries
+            var canViewAll = role == "Admin" || role == "QuanLy";
+            
+            var items = await _service.GetAllAsync(activeOnly || !canViewAll);
+            return Ok(items);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tìm kiếm kiến thức theo từ khóa
+    /// </summary>
+    [HttpGet("search")]
+    public async Task<ActionResult<List<KnowledgeBaseDto>>> Search([FromQuery] string keyword)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                return BadRequest(new { message = "Vui lòng nhập từ khóa tìm kiếm" });
+            }
+
+            var items = await _service.SearchAsync(keyword);
+            return Ok(items);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lấy kiến thức theo danh mục
+    /// </summary>
+    [HttpGet("category/{category}")]
+    public async Task<ActionResult<List<KnowledgeBaseDto>>> GetByCategory(string category)
+    {
+        try
+        {
+            var items = await _service.GetByCategoryAsync(category);
+            return Ok(items);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lấy chi tiết kiến thức
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<KnowledgeBaseDto>> GetById(int id)
+    {
+        try
+        {
+            var item = await _service.GetByIdAsync(id);
+            if (item == null)
+            {
+                return NotFound(new { message = "Không tìm thấy kiến thức này" });
+            }
+            return Ok(item);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tạo kiến thức mới (Admin/QuanLy only)
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<KnowledgeBaseDto>> Create([FromBody] CreateKnowledgeBaseDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng" });
+            }
+
+            var item = await _service.CreateAsync(dto, userId);
+            return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Cập nhật kiến thức (Admin/QuanLy only)
+    /// </summary>
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<KnowledgeBaseDto>> Update(int id, [FromBody] UpdateKnowledgeBaseDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng" });
+            }
+
+            var item = await _service.UpdateAsync(id, dto, userId);
+            return Ok(item);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Xóa kiến thức (Admin only)
+    /// </summary>
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            await _service.DeleteAsync(id);
+            return Ok(new { message = "Xóa kiến thức thành công" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+}

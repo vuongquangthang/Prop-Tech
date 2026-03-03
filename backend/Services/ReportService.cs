@@ -6,239 +6,189 @@ namespace backend.Services;
 
 public interface IReportService
 {
-    Task<List<RoomStatusDto>> GetRoomStatusByBuildingAsync();
-    Task<List<FloorStatusDto>> GetRoomStatusByFloorAsync(long buildingId);
-    Task<List<ReceivablesDto>> GetReceivablesReportAsync(long? buildingId = null);
-    Task<List<RevenueSummaryDto>> GetRevenueSummaryAsync(long? billingPeriodId = null);
-    Task<List<ComplaintStatisticsDto>> GetComplaintStatisticsAsync();
-    Task<DashboardSummaryDto> GetDashboardSummaryAsync();
+    Task<DashboardStatsDto> GetDashboardStatsAsync();
+    Task<List<MonthlyRevenueDto>> GetMonthlyRevenueAsync(int year);
+    Task<RoomStatsDto> GetRoomStatsAsync();
+    Task<RevenueStatsDto> GetRevenueStatsAsync();
+    Task<DebtStatsDto> GetDebtStatsAsync();
 }
 
 public class ReportService : IReportService
 {
-    private readonly IBuildingRepository _buildingRepository;
-    private readonly IFloorRepository _floorRepository;
     private readonly IRoomRepository _roomRepository;
-    private readonly IResidencyRepository _residencyRepository;
-    private readonly IInvoiceRepository _invoiceRepository;
-    private readonly IBillingPeriodRepository _billingPeriodRepository;
-    private readonly IComplaintRepository _complaintRepository;
-    private readonly ILogger<ReportService> _logger;
+    private readonly IHopDongRepository _hopDongRepository;
+    private readonly IResidentRepository _residentRepository;
+    private readonly IHoaDonRepository _hoaDonRepository;
+    private readonly IThanhToanRepository _thanhToanRepository;
+    private readonly IXeRepository _xeRepository;
+    private readonly IYeuCauSuaChuaRepository _yeuCauRepository;
 
     public ReportService(
-        IBuildingRepository buildingRepository,
-        IFloorRepository floorRepository,
         IRoomRepository roomRepository,
-        IResidencyRepository residencyRepository,
-        IInvoiceRepository invoiceRepository,
-        IBillingPeriodRepository billingPeriodRepository,
-        IComplaintRepository complaintRepository,
-        ILogger<ReportService> logger)
+        IHopDongRepository hopDongRepository,
+        IResidentRepository residentRepository,
+        IHoaDonRepository hoaDonRepository,
+        IThanhToanRepository thanhToanRepository,
+        IXeRepository xeRepository,
+        IYeuCauSuaChuaRepository yeuCauRepository)
     {
-        _buildingRepository = buildingRepository;
-        _floorRepository = floorRepository;
         _roomRepository = roomRepository;
-        _residencyRepository = residencyRepository;
-        _invoiceRepository = invoiceRepository;
-        _billingPeriodRepository = billingPeriodRepository;
-        _complaintRepository = complaintRepository;
-        _logger = logger;
+        _hopDongRepository = hopDongRepository;
+        _residentRepository = residentRepository;
+        _hoaDonRepository = hoaDonRepository;
+        _thanhToanRepository = thanhToanRepository;
+        _xeRepository = xeRepository;
+        _yeuCauRepository = yeuCauRepository;
     }
 
-    public async Task<List<RoomStatusDto>> GetRoomStatusByBuildingAsync()
+    public async Task<DashboardStatsDto> GetDashboardStatsAsync()
     {
-        var buildings = (await _buildingRepository.FindAsync(b => true)).ToList();
-        var result = new List<RoomStatusDto>();
-
-        foreach (var building in buildings)
+        return new DashboardStatsDto
         {
-            var rooms = (await _roomRepository.FindAsync(r => r.Floor!.BuildingId == building.Id)).ToList();
-            var occupiedRooms = (await _residencyRepository.FindAsync(
-                r => r.CheckOutDate == null && rooms.Select(rm => rm.Id).Contains(r.RoomId)
-            )).ToList();
+            RoomStats = await GetRoomStatsAsync(),
+            RevenueStats = await GetRevenueStatsAsync(),
+            DebtStats = await GetDebtStatsAsync(),
+            ResidentStats = await GetResidentStatsAsync(),
+            VehicleStats = await GetVehicleStatsAsync(),
+            MaintenanceStats = await GetMaintenanceStatsAsync()
+        };
+    }
 
-            result.Add(new RoomStatusDto
+    public async Task<List<MonthlyRevenueDto>> GetMonthlyRevenueAsync(int year)
+    {
+        var invoices = await _hoaDonRepository.GetAllAsync();
+        var payments = await _thanhToanRepository.GetAllAsync();
+
+        var monthlyRevenue = new List<MonthlyRevenueDto>();
+
+        for (int month = 1; month <= 12; month++)
+        {
+            var monthInvoices = invoices.Where(i => i.Year == year && i.Month == month).ToList();
+            var monthPayments = payments
+                .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == year && p.PaidAt.Value.Month == month && p.InvoiceId != null)
+                .ToList();
+
+            monthlyRevenue.Add(new MonthlyRevenueDto
             {
-                BuildingId = building.Id,
-                BuildingCode = building.BuildingCode,
-                OccupiedCount = occupiedRooms.Count,
-                VacantCount = rooms.Count - occupiedRooms.Count,
-                TotalCount = rooms.Count
+                Month = month,
+                Year = year,
+                TotalRevenue = monthPayments.Sum(p => p.Amount),
+                RoomRentRevenue = 0, // Could be calculated from line items
+                ServiceRevenue = 0,
+                OtherRevenue = 0
             });
         }
 
-        return result;
+        return monthlyRevenue;
     }
 
-    public async Task<List<FloorStatusDto>> GetRoomStatusByFloorAsync(long buildingId)
+    public async Task<RoomStatsDto> GetRoomStatsAsync()
     {
-        var floors = (await _floorRepository.FindAsync(f => f.BuildingId == buildingId)).ToList();
-        var result = new List<FloorStatusDto>();
+        var rooms = await _roomRepository.GetAllAsync();
+        var totalRooms = rooms.Count();
+        var occupiedRooms = rooms.Count(r => r.Status == "Đã thuê");
+        var availableRooms = rooms.Count(r => r.Status == "Trống");
+        var maintenanceRooms = rooms.Count(r => r.Status == "Bảo trì");
 
-        foreach (var floor in floors)
+        return new RoomStatsDto
         {
-            var rooms = (await _roomRepository.FindAsync(r => r.FloorId == floor.Id)).ToList();
-            var occupiedRooms = (await _residencyRepository.FindAsync(
-                r => r.CheckOutDate == null && rooms.Select(rm => rm.Id).Contains(r.RoomId)
-            )).ToList();
-
-            result.Add(new FloorStatusDto
-            {
-                FloorId = floor.Id,
-                FloorCode = floor.FloorName ?? $"Floor {floor.FloorNumber}",
-                BuildingId = buildingId,
-                OccupiedCount = occupiedRooms.Count,
-                VacantCount = rooms.Count - occupiedRooms.Count,
-                TotalCount = rooms.Count
-            });
-        }
-
-        return result.OrderBy(x => x.FloorCode).ToList();
+            TotalRooms = totalRooms,
+            OccupiedRooms = occupiedRooms,
+            AvailableRooms = availableRooms,
+            MaintenanceRooms = maintenanceRooms,
+            OccupancyRate = totalRooms > 0 ? (decimal)occupiedRooms / totalRooms * 100 : 0
+        };
     }
 
-    public async Task<List<ReceivablesDto>> GetReceivablesReportAsync(long? buildingId = null)
+    public async Task<RevenueStatsDto> GetRevenueStatsAsync()
     {
-        var invoices = (await _invoiceRepository.FindAsync(i =>
-            i.Status != "PAID" && i.Status != "VOIDED"
-        )).ToList();
+        var payments = await _thanhToanRepository.GetAllAsync();
+        var now = DateTime.UtcNow;
 
-        var result = new List<ReceivablesDto>();
+        var currentMonthPayments = payments
+            .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == now.Year && p.PaidAt.Value.Month == now.Month && p.InvoiceId != null)
+            .Sum(p => p.Amount);
 
-        // Group by room and sum unpaid amounts
-        var groupedByRoom = invoices
-            .GroupBy(i => i.RoomId)
-            .ToList();
+        var lastMonth = now.AddMonths(-1);
+        var lastMonthPayments = payments
+            .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == lastMonth.Year && p.PaidAt.Value.Month == lastMonth.Month && p.InvoiceId != null)
+            .Sum(p => p.Amount);
 
-        foreach (var roomGroup in groupedByRoom)
+        var yearToDatePayments = payments
+            .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == now.Year && p.InvoiceId != null)
+            .Sum(p => p.Amount);
+
+        var growthRate = lastMonthPayments > 0 
+            ? ((currentMonthPayments - lastMonthPayments) / lastMonthPayments) * 100 
+            : 0;
+
+        return new RevenueStatsDto
         {
-            var room = await _roomRepository.GetByIdAsync(roomGroup.Key);
-            if (room == null || (buildingId.HasValue && room.Floor!.BuildingId != buildingId.Value))
-                continue;
-
-            var totalAmount = roomGroup.Sum(i =>
-            {
-                var remainingBalance = (i.TotalAmount - i.PaidAmount);
-                return remainingBalance > 0m ? remainingBalance : 0m;
-            });
-
-            if (totalAmount > 0)
-            {
-                result.Add(new ReceivablesDto
-                {
-                    RoomId = room.Id,
-                    RoomCode = room.RoomCode,
-                    BuildingId = room.Floor!.BuildingId,
-                    BuildingCode = room.Floor.Building!.BuildingCode,
-                    Amount = totalAmount,
-                    InvoiceCount = roomGroup.Count(),
-                    OldestInvoiceDate = roomGroup.Min(i => i.CreatedAt)
-                });
-            }
-        }
-
-        return result.OrderByDescending(r => r.Amount).ToList();
+            CurrentMonthRevenue = currentMonthPayments,
+            LastMonthRevenue = lastMonthPayments,
+            YearToDateRevenue = yearToDatePayments,
+            AverageMonthlyRevenue = now.Month > 0 ? yearToDatePayments / now.Month : 0,
+            GrowthRate = growthRate
+        };
     }
 
-    public async Task<List<RevenueSummaryDto>> GetRevenueSummaryAsync(long? billingPeriodId = null)
+    public async Task<DebtStatsDto> GetDebtStatsAsync()
     {
-        var periods = billingPeriodId.HasValue
-            ? (await _billingPeriodRepository.FindAsync(p => p.Id == billingPeriodId.Value)).ToList()
-            : (await _billingPeriodRepository.GetAllAsync()).ToList();
+        var invoices = await _hoaDonRepository.GetAllAsync();
+        var now = DateTime.UtcNow;
 
-        var result = new List<RevenueSummaryDto>();
+        var unpaidInvoices = invoices.Where(i => 
+            i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần").ToList();
 
-        foreach (var period in periods)
+        var overdueInvoices = unpaidInvoices.Where(i => 
+            i.DueDate.HasValue && i.DueDate.Value < now).ToList();
+
+        return new DebtStatsDto
         {
-            var periodInvoices = (await _invoiceRepository.FindAsync(i => i.BillingPeriodId == period.Id)).ToList();
-
-            var totalRevenue = periodInvoices.Sum(i => i.TotalAmount);
-            var totalCollected = periodInvoices.Sum(i => i.PaidAmount);
-            var collectionRate = totalRevenue > 0 ? (totalCollected / totalRevenue) * 100 : 0;
-
-            result.Add(new RevenueSummaryDto
-            {
-                BillingPeriodId = period.Id,
-                PeriodCode = period.PeriodMonth.ToString("yyyy-MM"),
-                TotalRevenue = totalRevenue,
-                TotalCollected = totalCollected,
-                CollectionRate = (decimal)collectionRate,
-                InvoiceCount = periodInvoices.Count,
-                PaidCount = periodInvoices.Count(i => i.Status == "PAID")
-            });
-        }
-
-        return result.OrderByDescending(r => r.BillingPeriodId).ToList();
+            TotalOutstanding = unpaidInvoices.Sum(i => i.TotalAmount),
+            OverdueInvoicesCount = overdueInvoices.Count,
+            OverdueAmount = overdueInvoices.Sum(i => i.TotalAmount),
+            UnpaidInvoicesCount = unpaidInvoices.Count
+        };
     }
 
-    public async Task<List<ComplaintStatisticsDto>> GetComplaintStatisticsAsync()
+    private async Task<ResidentStatsDto> GetResidentStatsAsync()
     {
-        var complaints = (await _complaintRepository.FindAsync(c => true)).ToList();
+        var residents = await _residentRepository.GetAllAsync();
+        var contracts = await _hopDongRepository.GetActiveContractsAsync();
 
-        var statuses = new[] { "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED" };
-        var result = new List<ComplaintStatisticsDto>();
-
-        foreach (var status in statuses)
+        return new ResidentStatsDto
         {
-            var statusComplaints = complaints.Where(c => c.Status == status).ToList();
-            if (statusComplaints.Count == 0) continue;
-
-            var byCategory = statusComplaints
-                .GroupBy(c => c.Category)
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            var byPriority = statusComplaints
-                .GroupBy(c => c.Priority)
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            result.Add(new ComplaintStatisticsDto
-            {
-                Status = status,
-                Count = statusComplaints.Count,
-                ByCategory = byCategory,
-                ByPriority = byPriority
-            });
-        }
-
-        return result;
+            TotalResidents = residents.Count(),
+            ActiveContracts = contracts.Count(),
+            NewResidentsThisMonth = 0 // Resident model doesn't have CreatedAt
+        };
     }
 
-    public async Task<DashboardSummaryDto> GetDashboardSummaryAsync()
+    private async Task<VehicleStatsDto> GetVehicleStatsAsync()
     {
-        var buildings = (await _buildingRepository.FindAsync(b => true)).ToList();
-        var rooms = (await _roomRepository.FindAsync(r => true)).ToList();
-        var occupiedRooms = (await _residencyRepository.FindAsync(r => r.CheckOutDate == null)).ToList();
+        var vehicles = await _xeRepository.GetAllAsync();
 
-        var invoices = (await _invoiceRepository.FindAsync(i => i.Status != "PAID" && i.Status != "VOID")).ToList();
-        var totalReceivables = invoices.Sum(i => i.TotalAmount - i.PaidAmount);
-
-        var complaints = (await _complaintRepository.FindAsync(c => true)).ToList();
-        var unresolvedComplaints = complaints.Count(c => c.Status == "OPEN" || c.Status == "IN_PROGRESS");
-
-        var resolvedComplaints = complaints
-            .Where(c => c.Status == "RESOLVED" || c.Status == "CLOSED")
-            .ToList();
-
-        var avgResolutionDays = 0.0;
-        if (resolvedComplaints.Count > 0)
+        return new VehicleStatsDto
         {
-            avgResolutionDays = resolvedComplaints.Average(c =>
-                ((c.ResolvedAt ?? DateTime.UtcNow) - c.CreatedAt).TotalDays
-            );
-        }
+            TotalVehicles = vehicles.Count(),
+            Cars = vehicles.Count(v => v.VehicleType == "Ô tô"),
+            Motorcycles = vehicles.Count(v => v.VehicleType == "Xe máy"),
+            Bicycles = vehicles.Count(v => v.VehicleType == "Xe đạp")
+        };
+    }
 
-        var occupancyRate = rooms.Count > 0 ? (occupiedRooms.Count * 100.0m) / rooms.Count : 0;
+    private async Task<MaintenanceStatsDto> GetMaintenanceStatsAsync()
+    {
+        var requests = await _yeuCauRepository.GetAllAsync();
 
-        return new DashboardSummaryDto
+        return new MaintenanceStatsDto
         {
-            TotalBuildings = buildings.Count,
-            TotalRooms = rooms.Count,
-            OccupiedRooms = occupiedRooms.Count,
-            VacantRooms = rooms.Count - occupiedRooms.Count,
-            OccupancyRate = occupancyRate,
-            TotalReceivables = totalReceivables,
-            TotalComplaints = complaints.Count,
-            UnresolvedComplaints = unresolvedComplaints,
-            AverageComplaintResolutionDays = (decimal)avgResolutionDays
+            TotalRequests = requests.Count(),
+            PendingRequests = requests.Count(r => r.Status == "Chờ xử lý"),
+            InProgressRequests = requests.Count(r => r.Status == "Đang xử lý"),
+            CompletedRequests = requests.Count(r => r.Status == "Hoàn thành"),
+            RejectedRequests = requests.Count(r => r.Status == "Từ chối")
         };
     }
 }

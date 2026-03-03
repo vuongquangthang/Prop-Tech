@@ -1,57 +1,58 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Models;
 
 /// <summary>
-/// Tài khoản người dùng - Quản lý xác thực và phân quyền
+/// User - Tài khoản người dùng
 /// </summary>
-[Table("users")]
+[Table("USER")]
+[Index(nameof(PhoneNumber), IsUnique = true)]
 public class User
 {
     [Key]
-    [Column("id")]
-    public long Id { get; set; }
+    [Column("USER_ID")]
+    public int Id { get; set; }
 
     [Required]
-    [StringLength(15)]
-    [Column("phone_number")]
+    [StringLength(20)]
+    [Column("SO_DIEN_THOAI")]
     public string PhoneNumber { get; set; } = null!;
 
     [Required]
-    [StringLength(255)]
-    [Column("password_hash")]
+    [StringLength(500)]
+    [Column("MAT_KHAU_HASH")]
     public string PasswordHash { get; set; } = null!;
 
     [Required]
-    [StringLength(20)]
-    [Column("role")]
-    public string Role { get; set; } = "RESIDENT"; // MANAGER, RESIDENT
+    [StringLength(50)]
+    [Column("VAI_TRO")]
+    public string Role { get; set; } = "CuDan"; // Admin, QuanLy, CuDan, KeToan
+
+    [Column("CU_DAN_ID")]
+    public int? ResidentId { get; set; }
 
     [Required]
-    [StringLength(20)]
-    [Column("status")]
-    public string Status { get; set; } = "ACTIVE"; // ACTIVE, LOCKED
+    [Column("IS_LOCKED")]
+    public bool IsLocked { get; set; } = false;
 
-    [StringLength(100)]
-    [Column("full_name")]
-    public string? FullName { get; set; }
+    [Column("LAST_LOGIN_AT")]
+    public DateTime? LastLoginAt { get; set; }
 
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [StringLength(500)]
+    [Column("REFRESH_TOKEN")]
+    public string? RefreshToken { get; set; }
 
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("created_by")]
-    public long? CreatedBy { get; set; }
-
-    [Column("updated_by")]
-    public long? UpdatedBy { get; set; }
+    [Column("REFRESH_TOKEN_EXPIRY_TIME")]
+    public DateTime? RefreshTokenExpiryTime { get; set; }
 
     // Navigation properties
-    public ICollection<UserSession> UserSessions { get; set; } = new List<UserSession>();
-    public ICollection<Resident> Residents { get; set; } = new List<Resident>();
-    public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
-    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    [ForeignKey("ResidentId")]
+    public Resident? Resident { get; set; }
+
+    public ICollection<YeuCauSuaChua> YeuCauSuaChuas { get; set; } = new List<YeuCauSuaChua>();
+    public ICollection<LichSuChat> LichSuChats { get; set; } = new List<LichSuChat>();
+    public ICollection<NhatKyNhacNo> NhatKyNhacNosSentTo { get; set; } = new List<NhatKyNhacNo>();
+    public ICollection<NhatKyNhacNo> NhatKyNhacNosSentBy { get; set; } = new List<NhatKyNhacNo>();
 }

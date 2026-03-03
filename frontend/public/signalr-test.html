@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignalR Real-time Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .status {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .status.connected { background: #10b981; color: white; }
+        .status.disconnected { background: #ef4444; color: white; }
+        .status.connecting { background: #f59e0b; color: white; }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+        
+        .message-content {
+            font-size: 14px;
+            color: #374151;
+        }
+        
+        .message.received {
+            border-left-color: #10b981;
+        }
+        
+        .message.sent {
+            border-left-color: #3b82f6;
+        }
+        
+        .message.system {
+            border-left-color: #f59e0b;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 SignalR Real-time Test</h1>
+            <p style="margin: 10px 0;">Prop-Tech Management System</p>
+            <span class="status disconnected" id="status">Disconnected</span>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>📡 Connection Control</h2>
+                <div class="input-group">
+                    <input type="text" id="token" placeholder="Paste JWT token here (from localStorage)" />
+                    <button onclick="connect()" id="connectBtn">Connect</button>
+                    <button onclick="disconnect()" id="disconnectBtn" disabled>Disconnect</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>💬 Send Test Message</h2>
+                <div class="input-group">
+                    <input type="text" id="message" placeholder="Type your message..." />
+                    <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>📨 Messages</h2>
+                <div class="messages" id="messages"></div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="sentCount">0</div>
+                    <div class="stat-label">Sent</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="receivedCount">0</div>
+                    <div class="stat-label">Received</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="reconnectCount">0</div>
+                    <div class="stat-label">Reconnects</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let connection = null;
+        let sentCount = 0;
+        let receivedCount = 0;
+        let reconnectCount = 0;
+
+        function updateStatus(status, text) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = text;
+        }
+
+        function addMessage(content, type = 'system') {
+            const messagesEl = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+            
+            const time = new Date().toLocaleTimeString('vi-VN');
+            messageEl.innerHTML = `
+                <div class="message-time">${time}</div>
+                <div class="message-content">${content}</div>
+            `;
+            
+            messagesEl.insertBefore(messageEl, messagesEl.firstChild);
+            
+            // Keep only last 50 messages
+            while (messagesEl.children.length > 50) {
+                messagesEl.removeChild(messagesEl.lastChild);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('sentCount').textContent = sentCount;
+            document.getElementById('receivedCount').textContent = receivedCount;
+            document.getElementById('reconnectCount').textContent = reconnectCount;
+        }
+
+        async function connect() {
+            const token = document.getElementById('token').value.trim();
+            
+            if (!token) {
+                alert('Please enter JWT token! You can get it from:\n\n1. Login to http://localhost:3000\n2. Open DevTools (F12)\n3. Console → Type: localStorage.getItem("token")\n4. Copy the token and paste here');
+                return;
+            }
+
+            try {
+                updateStatus('connecting', 'Connecting...');
+                addMessage('🔄 Attempting to connect to SignalR hub...', 'system');
+
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl("http://localhost:5052/hubs/notifications", {
+                        accessTokenFactory: () => token
+                    })
+                    .withAutomaticReconnect({
+                        nextRetryDelayInMilliseconds: (retryContext) => {
+                            if (retryContext.previousRetryCount === 0) return 0;
+                            if (retryContext.previousRetryCount === 1) return 2000;
+                            if (retryContext.previousRetryCount === 2) return 10000;
+                            return 30000;
+                        }
+                    })
+                    .configureLogging(signalR.LogLevel.Information)
+                    .build();
+
+                // Event listeners
+                connection.onreconnecting((error) => {
+                    updateStatus('connecting', 'Reconnecting...');
+                    addMessage('⚠️ Connection lost, attempting to reconnect...', 'system');
+                });
+
+                connection.onreconnected((connectionId) => {
+                    reconnectCount++;
+                    updateStats();
+                    updateStatus('connected', 'Connected');
+                    addMessage(`✅ Reconnected successfully! (${connectionId})`, 'system');
+                });
+
+                connection.onclose((error) => {
+                    updateStatus('disconnected', 'Disconnected');
+                    addMessage(`❌ Connection closed: ${error || 'Unknown reason'}`, 'system');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    document.getElementById('sendBtn').disabled = true;
+                });
+
+                // Listen for test messages
+                connection.on("ReceiveTestMessage", (message) => {
+                    receivedCount++;
+                    updateStats();
+                    addMessage(`📨 ${message}`, 'received');
+                });
+
+                // Listen for notifications
+                connection.on("ReceiveNotification", (notification) => {
+                    receivedCount++;
+                    updateStats();
+                    addMessage(`🔔 Notification: ${notification.title || notification.message || JSON.stringify(notification)}`, 'received');
+                });
+
+                // Listen for maintenance updates
+                connection.on("MaintenanceUpdated", (maintenance) => {
+                    receivedCount++;
+                    updateStats();
+                    addMessage(`🔧 Maintenance Updated: ${maintenance.moTa || JSON.stringify(maintenance)}`, 'received');
+                });
+
+                // Listen for invoice updates
+                connection.on("InvoiceUpdated", (invoice) => {
+                    receivedCount++;
+                    updateStats();
+                    addMessage(`💰 Invoice Updated: ${invoice.maHoaDon || JSON.stringify(invoice)}`, 'received');
+                });
+
+                await connection.start();
+                
+                updateStatus('connected', 'Connected');
+                addMessage('✅ Connected to SignalR hub successfully!', 'system');
+                addMessage(`📍 Connection ID: ${connection.connectionId}`, 'system');
+                
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+
+            } catch (error) {
+                updateStatus('disconnected', 'Connection Failed');
+                addMessage(`❌ Connection failed: ${error.message}`, 'system');
+                console.error('Connection error:', error);
+            }
+        }
+
+        async function disconnect() {
+            if (connection) {
+                await connection.stop();
+                connection = null;
+                updateStatus('disconnected', 'Disconnected');
+                addMessage('🔌 Disconnected from SignalR hub', 'system');
+                
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+            }
+        }
+
+        async function sendMessage() {
+            const message = document.getElementById('message').value.trim();
+            
+            if (!message) {
+                alert('Please enter a message!');
+                return;
+            }
+
+            if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+                alert('Not connected! Please connect first.');
+                return;
+            }
+
+            try {
+                await connection.invoke("SendTestMessage", message);
+                sentCount++;
+                updateStats();
+                addMessage(`📤 Sent: ${message}`, 'sent');
+                document.getElementById('message').value = '';
+            } catch (error) {
+                addMessage(`❌ Failed to send: ${error.message}`, 'system');
+                console.error('Send error:', error);
+            }
+        }
+
+        // Auto-fill token from localStorage if available
+        window.addEventListener('load', () => {
+            const storedToken = localStorage.getItem('token');
+            if (storedToken) {
+                document.getElementById('token').value = storedToken;
+                addMessage('ℹ️ Token loaded from localStorage. Click "Connect" to start.', 'system');
+            } else {
+                addMessage('ℹ️ No token found. Please login to http://localhost:3000 first, then copy your token here.', 'system');
+            }
+        });
+
+        // Allow Enter key to send message
+        document.getElementById('message').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

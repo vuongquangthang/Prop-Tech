@@ -15,7 +15,7 @@ public class UserSession
 
     [Required]
     [Column("user_id")]
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     [Required]
     [StringLength(500)]
