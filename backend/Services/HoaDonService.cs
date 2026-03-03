@@ -119,15 +119,26 @@ public class HoaDonService : IHoaDonService
         {
             foreach (var contract in contracts)
             {
-                // Bỏ qua nếu đã có hóa đơn ACTIVE tháng này (không bỏ qua nếu đã bị từ chối)
+                // Kiểm tra hóa đơn đã tồn tại
                 var existingInvoice = await _context.HoaDons
+                    .Include(hd => hd.ChiTietHoaDons)
                     .FirstOrDefaultAsync(hd => hd.ContractId == contract.Id && hd.Month == month && hd.Year == year
                                                && hd.Status != "Bị từ chối");
+
                 if (existingInvoice != null)
                 {
-                    result.Skipped++;
-                    result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
-                    continue;
+                    // Nếu đã approved/paid, bỏ qua hoàn toàn
+                    if (existingInvoice.Status != "Nháp")
+                    {
+                        result.Skipped++;
+                        result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
+                        continue;
+                    }
+                    // Nếu là Nháp → xóa để tạo lại với dữ liệu mới (bao gồm chỉ số điện/nước)
+                    _context.ChiTietHoaDons.RemoveRange(existingInvoice.ChiTietHoaDons);
+                    _context.HoaDons.Remove(existingInvoice);
+                    await _context.SaveChangesAsync();
+                    result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Tính lại hóa đơn nháp tháng {month}/{year}");
                 }
 
                 var room = contract.Room;
