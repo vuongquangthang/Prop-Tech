@@ -34,9 +34,12 @@ export default function LoginScreen() {
       await login(phoneNumber.trim(), password);
       // Navigation will be handled automatically by RootNavigator
     } catch (err: any) {
+      const isNetworkError = !err.response;
       Alert.alert(
         'Đăng nhập thất bại',
-        err.response?.data?.message || 'Số điện thoại hoặc mật khẩu không đúng'
+        isNetworkError
+          ? `Không kết nối được đến máy chủ.\nKiểm tra lại kết nối mạng hoặc địa chỉ server.`
+          : err.response?.data?.message || 'Số điện thoại hoặc mật khẩu không đúng'
       );
     }
   };

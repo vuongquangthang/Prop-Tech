@@ -177,6 +177,21 @@ export default function IssueDetailScreen() {
           </>
         )}
 
+        {request.mediaUrl && (
+          <>
+            <View style={styles.divider} />
+            <Text style={styles.sectionTitle}>Ảnh trước khi sửa</Text>
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ uri: `${API_BASE_URL}${request.mediaUrl}` }}
+                style={styles.completionImage}
+                resizeMode="cover"
+              />
+              <Text style={styles.imageNote}>Ảnh do cư dân gửi kèm khi báo sự cố</Text>
+            </View>
+          </>
+        )}
+
         <View style={styles.divider} />
 
         <Text style={styles.sectionTitle}>Tiến độ xử lý</Text>

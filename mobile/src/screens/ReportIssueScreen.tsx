@@ -9,10 +9,13 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import maintenanceService from '../services/maintenance.service';
+import apiService from '../services/api.service';
 import { useAuthStore } from '../store/authStore';
 
 export default function ReportIssueScreen() {
@@ -21,6 +24,70 @@ export default function ReportIssueScreen() {
   const [description, setDescription] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const pickImages = async (source: 'camera' | 'library') => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Lỗi', 'Cần cấp quyền truy cập camera để chụp ảnh');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.7,
+          allowsEditing: true,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.7,
+          allowsMultipleSelection: true,
+          selectionLimit: 3,
+        });
+      }
+
+      if (!result.canceled) {
+        setSelectedImages(prev => {
+          const combined = [...prev, ...result.assets];
+          return combined.slice(0, 3);
+        });
+      }
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không thể chọn ảnh, vui lòng thử lại');
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    const urls: string[] = [];
+    const axiosInst = apiService.getAxiosInstance();
+
+    for (const img of selectedImages) {
+      const formData = new FormData();
+      const filename = img.fileName || `photo_${Date.now()}.jpg`;
+      const mime = img.mimeType || 'image/jpeg';
+      formData.append('file', { uri: img.uri, name: filename, type: mime } as any);
+
+      const res = await axiosInst.post<{ url: string }>('/api/File/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      urls.push(res.data.url);
+    }
+    return urls;
+  };
 
   const handleSubmit = async () => {
     if (!selectedType) {
@@ -35,15 +102,23 @@ export default function ReportIssueScreen() {
 
     try {
       setIsSubmitting(true);
-      
-      console.log('📤 Creating maintenance request:', {
-        issueType: selectedType,
-        description: description.trim(),
-      });
+
+      // Upload images first if any selected
+      let mediaUrl: string | undefined;
+      if (selectedImages.length > 0) {
+        setIsUploading(true);
+        try {
+          const urls = await uploadImages();
+          mediaUrl = urls[0]; // Backend stores single mediaUrl
+        } finally {
+          setIsUploading(false);
+        }
+      }
 
       await maintenanceService.create({
         issueType: selectedType,
         description: description.trim(),
+        mediaUrl,
       });
 
       Alert.alert(
@@ -58,16 +133,9 @@ export default function ReportIssueScreen() {
       );
     } catch (error: any) {
       console.error('❌ Report issue error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-      
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
+      const errorMessage = error.response?.data?.message ||
+                          error.message ||
                           'Không thể gửi yêu cầu. Vui lòng thử lại sau.';
-      
       Alert.alert('Lỗi', errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -138,19 +206,42 @@ export default function ReportIssueScreen() {
 
           {/* Photos */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Hình ảnh/Video đính kèm *</Text>
-            <View style={styles.photoButtons}>
-              <TouchableOpacity style={styles.photoButton}>
-                <Ionicons name="camera" size={28} color="#2563EB" />
-                <Text style={styles.photoButtonText}>Camera</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.photoButton}>
-                <Ionicons name="images" size={28} color="#2563EB" />
-                <Text style={styles.photoButtonText}>Thư viện</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.label}>
+              Hình ảnh trước khi sửa {selectedImages.length > 0 ? `(${selectedImages.length}/3)` : '(tuỳ chọn)'}
+            </Text>
+
+            {/* Selected image previews */}
+            {selectedImages.length > 0 && (
+              <View style={styles.imagePreviewRow}>
+                {selectedImages.map((img, idx) => (
+                  <View key={idx} style={styles.imagePreviewWrapper}>
+                    <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+                    <TouchableOpacity
+                      style={styles.removeImageBtn}
+                      onPress={() => removeImage(idx)}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Pick buttons — only show if < 3 images selected */}
+            {selectedImages.length < 3 && (
+              <View style={styles.photoButtons}>
+                <TouchableOpacity style={styles.photoButton} onPress={() => pickImages('camera')}>
+                  <Ionicons name="camera" size={28} color="#2563EB" />
+                  <Text style={styles.photoButtonText}>Camera</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.photoButton} onPress={() => pickImages('library')}>
+                  <Ionicons name="images" size={28} color="#2563EB" />
+                  <Text style={styles.photoButtonText}>Thư viện</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <Text style={styles.photoNote}>
-              Vui lòng tải lên ít nhất 1 hình ảnh
+              Ảnh trước khi sửa giúp BQL xử lý nhanh hơn (tối đa 3 ảnh, mỗi ảnh ≤ 5MB)
             </Text>
           </View>
         </View>
@@ -170,7 +261,12 @@ export default function ReportIssueScreen() {
           disabled={isSubmitting}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.submitButtonText}>
+                {isUploading ? 'Đang tải ảnh...' : 'Đang gửi...'}
+              </Text>
+            </View>
           ) : (
             <Text style={styles.submitButtonText}>Gửi yêu cầu</Text>
           )}
@@ -278,6 +374,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     marginTop: 8,
+  },
+  imagePreviewRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  imagePreviewWrapper: {
+    position: 'relative',
+    width: 88,
+    height: 88,
+  },
+  imagePreview: {
+    width: 88,
+    height: 88,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
   },
   footer: {
     flexDirection: 'row',
