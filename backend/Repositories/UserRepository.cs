@@ -43,6 +43,13 @@ public class UserRepository : Repository<User>, IUserRepository
         return await _dbSet.AnyAsync(u => u.PhoneNumber == phone);
     }
 
+    public override async Task<IEnumerable<User>> GetAllAsync()
+    {
+        return await _dbSet
+            .Include(u => u.Resident)
+            .ToListAsync();
+    }
+
     public async Task<IEnumerable<User>> GetByRoleAsync(string role)
     {
         return await _dbSet

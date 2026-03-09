@@ -105,6 +105,7 @@ public class FloorService : IFloorService
         };
 
         await _floorRepository.AddAsync(floor);
+        await _floorRepository.SaveChangesAsync();
         return await MapToDto(floor);
     }
 

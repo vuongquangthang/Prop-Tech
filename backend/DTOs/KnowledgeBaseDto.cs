@@ -39,3 +39,14 @@ public class UpdateKnowledgeBaseDto
     public string? Tags { get; set; }
     public bool? IsActive { get; set; }
 }
+
+/// <summary>
+/// Result from uploading a document for knowledge extraction
+/// </summary>
+public class DocumentUploadResultDto
+{
+    public string FileName { get; set; } = null!;
+    public int TotalExtracted { get; set; }
+    public int Activated { get; set; }
+    public List<KnowledgeBaseDto> Entries { get; set; } = new();
+}

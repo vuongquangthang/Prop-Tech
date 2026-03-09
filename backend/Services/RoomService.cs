@@ -200,6 +200,7 @@ public class RoomService : IRoomService
         };
 
         await _roomRepository.AddAsync(room);
+        await _roomRepository.SaveChangesAsync();
         return await MapToDto(room);
     }
 

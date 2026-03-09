@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace backend.Controllers;
 
@@ -27,6 +28,25 @@ public class ThanhToanController : ControllerBase
         try
         {
             var payments = await _thanhToanService.GetAllAsync();
+            return Ok(payments);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lấy lịch sử thanh toán của cư dân hiện tại
+    /// </summary>
+    [HttpGet("my")]
+    [Authorize(Roles = "CuDan")]
+    public async Task<ActionResult<List<ThanhToanDto>>> GetMy()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var payments = await _thanhToanService.GetByUserIdAsync(userId);
             return Ok(payments);
         }
         catch (Exception ex)
@@ -115,5 +135,11 @@ public class ThanhToanController : ControllerBase
         {
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
+    }
+
+    private int GetCurrentUserId()
+    {
+        var claim = User.FindFirst("id") ?? User.FindFirst(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim?.Value, out var id) ? id : 0;
     }
 }

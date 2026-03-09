@@ -1,6 +1,7 @@
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Outlet, useLocation } from 'react-router';
+import { useState } from 'react';
 
 // Map routes to titles
 const routeTitles: Record<string, string> = {
@@ -28,6 +29,7 @@ const routeTitles: Record<string, string> = {
 
 export function AdminLayout() {
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Check if we're on pages that need padding
   const needsPadding = !['/building-management'].includes(location.pathname);
@@ -36,26 +38,20 @@ export function AdminLayout() {
   const currentTitle = routeTitles[location.pathname] || 'Bảng điều khiển';
 
   return (
-    <div className="min-h-screen bg-gray-400" style={{ minWidth: '1440px', overflow: 'auto' }}>
-      {/* Desktop Frame - Exactly 1440px wide */}
-      <div className="bg-white shadow-2xl mx-auto" style={{ width: '1440px', minHeight: '100vh' }}>
-        {/* Dashboard Content */}
-        <div style={{ minHeight: '100vh' }}>
-          <div className="flex" style={{ width: '1440px', minHeight: '984px', backgroundColor: 'var(--surface-bg)' }}>
-            {/* Sidebar */}
-            <Sidebar />
-            
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Topbar */}
-              <Topbar title={currentTitle} />
-              
-              {/* Content Area */}
-              <main className="flex-1 overflow-y-auto" style={{ padding: needsPadding ? 'var(--space-layout)' : '0' }}>
-                <Outlet />
-              </main>
-            </div>
-          </div>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--surface-bg)' }}>
+      <div className="flex" style={{ minHeight: '100vh' }}>
+        {/* Sidebar */}
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
+          {/* Topbar */}
+          <Topbar title={currentTitle} onMenuToggle={() => setSidebarOpen(o => !o)} />
+          
+          {/* Content Area */}
+          <main className="flex-1 overflow-y-auto overflow-x-auto" style={{ padding: needsPadding ? 'var(--space-layout)' : '0' }}>
+            <Outlet />
+          </main>
         </div>
       </div>
     </div>

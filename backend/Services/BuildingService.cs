@@ -77,6 +77,7 @@ public class BuildingService : IBuildingService
         };
 
         await _buildingRepository.AddAsync(building);
+        await _buildingRepository.SaveChangesAsync();
         return MapToDto(building);
     }
 

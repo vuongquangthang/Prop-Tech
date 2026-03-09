@@ -49,25 +49,34 @@ export interface Resident {
 export interface Contract {
   id: number;
   roomId: number;
-  contractCode: string;
+  roomNumber?: string;
+  contractCode?: string;
   startDate: string;
-  endDate: string;
-  monthlyRent: number;
-  deposit: number;
-  status: string;
+  endDate?: string;
+  expectedEndDate?: string;
+  monthlyRent?: number;
+  actualRentPrice?: number;
+  deposit?: number;
+  depositAmount?: number;
+  status?: string;
   terminatedDate?: string;
   notes?: string;
 }
 
 export interface Invoice {
   id: number;
-  roomId: number;
-  invoiceCode: string;
-  month: number;
-  year: number;
+  contractId?: number;
+  roomId?: number;
+  roomNumber?: string;
+  residentName?: string;
+  invoiceCode?: string;
+  month?: number;
+  year?: number;
   totalAmount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
   status: string;
-  createdDate: string;
+  createdDate?: string;
   dueDate?: string;
   finalizedDate?: string;
 }
@@ -79,6 +88,37 @@ export interface Payment {
   paymentMethod: string;
   paidAt: string;
   notes?: string;
+}
+
+export interface HoaDonLineItem {
+  id: number;
+  itemType: string;
+  serviceId?: number;
+  serviceName?: string;
+  unit?: string;
+  quantity?: number;
+  unitPrice?: number;
+  subtotal: number;
+  description?: string;
+}
+
+export interface HoaDonDetail extends Invoice {
+  lineItems: HoaDonLineItem[];
+  approvedBy?: number;
+  paidDate?: string;
+}
+
+export interface ResidentPayment {
+  id: number;
+  paymentType: string;
+  invoiceId?: number;
+  amount: number;
+  transactionCode?: string;
+  status: string;
+  paidAt?: string;
+  createdAt: string;
+  invoiceReference?: string;
+  roomNumber?: string;
 }
 
 export interface Service {
@@ -408,6 +448,15 @@ export const invoiceService = {
       throw new Error(handleApiError(error));
     }
   },
+
+  getMy: async () => {
+    try {
+      const response = await api.get<HoaDonDetail[]>(API_ENDPOINTS.INVOICES.MY);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
 };
 
 // Payment Services
@@ -433,6 +482,15 @@ export const paymentService = {
   create: async (data: Omit<Payment, 'id' | 'paidAt'>) => {
     try {
       const response = await api.post<Payment>(API_ENDPOINTS.PAYMENTS.BASE, data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getMyPayments: async () => {
+    try {
+      const response = await api.get<ResidentPayment[]>(API_ENDPOINTS.PAYMENTS.MY);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -524,6 +582,14 @@ export const userService = {
       throw new Error(handleApiError(error));
     }
   },
+
+  resetPassword: async (id: number, newPassword: string) => {
+    try {
+      await api.post(API_ENDPOINTS.USERS.RESET_PASSWORD(id), { newPassword });
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
 };
 
 // Auth Services
@@ -531,6 +597,64 @@ export const authService = {
   getCurrentUser: async () => {
     try {
       const response = await api.get<User>(API_ENDPOINTS.AUTH.ME);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+};
+
+// Audit Log Types
+export interface AuditLog {
+  id: number;
+  userId?: number;
+  username?: string;
+  fullName?: string;
+  userRole?: string;
+  action: string;
+  entityType?: string;
+  entityId?: number;
+  details?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+}
+
+// Audit Log Services
+export const auditLogService = {
+  getAll: async (limit: number = 500) => {
+    try {
+      const response = await api.get<AuditLog[]>(`${API_ENDPOINTS.AUDIT_LOGS.BASE}?limit=${limit}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+};
+
+// Settlement (Tất Toán) Services
+export const tatToanService = {
+  getAll: async () => {
+    try {
+      const response = await api.get<any[]>(API_ENDPOINTS.SETTLEMENT.BASE);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getById: async (id: number) => {
+    try {
+      const response = await api.get<any>(API_ENDPOINTS.SETTLEMENT.BY_ID(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  create: async (data: any) => {
+    try {
+      const response = await api.post<any>(API_ENDPOINTS.SETTLEMENT.BASE, data);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

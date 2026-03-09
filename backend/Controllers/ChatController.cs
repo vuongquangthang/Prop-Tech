@@ -65,6 +65,24 @@ public class ChatController : ControllerBase
     }
 
     /// <summary>
+    /// [Admin/QuanLy] Lấy toàn bộ lịch sử chat của tất cả cư dân
+    /// </summary>
+    [HttpGet("admin/all")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<List<ChatMessageDto>>> GetAllUsersHistory([FromQuery] int limit = 1000)
+    {
+        try
+        {
+            var history = await _chatService.GetAllUsersHistoryAsync(limit);
+            return Ok(history);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Gửi tin nhắn đến chatbot
     /// </summary>
     [HttpPost("send")]

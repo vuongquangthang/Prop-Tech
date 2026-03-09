@@ -27,7 +27,12 @@ const getStatusConfig = (status: string) => {
   return (statusConfig as any)[status] || statusConfig['Trống'];
 };
 
-export function RoomTable() {
+interface RoomTableProps {
+  selectedFloorId?: number | null;
+  selectedBuildingId?: number | null;
+}
+
+export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProps = {}) {
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,15 +99,23 @@ export function RoomTable() {
     }
   };
 
-  const filteredRooms = filter === 'all'
-    ? rooms
-    : rooms.filter(room => {
-        const s = room.status.toLowerCase();
-        if (filter === 'empty') return s === 'trống' || s === 'empty';
-        if (filter === 'rented') return s === 'đã thuê' || s === 'rented';
-        if (filter === 'maintenance') return s === 'bảo trì' || s === 'maintenance';
-        return true;
-      });
+  const buildingFloorIds = selectedBuildingId
+    ? floors.filter(f => f.buildingId === selectedBuildingId).map(f => f.id)
+    : null;
+  const filteredRooms = rooms
+    .filter(room =>
+      selectedFloorId != null ? room.floorId === selectedFloorId
+      : buildingFloorIds != null ? buildingFloorIds.includes(room.floorId)
+      : true
+    )
+    .filter(room => {
+      if (filter === 'all') return true;
+      const s = room.status.toLowerCase();
+      if (filter === 'empty') return s === 'trống' || s === 'empty';
+      if (filter === 'rented') return s === 'đã thuê' || s === 'rented';
+      if (filter === 'maintenance') return s === 'bảo trì' || s === 'maintenance';
+      return true;
+    });
 
   const openAddModal = () => {
     setAddFloorId(floors[0]?.id ?? 0);
@@ -180,7 +193,13 @@ export function RoomTable() {
     <div className="bg-white border-2 border-gray-300 rounded">
       <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h2 className="text-lg text-gray-800">Danh sách phòng - {filteredRooms.length} phòng</h2>
+          <h2 className="text-lg text-gray-800">
+            {selectedFloorId
+              ? (() => { const f = floors.find(fl => fl.id === selectedFloorId); return f ? `Tầng ${f.floorNumber}${f.buildingName ? ` - ${f.buildingName}` : ''} - ` : ''; })()
+              : selectedBuildingId
+              ? (() => { const f = floors.find(fl => fl.buildingId === selectedBuildingId); return f?.buildingName ? `${f.buildingName} - ` : ''; })()
+              : ''}Danh sách phòng - {filteredRooms.length} phòng
+          </h2>
           <div className="flex items-center space-x-2">
             <Filter size={16} className="text-gray-500" />
             <select value={filter} onChange={e => setFilter(e.target.value)} className="px-3 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
@@ -256,7 +275,7 @@ export function RoomTable() {
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Tầng *</label>
                 <select value={addFloorId} onChange={e => setAddFloorId(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-                  {floors.length === 0 ? <option value={0}>Chưa có tầng nào</option> : floors.map(f => <option key={f.id} value={f.id}>Tầng {f.floorNumber} ({f.floorCode})</option>)}
+                  {floors.length === 0 ? <option value={0}>Chưa có tầng nào</option> : floors.map(f => <option key={f.id} value={f.id}>Tầng {f.floorNumber}{f.buildingName ? ` - ${f.buildingName}` : ''}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

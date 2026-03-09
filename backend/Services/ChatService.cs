@@ -7,6 +7,7 @@ namespace backend.Services;
 public interface IChatService
 {
     Task<List<ChatMessageDto>> GetChatHistoryAsync(int userId, int limit = 100);
+    Task<List<ChatMessageDto>> GetAllUsersHistoryAsync(int limit = 1000);
     Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto);
     Task<ChatConversationDto> GetConversationAsync(int userId);
 }
@@ -28,6 +29,12 @@ public class ChatService : IChatService
     {
         var chats = await _chatRepository.GetByUserIdAsync(userId, limit);
         return chats.OrderBy(x => x.CreatedAt).Select(MapToDto).ToList();
+    }
+
+    public async Task<List<ChatMessageDto>> GetAllUsersHistoryAsync(int limit = 1000)
+    {
+        var chats = await _chatRepository.GetRecentAsync(limit);
+        return chats.OrderByDescending(x => x.CreatedAt).Select(MapToDto).ToList();
     }
 
     public async Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto)

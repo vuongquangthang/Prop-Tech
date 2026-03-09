@@ -1,16 +1,7 @@
 import { Plus, Upload, Edit, Trash2, Filter, Settings } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AddKnowledgeModal, EditKnowledgeModal, DeleteKnowledgeModal, UploadFileModal, ManageCategoryModal } from './KnowledgeModals';
-
-// TODO: Fetch knowledge base items from API when chatbot backend is implemented
-// GET /api/Knowledge - List all knowledge base entries
-const knowledgeData: Array<{
-  id: string;
-  question: string;
-  answer: string;
-  category: string;
-  active: boolean;
-}> = [];
+import { knowledgeService, KnowledgeBase } from '../../services/feature.service';
 
 const categoryColors: Record<string, string> = {
   'Nội quy': 'bg-blue-100 text-blue-800 border-blue-300',
@@ -21,12 +12,45 @@ const categoryColors: Record<string, string> = {
 };
 
 export function KnowledgeBaseTable() {
+  const [knowledgeData, setKnowledgeData] = useState<KnowledgeBase[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [uploadModal, setUploadModal] = useState(false);
   const [manageCategoryModal, setManageCategoryModal] = useState(false);
-  const [selectedKnowledge, setSelectedKnowledge] = useState(null);
+  const [selectedKnowledge, setSelectedKnowledge] = useState<KnowledgeBase | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
+
+  const fetchData = () => {
+    setLoading(true);
+    knowledgeService.getAll()
+      .then(data => setKnowledgeData(data))
+      .catch(() => setKnowledgeData([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleToggleActive = async (kb: KnowledgeBase) => {
+    try {
+      await knowledgeService.update(kb.id, { isActive: !kb.isActive });
+      setKnowledgeData(prev => prev.map(k => k.id === kb.id ? { ...k, isActive: !k.isActive } : k));
+    } catch (_) {}
+  };
+
+  const filteredData = knowledgeData.filter(kb => {
+    const catMatch = categoryFilter === 'all' || kb.category === categoryFilter;
+    const statusMatch = statusFilter === 'all' || (statusFilter === 'active' ? kb.isActive : !kb.isActive);
+    const searchMatch = !searchText || kb.title.toLowerCase().includes(searchText.toLowerCase()) || kb.content.toLowerCase().includes(searchText.toLowerCase());
+    return catMatch && statusMatch && searchMatch;
+  });
+
+  const activeCount = knowledgeData.filter(k => k.isActive).length;
+  const inactiveCount = knowledgeData.length - activeCount;
+  const categories = new Set(knowledgeData.map(k => k.category)).size;
 
   return (
     <div className="space-y-4">
@@ -34,22 +58,22 @@ export function KnowledgeBaseTable() {
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-sm text-gray-600 mb-2">Tổng câu hỏi</p>
-          <p className="text-2xl text-gray-900">156</p>
+          <p className="text-2xl text-gray-900">{loading ? '...' : knowledgeData.length}</p>
           <p className="text-xs text-gray-600 mt-1">câu hỏi</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-sm text-gray-600 mb-2">Đang hoạt động</p>
-          <p className="text-2xl text-green-600">142</p>
+          <p className="text-2xl text-green-600">{loading ? '...' : activeCount}</p>
           <p className="text-xs text-gray-600 mt-1">câu hỏi</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-sm text-gray-600 mb-2">Tạm dừng</p>
-          <p className="text-2xl text-gray-600">14</p>
+          <p className="text-2xl text-gray-600">{loading ? '...' : inactiveCount}</p>
           <p className="text-xs text-gray-600 mt-1">câu hỏi</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-sm text-gray-600 mb-2">Danh mục</p>
-          <p className="text-2xl text-gray-900">8</p>
+          <p className="text-2xl text-gray-900">{loading ? '...' : categories}</p>
           <p className="text-xs text-gray-600 mt-1">danh mục</p>
         </div>
       </div>
@@ -59,24 +83,34 @@ export function KnowledgeBaseTable() {
         <div className="flex items-center space-x-4">
           <Filter size={16} className="text-gray-500" />
           
-          <select className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-            <option>Tất cả danh mục</option>
-            <option>Nội quy</option>
-            <option>Thủ tục hành chính</option>
-            <option>Giá dịch vụ</option>
-            <option>Tài chính</option>
-            <option>Kỹ thuật</option>
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          >
+            <option value="all">Tất cả danh mục</option>
+            <option value="Nội quy">Nội quy</option>
+            <option value="Thủ tục hành chính">Thủ tục hành chính</option>
+            <option value="Giá dịch vụ">Giá dịch vụ</option>
+            <option value="Tài chính">Tài chính</option>
+            <option value="Kỹ thuật">Kỹ thuật</option>
           </select>
           
-          <select className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-            <option>Tất cả trạng thái</option>
-            <option>Đang hoạt động</option>
-            <option>Tạm dừng</option>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="inactive">Tạm dừng</option>
           </select>
           
           <input 
             type="text"
             placeholder="Tìm kiếm câu hỏi..."
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
             className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-64"
           />
         </div>
@@ -108,7 +142,7 @@ export function KnowledgeBaseTable() {
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Kho tri thức - {knowledgeData.length} mục</h2>
+          <h2 className="text-lg text-gray-800">Kho tri thức - {filteredData.length} mục</h2>
         </div>
         
         <div className="overflow-x-auto">
@@ -124,17 +158,22 @@ export function KnowledgeBaseTable() {
               </tr>
             </thead>
             <tbody>
-              {knowledgeData.map((kb, index) => (
-                <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-800">{kb.id}</td>
+              {loading && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Đang tải...</td>
+                </tr>
+              )}
+              {!loading && filteredData.map((kb) => (
+                <tr key={kb.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm text-gray-800">KB-{kb.id}</td>
                   <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
-                    <div className="truncate">{kb.question}</div>
+                    <div className="truncate">{kb.title}</div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 max-w-md">
-                    <div className="truncate">{kb.answer}</div>
+                    <div className="truncate">{kb.content}</div>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className={`inline-block px-3 py-1 text-xs rounded border ${categoryColors[kb.category]}`}>
+                    <span className={`inline-block px-3 py-1 text-xs rounded border ${categoryColors[kb.category] || 'bg-gray-100 text-gray-800 border-gray-300'}`}>
                       {kb.category}
                     </span>
                   </td>
@@ -142,9 +181,9 @@ export function KnowledgeBaseTable() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox" 
-                        checked={kb.active}
+                        checked={kb.isActive}
+                        onChange={() => handleToggleActive(kb)}
                         className="sr-only peer"
-                        readOnly
                       />
                       <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
                     </label>
@@ -152,18 +191,12 @@ export function KnowledgeBaseTable() {
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center space-x-2">
                       <button 
-                        onClick={() => {
-                          setSelectedKnowledge(kb);
-                          setEditModal(true);
-                        }}
+                        onClick={() => { setSelectedKnowledge(kb); setEditModal(true); }}
                         className="p-2 hover:bg-gray-100 rounded" title="Sửa">
                         <Edit size={16} className="text-gray-600" />
                       </button>
                       <button 
-                        onClick={() => {
-                          setSelectedKnowledge(kb);
-                          setDeleteModal(true);
-                        }}
+                        onClick={() => { setSelectedKnowledge(kb); setDeleteModal(true); }}
                         className="p-2 hover:bg-gray-100 rounded" title="Xóa">
                         <Trash2 size={16} className="text-gray-600" />
                       </button>
@@ -171,6 +204,11 @@ export function KnowledgeBaseTable() {
                   </td>
                 </tr>
               ))}
+              {!loading && filteredData.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Không có dữ liệu</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -183,27 +221,22 @@ export function KnowledgeBaseTable() {
         </p>
       </div>
       
-      {/* Add Knowledge Modal */}
       {showModal && (
-        <AddKnowledgeModal onClose={() => setShowModal(false)} />
+        <AddKnowledgeModal onClose={() => { setShowModal(false); fetchData(); }} />
       )}
       
-      {/* Edit Knowledge Modal */}
       {editModal && selectedKnowledge && (
-        <EditKnowledgeModal knowledge={selectedKnowledge} onClose={() => setEditModal(false)} />
+        <EditKnowledgeModal knowledge={selectedKnowledge} onClose={() => { setEditModal(false); fetchData(); }} />
       )}
       
-      {/* Delete Knowledge Modal */}
       {deleteModal && selectedKnowledge && (
-        <DeleteKnowledgeModal knowledge={selectedKnowledge} onClose={() => setDeleteModal(false)} />
+        <DeleteKnowledgeModal knowledge={selectedKnowledge} onClose={() => { setDeleteModal(false); fetchData(); }} />
       )}
       
-      {/* Upload File Modal */}
       {uploadModal && (
         <UploadFileModal onClose={() => setUploadModal(false)} />
       )}
       
-      {/* Manage Category Modal */}
       {manageCategoryModal && (
         <ManageCategoryModal onClose={() => setManageCategoryModal(false)} />
       )}

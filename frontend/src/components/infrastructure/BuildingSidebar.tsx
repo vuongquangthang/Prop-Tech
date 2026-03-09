@@ -16,12 +16,18 @@ interface BuildingData {
   floors: FloorData[];
 }
 
-export function BuildingSidebar() {
+interface BuildingSidebarProps {
+  selectedFloor: number | null;
+  onSelectFloor: (floorId: number | null) => void;
+  selectedBuilding: number | null;
+  onSelectBuilding: (buildingId: number | null) => void;
+}
+
+export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding, onSelectBuilding }: BuildingSidebarProps) {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedBuilding, setExpandedBuilding] = useState<number | null>(null);
-  const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addType, setAddType] = useState<'building' | 'floor'>('building');
   const [formLoading, setFormLoading] = useState(false);
@@ -80,9 +86,6 @@ export function BuildingSidebar() {
       // Auto-expand first building
       if (buildingsWithFloors.length > 0) {
         setExpandedBuilding(buildingsWithFloors[0].id);
-        if (buildingsWithFloors[0].floors.length > 0) {
-          setSelectedFloor(buildingsWithFloors[0].floors[0].id);
-        }
       }
     } catch (err: any) {
       setError(err.message || 'Không thể tải danh sách tòa nhà');
@@ -196,16 +199,36 @@ export function BuildingSidebar() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Show all rooms button */}
+            <button
+              onClick={() => { onSelectFloor(null); onSelectBuilding(null); }}
+              className="w-full text-left rounded transition-colors"
+              style={{
+                padding: '10px 16px',
+                fontSize: 'var(--type-body)',
+                backgroundColor: selectedFloor === null && selectedBuilding === null ? 'var(--brand-surface)' : 'transparent',
+                color: selectedFloor === null && selectedBuilding === null ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                fontWeight: selectedFloor === null && selectedBuilding === null ? 600 : 400,
+              }}
+            >
+              Tất cả phòng
+            </button>
             {buildings.map((building) => (
               <div key={building.id}>
                 {/* Building */}
                 <button
-                  onClick={() => setExpandedBuilding(expandedBuilding === building.id ? null : building.id)}
+                  onClick={() => {
+                    setExpandedBuilding(expandedBuilding === building.id ? null : building.id);
+                    onSelectBuilding(selectedBuilding === building.id ? null : building.id);
+                    onSelectFloor(null);
+                  }}
                   className="w-full flex items-center justify-between rounded transition-colors hover:bg-[var(--brand-surface)]"
                   style={{
                     padding: '12px 16px',
                     fontSize: 'var(--type-body)',
-                    color: 'var(--text-primary)',
+                    color: selectedBuilding === building.id && selectedFloor === null ? 'var(--brand-primary)' : 'var(--text-primary)',
+                    backgroundColor: selectedBuilding === building.id && selectedFloor === null ? 'var(--brand-surface)' : 'transparent',
+                    fontWeight: selectedBuilding === building.id && selectedFloor === null ? 700 : 600,
                     gap: '8px'
                   }}
                 >
@@ -230,7 +253,7 @@ export function BuildingSidebar() {
                       building.floors.map((floor) => (
                         <button
                           key={floor.id}
-                          onClick={() => setSelectedFloor(floor.id)}
+                          onClick={() => { onSelectFloor(selectedFloor === floor.id ? null : floor.id); onSelectBuilding(null); }}
                           className="w-full text-left rounded transition-colors"
                           style={{
                             padding: '10px 16px',

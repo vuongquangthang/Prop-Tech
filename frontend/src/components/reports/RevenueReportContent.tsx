@@ -1,66 +1,58 @@
-import { FileDown, Printer, BarChart2, Filter, Calendar } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { FileDown, Printer, BarChart2, Filter } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { reportService, MonthlyRevenue } from '../../services/feature.service';
 
-const allRevenueData = [
-  { period: '01/2026', building: 'Tòa A', rent: 120000000, electric: 23000000, water: 9000000, service: 32000000, total: 184000000 },
-  { period: '01/2026', building: 'Tòa B', rent: 110000000, electric: 21000000, water: 8000000, service: 30000000, total: 169000000 },
-  { period: '01/2026', building: 'Tòa C', rent: 115000000, electric: 22000000, water: 8500000, service: 31000000, total: 176500000 },
-  { period: '01/2026', building: 'Tòa D', rent: 105000000, electric: 23000000, water: 8500000, service: 32000000, total: 168500000 },
-  
-  { period: '02/2026', building: 'Tòa A', rent: 120000000, electric: 24000000, water: 9500000, service: 32000000, total: 185500000 },
-  { period: '02/2026', building: 'Tòa B', rent: 110000000, electric: 22000000, water: 8500000, service: 30000000, total: 170500000 },
-  { period: '02/2026', building: 'Tòa C', rent: 115000000, electric: 23000000, water: 9000000, service: 31000000, total: 178000000 },
-  { period: '02/2026', building: 'Tòa D', rent: 105000000, electric: 23000000, water: 9000000, service: 32000000, total: 169000000 },
-  
-  { period: '03/2026', building: 'Tòa A', rent: 125000000, electric: 22000000, water: 9000000, service: 33000000, total: 189000000 },
-  { period: '03/2026', building: 'Tòa B', rent: 115000000, electric: 21000000, water: 8500000, service: 31000000, total: 175500000 },
-  { period: '03/2026', building: 'Tòa C', rent: 120000000, electric: 22000000, water: 9000000, service: 32000000, total: 183000000 },
-  { period: '03/2026', building: 'Tòa D', rent: 105000000, electric: 23000000, water: 8500000, service: 34000000, total: 170500000 },
-  
-  { period: '04/2026', building: 'Tòa A', rent: 125000000, electric: 21000000, water: 8500000, service: 33000000, total: 187500000 },
-  { period: '04/2026', building: 'Tòa B', rent: 115000000, electric: 20000000, water: 8000000, service: 31000000, total: 174000000 },
-  { period: '04/2026', building: 'Tòa C', rent: 120000000, electric: 22000000, water: 8500000, service: 32000000, total: 182500000 },
-  { period: '04/2026', building: 'Tòa D', rent: 105000000, electric: 22000000, water: 8000000, service: 34000000, total: 169000000 },
-  
-  { period: '05/2026', building: 'Tòa A', rent: 130000000, electric: 23000000, water: 9500000, service: 34000000, total: 196500000 },
-  { period: '05/2026', building: 'Tòa B', rent: 120000000, electric: 22000000, water: 9000000, service: 32000000, total: 183000000 },
-  { period: '05/2026', building: 'Tòa C', rent: 125000000, electric: 23000000, water: 9500000, service: 33000000, total: 190500000 },
-  { period: '05/2026', building: 'Tòa D', rent: 105000000, electric: 23000000, water: 9000000, service: 36000000, total: 173000000 },
-  
-  { period: '06/2026', building: 'Tòa A', rent: 130000000, electric: 24000000, water: 10000000, service: 34000000, total: 198000000 },
-  { period: '06/2026', building: 'Tòa B', rent: 120000000, electric: 23000000, water: 9500000, service: 32000000, total: 184500000 },
-  { period: '06/2026', building: 'Tòa C', rent: 125000000, electric: 24000000, water: 10000000, service: 33000000, total: 192000000 },
-  { period: '06/2026', building: 'Tòa D', rent: 105000000, electric: 23000000, water: 8500000, service: 36000000, total: 172500000 },
-];
+interface RevenueRow {
+  period: string;
+  rent: number;
+  service: number;
+  other: number;
+  total: number;
+}
+
+const mapRevenue = (m: MonthlyRevenue): RevenueRow => ({
+  period: `${String(m.month).padStart(2, '0')}/${m.year}`,
+  rent: m.roomRentRevenue,
+  service: m.serviceRevenue,
+  other: m.otherRevenue,
+  total: m.totalRevenue,
+});
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-// Helper: Parse period "MM/YYYY" to Date
 const parsePeriod = (period: string): Date => {
   const [month, year] = period.split('/').map(Number);
   return new Date(year, month - 1, 1);
 };
 
-// Helper: Format date input to period "MM/YYYY"
-const dateToYYYYMM = (dateString: string): string => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${month}/${year}`;
-};
-
 export function RevenueReportContent() {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
-  const [dateFrom, setDateFrom] = useState('2026-01-01');
-  const [dateTo, setDateTo] = useState('2026-06-30');
-  const [building, setBuilding] = useState('Tất cả tòa nhà');
+  const [dateFrom, setDateFrom] = useState(() => `${new Date().getFullYear()}-01-01`);
+  const [dateTo, setDateTo] = useState(() => `${new Date().getFullYear()}-12-31`);
+  const [allRevenueData, setAllRevenueData] = useState<RevenueRow[]>([]);
+  const [loading, setLoading] = useState(false);
   
   const dateFromInputRef = useRef<HTMLInputElement>(null);
   const dateToInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch data for all years in the selected range
+  useEffect(() => {
+    const fromYear = dateFrom ? new Date(dateFrom).getFullYear() : new Date().getFullYear();
+    const toYear = dateTo ? new Date(dateTo).getFullYear() : fromYear;
+    const years = Array.from({ length: toYear - fromYear + 1 }, (_, i) => fromYear + i);
+
+    setLoading(true);
+    Promise.all(years.map(y => reportService.getMonthlyRevenue(y)))
+      .then(results => {
+        const rows = results.flat().map(mapRevenue);
+        setAllRevenueData(rows);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo]);
 
   // Convert YYYY-MM-DD to dd/mm/yyyy
   const formatDisplayDate = (dateStr: string): string => {
@@ -69,72 +61,44 @@ export function RevenueReportContent() {
     return `${day}/${month}/${year}`;
   };
 
-  // Convert dd/mm/yyyy to YYYY-MM-DD
+  // Convert dd/mm/yyyy to YYYY-MM-DD (unused but kept for future use)
   const parseToInputDate = (dateStr: string): string => {
     if (!dateStr) return '';
     const parts = dateStr.split('/');
     if (parts.length !== 3) return '';
     return `${parts[2]}-${parts[1]}-${parts[0]}`;
   };
+  void parseToInputDate; // suppress unused warning
 
   // Filter data
-  const filteredData = allRevenueData.filter(item => {
+  const revenueData = allRevenueData.filter(item => {
     const itemDate = parsePeriod(item.period);
     const fromDate = dateFrom ? new Date(dateFrom) : null;
     const toDate = dateTo ? new Date(dateTo) : null;
-
-    // Check date range
-    const inDateRange = (!fromDate || itemDate >= fromDate) && (!toDate || itemDate <= toDate);
-    
-    // Check building
-    const inBuilding = building === 'Tất cả tòa nhà' || item.building === building;
-
-    return inDateRange && inBuilding;
-  });
-
-  // Group by period and sum
-  const groupedData = filteredData.reduce((acc, item) => {
-    const existing = acc.find(x => x.period === item.period);
-    if (existing) {
-      existing.rent += item.rent;
-      existing.electric += item.electric;
-      existing.water += item.water;
-      existing.service += item.service;
-      existing.total += item.total;
-    } else {
-      acc.push({ ...item });
-    }
-    return acc;
-  }, [] as typeof allRevenueData);
-
-  // Sort by period
-  const revenueData = groupedData.sort((a, b) => 
-    parsePeriod(a.period).getTime() - parsePeriod(b.period).getTime()
-  );
+    return (!fromDate || itemDate >= fromDate) && (!toDate || itemDate <= toDate);
+  }).sort((a, b) => parsePeriod(a.period).getTime() - parsePeriod(b.period).getTime());
 
   const chartData = revenueData.map(item => ({
     period: item.period,
     'Tiền phòng': item.rent / 1000000,
-    'Tiền điện': item.electric / 1000000,
-    'Tiền nước': item.water / 1000000,
     'Phí dịch vụ': item.service / 1000000,
+    'Doanh thu khác': item.other / 1000000,
   }));
   
   const totalRevenue = revenueData.reduce((sum, item) => sum + item.total, 0);
   const totalRent = revenueData.reduce((sum, item) => sum + item.rent, 0);
-  const totalElectric = revenueData.reduce((sum, item) => sum + item.electric, 0);
-  const totalWater = revenueData.reduce((sum, item) => sum + item.water, 0);
   const totalService = revenueData.reduce((sum, item) => sum + item.service, 0);
+  const totalOther = revenueData.reduce((sum, item) => sum + item.other, 0);
 
   // Export to Excel (CSV)
   const handleExportExcel = () => {
-    let csv = 'Kỳ thanh toán,Tòa nhà,Tiền phòng (VNĐ),Tiền điện (VNĐ),Tiền nước (VNĐ),Phí dịch vụ (VNĐ),Tổng cộng (VNĐ)\n';
+    let csv = 'Kỳ thanh toán,Tiền phòng (VNĐ),Phí dịch vụ (VNĐ),Doanh thu khác (VNĐ),Tổng cộng (VNĐ)\n';
     
-    filteredData.forEach(row => {
-      csv += `${row.period},${row.building},${row.rent},${row.electric},${row.water},${row.service},${row.total}\n`;
+    revenueData.forEach(row => {
+      csv += `${row.period},${row.rent},${row.service},${row.other},${row.total}\n`;
     });
 
-    csv += `\nTổng cộng,,${filteredData.reduce((s, i) => s + i.rent, 0)},${filteredData.reduce((s, i) => s + i.electric, 0)},${filteredData.reduce((s, i) => s + i.water, 0)},${filteredData.reduce((s, i) => s + i.service, 0)},${totalRevenue}\n`;
+    csv += `\nTổng cộng,${totalRent},${totalService},${totalOther},${totalRevenue}\n`;
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -226,7 +190,7 @@ export function RevenueReportContent() {
           </head>
           <body>
             <h1>BÁO CÁO DOANH THU</h1>
-            <div class="info">Từ ${formatDisplayDate(dateFrom)} đến ${formatDisplayDate(dateTo)} | ${building}</div>
+            <div class="info">Từ ${formatDisplayDate(dateFrom)} đến ${formatDisplayDate(dateTo)}</div>
             
             <div class="summary">
               <div class="summary-card">
@@ -238,33 +202,27 @@ export function RevenueReportContent() {
               <thead>
                 <tr>
                   <th>Kỳ thanh toán</th>
-                  ${building === 'Tất cả tòa nhà' ? '<th>Tòa nhà</th>' : ''}
                   <th class="text-right">Tiền phòng (VNĐ)</th>
-                  <th class="text-right">Tiền điện (VNĐ)</th>
-                  <th class="text-right">Tiền nước (VNĐ)</th>
                   <th class="text-right">Phí dịch vụ (VNĐ)</th>
+                  <th class="text-right">Doanh thu khác (VNĐ)</th>
                   <th class="text-right">Tổng cộng (VNĐ)</th>
                 </tr>
               </thead>
               <tbody>
-                ${(building === 'Tất cả tòa nhà' ? filteredData : revenueData).map(row => `
+                ${revenueData.map(row => `
                   <tr>
                     <td>${row.period}</td>
-                    ${building === 'Tất cả tòa nhà' ? `<td>${row.building}</td>` : ''}
                     <td class="text-right">${formatCurrency(row.rent)}</td>
-                    <td class="text-right">${formatCurrency(row.electric)}</td>
-                    <td class="text-right">${formatCurrency(row.water)}</td>
                     <td class="text-right">${formatCurrency(row.service)}</td>
+                    <td class="text-right">${formatCurrency(row.other)}</td>
                     <td class="text-right">${formatCurrency(row.total)}</td>
                   </tr>
                 `).join('')}
                 <tr class="total-row">
                   <td>Tổng cộng</td>
-                  ${building === 'Tất cả tòa nhà' ? '<td></td>' : ''}
-                  <td class="text-right">${formatCurrency(filteredData.reduce((s, i) => s + i.rent, 0))}</td>
-                  <td class="text-right">${formatCurrency(filteredData.reduce((s, i) => s + i.electric, 0))}</td>
-                  <td class="text-right">${formatCurrency(filteredData.reduce((s, i) => s + i.water, 0))}</td>
-                  <td class="text-right">${formatCurrency(filteredData.reduce((s, i) => s + i.service, 0))}</td>
+                  <td class="text-right">${formatCurrency(totalRent)}</td>
+                  <td class="text-right">${formatCurrency(totalService)}</td>
+                  <td class="text-right">${formatCurrency(totalOther)}</td>
                   <td class="text-right">${formatCurrency(totalRevenue)}</td>
                 </tr>
               </tbody>
@@ -318,18 +276,6 @@ export function RevenueReportContent() {
             ref={dateToInputRef}
             className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-32"
           />
-          
-          <select 
-            value={building}
-            onChange={(e) => setBuilding(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
-          >
-            <option>Tất cả tòa nhà</option>
-            <option>Tòa A</option>
-            <option>Tòa B</option>
-            <option>Tòa C</option>
-            <option>Tòa D</option>
-          </select>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -361,22 +307,22 @@ export function RevenueReportContent() {
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-sm text-gray-600 mb-2">Tổng doanh thu</p>
-          <p className="text-2xl text-green-600">{formatCurrency(totalRevenue)}</p>
+          <p className="text-2xl text-green-600">{loading ? '...' : formatCurrency(totalRevenue)}</p>
           <p className="text-xs text-gray-600 mt-1">VNĐ</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-sm text-gray-600 mb-2">Tiền phòng</p>
-          <p className="text-2xl text-blue-600">{formatCurrency(totalRent)}</p>
-          <p className="text-xs text-gray-600 mt-1">VNĐ</p>
-        </div>
-        <div className="bg-white border-2 border-gray-300 rounded p-4">
-          <p className="text-sm text-gray-600 mb-2">Tiền điện + nước</p>
-          <p className="text-2xl text-orange-600">{formatCurrency(totalElectric + totalWater)}</p>
+          <p className="text-2xl text-blue-600">{loading ? '...' : formatCurrency(totalRent)}</p>
           <p className="text-xs text-gray-600 mt-1">VNĐ</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-sm text-gray-600 mb-2">Phí dịch vụ</p>
-          <p className="text-2xl text-purple-600">{formatCurrency(totalService)}</p>
+          <p className="text-2xl text-purple-600">{loading ? '...' : formatCurrency(totalService)}</p>
+          <p className="text-xs text-gray-600 mt-1">VNĐ</p>
+        </div>
+        <div className="bg-white border-2 border-gray-300 rounded p-4">
+          <p className="text-sm text-gray-600 mb-2">Doanh thu khác</p>
+          <p className="text-2xl text-orange-600">{loading ? '...' : formatCurrency(totalOther)}</p>
           <p className="text-xs text-gray-600 mt-1">VNĐ</p>
         </div>
       </div>
@@ -389,14 +335,16 @@ export function RevenueReportContent() {
           </div>
           
           <div className="overflow-x-auto">
+            {loading ? (
+              <div className="px-6 py-8 text-center text-gray-500 text-sm">Đang tải dữ liệu...</div>
+            ) : (
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-300">
                 <tr>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Kỳ thanh toán</th>
                   <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền phòng (VNĐ)</th>
-                  <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền điện (VNĐ)</th>
-                  <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền nước (VNĐ)</th>
                   <th className="px-6 py-3 text-right text-sm text-gray-600">Phí dịch vụ (VNĐ)</th>
+                  <th className="px-6 py-3 text-right text-sm text-gray-600">Doanh thu khác (VNĐ)</th>
                   <th className="px-6 py-3 text-right text-sm text-gray-600">Tổng cộng (VNĐ)</th>
                 </tr>
               </thead>
@@ -405,32 +353,24 @@ export function RevenueReportContent() {
                   <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-800">{row.period}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 text-right">{formatCurrency(row.rent)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700 text-right">{formatCurrency(row.electric)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700 text-right">{formatCurrency(row.water)}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 text-right">{formatCurrency(row.service)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700 text-right">{formatCurrency(row.other)}</td>
                     <td className="px-6 py-4 text-sm text-green-600 text-right">{formatCurrency(row.total)}</td>
                   </tr>
                 ))}
+                {revenueData.length === 0 && (
+                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-400 text-sm">Không có dữ liệu</td></tr>
+                )}
                 <tr className="bg-gray-50 border-t-2 border-gray-300">
                   <td className="px-6 py-4 text-sm text-gray-900 font-bold">Tổng cộng</td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-bold text-right">
-                    {formatCurrency(revenueData.reduce((sum, item) => sum + item.rent, 0))}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-bold text-right">
-                    {formatCurrency(revenueData.reduce((sum, item) => sum + item.electric, 0))}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-bold text-right">
-                    {formatCurrency(revenueData.reduce((sum, item) => sum + item.water, 0))}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-bold text-right">
-                    {formatCurrency(revenueData.reduce((sum, item) => sum + item.service, 0))}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-green-700 font-bold text-right">
-                    {formatCurrency(totalRevenue)}
-                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 font-bold text-right">{formatCurrency(totalRent)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 font-bold text-right">{formatCurrency(totalService)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 font-bold text-right">{formatCurrency(totalOther)}</td>
+                  <td className="px-6 py-4 text-sm text-green-700 font-bold text-right">{formatCurrency(totalRevenue)}</td>
                 </tr>
               </tbody>
             </table>
+            )}
           </div>
         </div>
       ) : (
@@ -456,9 +396,8 @@ export function RevenueReportContent() {
               />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Bar dataKey="Tiền phòng" fill="#1f2937" />
-              <Bar dataKey="Tiền điện" fill="#3b82f6" />
-              <Bar dataKey="Tiền nước" fill="#10b981" />
               <Bar dataKey="Phí dịch vụ" fill="#f59e0b" />
+              <Bar dataKey="Doanh thu khác" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
         </div>

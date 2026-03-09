@@ -25,6 +25,18 @@ public class HoaDonController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 
+    [HttpGet("my")]
+    [Authorize(Roles = "CuDan")]
+    public async Task<ActionResult<List<HoaDonDto>>> GetMy()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            return Ok(await _hoaDonService.GetByUserIdAsync(userId));
+        }
+        catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
+    }
+
     [HttpGet("unpaid")]
     public async Task<ActionResult<List<HoaDonDto>>> GetUnpaid()
     {

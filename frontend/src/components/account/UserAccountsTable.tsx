@@ -1,4 +1,4 @@
-import { Filter, Key, Lock, Unlock, Eye, EyeOff, Loader2, AlertTriangle, UserX } from 'lucide-react';
+import { Filter, Key, Lock, Unlock, Eye, EyeOff, Loader2, AlertTriangle, UserX, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
 
@@ -16,6 +16,7 @@ const roleColors = {
   Admin: 'bg-purple-100 text-purple-800 border-purple-300',
   'QuanLy': 'bg-orange-100 text-orange-800 border-orange-300',
   'Manager': 'bg-orange-100 text-orange-800 border-orange-300',
+  'KeToan': 'bg-yellow-100 text-yellow-800 border-yellow-300',
   'Cư dân': 'bg-blue-100 text-blue-800 border-blue-300',
   'CuDan': 'bg-blue-100 text-blue-800 border-blue-300',
   'Resident': 'bg-blue-100 text-blue-800 border-blue-300',
@@ -42,6 +43,10 @@ export function UserAccountsTable() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('MatKhau123@');
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [lockReason, setLockReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
   
   // Filter states
   const [roleFilter, setRoleFilter] = useState('all');
@@ -63,29 +68,29 @@ export function UserAccountsTable() {
         let status = 'active';
         if (user.isLocked) {
           status = 'locked';
-        } else if (!user.lastLogin) {
+        } else if (!user.lastLoginAt) {
           status = 'inactive';
         }
 
         return {
           id: user.id || user.userId || 0,
-          username: user.username || user.tenDangNhap || '',
-          fullName: user.fullName || user.hoTen || '',
-          role: user.role || user.vaiTro || 'Cư dân',
+          username: user.phoneNumber || user.username || user.tenDangNhap || '',
+          fullName: user.residentName || user.fullName || user.hoTen || '',
+          role: user.role || user.vaiTro || 'CuDan',
           status,
-          lastLogin: user.lastLogin 
-            ? new Date(user.lastLogin).toLocaleString('vi-VN', {
+          lastLogin: user.lastLoginAt
+            ? new Date(user.lastLoginAt).toLocaleString('vi-VN', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
               })
-            : 'Chưa kích hoạt',
+            : 'Chưa đăng nhập',
           isLocked: user.isLocked || false,
         };
       });
-      
+
       setUsers(userData);
     } catch (err: any) {
       setError(err.message || 'Không thể tải danh sách tài khoản');
@@ -95,15 +100,26 @@ export function UserAccountsTable() {
     }
   };
 
+  const generatePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let pwd = '';
+    for (let i = 0; i < 8; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `${pwd}@1`; // ensures complexity
+  };
+
   const handleResetPassword = (user: any) => {
     setSelectedUser(user);
-    setShowResetModal(true);
+    setGeneratedPassword(generatePassword());
     setShowCurrentPassword(false);
-    setCurrentPassword('MatKhau123@'); // Mock password
+    setCurrentPassword('MatKhau123@');
+    setShowResetModal(true);
   };
 
   const handleToggleLock = (user: any) => {
     setSelectedUser(user);
+    setLockReason('');
     setShowLockModal(true);
   };
 
@@ -111,7 +127,9 @@ export function UserAccountsTable() {
   const filteredUsers = users.filter(user => {
     const roleMatch = roleFilter === 'all' || user.role === roleFilter || 
       (roleFilter === 'Admin' && user.role === 'Admin') ||
-      (roleFilter === 'Cư dân' && (user.role === 'Cư dân' || user.role === 'CuDan' || user.role === 'Resident'));
+      (roleFilter === 'QuanLy' && user.role === 'QuanLy') ||
+      (roleFilter === 'KeToan' && user.role === 'KeToan') ||
+      (roleFilter === 'CuDan' && (user.role === 'Cư dân' || user.role === 'CuDan' || user.role === 'Resident'));
     const statusMatch = statusFilter === 'all' || user.status === statusFilter;
     const searchMatch = searchText === '' || 
       user.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -187,7 +205,9 @@ export function UserAccountsTable() {
         >
           <option value="all">Tất cả vai trò</option>
           <option value="Admin">Admin</option>
-          <option value="Cư dân">Cư dân</option>
+          <option value="QuanLy">Quản lý</option>
+          <option value="KeToan">Kế toán</option>
+          <option value="CuDan">Cư dân</option>
         </select>
         
         <select 
@@ -307,42 +327,39 @@ export function UserAccountsTable() {
                 <p className="text-gray-900" style={{ fontSize: 'var(--type-body)' }}>{selectedUser.fullName}</p>
               </div>
               
-              {/* Current Password Field */}
               <div>
-                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu hiện tại</label>
+                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu mới</label>
                 <div className="relative">
                   <input 
-                    type={showCurrentPassword ? "text" : "password"}
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={generatedPassword}
+                    onChange={(e) => setGeneratedPassword(e.target.value)}
+                    className="w-full px-3 py-2 pr-16 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     style={{ fontSize: 'var(--type-caption)' }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
-                  >
-                    {showCurrentPassword ? (
-                      <EyeOff size={16} className="text-gray-600" />
-                    ) : (
-                      <Eye size={16} className="text-gray-600" />
-                    )}
-                  </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex space-x-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="p-1 hover:bg-gray-100 rounded"
+                    >
+                      {showCurrentPassword ? <EyeOff size={16} className="text-gray-600" /> : <Eye size={16} className="text-gray-600" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedPassword);
+                        setCopiedPassword(true);
+                        setTimeout(() => setCopiedPassword(false), 2000);
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      title="Sao chép"
+                    >
+                      {copiedPassword ? <Check size={16} className="text-green-600" /> : <Copy size={16} className="text-gray-600" />}
+                    </button>
+                  </div>
                 </div>
-                <p className="text-gray-500 mt-1" style={{ fontSize: 'var(--type-caption)' }}>Click vào icon mắt để xem/ẩn mật khẩu. Bạn có thể chỉnh sửa mật khẩu trong ô này.</p>
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu tạm thời</label>
-                <input 
-                  type="text"
-                  value="●●●●●●●●"
-                  readOnly
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded"
-                  style={{ fontSize: 'var(--type-caption)' }}
-                />
-                <p className="text-gray-500 mt-1" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu sẽ được gửi qua SMS đến số điện thoại đăng ký</p>
+                <p className="text-gray-500 mt-1" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu được tạo tự động. Bạn có thể chỉnh sửa hoặc sao chép trước khi xác nhận.</p>
               </div>
             </div>
             
@@ -355,11 +372,23 @@ export function UserAccountsTable() {
                 Hủy
               </button>
               <button 
-                onClick={() => setShowResetModal(false)}
-                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
+                onClick={async () => {
+                  if (!selectedUser) return;
+                  setActionLoading(true);
+                  try {
+                    await userService.resetPassword(Number(selectedUser.id), generatedPassword);
+                    setShowResetModal(false);
+                  } catch (err: any) {
+                    alert('Lỗi: ' + (err.message || 'Không thể reset mật khẩu'));
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 disabled:opacity-50"
                 style={{ fontSize: 'var(--type-caption)' }}
               >
-                Xác nhận Reset
+                {actionLoading ? 'Đang xử lý...' : 'Xác nhận Reset'}
               </button>
             </div>
           </div>
@@ -401,6 +430,8 @@ export function UserAccountsTable() {
                   <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Lý do khóa</label>
                   <textarea 
                     rows={3}
+                    value={lockReason}
+                    onChange={(e) => setLockReason(e.target.value)}
                     placeholder="Nhập lý do khóa tài khoản..."
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     style={{ fontSize: 'var(--type-caption)' }}
@@ -418,11 +449,32 @@ export function UserAccountsTable() {
                 Hủy
               </button>
               <button 
-                onClick={() => setShowLockModal(false)}
-                className={`px-4 py-2 text-white rounded hover:opacity-90 ${selectedUser.isLocked ? 'bg-green-600' : 'bg-red-600'}`}
+                onClick={async () => {
+                  if (!selectedUser) return;
+                  setActionLoading(true);
+                  try {
+                    if (selectedUser.isLocked) {
+                      await userService.unlock(Number(selectedUser.id));
+                    } else {
+                      await userService.lock(Number(selectedUser.id));
+                    }
+                    setUsers(prev => prev.map(u => 
+                      u.id === selectedUser.id 
+                        ? { ...u, isLocked: !selectedUser.isLocked, status: !selectedUser.isLocked ? 'locked' : 'active' }
+                        : u
+                    ));
+                    setShowLockModal(false);
+                  } catch (err: any) {
+                    alert('Lỗi: ' + (err.message || 'Không thể thực hiện'));
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+                disabled={actionLoading}
+                className={`px-4 py-2 text-white rounded hover:opacity-90 disabled:opacity-50 ${selectedUser?.isLocked ? 'bg-green-600' : 'bg-red-600'}`}
                 style={{ fontSize: 'var(--type-caption)' }}
               >
-                {selectedUser.isLocked ? 'Xác nhận Mở khóa' : 'Xác nhận Khóa'}
+                {actionLoading ? 'Đang xử lý...' : (selectedUser?.isLocked ? 'Xác nhận Mở khóa' : 'Xác nhận Khóa')}
               </button>
             </div>
           </div>

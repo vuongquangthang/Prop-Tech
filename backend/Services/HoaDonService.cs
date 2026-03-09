@@ -23,6 +23,7 @@ public interface IHoaDonService
     Task<BatchReadingResultDto> BatchApproveAsync(List<int> invoiceIds, int approvedByUserId);
     Task<HoaDonDto> RejectAsync(int id, string reason);
     Task DeleteAsync(int id);
+    Task<List<HoaDonDto>> GetByUserIdAsync(int userId);
 }
 
 public class HoaDonService : IHoaDonService
@@ -56,6 +57,21 @@ public class HoaDonService : IHoaDonService
         return invoices.Select(MapToDto).ToList();
     }
 
+    public async Task<List<HoaDonDto>> GetByUserIdAsync(int userId)
+    {
+        var invoices = await _context.HoaDons
+            .Include(hd => hd.HopDong).ThenInclude(hd => hd.Room)
+            .Include(hd => hd.HopDong).ThenInclude(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
+            .Include(hd => hd.ChiTietHoaDons).ThenInclude(ct => ct.Service)
+            .Include(hd => hd.ThanhToans)
+            .Where(hd =>
+                hd.HopDong.ChiTietOs.Any(ct =>
+                    ct.Resident.Users.Any(u => u.Id == userId)))
+            .OrderByDescending(hd => hd.Year).ThenByDescending(hd => hd.Month)
+            .ToListAsync();
+        return invoices.Select(MapToDto).ToList();
+    }
+
     public async Task<List<HoaDonDto>> GetByContractIdAsync(int contractId)
     {
         var invoices = await _hoaDonRepository.GetByContractIdAsync(contractId);
@@ -82,8 +98,14 @@ public class HoaDonService : IHoaDonService
             return invoices.Select(MapToDto).ToList();
         }
 
-        var allInvoices = await _hoaDonRepository.FindAsync(i => 
-            i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần");
+        var allInvoices = await _context.HoaDons
+            .Include(hd => hd.HopDong).ThenInclude(hd => hd.Room)
+            .Include(hd => hd.HopDong).ThenInclude(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident)
+            .Include(hd => hd.ChiTietHoaDons).ThenInclude(ct => ct.Service)
+            .Include(hd => hd.ThanhToans)
+            .Where(i => i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần")
+            .OrderByDescending(hd => hd.DueDate)
+            .ToListAsync();
         return allInvoices.Select(MapToDto).ToList();
     }
 

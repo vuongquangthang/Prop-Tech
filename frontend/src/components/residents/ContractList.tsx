@@ -34,7 +34,8 @@ export function ContractList() {
       
       // Map contracts to table format
       const contractData: ContractData[] = data.map((contract: any) => {
-        const endDate = contract.endDate ? new Date(contract.endDate) : null;
+        const endDateRaw = contract.expectedEndDate || contract.endDate || null;
+        const endDate = endDateRaw ? new Date(endDateRaw) : null;
         const today = new Date();
         const daysLeft = endDate ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
         
@@ -42,17 +43,22 @@ export function ContractList() {
         if (daysLeft < 0) status = 'expired';
         else if (daysLeft <= 7) status = 'danger';
         else if (daysLeft <= 30) status = 'warning';
+
+        // Tenant: main resident from residents array (role = "Người thuê chính" or first resident)
+        const residents: any[] = contract.residents || [];
+        const mainResident = residents.find((r: any) => r.residencyRole === 'Người thuê chính') || residents[0];
+        const tenantName = mainResident?.fullName || contract.tenantName || contract.tenCuDan || '-';
         
         return {
           id: contract.id || contract.hopDongId || 0,
-          code: contract.contractCode || contract.maHopDong || '',
-          contractCode: contract.contractCode || contract.maHopDong || '',
+          code: contract.contractCode || contract.maHopDong || `HD-${String(contract.id).padStart(4, '0')}`,
+          contractCode: contract.contractCode || contract.maHopDong || `HD-${String(contract.id).padStart(4, '0')}`,
           room: contract.roomNumber || contract.soPhong || '-',
-          tenant: contract.tenantName || contract.tenCuDan || '-',
+          tenant: tenantName,
           startDate: contract.startDate ? new Date(contract.startDate).toLocaleDateString('vi-VN') : '-',
-          endDate: contract.endDate ? new Date(contract.endDate).toLocaleDateString('vi-VN') : '-',
-          deposit: contract.deposit || contract.tienCoc || 0,
-          monthlyRent: contract.monthlyRent || contract.giaThue || 0,
+          endDate: endDateRaw ? new Date(endDateRaw).toLocaleDateString('vi-VN') : '-',
+          deposit: contract.depositAmount ?? contract.deposit ?? contract.tienCoc ?? 0,
+          monthlyRent: contract.actualRentPrice ?? contract.monthlyRent ?? contract.giaThue ?? 0,
           daysLeft,
           status,
         };

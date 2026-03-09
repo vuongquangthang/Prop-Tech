@@ -10,6 +10,16 @@ public class HopDongRepository : Repository<HopDong>, IHopDongRepository
     {
     }
 
+    public override async Task<IEnumerable<HopDong>> GetAllAsync()
+    {
+        return await _dbSet
+            .Include(hd => hd.Room)
+            .Include(hd => hd.ChiTietOs)
+                .ThenInclude(ct => ct.Resident)
+            .OrderByDescending(hd => hd.StartDate)
+            .ToListAsync();
+    }
+
     public async Task<IEnumerable<HopDong>> GetByRoomIdAsync(int roomId)
     {
         return await _dbSet

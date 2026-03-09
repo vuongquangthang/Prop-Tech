@@ -172,4 +172,44 @@ public class KnowledgeBaseController : ControllerBase
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Upload file PDF/DOCX/TXT để trích xuất kiến thức (Admin/QuảnLý only)
+    /// </summary>
+    [HttpPost("upload-document")]
+    [Authorize(Roles = "Admin,QuảnLý")]
+    public async Task<ActionResult<DocumentUploadResultDto>> UploadDocument(
+        [FromForm] IFormFile file,
+        [FromForm] string category = "Khác",
+        [FromForm] bool autoActivate = true)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+                return Unauthorized(new { message = "Không xác định được người dùng" });
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "Không có file được tải lên" });
+
+            var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest(new { message = "Chỉ chấp nhận file PDF, DOCX, DOC, TXT" });
+
+            if (file.Length > 10 * 1024 * 1024)
+                return BadRequest(new { message = "Kích thước file không được vượt quá 10MB" });
+
+            var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
 }

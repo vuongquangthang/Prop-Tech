@@ -54,10 +54,13 @@ public class AuditLogService : IAuditLogService
             EntityId = log.EntityId,
             Action = log.Action,
             UserId = log.UserId,
+            Username = log.User?.PhoneNumber,
             UserFullName = log.User?.PhoneNumber,
+            UserRole = log.User?.Role,
             OldValues = log.OldValues,
             NewValues = log.NewValues,
             IpAddress = log.IpAddress,
+            UserAgent = log.UserAgent,
             CreatedAt = log.CreatedAt
         };
     }

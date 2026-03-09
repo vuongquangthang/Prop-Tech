@@ -1,3 +1,4 @@
+using backend.Data;
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
@@ -12,19 +13,23 @@ public interface IThanhToanService
     Task<ThanhToanDto?> GetByIdAsync(long id);
     Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto);
     Task DeleteAsync(long id);
+    Task<List<ThanhToanDto>> GetByUserIdAsync(int userId);
 }
 
 public class ThanhToanService : IThanhToanService
 {
     private readonly IThanhToanRepository _thanhToanRepository;
     private readonly IHoaDonRepository _hoaDonRepository;
+    private readonly ApplicationDbContext _context;
 
     public ThanhToanService(
         IThanhToanRepository thanhToanRepository,
-        IHoaDonRepository hoaDonRepository)
+        IHoaDonRepository hoaDonRepository,
+        ApplicationDbContext context)
     {
         _thanhToanRepository = thanhToanRepository;
         _hoaDonRepository = hoaDonRepository;
+        _context = context;
     }
 
     public async Task<List<ThanhToanDto>> GetAllAsync()
@@ -101,15 +106,16 @@ public class ThanhToanService : IThanhToanService
         string? invoiceReference = null;
         string? roomNumber = null;
 
-        if (payment.InvoiceId.HasValue)
+        if (payment.HoaDon != null)
+        {
+            invoiceReference = $"{payment.HoaDon.Month}/{payment.HoaDon.Year}";
+            roomNumber = payment.HoaDon.HopDong?.Room?.RoomCode;
+        }
+        else if (payment.InvoiceId.HasValue)
         {
             var invoice = await _hoaDonRepository.GetByIdAsync(payment.InvoiceId.Value);
             if (invoice != null)
-            {
                 invoiceReference = $"{invoice.Month}/{invoice.Year}";
-                var contract = await _hoaDonRepository.FirstOrDefaultAsync(i => i.Id == payment.InvoiceId.Value);
-                // Note: Need to load contract details to get room number
-            }
         }
 
         return new ThanhToanDto
@@ -120,9 +126,41 @@ public class ThanhToanService : IThanhToanService
             SettlementId = payment.SettlementId,
             Amount = payment.Amount,
             TransactionCode = payment.TransactionCode,
+            Status = payment.Status,
             PaidAt = payment.PaidAt,
+            CreatedAt = payment.CreatedAt,
             InvoiceReference = invoiceReference,
             RoomNumber = roomNumber
         };
+    }
+
+    public async Task<List<ThanhToanDto>> GetByUserIdAsync(int userId)
+    {
+        var payments = await _context.ThanhToans
+            .Include(t => t.HoaDon)
+                .ThenInclude(hd => hd!.HopDong)
+                    .ThenInclude(hd => hd.Room)
+            .Where(t =>
+                t.Status == "SUCCESS" &&
+                t.HoaDon != null &&
+                _context.ChiTietOs.Any(ct =>
+                    ct.ContractId == t.HoaDon.ContractId &&
+                    ct.Resident.Users.Any(u => u.Id == userId)))
+            .OrderByDescending(t => t.PaidAt ?? t.CreatedAt)
+            .ToListAsync();
+
+        return payments.Select(p => new ThanhToanDto
+        {
+            Id = p.Id,
+            PaymentType = p.PaymentType,
+            InvoiceId = p.InvoiceId,
+            Amount = p.Amount,
+            TransactionCode = p.TransactionCode,
+            Status = p.Status,
+            PaidAt = p.PaidAt,
+            CreatedAt = p.CreatedAt,
+            InvoiceReference = p.HoaDon != null ? $"{p.HoaDon.Month}/{p.HoaDon.Year}" : null,
+            RoomNumber = p.HoaDon?.HopDong?.Room?.RoomCode,
+        }).ToList();
     }
 }

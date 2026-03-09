@@ -150,8 +150,58 @@ html {
 }
 
 body {
-  min-width: 1440px;
+  min-width: 0;
   overflow-x: auto;
+}
+
+/* ─── Responsive Design Tokens ───────────────────────────── */
+/* 1280–1439px: slightly condensed desktop */
+@media (max-width: 1439px) {
+  :root {
+    --type-display: 36px;
+    --type-page-title: 28px;
+    --type-section-title: 22px;
+    --type-body-bold: 16px;
+    --type-body: 16px;
+    --type-caption: 13px;
+    --button-height: 48px;
+    --input-height: 46px;
+    --space-card: 20px;
+    --space-layout: 24px;
+  }
+}
+
+/* 1024–1279px: small desktop / large tablet landscape */
+@media (max-width: 1279px) {
+  :root {
+    --type-display: 30px;
+    --type-page-title: 24px;
+    --type-section-title: 19px;
+    --type-body-bold: 15px;
+    --type-body: 15px;
+    --type-caption: 12px;
+    --button-height: 44px;
+    --input-height: 42px;
+    --space-between: 12px;
+    --space-card: 16px;
+    --space-layout: 20px;
+    --radius-card: 12px;
+  }
+}
+
+/* 768–1023px: tablet */
+@media (max-width: 1023px) {
+  :root {
+    --type-section-title: 17px;
+    --type-body-bold: 14px;
+    --type-body: 14px;
+    --type-caption: 12px;
+    --button-height: 40px;
+    --input-height: 38px;
+    --space-card: 14px;
+    --space-layout: 16px;
+    --radius-card: 10px;
+  }
 }
 
 /* Force Inter font for all text size utilities */

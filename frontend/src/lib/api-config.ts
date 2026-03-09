@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number) => `/api/Users/${id}`,
     LOCK: (id: number) => `/api/Users/${id}/lock`,
     UNLOCK: (id: number) => `/api/Users/${id}/unlock`,
+    RESET_PASSWORD: (id: number) => `/api/Users/${id}/reset-password`,
   },
   
   // Buildings
@@ -82,6 +83,7 @@ export const API_ENDPOINTS = {
     GENERATE: '/api/HoaDon/generate',
     FINALIZE: (id: number) => `/api/HoaDon/${id}/finalize`,
     DETAILS: (id: number) => `/api/HoaDon/${id}/details`,
+    MY: '/api/HoaDon/my',
   },
   
   // Utility Readings
@@ -99,6 +101,7 @@ export const API_ENDPOINTS = {
     CALLBACK: '/api/Payment/callback',
     PENDING: (invoiceId: number) => `/api/Payment/pending/${invoiceId}`,
     CANCEL: (transactionId: number) => `/api/Payment/cancel/${transactionId}`,
+    MY: '/api/ThanhToan/my',
   },
   
   // Meter Readings
@@ -128,6 +131,10 @@ export const API_ENDPOINTS = {
     BASE: '/api/TaiSan',
     BY_ID: (id: number) => `/api/TaiSan/${id}`,
     ROOM_ASSETS: '/api/ChiTietTaiSanPhong',
+    ROOM_ASSETS_BY_ASSET: (assetId: number) => `/api/ChiTietTaiSanPhong/asset/${assetId}`,
+    ROOM_ASSETS_BY_ROOM: (roomId: number) => `/api/ChiTietTaiSanPhong/room/${roomId}`,
+    ROOM_ASSETS_UPDATE: (roomId: number, assetId: number) => `/api/ChiTietTaiSanPhong/room/${roomId}/asset/${assetId}`,
+    ROOM_ASSETS_DELETE: (roomId: number, assetId: number) => `/api/ChiTietTaiSanPhong/room/${roomId}/asset/${assetId}`,
   },
   
   // Vehicles
@@ -152,6 +159,7 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number) => `/api/KnowledgeBase/${id}`,
     SEARCH: '/api/KnowledgeBase/search',
     BY_CATEGORY: (category: string) => `/api/KnowledgeBase/category/${category}`,
+    UPLOAD_DOCUMENT: '/api/KnowledgeBase/upload-document',
   },
   
   // Chat
@@ -159,6 +167,7 @@ export const API_ENDPOINTS = {
     HISTORY: '/api/Chat/history',
     CONVERSATION: '/api/Chat/conversation',
     SEND: '/api/Chat/send',
+    ADMIN_ALL: '/api/Chat/admin/all',
   },
   
   // Debt Reminders

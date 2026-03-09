@@ -85,7 +85,9 @@ export interface Notification {
 export interface MaintenanceRequest {
   id: number;
   roomId: number;
+  roomNumber?: string;
   userId: number;
+  userName?: string;
   issueType: string;
   description?: string;
   mediaUrl?: string;
@@ -102,8 +104,7 @@ export interface KnowledgeBase {
   content: string;
   category: string;
   tags?: string;
-  isPublished: boolean;
-  createdAt: string;
+  isActive: boolean;
   updatedAt?: string;
 }
 
@@ -169,6 +170,18 @@ export const chatService = {
       throw new Error(handleApiError(error));
     }
   },
+
+  getAllHistory: async (limit: number = 1000) => {
+    try {
+      const response = await api.get<ChatMessage[]>(
+        `${API_ENDPOINTS.CHAT.ADMIN_ALL}?limit=${limit}`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
 
   sendMessage: async (messageText: string) => {
     try {
@@ -262,7 +275,7 @@ export const maintenanceService = {
 export const knowledgeService = {
   getAll: async () => {
     try {
-      const response = await api.get<KnowledgeBase[]>(API_ENDPOINTS.KNOWLEDGE.BASE);
+      const response = await api.get<KnowledgeBase[]>(`${API_ENDPOINTS.KNOWLEDGE.BASE}?activeOnly=false`);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -315,6 +328,26 @@ export const knowledgeService = {
   delete: async (id: number) => {
     try {
       await api.delete(API_ENDPOINTS.KNOWLEDGE.BY_ID(id));
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  uploadDocument: async (file: File, category: string, autoActivate: boolean) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', category);
+      formData.append('autoActivate', String(autoActivate));
+      const response = await api.post<{
+        fileName: string;
+        totalExtracted: number;
+        activated: number;
+        entries: KnowledgeBase[];
+      }>(API_ENDPOINTS.KNOWLEDGE.UPLOAD_DOCUMENT, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
     }

@@ -117,7 +117,7 @@ namespace backend.Controllers
         /// Reset mật khẩu người dùng (Admin only)
         /// </summary>
         [HttpPost("{id}/reset-password")]
-        public async Task<ActionResult> ResetPassword(int id, [FromBody] ChangePasswordDto dto)
+        public async Task<ActionResult> ResetPassword(int id, [FromBody] AdminResetPasswordDto dto)
         {
             var success = await _userService.ResetPasswordAsync(id, dto.NewPassword);
             if (!success)

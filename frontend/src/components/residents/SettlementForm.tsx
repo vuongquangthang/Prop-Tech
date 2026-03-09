@@ -1,5 +1,6 @@
-import { Search, Calculator, CheckCircle, Plus, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { tatToanService } from '../../services/api.service';
 
 const settlementData = {
   contract: {
@@ -33,42 +34,7 @@ const totalDeductions =
 
 const finalAmount = settlementData.deposit.amount - totalDeductions;
 
-// Mock data for completed settlements
-const completedSettlements = [
-  { 
-    id: 'TS-001',
-    date: '15/01/2026',
-    contract: 'HD-2025-045',
-    room: 'A-101',
-    tenant: 'Nguyễn Văn A',
-    deposit: 8500000,
-    deduction: 2100000,
-    refund: 6400000,
-    status: 'Đã hoàn tiền'
-  },
-  { 
-    id: 'TS-002',
-    date: '22/01/2026',
-    contract: 'HD-2025-067',
-    room: 'B-205',
-    tenant: 'Trần Thị B',
-    deposit: 12000000,
-    deduction: 3500000,
-    refund: 8500000,
-    status: 'Đã hoàn tiền'
-  },
-  { 
-    id: 'TS-003',
-    date: '28/01/2026',
-    contract: 'HD-2025-078',
-    room: 'C-308',
-    tenant: 'Phạm Văn C',
-    deposit: 10000000,
-    deduction: 1800000,
-    refund: 8200000,
-    status: 'Chờ hoàn tiền'
-  },
-];
+
 
 export function SettlementForm() {
   const [activeTab, setActiveTab] = useState<'view' | 'create'>('view');
@@ -116,6 +82,44 @@ export function SettlementForm() {
 // Component for viewing settlements
 function ViewSettlementsTab() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [settlements, setSettlements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSettlements();
+  }, []);
+
+  const fetchSettlements = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await tatToanService.getAll();
+      setSettlements(data);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách tất toán');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusLabel = (status: string) => {
+    if (!status) return { label: 'Chờ xử lý', cls: 'bg-yellow-100 text-yellow-800' };
+    const s = status.toLowerCase();
+    if (s === 'completed') return { label: 'Đã hoàn tiền', cls: 'bg-green-100 text-green-800' };
+    if (s === 'cancelled') return { label: 'Đã hủy', cls: 'bg-red-100 text-red-800' };
+    return { label: 'Chờ hoàn tiền', cls: 'bg-yellow-100 text-yellow-800' };
+  };
+
+  const filtered = settlements.filter(s => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return (
+      String(s.id).includes(q) ||
+      (s.roomNumber || '').toLowerCase().includes(q) ||
+      (s.residentName || '').toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="flex flex-col space-y-4">
@@ -126,7 +130,7 @@ function ViewSettlementsTab() {
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Tìm theo mã tất toán, mã hợp đồng, phòng hoặc tên cư dân..."
+              placeholder="Tìm theo mã tất toán, phòng hoặc tên cư dân..."
               className="w-full pl-12 pr-4 border border-gray-300 rounded-lg bg-white text-base focus:outline-none focus:border-[var(--brand-primary)]"
               style={{ height: 'var(--input-height)' }}
               value={searchTerm}
@@ -145,61 +149,74 @@ function ViewSettlementsTab() {
       {/* Settlements List */}
       <div className="bg-white border-2 border-gray-300 rounded-2xl overflow-hidden flex-1">
         <div className="border-b-2 border-gray-300 px-6 py-4 bg-gray-50">
-          <h2 className="text-lg text-gray-800">Danh sách hồ sơ tất toán ({completedSettlements.length})</h2>
+          <h2 className="text-lg text-gray-800">Danh sách hồ sơ tất toán ({filtered.length})</h2>
         </div>
-        
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={32} className="animate-spin text-gray-400 mr-3" />
+            <span className="text-gray-600">Đang tải...</span>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-16 text-red-500">
+            <AlertTriangle size={24} className="mr-2" />
+            <span>{error}</span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <span className="text-base">Không có hồ sơ tất toán nào</span>
+          </div>
+        ) : (
         <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
           <table className="w-full">
             <thead className="bg-gray-100 sticky top-0">
               <tr className="border-b border-gray-300">
                 <th className="px-6 py-4 text-left text-base text-gray-700">Mã TS</th>
                 <th className="px-6 py-4 text-left text-base text-gray-700">Ngày tất toán</th>
-                <th className="px-6 py-4 text-left text-base text-gray-700">Mã HĐ</th>
                 <th className="px-6 py-4 text-left text-base text-gray-700">Phòng</th>
                 <th className="px-6 py-4 text-left text-base text-gray-700">Chủ hộ</th>
-                <th className="px-6 py-4 text-right text-base text-gray-700">Tiền cọc</th>
+                <th className="px-6 py-4 text-right text-base text-gray-700">Tiền hoàn cọc</th>
                 <th className="px-6 py-4 text-right text-base text-gray-700">Khấu trừ</th>
-                <th className="px-6 py-4 text-right text-base text-gray-700">Hoàn trả</th>
+                <th className="px-6 py-4 text-right text-base text-gray-700">Tổng tất toán</th>
                 <th className="px-6 py-4 text-center text-base text-gray-700">Trạng thái</th>
                 <th className="px-6 py-4 text-center text-base text-gray-700">Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {completedSettlements.map((settlement) => (
-                <tr key={settlement.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-base text-gray-900">{settlement.id}</td>
-                  <td className="px-6 py-4 text-base text-gray-700">{settlement.date}</td>
-                  <td className="px-6 py-4 text-base text-gray-700">{settlement.contract}</td>
-                  <td className="px-6 py-4 text-base text-gray-700">{settlement.room}</td>
-                  <td className="px-6 py-4 text-base text-gray-700">{settlement.tenant}</td>
-                  <td className="px-6 py-4 text-base text-gray-900 text-right">
-                    {settlement.deposit.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-base text-red-600 text-right">
-                    -{settlement.deduction.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-base text-green-600 text-right font-medium">
-                    {settlement.refund.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm ${
-                      settlement.status === 'Đã hoàn tiền' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {settlement.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button className="px-4 py-2 bg-[var(--brand-primary)] text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
-                      Xem chi tiết
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((s) => {
+                const { label, cls } = statusLabel(s.status);
+                return (
+                  <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-6 py-4 text-base text-gray-900 font-medium">TS-{String(s.id).padStart(3, '0')}</td>
+                    <td className="px-6 py-4 text-base text-gray-700">
+                      {s.settlementDate ? new Date(s.settlementDate).toLocaleDateString('vi-VN') : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-base text-gray-700">{s.roomNumber || '-'}</td>
+                    <td className="px-6 py-4 text-base text-gray-700">{s.residentName || '-'}</td>
+                    <td className="px-6 py-4 text-base text-green-600 text-right">
+                      {s.depositRefund != null ? `+${Number(s.depositRefund).toLocaleString('vi-VN')}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-base text-red-600 text-right">
+                      {s.deductions != null ? `-${Number(s.deductions).toLocaleString('vi-VN')}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-base text-gray-900 text-right font-medium">
+                      {s.totalSettlement != null ? Number(s.totalSettlement).toLocaleString('vi-VN') : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm ${cls}`}>{label}</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button className="px-4 py-2 bg-[var(--brand-primary)] text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                        Xem chi tiết
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   );

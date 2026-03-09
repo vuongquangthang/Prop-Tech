@@ -15,6 +15,16 @@ public class ThanhToanRepository : Repository<ThanhToan>, IThanhToanRepository
     {
     }
 
+    public override async Task<IEnumerable<ThanhToan>> GetAllAsync()
+    {
+        return await _context.ThanhToans
+            .Include(t => t.HoaDon)
+                .ThenInclude(hd => hd!.HopDong)
+                    .ThenInclude(c => c.Room)
+            .OrderByDescending(t => t.PaidAt ?? t.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<List<ThanhToan>> GetByInvoiceIdAsync(int invoiceId)
     {
         return await _context.ThanhToans

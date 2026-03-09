@@ -1,21 +1,28 @@
-import { Send, MessageSquare, AlertCircle, CheckCircle, X, ChevronRight } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Send, MessageSquare, AlertCircle, X, ChevronRight } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSignalRRefresh } from '../lib/useSignalRRefresh';
 import { useNavigate } from 'react-router';
 import { useSearch } from '../contexts/SearchContext';
 import { HighlightText } from './HighlightText';
+import { invoiceService, Invoice } from '../services/api.service';
+import { maintenanceService, MaintenanceRequest } from '../services/feature.service';
 
-// Reduced to top 3-4 items only with checkbox selection
-const overdueInvoices = [
-  { id: 'INV-2026-112', room: 'C-312', tenant: 'Lê Văn C', amount: '6.500.000', daysLate: 22, lastReminder: '7 ngày trước' },
-  { id: 'INV-2026-189', room: 'A-305', tenant: 'Hoàng Văn E', amount: '5.500.000', daysLate: 18, lastReminder: '6 ngày trước' },
-  { id: 'INV-2026-045', room: 'A-101', tenant: 'Nguyễn Văn A', amount: '5.200.000', daysLate: 15, lastReminder: '5 ngày trước' },
-];
+interface OverdueInvoice {
+  id: string;
+  invoiceId: number;
+  room: string;
+  tenant: string;
+  amount: string;
+  daysLate: number;
+}
 
-const newIssues = [
-  { id: 'REQ-2026-089', room: 'A-203', type: 'Điện', description: 'Mất điện toàn bộ phòng', time: '10:30 - 12/02/2026' },
-  { id: 'REQ-2026-093', room: 'A-508', type: 'Điện', description: 'Cầu dao bị ngắt liên tục', time: '08:05 - 11/02/2026' },
-  { id: 'REQ-2026-090', room: 'B-115', type: 'Nước', description: 'Không có nước nóng', time: '09:15 - 12/02/2026' },
-];
+interface NewIssue {
+  id: string;
+  room: string;
+  type: string;
+  description: string;
+  time: string;
+}
 
 const unansweredQuestions = [
   { id: 'Q-2026-234', room: 'B-308', question: 'Quy định về nuôi thú cưng lớn hơn 10kg như thế nào?', time: '11:20 - 12/02/2026', category: 'Nội quy' },
@@ -23,15 +30,68 @@ const unansweredQuestions = [
   { id: 'Q-2026-237', room: 'D-112', question: 'Có thể lắp thêm điều hòa thứ 2 không? Cần thủ tục gì?', time: '13:15 - 10/02/2026', category: 'Thủ tục' },
 ];
 
+const mapInvoice = (inv: Invoice): OverdueInvoice => {
+  const due = inv.dueDate ? new Date(inv.dueDate) : null;
+  const daysLate = due ? Math.max(0, Math.floor((Date.now() - due.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+  const debt = inv.remainingAmount ?? (inv.totalAmount - (inv.paidAmount ?? 0));
+  return {
+    id: `HD-${inv.id}`,
+    invoiceId: inv.id,
+    room: inv.roomNumber ?? (inv.roomId ? `P-${inv.roomId}` : '—'),
+    tenant: inv.residentName ?? '—',
+    amount: new Intl.NumberFormat('vi-VN').format(debt > 0 ? debt : inv.totalAmount),
+    daysLate,
+  };
+};
+
+const mapMaintenance = (req: MaintenanceRequest): NewIssue => {
+  const date = new Date(req.createdAt);
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} - ${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  return {
+    id: `REQ-${req.id}`,
+    room: req.roomNumber ?? `P-${req.roomId}`,
+    type: req.issueType,
+    description: req.description || req.issueType,
+    time,
+  };
+};
+
 export function QuickAccessTables() {
+  const [overdueInvoices, setOverdueInvoices] = useState<OverdueInvoice[]>([]);
+  const [newIssues, setNewIssues] = useState<NewIssue[]>([]);
+  const [totalUnpaid, setTotalUnpaid] = useState(0);
+  const [totalIssues, setTotalIssues] = useState(0);
   const [reminderModal, setReminderModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [answerModal, setAnswerModal] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<any>(null);
   
-  // Checkbox selection states
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  
+
+  const loadData = useCallback(() => {
+    invoiceService.getUnpaid()
+      .then(data => {
+        setTotalUnpaid(data.length);
+        setOverdueInvoices(data.slice(0, 3).map(mapInvoice));
+      })
+      .catch(() => {});
+
+    maintenanceService.getAll()
+      .then(data => {
+        const pending = data.filter((r: MaintenanceRequest) =>
+          r.status === 'Pending' || r.status === 'Chờ xử lý' || r.status === 'pending',
+        );
+        setTotalIssues(pending.length);
+        setNewIssues(pending.slice(0, 3).map(mapMaintenance));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+  useSignalRRefresh(['NewMaintenanceRequest', 'MaintenanceRequestUpdated', 'PaymentSuccess', 'PaymentFailed'], loadData);
+
   const toggleInvoiceSelection = (id: string) => {
     setSelectedInvoices(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -53,7 +113,7 @@ export function QuickAccessTables() {
       invoice.room.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.tenant.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm]);
+  }, [searchTerm, overdueInvoices]);
 
   const filteredNewIssues = useMemo(() => {
     if (!searchTerm) return newIssues;
@@ -61,7 +121,7 @@ export function QuickAccessTables() {
       issue.room.toLowerCase().includes(searchTerm.toLowerCase()) ||
       issue.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm]);
+  }, [searchTerm, newIssues]);
 
   const filteredUnansweredQuestions = useMemo(() => {
     if (!searchTerm) return unansweredQuestions;
@@ -87,13 +147,14 @@ export function QuickAccessTables() {
                     Hóa đơn quá hạn chưa thu
                   </h2>
                   <p style={{ fontSize: 'var(--type-caption)', color: 'var(--error)', fontWeight: 600 }}>
-                    {overdueInvoices.length} hóa đơn (Còn 15 nữa) - Tổng nợ: 22.100.000 VNĐ
+                    {overdueInvoices.length} hóa đơn{totalUnpaid > overdueInvoices.length ? ` (Còn ${totalUnpaid - overdueInvoices.length} nữa)` : ''}
                   </p>
                 </div>
               </div>
               <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
                 {selectedInvoices.length > 0 && (
                   <button 
+                    onClick={() => navigate('/debt-management')}
                     className="rounded shadow transition-colors"
                     style={{ 
                       padding: '16px 20px',
@@ -128,7 +189,7 @@ export function QuickAccessTables() {
                     gap: '8px'
                   }}
                 >
-                  <span>Xem tất cả 18 hóa đơn</span>
+                  <span>Xem tất cả {totalUnpaid} hóa đơn</span>
                   <ChevronRight size={18} />
                 </button>
               </div>
@@ -221,7 +282,7 @@ export function QuickAccessTables() {
                   </div>
                   <div>
                     <h2 style={{ fontSize: '22px', color: 'var(--text-primary)', fontWeight: 700 }}>Sự cố mới gửi</h2>
-                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--warning)' }}>{newIssues.length} sự cố (Còn 8 nữa)</p>
+                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--warning)' }}>{newIssues.length} sự cố{totalIssues > newIssues.length ? ` (Còn ${totalIssues - newIssues.length} nữa)` : ''}</p>
                   </div>
                 </div>
               </div>
@@ -240,7 +301,7 @@ export function QuickAccessTables() {
                     gap: '4px'
                   }}
                 >
-                  <span>Xem tất cả 11</span>
+                  <span>Xem tất cả {totalIssues}</span>
                   <ChevronRight size={16} />
                 </button>
               </div>
@@ -281,7 +342,7 @@ export function QuickAccessTables() {
                   </div>
                   <div>
                     <h2 style={{ fontSize: '22px', color: 'var(--text-primary)', fontWeight: 700 }}>Câu hỏi cần phê duyệt</h2>
-                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{unansweredQuestions.length} câu (Còn 8 nữa)</p>
+                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{unansweredQuestions.length} câu</p>
                   </div>
                 </div>
               </div>
@@ -300,7 +361,7 @@ export function QuickAccessTables() {
                     gap: '4px'
                   }}
                 >
-                  <span>Xem tất cả 11</span>
+                  <span>Xem tất cả</span>
                   <ChevronRight size={16} />
                 </button>
               </div>

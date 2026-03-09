@@ -43,3 +43,11 @@ public class ChangePasswordDto
     public string OldPassword { get; set; } = null!;
     public string NewPassword { get; set; } = null!;
 }
+
+/// <summary>
+/// DTO để admin reset mật khẩu người dùng
+/// </summary>
+public class AdminResetPasswordDto
+{
+    public string NewPassword { get; set; } = null!;
+}

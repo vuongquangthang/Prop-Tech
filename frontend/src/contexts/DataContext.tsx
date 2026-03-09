@@ -373,6 +373,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return prev;
         });
       });
+
+      // Listen for payment success/failure — update matching invoice status
+      const handlePaymentEvent = (event: string) => (data: any) => {
+        const invoiceId = data?.invoiceId ?? data?.HoaDonId;
+        if (!invoiceId) return;
+        setInvoices(prev => {
+          const index = prev.findIndex(i => i.id === String(invoiceId));
+          if (index < 0) return prev;
+          const newInvoices = [...prev];
+          newInvoices[index] = {
+            ...newInvoices[index],
+            status: event === 'PaymentSuccess' ? 'paid' : newInvoices[index].status,
+          };
+          return newInvoices;
+        });
+        setBills(prev => {
+          const index = prev.findIndex(b => b.id === String(invoiceId));
+          if (index < 0) return prev;
+          const newBills = [...prev];
+          newBills[index] = {
+            ...newBills[index],
+            status: event === 'PaymentSuccess' ? 'paid' : newBills[index].status,
+          };
+          return newBills;
+        });
+      };
+      notificationHub.on('PaymentSuccess', handlePaymentEvent('PaymentSuccess'));
+      notificationHub.on('PaymentFailed', handlePaymentEvent('PaymentFailed'));
     });
 
     // Cleanup on unmount

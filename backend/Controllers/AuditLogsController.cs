@@ -23,7 +23,7 @@ public class AuditLogsController : ControllerBase
     /// </summary>
     [HttpGet]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<List<AuditLogDto>>> GetRecent([FromQuery] int limit = 100)
+    public async Task<ActionResult<List<AuditLogDto>>> GetRecent([FromQuery] int limit = 500)
     {
         try
         {

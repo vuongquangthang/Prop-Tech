@@ -1,4 +1,4 @@
-import { Save, LogOut, Camera, Loader2, AlertTriangle } from 'lucide-react';
+import { Save, LogOut, Camera, Loader2, AlertTriangle, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { authService } from '../../services/api.service';
 
@@ -15,6 +15,7 @@ export function MyProfileForm() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export function MyProfileForm() {
     }
     
     // Check if changing password
-    if (newPassword || confirmPassword) {
+    if (showPasswordForm && (newPassword || confirmPassword)) {
       if (!currentPassword) {
         alert('Vui lòng nhập mật khẩu hiện tại để đổi mật khẩu');
         return;
@@ -268,8 +269,20 @@ export function MyProfileForm() {
       
       {/* Security Section */}
       <div className="bg-white border-2 border-gray-300 rounded p-8">
-        <h2 className="text-gray-800 mb-6" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin bảo mật</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin bảo mật</h2>
+          <button
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            className="px-4 py-2 bg-white border border-gray-800 text-gray-800 rounded hover:bg-gray-50 flex items-center space-x-2"
+            style={{ fontSize: 'var(--type-caption)' }}
+          >
+            <Key size={16} />
+            <span>Đổi mật khẩu</span>
+            {showPasswordForm ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
         
+        {showPasswordForm && (
         <div className="space-y-4 max-w-xl">
           <div>
             <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu hiện tại *</label>
@@ -308,6 +321,13 @@ export function MyProfileForm() {
             />
           </div>
         </div>
+        )}
+        
+        {!showPasswordForm && (
+          <p className="text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>
+            Nhấn "Đổi mật khẩu" để thay đổi mật khẩu của bạn.
+          </p>
+        )}
       </div>
       
       {/* Action Buttons */}

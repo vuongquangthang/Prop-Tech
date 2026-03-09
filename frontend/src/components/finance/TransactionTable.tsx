@@ -1,5 +1,6 @@
 import { CheckCircle, AlertCircle, Link2, Filter, X, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { paymentService } from '../../services/api.service';
 
 interface TransactionData {
@@ -25,6 +26,7 @@ export function TransactionTable() {
   useEffect(() => {
     fetchTransactions();
   }, []);
+  useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'PaymentInitiated'], fetchTransactions);
 
   const fetchTransactions = async () => {
     try {
@@ -45,14 +47,20 @@ export function TransactionTable() {
         
         return {
           id: payment.id || 0,
-          bankCode: payment.transactionCode || `TXN-${payment.id}`,
+          bankCode: payment.transactionCode || `GD-${payment.id}`,
           time,
           amount: payment.amount || 0,
-          content: payment.notes || 'Thanh toán',
-          invoice: payment.invoiceId ? `INV-${payment.invoiceId}` : '-',
-          status: payment.invoiceId ? 'matched' : 'unmatched',
+          content: [
+            payment.paymentType || 'Thanh toán',
+            payment.roomNumber ? `Phòng ${payment.roomNumber}` : null,
+            payment.invoiceReference ? `HĐ ${payment.invoiceReference}` : null,
+          ].filter(Boolean).join(' - '),
+          invoice: payment.invoiceReference
+            ? `${payment.invoiceReference}${payment.invoiceId ? ` (#${payment.invoiceId})` : ''}`
+            : payment.invoiceId ? `#${payment.invoiceId}` : '-',
+          status: payment.status === 'SUCCESS' ? 'matched' : 'unmatched',
           invoiceId: payment.invoiceId,
-          paymentMethod: payment.paymentMethod || payment.paymentType || 'Tiền mặt',
+          paymentMethod: payment.paymentType || 'Tiền mặt',
         };
       });
       

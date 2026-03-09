@@ -1,27 +1,65 @@
-import { ThumbsUp, ThumbsDown, Filter, Plus, MessageSquare } from 'lucide-react';
-import { useState } from 'react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { chatService, ChatMessage } from '../../services/feature.service';
 
-// TODO: Fetch chat sessions from API when chatbot backend is implemented
-// GET /api/Chatbot/sessions - List all chat sessions
-// GET /api/Chatbot/sessions/{sessionId}/messages - Get messages for a session
-const chatSessions: Array<{
+interface ChatSession {
   id: string;
   resident: string;
   phone: string;
   time: string;
   satisfied: boolean;
   lastMessage: string;
-}> = [];
+  messages: Array<{ sender: 'user' | 'ai'; text: string; time: string }>;
+}
 
-const chatMessages: Record<string, Array<{
-  sender: string;
-  text: string;
-  time: string;
-}>> = {};
+const buildSessions = (messages: ChatMessage[]): ChatSession[] => {
+  const byUser = new Map<string, ChatMessage[]>();
+  for (const m of messages) {
+    const key = m.userPhone || String(m.userId);
+    if (!byUser.has(key)) byUser.set(key, []);
+    byUser.get(key)!.push(m);
+  }
+
+  return Array.from(byUser.entries()).map(([phone, msgs]) => {
+    const sorted = [...msgs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const last = sorted[sorted.length - 1];
+    const lastDate = new Date(last.createdAt);
+    const time = `${String(lastDate.getDate()).padStart(2, '0')}/${String(lastDate.getMonth() + 1).padStart(2, '0')}/${lastDate.getFullYear()} ${String(lastDate.getHours()).padStart(2, '0')}:${String(lastDate.getMinutes()).padStart(2, '0')}`;
+
+    const chatMessages = sorted.map(m => {
+      const d = new Date(m.createdAt);
+      return {
+        sender: (m.messageRole === 'user' ? 'user' : 'ai') as 'user' | 'ai',
+        text: m.messageText,
+        time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      };
+    });
+
+    const lastUserMsg = sorted.filter(m => m.messageRole === 'user').pop();
+    const hasAiReply = sorted.some(m => m.messageRole !== 'user' && new Date(m.createdAt) > new Date(lastUserMsg?.createdAt || 0));
+
+    return {
+      id: phone,
+      resident: `Cư dân ${phone}`,
+      phone,
+      time,
+      satisfied: hasAiReply,
+      lastMessage: last.messageText,
+      messages: chatMessages,
+    };
+  });
+};
 
 export function ChatHistoryView() {
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [selectedChat, setSelectedChat] = useState<string>('');
   const [filter, setFilter] = useState<'all' | 'satisfied' | 'unsatisfied'>('all');
+
+  useEffect(() => {
+    chatService.getAllHistory(1000)
+      .then(data => setChatSessions(buildSessions(data)))
+      .catch(() => setChatSessions([]));
+  }, []);
   
   const filteredSessions = chatSessions.filter(session => {
     if (filter === 'satisfied') return session.satisfied;
@@ -29,7 +67,7 @@ export function ChatHistoryView() {
     return true;
   });
   
-  const messages = chatMessages[selectedChat as keyof typeof chatMessages] || [];
+  const messages = chatSessions.find(s => s.id === selectedChat)?.messages || [];
 
   return (
     <div className="flex h-full">

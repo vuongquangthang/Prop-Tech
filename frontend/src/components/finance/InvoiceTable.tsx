@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Eye, Send, Filter, CheckCircle, X, RefreshCw, FileText, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
+import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
@@ -108,6 +109,7 @@ export function InvoiceTable() {
   }, []);
 
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
+  useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'InvoiceUpdated'], loadInvoices);
 
   const isOverdue = (inv: Invoice) =>
     isPending(inv) && !!inv.dueDate && new Date(inv.dueDate) < currentDate;

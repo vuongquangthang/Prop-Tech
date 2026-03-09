@@ -1,29 +1,64 @@
 import { Plus, Edit2, Trash2, X, AlertTriangle, Tag } from 'lucide-react';
 import { useState } from 'react';
 
-// TODO: Fetch amenities from API when backend implements amenities management
-// GET /api/Amenities - List all amenities
-const amenitiesData: Array<{
+interface Amenity {
   id: number;
   name: string;
   icon: string;
   defaultChecked: boolean;
-}> = [];
+}
+
+let nextId = 1;
 
 export function AmenityManager() {
+  const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedAmenity, setSelectedAmenity] = useState<any>(null);
+  const [selectedAmenity, setSelectedAmenity] = useState<Amenity | null>(null);
+  const [addName, setAddName] = useState('');
+  const [addIcon, setAddIcon] = useState('');
+  const [addDefault, setAddDefault] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editIcon, setEditIcon] = useState('');
+  const [editDefault, setEditDefault] = useState(false);
 
-  const handleEditClick = (amenity: any) => {
+  const handleEditClick = (amenity: Amenity) => {
     setSelectedAmenity(amenity);
+    setEditName(amenity.name);
+    setEditIcon(amenity.icon);
+    setEditDefault(amenity.defaultChecked);
     setShowEditModal(true);
   };
 
-  const handleDeleteClick = (amenity: any) => {
+  const handleDeleteClick = (amenity: Amenity) => {
     setSelectedAmenity(amenity);
     setShowDeleteModal(true);
+  };
+
+  const handleAdd = () => {
+    if (!addName.trim() || !addIcon.trim()) return;
+    setAmenities(prev => [...prev, { id: nextId++, name: addName.trim(), icon: addIcon.trim(), defaultChecked: addDefault }]);
+    setAddName('');
+    setAddIcon('');
+    setAddDefault(false);
+    setShowAddModal(false);
+  };
+
+  const handleEdit = () => {
+    if (!selectedAmenity || !editName.trim()) return;
+    setAmenities(prev => prev.map(a => a.id === selectedAmenity.id
+      ? { ...a, name: editName.trim(), icon: editIcon.trim(), defaultChecked: editDefault }
+      : a));
+    setShowEditModal(false);
+    setSelectedAmenity(null);
+  };
+
+  const handleDelete = () => {
+    if (!selectedAmenity) return;
+    setAmenities(prev => prev.filter(a => a.id !== selectedAmenity.id));
+    setShowDeleteModal(false);
+    setSelectedAmenity(null);
   };
 
   return (
@@ -39,11 +74,11 @@ export function AmenityManager() {
       {/* Action Bar */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg text-gray-800">
-          Danh sách tiện nghi ({amenitiesData.length} tiện nghi)
+          Danh sách tiện nghi ({amenities.length} tiện nghi)
         </h2>
         
         <button 
-          onClick={() => setShowAddModal(true)}
+          onClick={() => { setAddName(''); setAddIcon(''); setAddDefault(false); setShowAddModal(true); }}
           className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
         >
           <Plus size={16} />
@@ -65,7 +100,13 @@ export function AmenityManager() {
               </tr>
             </thead>
             <tbody>
-              {amenitiesData.map((amenity, index) => (
+              {amenities.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    Chưa có tiện nghi nào. Nhấn "Thêm tiện nghi" để bắt đầu.
+                  </td>
+                </tr>
+              ) : amenities.map((amenity, index) => (
                 <tr key={amenity.id} className="border-b border-gray-200 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm text-gray-700">{index + 1}</td>
                   <td className="px-6 py-4 text-2xl">{amenity.icon}</td>
@@ -121,21 +162,23 @@ export function AmenityManager() {
             </div>
             
             <div className="p-6 space-y-4">
-              {/* Amenity Name */}
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Tên tiện nghi *</label>
                 <input 
                   type="text"
+                  value={addName}
+                  onChange={e => setAddName(e.target.value)}
                   placeholder="VD: Bình lọc nước, TV, Lò vi sóng..."
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
 
-              {/* Icon */}
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Icon (emoji) *</label>
                 <input 
                   type="text"
+                  value={addIcon}
+                  onChange={e => setAddIcon(e.target.value)}
                   placeholder="VD: 💧, 📺, 🔥..."
                   maxLength={2}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
@@ -146,9 +189,14 @@ export function AmenityManager() {
                 </p>
               </div>
 
-              {/* Default Checked */}
               <div className="flex items-start space-x-2 pt-2">
-                <input type="checkbox" id="defaultChecked" className="w-4 h-4 mt-1" />
+                <input 
+                  type="checkbox" 
+                  id="defaultChecked" 
+                  checked={addDefault}
+                  onChange={e => setAddDefault(e.target.checked)}
+                  className="w-4 h-4 mt-1" 
+                />
                 <div>
                   <label htmlFor="defaultChecked" className="text-sm text-gray-700 cursor-pointer">
                     Đặt làm mặc định khi thêm phòng mới
@@ -168,8 +216,9 @@ export function AmenityManager() {
                 Hủy
               </button>
               <button 
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+                onClick={handleAdd}
+                disabled={!addName.trim() || !addIcon.trim()}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50"
               >
                 Xác nhận thêm
               </button>
@@ -193,22 +242,22 @@ export function AmenityManager() {
             </div>
             
             <div className="p-6 space-y-4">
-              {/* Amenity Name */}
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Tên tiện nghi *</label>
                 <input 
                   type="text"
-                  defaultValue={selectedAmenity.name}
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
 
-              {/* Icon */}
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Icon (emoji) *</label>
                 <input 
                   type="text"
-                  defaultValue={selectedAmenity.icon}
+                  value={editIcon}
+                  onChange={e => setEditIcon(e.target.value)}
                   maxLength={2}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
@@ -217,13 +266,13 @@ export function AmenityManager() {
                 </p>
               </div>
 
-              {/* Default Checked */}
               <div className="flex items-start space-x-2 pt-2">
                 <input 
                   type="checkbox" 
                   id="defaultCheckedEdit" 
+                  checked={editDefault}
+                  onChange={e => setEditDefault(e.target.checked)}
                   className="w-4 h-4 mt-1" 
-                  defaultChecked={selectedAmenity.defaultChecked}
                 />
                 <div>
                   <label htmlFor="defaultCheckedEdit" className="text-sm text-gray-700 cursor-pointer">
@@ -244,8 +293,9 @@ export function AmenityManager() {
                 Hủy
               </button>
               <button 
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
+                onClick={handleEdit}
+                disabled={!editName.trim()}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50"
               >
                 Lưu thay đổi
               </button>
@@ -266,7 +316,6 @@ export function AmenityManager() {
             </div>
             
             <div className="p-6 space-y-4">
-              {/* Warning */}
               <div className="flex items-start space-x-3 bg-red-50 border border-red-300 rounded p-4">
                 <AlertTriangle size={24} className="text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
@@ -275,7 +324,6 @@ export function AmenityManager() {
                 </div>
               </div>
 
-              {/* Amenity Info */}
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <p className="text-sm text-gray-600 mb-2">Tiện nghi sẽ bị xóa:</p>
                 <div className="flex items-center space-x-3">
@@ -288,14 +336,6 @@ export function AmenityManager() {
                   </div>
                 </div>
               </div>
-
-              {/* Impact Warning */}
-              <div className="bg-orange-50 border border-orange-300 rounded p-4">
-                <p className="text-sm text-orange-800">
-                  <strong>⚠️ Lưu ý:</strong> Tiện nghi này sẽ bị xóa khỏi danh sách các phòng hiện có. 
-                  Dữ liệu lịch sử sẽ không bị ảnh hưởng.
-                </p>
-              </div>
             </div>
             
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
@@ -306,7 +346,7 @@ export function AmenityManager() {
                 Hủy
               </button>
               <button 
-                onClick={() => setShowDeleteModal(false)}
+                onClick={handleDelete}
                 className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700"
               >
                 Xác nhận xóa

@@ -68,14 +68,29 @@ public class ReportService : IReportService
                 .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == year && p.PaidAt.Value.Month == month && p.InvoiceId != null)
                 .ToList();
 
+            // Compute line item breakdown from invoices of this billing period
+            var lineItems = monthInvoices.SelectMany(i => i.ChiTietHoaDons).ToList();
+
+            decimal roomRent = lineItems
+                .Where(li => li.ItemType == "TienPhong")
+                .Sum(li => (li.Quantity ?? 1m) * (li.UnitPrice ?? 0m));
+
+            decimal serviceFee = lineItems
+                .Where(li => li.ItemType == "Dien" || li.ItemType == "Nuoc" || li.ItemType == "DichVu")
+                .Sum(li => (li.Quantity ?? 1m) * (li.UnitPrice ?? 0m));
+
+            decimal other = lineItems
+                .Where(li => li.ItemType == "PhatSinh" || li.ItemType == "KhauTru")
+                .Sum(li => (li.Quantity ?? 1m) * (li.UnitPrice ?? 0m));
+
             monthlyRevenue.Add(new MonthlyRevenueDto
             {
                 Month = month,
                 Year = year,
-                TotalRevenue = monthPayments.Sum(p => p.Amount),
-                RoomRentRevenue = 0, // Could be calculated from line items
-                ServiceRevenue = 0,
-                OtherRevenue = 0
+                TotalRevenue = roomRent + serviceFee + other,
+                RoomRentRevenue = roomRent,
+                ServiceRevenue = serviceFee,
+                OtherRevenue = other
             });
         }
 

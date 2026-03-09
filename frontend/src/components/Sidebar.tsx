@@ -1,6 +1,11 @@
-import { LayoutDashboard, Building2, Users, FileText, Wrench, Bot, BarChart3, ChevronDown, UserCog, Home, ArrowLeft, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, FileText, Wrench, Bot, BarChart3, ChevronDown, UserCog, Home, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
+
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/dashboard' },
@@ -67,7 +72,7 @@ const menuItems = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,12 +80,9 @@ export function Sidebar() {
   // Auto-expand parent menu if we're on a sub-route
   useEffect(() => {
     const currentPath = location.pathname;
-    
-    // Find which parent menu contains the current path
     const parentMenu = menuItems.find(item => 
       item.subItems?.some((subItem: any) => subItem.path === currentPath)
     );
-    
     if (parentMenu) {
       setExpandedItem(parentMenu.label);
     }
@@ -88,12 +90,11 @@ export function Sidebar() {
 
   const handleItemClick = (item: any) => {
     if (item.subItems) {
-      // Toggle submenu
       setExpandedItem(expandedItem === item.label ? null : item.label);
     } else if (item.path) {
-      // Navigate and close all submenus
       setExpandedItem(null);
       navigate(item.path);
+      onClose?.(); // close drawer on mobile after navigation
     }
   };
 
@@ -111,7 +112,42 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex flex-col" style={{ width: '340px', backgroundColor: 'var(--surface-card)', borderRight: '1px solid var(--surface-border)' }}>
+    <>
+      {/* Backdrop overlay for tablet/small screens */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40"
+          style={{ display: 'none' }}
+          id="sidebar-backdrop"
+          onClick={onClose}
+        />
+      )}
+      <style>{`
+        @media (max-width: 1279px) {
+          #sidebar-backdrop { display: block !important; }
+          .admin-sidebar {
+            position: fixed !important;
+            top: 0; left: 0; bottom: 0;
+            z-index: 50;
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+          }
+          .admin-sidebar.open {
+            transform: translateX(0);
+          }
+        }
+        @media (min-width: 1280px) {
+          #sidebar-backdrop { display: none !important; }
+          .admin-sidebar {
+            position: relative !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
+      <aside
+        className={`admin-sidebar flex flex-col${isOpen ? ' open' : ''}`}
+        style={{ width: '320px', minWidth: '320px', backgroundColor: 'var(--surface-card)', borderRight: '1px solid var(--surface-border)' }}>
       {/* Logo */}
       <div className="h-16 flex items-center" style={{ borderBottom: '1px solid var(--surface-border)', paddingLeft: '24px', gap: '12px' }}>
         {/* Icon Box */}
@@ -174,6 +210,7 @@ export function Sidebar() {
                       key={subIndex}
                       onClick={() => {
                         navigate(subItem.path);
+                        onClose?.();
                       }}
                       className="w-full transition-colors"
                       style={{
@@ -197,5 +234,6 @@ export function Sidebar() {
         </div>
       </nav>
     </aside>
+    </>
   );
 }
