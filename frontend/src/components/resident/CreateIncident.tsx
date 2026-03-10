@@ -1,230 +1,275 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Camera, Upload } from 'lucide-react';
+import { ChevronLeft, Camera, Images, X } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
+
+const ISSUE_TYPES = [
+  { value: 'elevator',   label: 'Thang máy', icon: '🛗' },
+  { value: 'water',      label: 'Nước',       icon: '💧' },
+  { value: 'electrical', label: 'Điện',       icon: '⚡' },
+  { value: 'security',   label: 'An ninh',    icon: '🔒' },
+  { value: 'cleaning',   label: 'Vệ sinh',    icon: '🧹' },
+  { value: 'parking',    label: 'Bãi xe',     icon: '🚗' },
+  { value: 'noise',      label: 'Tiếng ồn',   icon: '🔊' },
+  { value: 'other',      label: 'Khác',       icon: '📝' },
+];
 
 export function CreateIncident() {
   const navigate = useNavigate();
   const { addIncident } = useData();
   const [selectedType, setSelectedType] = useState('');
-  const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const incidentTypes = [
-    { value: 'elevator', label: 'Thang máy', icon: '🛗' },
-    { value: 'water', label: 'Nước', icon: '💧' },
-    { value: 'electrical', label: 'Điện', icon: '⚡' },
-    { value: 'security', label: 'An ninh', icon: '🔒' },
-    { value: 'cleaning', label: 'Vệ sinh', icon: '🧹' },
-    { value: 'parking', label: 'Bãi xe', icon: '🚗' },
-    { value: 'noise', label: 'Tiếng ồn', icon: '🔊' },
-    { value: 'other', label: 'Khác', icon: '📝' },
-  ];
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        if (ev.target?.result) {
+          setImages(prev => [...prev, ev.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
 
-  const handleSubmit = () => {
-    if (!selectedType || !description) {
+  const handleSubmit = async () => {
+    if (!selectedType || !description.trim()) {
       alert('Vui lòng chọn loại sự cố và mô tả vấn đề');
       return;
     }
-
-    // Add incident to global state
-    const typeLabel = incidentTypes.find(t => t.value === selectedType)?.label || selectedType;
-    addIncident({
-      title: `${typeLabel}${location ? ` - ${location}` : ''}`,
-      category: selectedType,
-      location: location || 'Tòa A',
-      description: description,
-      priority: 'medium',
-      reportedBy: 'Nguyễn Văn A',
-      apartment: 'A-1205',
-    });
-
-    // Navigate to tracking page
-    navigate('/resident/incidents/tracking');
+    setSubmitting(true);
+    try {
+      const typeLabel = ISSUE_TYPES.find(t => t.value === selectedType)?.label ?? selectedType;
+      await addIncident({
+        title: typeLabel,
+        category: selectedType,
+        location: '',
+        description: description.trim(),
+        priority: 'medium',
+        reportedBy: '',
+        apartment: '',
+      });
+      navigate('/resident/incidents');
+    } catch {
+      alert('Có lỗi xảy ra. Vui lòng thử lại!');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="bg-gray-50">
-      {/* Sub Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center space-x-3">
-        <button onClick={() => navigate('/resident')} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft size={20} color="var(--text-primary)" />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#F9FAFB' }}>
+      {/* Header */}
+      <div style={{
+        backgroundColor: '#FFF', borderBottom: '1px solid #F3F4F6',
+        display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px',
+        flexShrink: 0,
+      }}>
+        <button
+          onClick={() => navigate('/resident/incidents')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
+        >
+          <ChevronLeft size={22} color="#111827" />
         </button>
-        <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-          Báo cáo sự cố
-        </h2>
+        <p style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0 }}>Báo cáo sự cố</p>
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* Info Banner */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-          <p style={{ fontSize: '12px', color: 'var(--brand-primary)' }}>
-            💡 Vui lòng mô tả rõ sự cố để Ban quản lý xử lý nhanh chóng
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* Description text */}
+        <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>
+          Vui lòng chọn loại sự cố và mô tả chi tiết để Ban quản lý có thể xử lý nhanh chóng.
+        </p>
+
+        {/* Issue type grid */}
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: '0 0 12px' }}>
+            Loại sự cố <span style={{ color: '#EF4444' }}>*</span>
           </p>
-        </div>
-
-        {/* Incident Type Selection */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <label style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '12px' }}>
-            Loại sự cố <span style={{ color: 'var(--error)' }}>*</span>
-          </label>
-
-          <div className="grid grid-cols-2 gap-2">
-            {incidentTypes.map((type) => (
-              <button
-                key={type.value}
-                onClick={() => setSelectedType(type.value)}
-                className="p-3 rounded-xl border-2 transition-all text-left hover:shadow-md"
-                style={{
-                  borderColor: selectedType === type.value ? 'var(--brand-primary)' : '#D1D5DB',
-                  backgroundColor: selectedType === type.value ? '#E8F0F8' : '#FFF',
-                }}
-              >
-                <div className="flex items-center space-x-2">
-                  <span style={{ fontSize: '24px' }}>{type.icon}</span>
-                  <span style={{ 
-                    fontSize: '13px', 
-                    fontWeight: selectedType === type.value ? 600 : 400,
-                    color: selectedType === type.value ? 'var(--brand-primary)' : 'var(--text-primary)'
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            gap: 10,
+          }}>
+            {ISSUE_TYPES.map(type => {
+              const active = selectedType === type.value;
+              return (
+                <button
+                  key={type.value}
+                  onClick={() => setSelectedType(type.value)}
+                  style={{
+                    padding: '14px 10px',
+                    borderRadius: 14,
+                    border: active ? '2px solid #2563EB' : '1.5px solid #E5E7EB',
+                    backgroundColor: active ? '#EFF6FF' : '#FFF',
+                    cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <span style={{ fontSize: 28 }}>{type.icon}</span>
+                  <span style={{
+                    fontSize: 12, fontWeight: active ? 700 : 500,
+                    color: active ? '#2563EB' : '#374151',
                   }}>
                     {type.label}
                   </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Description textarea */}
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: '0 0 10px' }}>
+            Mô tả chi tiết <span style={{ color: '#EF4444' }}>*</span>
+          </p>
+          <div style={{ position: 'relative' }}>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Nhập mô tả tình trạng hư hỏng, vị trí, mức độ,..."
+              maxLength={500}
+              style={{
+                width: '100%', minHeight: 100,
+                padding: '10px 12px',
+                border: `1.5px solid ${description ? '#2563EB' : '#E5E7EB'}`,
+                borderRadius: 12,
+                fontSize: 13, color: '#111827',
+                resize: 'none', outline: 'none',
+                backgroundColor: '#FFF',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+              }}
+            />
+            <p style={{
+              position: 'absolute', bottom: 8, right: 12,
+              fontSize: 11, color: '#9CA3AF', margin: 0,
+            }}>
+              {description.length}/500
+            </p>
+          </div>
+        </div>
+
+        {/* Image upload */}
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: '0 0 10px' }}>
+            Hình ảnh (Tùy chọn)
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+            {/* Camera capture */}
+            <button
+              onClick={() => cameraInputRef.current?.click()}
+              style={{
+                flex: 1, padding: '12px 0',
+                border: '1.5px dashed #2563EB', borderRadius: 12,
+                backgroundColor: '#F8FAFF', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 6,
+              }}
+            >
+              <Camera size={22} color="#2563EB" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>Camera</span>
+            </button>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+
+            {/* Library picker */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                flex: 1, padding: '12px 0',
+                border: '1.5px dashed #2563EB', borderRadius: 12,
+                backgroundColor: '#F8FAFF', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 6,
+              }}
+            >
+              <Images size={22} color="#2563EB" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>Thư viện</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+          </div>
+
+          {/* Image preview grid */}
+          {images.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+              {images.map((src, i) => (
+                <div key={i} style={{ position: 'relative', width: 72, height: 72 }}>
+                  <img
+                    src={src}
+                    alt={`Ảnh ${i + 1}`}
+                    style={{ width: 72, height: 72, borderRadius: 10, objectFit: 'cover', border: '1px solid #E5E7EB' }}
+                  />
+                  <button
+                    onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                    style={{
+                      position: 'absolute', top: -6, right: -6,
+                      width: 20, height: 20, borderRadius: '50%',
+                      backgroundColor: '#EF4444', border: 'none',
+                      cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <X size={12} color="#FFF" />
+                  </button>
                 </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Location */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <label style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '12px' }}>
-            Vị trí (Tùy chọn)
-          </label>
-
-          <input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Ví dụ: Tầng 5, phòng 1205..."
-            className="w-full p-3 border-2 border-gray-300 rounded-xl focus:outline-none transition-colors"
-            style={{
-              fontSize: '13px',
-              color: 'var(--text-primary)',
-              borderColor: location ? 'var(--brand-primary)' : '#D1D5DB',
-            }}
-          />
-
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            {location.length}/500 ký tự
+              ))}
+            </div>
+          )}
+          <p style={{ fontSize: 11, color: '#9CA3AF' }}>
+            📸 Hình ảnh giúp Ban quản lý hiểu rõ vấn đề hơn
           </p>
         </div>
+      </div>
 
-        {/* Description */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <label style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '12px' }}>
-            Mô tả chi tiết <span style={{ color: 'var(--error)' }}>*</span>
-          </label>
-
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ví dụ: Thang máy số 2 bị kẹt tại tầng 5, không mở cửa được..."
-            rows={5}
-            className="w-full p-3 border-2 border-gray-300 rounded-xl focus:outline-none transition-colors"
-            style={{
-              fontSize: '13px',
-              color: 'var(--text-primary)',
-              borderColor: description ? 'var(--brand-primary)' : '#D1D5DB',
-            }}
-          />
-
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            {description.length}/500 ký tự
-          </p>
-        </div>
-
-        {/* Photo/Video Upload */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <label style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '12px' }}>
-            Hình ảnh/Video (Tùy chọn)
-          </label>
-
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <button
-              className="p-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 transition-colors flex flex-col items-center space-y-2"
-              style={{ backgroundColor: '#F9FAFB' }}
-            >
-              <Camera size={28} color="var(--brand-primary)" />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-primary)' }}>
-                Chụp ảnh
-              </span>
-            </button>
-
-            <button
-              className="p-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 transition-colors flex flex-col items-center space-y-2"
-              style={{ backgroundColor: '#F9FAFB' }}
-            >
-              <Upload size={28} color="var(--brand-primary)" />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-primary)' }}>
-                Tải lên
-              </span>
-            </button>
-          </div>
-
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-            📸 Hình ảnh/video giúp Ban quản lý hiểu rõ vấn đề hơn
-          </p>
-        </div>
-
-        {/* Contact Info */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <label style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '12px' }}>
-            Thông tin liên hệ
-          </label>
-
-          <div className="space-y-2">
-            <div>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                Họ tên
-              </p>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
-                Nguyễn Văn A
-              </p>
-            </div>
-
-            <div>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                Số điện thoại
-              </p>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
-                0901234567
-              </p>
-            </div>
-
-            <div>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                Căn hộ
-              </p>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
-                A-1205
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Submit Button */}
+      {/* Sticky Footer */}
+      <div style={{
+        backgroundColor: '#FFF', borderTop: '1px solid #F3F4F6',
+        padding: '12px 16px', display: 'flex', gap: 10, flexShrink: 0,
+      }}>
+        <button
+          onClick={() => navigate('/resident/incidents')}
+          style={{
+            flex: 1, padding: '12px 0',
+            border: '1.5px solid #E5E7EB', borderRadius: 12,
+            backgroundColor: '#FFF', cursor: 'pointer',
+            fontSize: 14, fontWeight: 600, color: '#374151',
+          }}
+        >
+          Hủy
+        </button>
         <button
           onClick={handleSubmit}
-          className="w-full py-3 rounded-xl text-center shadow-md hover:shadow-lg transition-shadow"
+          disabled={!selectedType || !description.trim() || submitting}
           style={{
-            backgroundColor: selectedType && description ? 'var(--brand-primary)' : '#D1D5DB',
-            color: '#FFF',
-            fontSize: '15px',
-            fontWeight: 700,
-            cursor: selectedType && description ? 'pointer' : 'not-allowed',
+            flex: 2, padding: '12px 0',
+            backgroundColor: selectedType && description.trim() ? '#1E3A8A' : '#D1D5DB',
+            border: 'none', borderRadius: 12,
+            cursor: selectedType && description.trim() ? 'pointer' : 'not-allowed',
+            fontSize: 14, fontWeight: 700, color: '#FFF',
           }}
-          disabled={!selectedType || !description}
         >
-          Gửi báo cáo
+          {submitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
         </button>
       </div>
     </div>

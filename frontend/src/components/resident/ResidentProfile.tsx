@@ -1,124 +1,231 @@
-import { User, ChevronRight, LogOut, Bell, Lock, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Phone, User, CreditCard, Lock, Bell, HelpCircle, LogOut, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function ResidentProfile() {
-  const menuItems = [
-    { icon: User, label: 'Thông tin cá nhân', path: '#' },
-    { icon: Bell, label: 'Cài đặt thông báo', path: '#' },
-    { icon: Lock, label: 'Đổi mật khẩu', path: '#' },
-    { icon: HelpCircle, label: 'Hỗ trợ & Liên hệ', path: '#' },
-  ];
+  const navigate = useNavigate();
+  const { user, logout, changePassword } = useAuth();
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [passError, setPassError] = useState('');
+  const [passLoading, setPassLoading] = useState(false);
 
-  return (
-    <div className="flex flex-col h-full bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-          Tài khoản
-        </h2>
+  const initials = user?.fullName
+    ? user.fullName.split(' ').map((w: string) => w[0]).slice(-2).join('').toUpperCase()
+    : 'U';
+
+  async function handleChangePassword() {
+    setPassError('');
+    if (!oldPass || !newPass || !confirmPass) {
+      setPassError('Vui lòng điền đầy đủ thông tin');
+      return;
+    }
+    if (newPass !== confirmPass) {
+      setPassError('Mật khẩu mới không khớp');
+      return;
+    }
+    if (newPass.length < 6) {
+      setPassError('Mật khẩu mới phải có ít nhất 6 ký tự');
+      return;
+    }
+    setPassLoading(true);
+    try {
+      await changePassword(oldPass, newPass);
+      setShowPasswordModal(false);
+      setOldPass(''); setNewPass(''); setConfirmPass('');
+      alert('Đổi mật khẩu thành công!');
+    } catch (e: any) {
+      setPassError(e?.message || 'Đổi mật khẩu thất bại');
+    } finally {
+      setPassLoading(false);
+    }
+  }
+
+  function handleLogout() {
+    logout();
+    navigate('/');
+  }
+
+  const sectionLabel = (text: string) => (
+    <p style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 4 }}>
+      {text}
+    </p>
+  );
+
+  const infoRow = (icon: React.ReactNode, label: string, value: string, isLast = false) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', padding: '12px 16px',
+      borderBottom: isLast ? 'none' : '1px solid #F3F4F6',
+    }}>
+      <div style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 12, flexShrink: 0 }}>
+        {icon}
       </div>
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>{label}</p>
+        <p style={{ fontSize: 14, fontWeight: 500, color: '#111827', margin: '2px 0 0' }}>{value}</p>
+      </div>
+    </div>
+  );
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
-        {/* Profile Card */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="flex items-center space-x-3 mb-3">
-            <div 
-              className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #1A4B84 0%, #2563A8 100%)' }}
-            >
-              <span style={{ fontSize: '28px', fontWeight: 700, color: '#FFF' }}>
-                A
-              </span>
-            </div>
-            <div className="flex-1">
-              <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Nguyễn Văn A
-              </p>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                0901234567
-              </p>
-            </div>
-          </div>
+  const actionRow = (icon: React.ReactNode, label: string, onPress: () => void, isLast = false) => (
+    <button
+      onClick={onPress}
+      style={{
+        display: 'flex', alignItems: 'center', width: '100%', padding: '14px 16px',
+        borderBottom: isLast ? 'none' : '1px solid #F3F4F6',
+        background: 'none', border: 'none', borderBottomWidth: isLast ? 0 : 1, borderBottomStyle: 'solid', borderBottomColor: '#F3F4F6',
+        cursor: 'pointer', textAlign: 'left',
+      }}
+    >
+      <div style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 12, flexShrink: 0 }}>
+        {icon}
+      </div>
+      <p style={{ flex: 1, fontSize: 14, fontWeight: 500, color: '#111827', margin: 0 }}>{label}</p>
+      <ChevronRight size={16} color="#C4C4C4" />
+    </button>
+  );
 
-          <div className="pt-3 border-t border-gray-200 space-y-2">
-            <div className="flex items-center justify-between">
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Căn hộ
-              </p>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                A-1205
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Tòa nhà
-              </p>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Tòa A
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Diện tích
-              </p>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                85 m²
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Menu Items */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {menuItems.map((item, index) => {
-            const Icon = item.icon;
-            const isLast = index === menuItems.length - 1;
-
-            return (
-              <button
-                key={index}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                style={{
-                  borderBottom: isLast ? 'none' : '1px solid #E5E7EB',
-                }}
-              >
-                <div className="flex items-center space-x-3">
-                  <Icon size={20} color="var(--text-secondary)" />
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {item.label}
-                  </span>
-                </div>
-                <ChevronRight size={18} color="var(--text-secondary)" />
-              </button>
-            );
-          })}
-        </div>
-
-        {/* App Info */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200 text-center">
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-            Smart Building App
-          </p>
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            Phiên bản 1.0.0
-          </p>
-        </div>
-
-        {/* Logout Button */}
-        <button
-          className="w-full py-3 rounded-xl text-center border-2 hover:bg-red-50 transition-colors flex items-center justify-center space-x-2"
+  const pwField = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    show: boolean,
+    onToggle: () => void,
+  ) => (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>{label}</p>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="••••••••"
           style={{
-            borderColor: 'var(--error)',
-            color: 'var(--error)',
-            fontSize: '14px',
-            fontWeight: 600,
+            width: '100%', padding: '10px 40px 10px 12px',
+            border: '1px solid #E5E7EB', borderRadius: 10,
+            fontSize: 14, color: '#111827', outline: 'none',
+            boxSizing: 'border-box',
           }}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
         >
-          <LogOut size={18} />
-          <span>Đăng xuất</span>
+          {show ? <EyeOff size={18} color="#9CA3AF" /> : <Eye size={18} color="#9CA3AF" />}
         </button>
       </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#F9FAFB' }}>
+      {/* Header */}
+      <div style={{ backgroundColor: '#FFF', borderBottom: '1px solid #F3F4F6', padding: '16px 24px', flexShrink: 0 }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0, textAlign: 'center' }}>Tài khoản</p>
+      </div>
+
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
+        {/* Profile card */}
+        <div style={{ backgroundColor: '#1E3A8A', borderRadius: 20, padding: '24px 20px', marginBottom: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            <p style={{ fontSize: 28, fontWeight: 700, color: '#FFF', margin: 0 }}>{initials}</p>
+          </div>
+          <p style={{ fontSize: 16, fontWeight: 700, color: '#FFF', margin: '0 0 4px' }}>{user?.fullName || 'Cư dân'}</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: '0 0 10px' }}>{user?.phoneNumber || ''}</p>
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingTop: 4, paddingBottom: 4, paddingLeft: 12, paddingRight: 12 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#FFF', margin: 0 }}>Cư dân</p>
+          </div>
+        </div>
+
+        {/* THÔNG TIN TÀI KHOẢN */}
+        {sectionLabel('Thông tin tài khoản')}
+        <div style={{ backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          {infoRow(<Phone size={18} color="#2563EB" />, 'Số điện thoại', user?.phoneNumber || '—')}
+          {infoRow(<User size={18} color="#2563EB" />, 'Họ và tên', user?.fullName || '—')}
+          {infoRow(<CreditCard size={18} color="#2563EB" />, 'Mã cư dân', String(user?.id ?? '—'), true)}
+        </div>
+
+        {/* CÀI ĐẶT */}
+        {sectionLabel('Cài đặt')}
+        <div style={{ backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          {actionRow(<Lock size={18} color="#6B7280" />, 'Đổi mật khẩu', () => setShowPasswordModal(true))}
+          {actionRow(<Bell size={18} color="#6B7280" />, 'Thông báo', () => alert('Tính năng đang phát triển'))}
+          {actionRow(<HelpCircle size={18} color="#6B7280" />, 'Hỗ trợ & Liên hệ', () => alert('Hotline: 1900 1234'), true)}
+        </div>
+
+        {/* THÔNG TIN */}
+        {sectionLabel('Thông tin')}
+        <div style={{ backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
+            <p style={{ fontSize: 14, fontWeight: 500, color: '#111827', margin: 0 }}>Phiên bản ứng dụng</p>
+            <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>1.0.0</p>
+          </div>
+        </div>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          style={{
+            width: '100%', padding: '14px', borderRadius: 16,
+            border: '1px solid #FECACA', backgroundColor: '#FFF',
+            color: '#DC2626', fontSize: 15, fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          }}
+        >
+          <LogOut size={18} color="#DC2626" />
+          Đăng xuất
+        </button>
+        <div style={{ height: 20 }} />
+      </div>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: '#FFF', borderRadius: '24px 24px 0 0',
+            padding: '24px 20px 32px', width: '100%', maxWidth: 360,
+          }}>
+            <p style={{ fontSize: 18, fontWeight: 700, color: '#111827', textAlign: 'center', margin: '0 0 20px' }}>
+              Đổi mật khẩu
+            </p>
+            {pwField('Mật khẩu hiện tại', oldPass, setOldPass, showOld, () => setShowOld(v => !v))}
+            {pwField('Mật khẩu mới', newPass, setNewPass, showNew, () => setShowNew(v => !v))}
+            {pwField('Xác nhận mật khẩu mới', confirmPass, setConfirmPass, showConfirm, () => setShowConfirm(v => !v))}
+            {passError && (
+              <p style={{ fontSize: 13, color: '#DC2626', marginBottom: 12, textAlign: 'center' }}>{passError}</p>
+            )}
+            <button
+              onClick={handleChangePassword}
+              disabled={passLoading}
+              style={{
+                width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                backgroundColor: passLoading ? '#93C5FD' : '#1E3A8A',
+                color: '#FFF', fontSize: 15, fontWeight: 600, cursor: passLoading ? 'default' : 'pointer', marginBottom: 10,
+              }}
+            >
+              {passLoading ? 'Đang xử lý...' : 'Xác nhận'}
+            </button>
+            <button
+              onClick={() => { setShowPasswordModal(false); setPassError(''); setOldPass(''); setNewPass(''); setConfirmPass(''); }}
+              style={{ width: '100%', padding: '13px', borderRadius: 12, border: '1px solid #E5E7EB', backgroundColor: '#FFF', color: '#6B7280', fontSize: 15, fontWeight: 500, cursor: 'pointer' }}
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

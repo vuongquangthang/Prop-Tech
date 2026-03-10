@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Sparkles, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
+import { Send, MessageCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 const N8N_WEBHOOK = '/n8n-proxy/webhook/4091fa09-fb9a-4039-9411-7104d213f601/chat';
 const STORAGE_KEY = 'resident_chat_history';
@@ -12,16 +12,16 @@ interface Message {
 }
 
 const SUGGESTED_QUESTIONS = [
+  'Quy định tòa nhà là gì?',
+  'Lấy pass wifi phòng chờ?',
   'Phí gửi xe là bao nhiêu?',
-  'Quy định về thú cưng?',
-  'Giờ yên lặng là mấy giờ?',
   'Cách đăng ký sửa chữa căn hộ?',
 ];
 
 const WELCOME_MESSAGE: Message = {
   id: 'welcome',
   type: 'ai',
-  text: 'Xin chào! Tôi là trợ lý AI của Smart Building. Tôi có thể giúp bạn giải đáp thắc mắc về quy định, dịch vụ và các tiện ích trong chung cư. Bạn cần hỏi gì?',
+  text: 'Chào bạn! Tôi là trợ lý AI của SmartHome. Tôi có thể giúp bạn giải thích hóa đơn, tra cứu nội quy hoặc hướng dẫn thanh toán.',
   time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
 };
 
@@ -38,9 +38,7 @@ function loadHistory(): Message[] {
 
 function saveHistory(messages: Message[]) {
   try {
-    // Keep max 100 messages in storage
-    const toSave = messages.slice(-100);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
   } catch {}
 }
 
@@ -51,12 +49,10 @@ export function ChatAI() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Persist history
   useEffect(() => {
     saveHistory(messages);
   }, [messages]);
@@ -83,36 +79,28 @@ export function ChatAI() {
         body: JSON.stringify({ chatInput: trimmed }),
       });
 
-      if (!res.ok) {
-        throw new Error(`Server trả về lỗi ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Server trả về lỗi ${res.status}`);
 
       const data = await res.json();
       const replyText =
-        data.output ||
-        data.text ||
-        data.message ||
-        data.response ||
-        (typeof data === 'string' ? data : 'Xin lỗi, tôi không hiểu phản hồi từ server.');
+        data.output || data.text || data.message || data.response ||
+        (typeof data === 'string' ? data : 'Xép lỗi, tôi đang gặp vấn đề. Vui lòng thử lại sau.');
 
-      const aiMsg: Message = {
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         type: 'ai',
         text: replyText,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      };
-
-      setMessages(prev => [...prev, aiMsg]);
+      }]);
     } catch (err: any) {
-      const errMsg: Message = {
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         type: 'error',
         text: err.message?.includes('fetch')
-          ? 'Không thể kết nối đến trợ lý AI. Vui lòng kiểm tra kết nối mạng và thử lại.'
+          ? 'Không thể kết nối đến trợ lý AI. Vui lòng kiểm tra kết nối mạng.'
           : `Lỗi: ${err.message || 'Đã có lỗi xảy ra'}`,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages(prev => [...prev, errMsg]);
+      }]);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
@@ -127,216 +115,188 @@ export function ChatAI() {
   };
 
   const handleClearHistory = () => {
-    const fresh = { ...WELCOME_MESSAGE, id: Date.now().toString() };
-    setMessages([fresh]);
+    setMessages([{ ...WELCOME_MESSAGE, id: Date.now().toString() }]);
   };
 
   const showSuggestions = messages.length <= 1 && !isLoading;
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1A4B84 0%, #2563A8 100%)' }}
-          >
-            <Sparkles size={20} color="#FFF" />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Trợ lý AI
-            </h2>
-            <p style={{ fontSize: '11px', color: '#1E7E34' }}>
-              ● Đang hoạt động
-            </p>
-          </div>
-        </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 24px', borderBottom: '1px solid #F3F4F6',
+        backgroundColor: '#FFF', flexShrink: 0,
+      }}>
+        <div style={{ width: 24 }} />
+        <p style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0 }}>Trợ lý ảo tòa nhà</p>
         <button
           onClick={handleClearHistory}
-          title="Xóa lịch sử chat"
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          title="Xóa lịch sử"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
         >
-          <Trash2 size={16} color="var(--text-secondary)" />
+          <Trash2 size={18} color="#9CA3AF" />
         </button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className="flex"
-            style={{
-              justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
-            }}
-          >
-            {/* AI Avatar */}
-            {message.type !== 'user' && (
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1"
-                style={{
-                  background: message.type === 'error'
-                    ? 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)'
-                    : 'linear-gradient(135deg, #1A4B84 0%, #2563A8 100%)',
-                }}
-              >
-                {message.type === 'error'
-                  ? <AlertCircle size={14} color="#FFF" />
-                  : <Sparkles size={14} color="#FFF" />
-                }
+      <div style={{
+        flex: 1, overflowY: 'auto', backgroundColor: '#F9FAFB',
+        padding: 16, display: 'flex', flexDirection: 'column', gap: 20,
+      }}>
+        {messages.map((msg) => (
+          <div key={msg.id}>
+            {msg.type !== 'user' ? (
+              /* Bot / Error message row */
+              <div style={{ display: 'flex', alignItems: 'flex-start', maxWidth: '85%' }}>
+                {/* Bot avatar */}
+                <div style={{
+                  width: 32, height: 32, borderRadius: 16,
+                  backgroundColor: msg.type === 'error' ? '#FEE2E2' : '#DBEAFE',
+                  border: `1px solid ${msg.type === 'error' ? '#FECACA' : '#BFDBFE'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, marginRight: 12,
+                }}>
+                  <MessageCircle size={18} color={msg.type === 'error' ? '#DC2626' : '#2563EB'} />
+                </div>
+                {/* Bubble */}
+                <div style={{
+                  backgroundColor: msg.type === 'error' ? '#FEF2F2' : '#FFFFFF',
+                  border: `1px solid ${msg.type === 'error' ? '#FECACA' : '#E5E7EB'}`,
+                  borderRadius: '16px 16px 16px 4px',
+                  padding: 12,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                }}>
+                  {msg.type === 'ai' && (
+                    <p style={{ fontSize: 11, fontWeight: 600, color: '#2563EB', margin: '0 0 4px' }}>
+                      AI Assistant
+                    </p>
+                  )}
+                  <p style={{
+                    fontSize: 14, color: msg.type === 'error' ? '#B91C1C' : '#374151',
+                    lineHeight: '20px', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  }}>
+                    {msg.text}
+                  </p>
+                  <p style={{ fontSize: 10, color: '#9CA3AF', margin: '4px 0 0', textAlign: 'right' }}>
+                    {msg.time}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* User message row */
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', maxWidth: '85%', alignSelf: 'flex-end', marginLeft: 'auto' }}>
+                <div style={{
+                  backgroundColor: '#1E3A8A',
+                  borderRadius: '16px 16px 4px 16px',
+                  padding: 12,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                }}>
+                  <p style={{ fontSize: 14, color: '#FFFFFF', lineHeight: '20px', margin: 0, wordBreak: 'break-word' }}>
+                    {msg.text}
+                  </p>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0', textAlign: 'right' }}>
+                    {msg.time}
+                  </p>
+                </div>
+                {/* User avatar */}
+                <div style={{
+                  width: 32, height: 32, borderRadius: 16,
+                  backgroundColor: '#E5E7EB', border: '1px solid #D1D5DB',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, marginLeft: 12,
+                }}>
+                  <span style={{ fontSize: 16 }}>👤</span>
+                </div>
               </div>
             )}
-
-            <div
-              className="max-w-[75%] px-3 py-2"
-              style={{
-                backgroundColor:
-                  message.type === 'user' ? 'var(--brand-primary)'
-                  : message.type === 'error' ? '#FEF2F2'
-                  : '#FFFFFF',
-                color:
-                  message.type === 'user' ? '#FFF'
-                  : message.type === 'error' ? '#B91C1C'
-                  : 'var(--text-primary)',
-                border: message.type === 'user' ? 'none'
-                  : message.type === 'error' ? '1px solid #FECACA'
-                  : '1px solid #E5E7EB',
-                borderRadius:
-                  message.type === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-              }}
-            >
-              {message.type === 'ai' && (
-                <div className="flex items-center space-x-1 mb-1">
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brand-primary)' }}>
-                    AI Assistant
-                  </span>
-                </div>
-              )}
-              <p style={{ fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {message.text}
-              </p>
-              <p
-                style={{
-                  fontSize: '10px',
-                  color: message.type === 'user' ? 'rgba(255,255,255,0.7)'
-                    : message.type === 'error' ? '#F87171'
-                    : 'var(--text-secondary)',
-                  marginTop: '4px',
-                  textAlign: 'right',
-                }}
-              >
-                {message.time}
-              </p>
-            </div>
           </div>
         ))}
 
-        {/* Bot typing indicator */}
+        {/* Typing indicator */}
         {isLoading && (
-          <div className="flex items-end space-x-2">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #1A4B84 0%, #2563A8 100%)' }}
-            >
-              <Sparkles size={14} color="#FFF" />
+          <div style={{ display: 'flex', alignItems: 'flex-start', maxWidth: '85%' }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 16,
+              backgroundColor: '#DBEAFE', border: '1px solid #BFDBFE',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, marginRight: 12,
+            }}>
+              <MessageCircle size={18} color="#2563EB" />
             </div>
-            <div
-              className="px-4 py-3 rounded-2xl"
-              style={{
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E5E7EB',
-                borderRadius: '16px 16px 16px 4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-              }}
-            >
-              <div className="flex items-center space-x-1">
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginRight: '6px' }}>
-                  AI đang nhập
-                </span>
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="w-2 h-2 bg-gray-400 rounded-full"
-                    style={{
-                      animation: 'bounce 1.2s infinite',
-                      animationDelay: `${i * 0.2}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Suggested Questions */}
-        {showSuggestions && (
-          <div className="space-y-2 mt-2">
-            <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center' }}>
-              💡 Câu hỏi gợi ý
-            </p>
-            <div className="space-y-2">
-              {SUGGESTED_QUESTIONS.map((q, i) => (
-                <button
-                  key={i}
-                  onClick={() => sendMessage(q)}
-                  className="w-full px-3 py-2 rounded-xl text-left transition-all"
-                  style={{
-                    border: '1.5px solid #E5E7EB',
-                    backgroundColor: '#FFFFFF',
-                    fontSize: '13px',
-                    color: 'var(--text-primary)',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--brand-primary)';
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(26,75,132,0.12)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = '#E5E7EB';
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
-                  }}
-                >
-                  {q}
-                </button>
+            <div style={{
+              backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB',
+              borderRadius: '16px 16px 16px 4px', padding: '12px 16px',
+              display: 'flex', gap: 4, alignItems: 'center',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{
+                  width: 8, height: 8, borderRadius: 4, backgroundColor: '#9CA3AF',
+                  animation: 'bounce 1.2s infinite',
+                  animationDelay: `${i * 0.2}s`,
+                }} />
               ))}
             </div>
           </div>
         )}
 
-        {/* Scroll anchor */}
+        {/* Suggestion chips */}
+        {showSuggestions && (
+          <div style={{ marginLeft: 44, display: 'flex', flexWrap: 'wrap' as const, gap: 8, marginTop: 8 }}>
+            {SUGGESTED_QUESTIONS.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => sendMessage(q)}
+                style={{
+                  padding: '6px 12px', borderRadius: 16,
+                  backgroundColor: '#FFFFFF', border: '1px solid #BFDBFE',
+                  fontSize: 12, color: '#2563EB', cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                }}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="bg-white border-t border-gray-200 p-3">
-        <div className="flex items-center space-x-2">
+      {/* Input bar */}
+      <div style={{
+        padding: 16, backgroundColor: '#FFFFFF',
+        borderTop: '1px solid #F3F4F6',
+        boxShadow: '0 -2px 8px rgba(0,0,0,0.05)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
           <input
             ref={inputRef}
             type="text"
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Nhập câu hỏi... (Enter để gửi)"
+            placeholder="Nhập câu hỏi..."
             disabled={isLoading}
-            className="flex-1 px-3 py-2 rounded-xl focus:outline-none transition-colors"
             style={{
-              fontSize: '13px',
-              color: 'var(--text-primary)',
-              border: '2px solid #E5E7EB',
-              backgroundColor: isLoading ? '#F9FAFB' : '#FFFFFF',
+              flex: 1, backgroundColor: '#F9FAFB',
+              border: '1px solid #E5E7EB', borderRadius: 24,
+              padding: '12px 52px 12px 16px',
+              fontSize: 14, color: '#111827', outline: 'none',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand-primary)'; }}
-            onBlur={e => { e.currentTarget.style.borderColor = '#E5E7EB'; }}
           />
           <button
             onClick={() => sendMessage(inputText)}
             disabled={!inputText.trim() || isLoading}
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
             style={{
-              backgroundColor: (inputText.trim() && !isLoading) ? 'var(--brand-primary)' : '#D1D5DB',
-              cursor: (inputText.trim() && !isLoading) ? 'pointer' : 'not-allowed',
+              position: 'absolute', right: 8,
+              width: 36, height: 36, borderRadius: 18,
+              backgroundColor: (inputText.trim() && !isLoading) ? '#1E3A8A' : '#D1D5DB',
+              border: 'none', cursor: (inputText.trim() && !isLoading) ? 'pointer' : 'not-allowed',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
             }}
           >
             {isLoading
@@ -345,8 +305,8 @@ export function ChatAI() {
             }
           </button>
         </div>
-        <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '6px', textAlign: 'center' }}>
-          AI có thể mắc lỗi. Vui lòng kiểm tra thông tin quan trọng.
+        <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 8, textAlign: 'center' }}>
+          AI có thể không chính xác 100%. Vui lòng không chia sẻ mã số cá nhân.
         </p>
       </div>
 

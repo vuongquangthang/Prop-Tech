@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Plus, ThumbsUp, RotateCcw } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 
 const STATUS_TABS = [
@@ -11,82 +11,57 @@ const STATUS_TABS = [
   { key: 'resolved', label: 'Hoàn thành' },
 ] as const;
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'in-progress':
-      return { bg: '#FEF3E8', text: '#E67E22', border: '#E67E22', label: 'Đang xử lý' };
-    case 'review':
-      return { bg: '#F3E8FF', text: '#7C3AED', border: '#7C3AED', label: 'Chờ nghiệm thu' };
-    case 'resolved':
-      return { bg: '#E8F5E9', text: '#1E7E34', border: '#1E7E34', label: 'Hoàn thành' };
-    default:
-      return { bg: '#E8F0F8', text: '#1A4B84', border: '#1A4B84', label: 'Chờ xử lý' };
-  }
-};
-
-const getCategoryIcon = (category: string) => {
-  const icons: { [key: string]: string } = {
-    elevator: '🛗', water: '💧', electrical: '⚡',
-    security: '🔒', cleaning: '🧹', parking: '🚗',
-    noise: '🔊', other: '📝',
+const getStatusInfo = (status: string) => {
+  const map: Record<string, { label: string; color: string; bgColor: string }> = {
+    'pending':     { label: 'Chờ xử lý',      color: '#D97706', bgColor: '#FEF3C7' },
+    'in-progress': { label: 'Đang xử lý',     color: '#2563EB', bgColor: '#DBEAFE' },
+    'review':      { label: 'Chờ nghiệm thu', color: '#7C3AED', bgColor: '#F3E8FF' },
+    'resolved':    { label: 'Hoàn thành',      color: '#059669', bgColor: '#D1FAE5' },
   };
-  return icons[category] || '📝';
+  return map[status] || { label: status, color: '#6B7280', bgColor: '#F3F4F6' };
 };
 
-const formatDate = (dateString: string) =>
-  new Date(dateString).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const getCategoryLabel = (category: string) => {
+  const labels: Record<string, string> = {
+    elevator: 'Thang máy', water: 'Nước', electrical: 'Điện',
+    security: 'An ninh', cleaning: 'Vệ sinh', parking: 'Bãi xe',
+    noise: 'Tiếng ồn', other: 'Khác',
+  };
+  return labels[category] || category;
+};
 
 export function IncidentList() {
   const navigate = useNavigate();
-  const { incidents, updateIncidentStatus } = useData();
+  const { incidents } = useData();
   const [activeTab, setActiveTab] = useState<string>('all');
 
   const filtered = activeTab === 'all' ? incidents : incidents.filter(i => i.status === activeTab);
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#F9FAFB' }}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-          Sự cố của tôi
-        </h2>
-        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          {incidents.length} sự cố đã báo cáo
-        </p>
+      <div style={{ backgroundColor: '#FFF', borderBottom: '1px solid #F3F4F6', padding: '16px 24px' }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0 }}>Danh sách sự cố</p>
       </div>
 
       {/* Filter Tabs */}
-      <div className="bg-white border-b border-gray-200 px-3 overflow-x-auto">
-        <div className="flex space-x-1 py-2" style={{ minWidth: 'max-content' }}>
+      <div style={{ backgroundColor: '#FFF', borderBottom: '1px solid #F3F4F6', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 8, padding: '16px 24px', minWidth: 'max-content' }}>
           {STATUS_TABS.map(tab => {
-            const count = tab.key === 'all'
-              ? incidents.length
-              : incidents.filter(i => i.status === tab.key).length;
             const isActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors"
                 style={{
-                  backgroundColor: isActive
-                    ? (tab.key === 'review' ? '#7C3AED' : 'var(--brand-primary)')
-                    : '#F3F4F6',
-                  color: isActive ? '#FFF' : 'var(--text-secondary)',
+                  paddingLeft: 16, paddingRight: 16, paddingTop: 6, paddingBottom: 6,
+                  borderRadius: 16, border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap',
+                  backgroundColor: isActive ? '#1F2937' : '#F3F4F6',
+                  color: isActive ? '#FFF' : '#6B7280',
                 }}
               >
                 {tab.label}
-                {count > 0 && (
-                  <span
-                    className="ml-1 px-1.5 py-0.5 rounded-full text-xs"
-                    style={{
-                      backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : '#E5E7EB',
-                      color: isActive ? '#FFF' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {count}
-                  </span>
-                )}
               </button>
             );
           })}
@@ -94,118 +69,76 @@ export function IncidentList() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 space-y-3">
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         {filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-              Không có sự cố nào
-            </p>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Nhấn nút bên dưới để báo cáo sự cố mới
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60 }}>
+            <span style={{ fontSize: 48 }}>📄</span>
+            <p style={{ fontSize: 14, color: '#9CA3AF', marginTop: 12 }}>Chưa có sự cố nào</p>
           </div>
         ) : (
-          filtered.map((incident) => {
-            const statusColor = getStatusColor(incident.status);
-            const categoryIcon = getCategoryIcon(incident.category);
-            const isReview = incident.status === 'review';
-
-            return (
-              <div
-                key={incident.id}
-                className="bg-white rounded-xl border overflow-hidden"
-                style={{ borderColor: isReview ? '#7C3AED' : '#E5E7EB', borderWidth: isReview ? '2px' : '1px' }}
-              >
-                {/* Clickable area → tracking */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {filtered.map((incident) => {
+              const statusInfo = getStatusInfo(incident.status);
+              const categoryLabel = getCategoryLabel(incident.category);
+              return (
                 <button
+                  key={incident.id}
                   onClick={() => navigate('/resident/incidents/tracking', { state: { incidentId: incident.id } })}
-                  className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
+                  style={{
+                    backgroundColor: '#FFF',
+                    border: '1px solid #E5E7EB', borderRadius: 12,
+                    padding: 16, textAlign: 'left', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                  }}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span style={{ fontSize: '26px' }}>{categoryIcon}</span>
-                      <div>
-                        <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {incident.title}
-                        </p>
-                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '1px' }}>
-                          {incident.id}
-                        </p>
-                      </div>
+                  <div style={{ flex: 1, marginRight: 12 }}>
+                    {/* Top row: tag + status badge */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span style={{
+                        padding: '4px 10px', backgroundColor: '#F3F4F6', borderRadius: 4,
+                        fontSize: 10, fontWeight: 600, color: '#6B7280',
+                        textTransform: 'uppercase', letterSpacing: '0.5px',
+                      }}>
+                        {categoryLabel}
+                      </span>
+                      <span style={{
+                        padding: '3px 8px', backgroundColor: statusInfo.bgColor, borderRadius: 4,
+                        fontSize: 10, fontWeight: 600, color: statusInfo.color,
+                        textTransform: 'uppercase', letterSpacing: '0.3px',
+                      }}>
+                        {statusInfo.label}
+                      </span>
                     </div>
-                    <span
-                      className="px-2 py-1 rounded-full flex-shrink-0"
-                      style={{
-                        fontSize: '11px', fontWeight: 600,
-                        color: statusColor.text,
-                        backgroundColor: statusColor.bg,
-                        border: `1px solid ${statusColor.border}`,
-                      }}
-                    >
-                      {statusColor.label}
-                    </span>
+                    {/* Description as title */}
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 4, margin: '0 0 4px' }}>
+                      {incident.description || 'Không có mô tả'}
+                    </p>
+                    {/* ID + date */}
+                    <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>
+                      #{incident.id} · {new Date(incident.reportedAt).toLocaleDateString('vi-VN')}
+                    </p>
                   </div>
-                  <p style={{ fontSize: '13px', color: 'var(--text-primary)', marginBottom: '4px' }}>
-                    {incident.description}
-                  </p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    📅 {formatDate(incident.reportedAt)}
-                  </p>
+                  <ChevronRight size={20} color="#9CA3AF" />
                 </button>
-
-                {/* Evaluation row — only for review status */}
-                {isReview && (
-                  <div className="px-4 pb-3 pt-1 border-t border-purple-100 bg-purple-50 space-y-2">
-                    {incident.resolutionNote && (
-                      <p style={{ fontSize: '12px', color: '#7C3AED' }}>
-                        💬 {incident.resolutionNote}
-                      </p>
-                    )}
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await updateIncidentStatus(incident.id, 'resolved');
-                        }}
-                        className="flex-1 py-2 rounded-lg flex items-center justify-center space-x-1"
-                        style={{ backgroundColor: '#1E7E34', color: '#FFF', fontSize: '13px', fontWeight: 700 }}
-                      >
-                        <ThumbsUp size={15} />
-                        <span>Hài lòng</span>
-                      </button>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await updateIncidentStatus(incident.id, 'pending');
-                        }}
-                        className="flex-1 py-2 rounded-lg flex items-center justify-center space-x-1 border-2"
-                        style={{ borderColor: '#E67E22', color: '#E67E22', fontSize: '13px', fontWeight: 700 }}
-                      >
-                        <RotateCcw size={15} />
-                        <span>Sửa lại</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Floating Action Button */}
-      <div className="p-4 bg-white border-t border-gray-200">
+      {/* Footer button */}
+      <div style={{ backgroundColor: '#FFF', borderTop: '1px solid #F3F4F6', padding: '16px 24px' }}>
         <button
           onClick={() => navigate('/resident/incidents/create')}
-          className="w-full py-3 rounded-xl text-center shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center space-x-2"
           style={{
-            backgroundColor: 'var(--brand-primary)',
-            color: '#FFF',
-            fontSize: '15px',
-            fontWeight: 700,
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            backgroundColor: '#1E3A8A', color: '#FFF', borderRadius: 12,
+            paddingTop: 14, paddingBottom: 14, fontSize: 16, fontWeight: 600,
+            border: 'none', cursor: 'pointer',
           }}
         >
-          <Plus size={20} />
+          <span style={{ fontSize: 20, lineHeight: 1 }}>+</span>
           <span>Báo cáo sự cố mới</span>
         </button>
       </div>
