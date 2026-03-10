@@ -141,7 +141,7 @@ export function QuickAccessTables() {
     <>
       <div className="space-y-8">
         {/* Priority 1: Overdue Invoices - HIGHEST PRIORITY (Full Width, Red) */}
-        <div className="bg-surface-card border-2 rounded-[16px] shadow-sm" style={{ borderColor: 'var(--error)' }}>
+        <div className="bg-surface-card border-2 rounded-[16px] shadow-sm" style={{ borderColor: 'var(--error)', overflow: 'hidden' }}>
           <div className="border-b-2 px-6 py-5" style={{ borderColor: 'var(--error)', backgroundColor: '#FEF2F2' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
@@ -279,7 +279,7 @@ export function QuickAccessTables() {
         {/* Two Column Layout for Secondary Priorities */}
         <div className="grid grid-cols-2" style={{ gap: 'var(--space-layout)' }}>
           {/* Priority 2: New Issues - MEDIUM PRIORITY (Orange, Lighter) */}
-          <div className="bg-surface-card rounded" style={{ border: '1px solid #FED7AA', borderRadius: 'var(--radius-card)' }}>
+          <div className="bg-surface-card rounded" style={{ border: '1px solid #FED7AA', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             <div className="px-5 py-4" style={{ borderBottom: '1px solid #FED7AA', backgroundColor: '#FFF7ED' }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center" style={{ gap: '12px' }}>
@@ -339,7 +339,7 @@ export function QuickAccessTables() {
           </div>
 
           {/* Priority 3: Questions Need Approval - LOW PRIORITY (Gray/Blue accent) */}
-          <div className="bg-surface-card rounded" style={{ border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)' }}>
+          <div className="bg-surface-card rounded" style={{ border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-border)', backgroundColor: 'var(--brand-surface)' }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center" style={{ gap: '12px' }}>

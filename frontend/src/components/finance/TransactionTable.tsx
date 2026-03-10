@@ -23,11 +23,6 @@ export function TransactionTable() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [invoiceCode, setInvoiceCode] = useState('');
 
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
-  useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'PaymentInitiated'], fetchTransactions);
-
   const fetchTransactions = async () => {
     try {
       setLoading(true);
@@ -72,6 +67,11 @@ export function TransactionTable() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+  useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'PaymentInitiated'], fetchTransactions);
 
   const handleMatchClick = (transaction: any) => {
     setSelectedTransaction(transaction);
