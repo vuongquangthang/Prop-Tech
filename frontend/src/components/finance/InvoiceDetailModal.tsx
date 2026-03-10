@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { X, Send, CheckCircle, AlertTriangle, User, ArrowRight, ChevronRight, Clock } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -224,7 +224,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '16px' }}
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '16px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '900px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 80px rgba(0,0,0,0.25)' }}>

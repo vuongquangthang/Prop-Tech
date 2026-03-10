@@ -11,6 +11,7 @@ public class ServiceDto
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
     public bool IsActive { get; set; }
+    public DateTime? EffectiveDate { get; set; }
 }
 
 /// <summary>
@@ -34,4 +35,19 @@ public class UpdateServiceDto
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
     public bool? IsActive { get; set; }
+    public DateTime? EffectiveDate { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// DTO lịch sử thay đổi đơn giá dịch vụ
+/// </summary>
+public class ServicePriceHistoryDto
+{
+    public int Id { get; set; }
+    public decimal OldPrice { get; set; }
+    public decimal NewPrice { get; set; }
+    public DateTime EffectiveDate { get; set; }
+    public string? Reason { get; set; }
+    public DateTime ChangedAt { get; set; }
 }

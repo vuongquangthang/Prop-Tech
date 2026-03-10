@@ -1,4 +1,4 @@
-import { ArrowRight, MessageSquare, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
+﻿import { ArrowRight, MessageSquare, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { fileService } from '../../services/feature.service';
@@ -62,10 +62,10 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl text-gray-900">Hoàn thành yêu cầu</h2>
+          <h2 className="text-xl text-gray-900">Gửi kết quả sửa chữa cho cư dân</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
             <X size={20} className="text-gray-600" />
           </button>
@@ -91,12 +91,12 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
 
           <div>
             <label className="block text-sm text-gray-700 mb-2">
-              Ghi chú kết quả xử lý <span className="text-red-500">*</span>
+              Ghi chú kết quả sửa chữa <span className="text-red-500">*</span>
             </label>
             <textarea
               className="w-full px-4 py-3 border border-gray-300 rounded resize-none focus:outline-none focus:border-gray-500"
               rows={4}
-              placeholder="Nhập ghi chú kết quả xử lý (vd: đã thay bóng đèn mới, đã sửa ổ khóa cửa...)"
+              placeholder="Mô tả kết quả sửa chữa để gửi cho cư dân xẮm xét (ví dụ: đã thay bóng đèn mới, đã sửa ổ khóa cửa...)"
               value={adminNote}
               onChange={(e) => setAdminNote(e.target.value)}
             />
@@ -162,7 +162,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
             disabled={!adminNote.trim() || uploading}
             className="px-6 py-3 bg-gray-800 text-white rounded hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            {uploading ? 'Đang tải...' : 'Xác nhận hoàn thành'}
+            {uploading ? 'Đang gửi...' : 'Gửi cho cư dân'}
           </button>
         </div>
       </div>
@@ -184,7 +184,7 @@ function ContactOwnerModal({ request, onClose }: { request: any; onClose: () => 
 
   if (isSent) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
         <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
           <div className="text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -201,7 +201,7 @@ function ContactOwnerModal({ request, onClose }: { request: any; onClose: () => 
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl text-gray-900">Liên lạc với chủ phòng</h2>
@@ -265,10 +265,10 @@ function ContactOwnerModal({ request, onClose }: { request: any; onClose: () => 
 }
 
 const statusConfig = {
-  new: { label: 'Mới', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  new: { label: 'Chờ xử lý', color: 'bg-blue-100 text-blue-800 border-blue-300' },
   in_progress: { label: 'Đang xử lý', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
   review: { label: 'Chờ nghiệm thu', color: 'bg-purple-100 text-purple-800 border-purple-300' },
-  completed: { label: 'Đã xong', color: 'bg-green-100 text-green-800 border-green-300' },
+  completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-800 border-green-300' },
 };
 
 // Logic chuyển trạng thái tuần tự
@@ -276,7 +276,7 @@ const getAvailableStatuses = (currentStatus: string) => {
   const statusFlow = {
     new: ['new', 'in_progress'],
     in_progress: ['in_progress', 'review'],
-    review: ['review', 'completed'],
+    review: ['review', 'completed', 'new'],
     completed: ['completed'],
   };
   return statusFlow[currentStatus as keyof typeof statusFlow] || ['new'];
@@ -362,17 +362,17 @@ export function MaintenanceRequestTable() {
 
   // Tính toán số lượng động cho từng tab
   const tabs = [
-    { key: 'new', label: 'Mới', count: requests.filter(r => r.status === 'new').length },
+    { key: 'new', label: 'Chờ xử lý', count: requests.filter(r => r.status === 'new').length },
     { key: 'in_progress', label: 'Đang xử lý', count: requests.filter(r => r.status === 'in_progress').length },
     { key: 'review', label: 'Chờ nghiệm thu', count: requests.filter(r => r.status === 'review').length },
-    { key: 'completed', label: 'Đã xong', count: requests.filter(r => r.status === 'completed').length },
+    { key: 'completed', label: 'Hoàn thành', count: requests.filter(r => r.status === 'completed').length },
   ];
 
   const handleStatusChange = (requestCode: string, newStatus: string) => {
     const request = requests.find(req => req.code === requestCode);
     if (request && request.fullIncident) {
-      // If changing to completed, show modal to add note and image
-      if (newStatus === 'completed') {
+      // Moving to "Chờ nghiệm thu" → show modal to add note, image and send to resident
+      if (newStatus === 'review') {
         setCompleteModalRequest(request);
         return;
       }
@@ -396,9 +396,9 @@ export function MaintenanceRequestTable() {
 
   const handleComplete = (adminNote: string, completionImageUrl: string) => {
     if (completeModalRequest && completeModalRequest.fullIncident) {
-      updateIncidentStatus(completeModalRequest.fullIncident.id, 'resolved', adminNote, completionImageUrl);
+      updateIncidentStatus(completeModalRequest.fullIncident.id, 'review', adminNote, completionImageUrl);
       if (selectedRequest?.code === completeModalRequest.code) {
-        setSelectedRequest({ ...selectedRequest, status: 'completed' });
+        setSelectedRequest({ ...selectedRequest, status: 'review' });
       }
     }
   };

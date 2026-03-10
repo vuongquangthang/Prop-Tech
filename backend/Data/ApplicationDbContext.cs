@@ -28,6 +28,7 @@ public class ApplicationDbContext : DbContext
 
     // Dịch vụ
     public DbSet<Service> Services { get; set; } = null!;
+    public DbSet<ServicePriceHistory> ServicePriceHistories { get; set; } = null!;
     public DbSet<ChiTietSuDungDichVu> ChiTietSuDungDichVus { get; set; } = null!;
     public DbSet<ChiSoDien> ChiSoDiens { get; set; } = null!;
     public DbSet<ChiSoNuoc> ChiSoNuocs { get; set; } = null!;
@@ -150,6 +151,15 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Service>(entity =>
         {
             entity.HasKey(e => e.Id);
+        });
+
+        modelBuilder.Entity<ServicePriceHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Service)
+                .WithMany(e => e.PriceHistories)
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ChiTietSuDungDichVu>(entity =>

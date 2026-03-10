@@ -1,6 +1,7 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using backend.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
@@ -13,15 +14,18 @@ public interface IServiceService
     Task<ServiceDto> CreateAsync(CreateServiceDto dto);
     Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto);
     Task DeleteAsync(int id);
+    Task<List<ServicePriceHistoryDto>> GetPriceHistoryAsync(int serviceId);
 }
 
 public class ServiceService : IServiceService
 {
     private readonly IServiceRepository _serviceRepository;
+    private readonly ApplicationDbContext _context;
 
-    public ServiceService(IServiceRepository serviceRepository)
+    public ServiceService(IServiceRepository serviceRepository, ApplicationDbContext context)
     {
         _serviceRepository = serviceRepository;
+        _context = context;
     }
 
     public async Task<List<ServiceDto>> GetAllAsync()
@@ -91,16 +95,54 @@ public class ServiceService : IServiceService
         if (dto.Unit != null)
             service.Unit = dto.Unit;
 
-        if (dto.CommonUnitPrice.HasValue)
-            service.CommonUnitPrice = dto.CommonUnitPrice;
+        // If price is being changed, record history
+        if (dto.CommonUnitPrice.HasValue && dto.CommonUnitPrice.Value != (service.CommonUnitPrice ?? 0))
+        {
+            var effectiveDate = dto.EffectiveDate ?? DateTime.UtcNow;
+            var history = new ServicePriceHistory
+            {
+                ServiceId = id,
+                OldPrice = service.CommonUnitPrice ?? 0,
+                NewPrice = dto.CommonUnitPrice.Value,
+                EffectiveDate = effectiveDate,
+                Reason = dto.Reason,
+                ChangedAt = DateTime.UtcNow
+            };
+            _context.ServicePriceHistories.Add(history);
+
+            service.CommonUnitPrice = dto.CommonUnitPrice.Value;
+            service.EffectiveDate = effectiveDate;
+        }
+        else if (dto.CommonUnitPrice.HasValue)
+        {
+            service.CommonUnitPrice = dto.CommonUnitPrice.Value;
+        }
 
         if (dto.IsActive.HasValue)
             service.IsActive = dto.IsActive.Value;
 
         _serviceRepository.Update(service);
         await _serviceRepository.SaveChangesAsync();
+        await _context.SaveChangesAsync();
 
         return MapToDto(service);
+    }
+
+    public async Task<List<ServicePriceHistoryDto>> GetPriceHistoryAsync(int serviceId)
+    {
+        return await _context.ServicePriceHistories
+            .Where(h => h.ServiceId == serviceId)
+            .OrderByDescending(h => h.EffectiveDate)
+            .Select(h => new ServicePriceHistoryDto
+            {
+                Id = h.Id,
+                OldPrice = h.OldPrice,
+                NewPrice = h.NewPrice,
+                EffectiveDate = h.EffectiveDate,
+                Reason = h.Reason,
+                ChangedAt = h.ChangedAt
+            })
+            .ToListAsync();
     }
 
     public async Task DeleteAsync(int id)
@@ -126,7 +168,8 @@ public class ServiceService : IServiceService
             ServiceType = service.ServiceType,
             Unit = service.Unit,
             CommonUnitPrice = service.CommonUnitPrice,
-            IsActive = service.IsActive
+            IsActive = service.IsActive,
+            EffectiveDate = service.EffectiveDate
         };
     }
 }

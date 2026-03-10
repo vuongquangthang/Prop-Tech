@@ -1,4 +1,4 @@
-import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Mail, Plus, Users } from 'lucide-react';
+﻿import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Mail, Plus, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
@@ -126,7 +126,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -551,7 +551,7 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60]">
       <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center space-x-2">
@@ -662,7 +662,7 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
 
 export function ViewContractModal({ contract, onClose }: ContractModalProps) {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -936,7 +936,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
 
 export function PrintContractModal({ contract, onClose }: ContractModalProps) {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[800px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">

@@ -137,4 +137,21 @@ public class ServicesController : ControllerBase
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Lấy lịch sử thay đổi đơn giá của dịch vụ
+    /// </summary>
+    [HttpGet("{id}/price-history")]
+    public async Task<ActionResult<List<ServicePriceHistoryDto>>> GetPriceHistory(int id)
+    {
+        try
+        {
+            var history = await _serviceService.GetPriceHistoryAsync(id);
+            return Ok(history);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
 }

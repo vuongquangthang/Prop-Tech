@@ -1,4 +1,4 @@
-import { Filter, Key, Lock, Unlock, Eye, EyeOff, Loader2, AlertTriangle, UserX, Copy, Check } from 'lucide-react';
+﻿import { Filter, Key, Lock, Unlock, Eye, EyeOff, Loader2, AlertTriangle, UserX, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
 
@@ -307,7 +307,7 @@ export function UserAccountsTable() {
       
       {/* Reset Password Modal */}
       {showResetModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Reset Mật khẩu</h3>
@@ -397,7 +397,7 @@ export function UserAccountsTable() {
       
       {/* Lock/Unlock Confirmation Modal */}
       {showLockModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>

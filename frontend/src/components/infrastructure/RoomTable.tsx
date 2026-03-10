@@ -265,7 +265,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
               <h3 className="text-lg text-gray-800">Thêm Phòng mới</h3>
@@ -314,7 +314,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       )}
 
       {showEditModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
               <h3 className="text-lg text-gray-800">Chỉnh sửa Phòng - {selectedRoom.code}</h3>
@@ -358,7 +358,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       )}
 
       {showDeleteModal && deleteRoom && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Xác nhận xóa</h3>

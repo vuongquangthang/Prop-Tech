@@ -1,4 +1,4 @@
-import { X, Plus, Upload, Edit, Trash2, FileText, AlertTriangle, Check, FolderPlus, Settings } from 'lucide-react';
+﻿import { X, Plus, Upload, Edit, Trash2, FileText, AlertTriangle, Check, FolderPlus, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { knowledgeService } from '../../services/feature.service';
 
@@ -30,7 +30,7 @@ export function AddKnowledgeModal({ onClose }: KnowledgeModalProps) {
   };
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -211,7 +211,7 @@ export function EditKnowledgeModal({ knowledge, onClose }: KnowledgeModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -301,7 +301,7 @@ export function DeleteKnowledgeModal({ knowledge, onClose }: KnowledgeModalProps
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -464,7 +464,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[800px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -671,7 +671,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
 
 export function ManageCategoryModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">

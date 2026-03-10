@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, X, ChevronRight, Filter, RefreshCw, FileText, AlertTriangle, Edit2 } from 'lucide-react';
 import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
@@ -396,7 +396,7 @@ export function DraftInvoicesPage() {
 
       {/* Confirm batch approve dialog */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[420px] p-6 space-y-4">
             <div className="flex items-center gap-3">
               <CheckCircle size={24} className="text-green-600" />

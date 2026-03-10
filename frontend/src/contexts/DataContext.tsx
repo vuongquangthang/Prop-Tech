@@ -128,16 +128,35 @@ function mapMaintenanceStatus(status: string | undefined): Incident['status'] {
   switch (normalized) {
     case 'chờxửlý':
     case 'choxuly':
+    case 'pending':
+    case 'mới':
+    case 'moi':
       return 'pending';
     case 'đangxửlý':
     case 'dangxuly':
+    case 'in-progress':
+    case 'inprogress':
       return 'in-progress';
     case 'hoànthành':
     case 'hoanthanh':
+    case 'resolved':
+    case 'completed':
       return 'resolved';
+    case 'đãđóng':
+    case 'dadong':
+    case 'closed':
+      return 'resolved';
+    case 'yêucầusửalại':
+    case 'yeucausualai':
+      return 'pending';
+    case 'chờnghiệmthu':
+    case 'chonghiemthu':
+    case 'review':
+      return 'review';
     case 'từchối':
     case 'tuchoi':
-      return 'pending'; // Map rejected to pending for now
+    case 'rejected':
+      return 'resolved';
     default:
       return 'pending';
   }
@@ -150,7 +169,7 @@ function mapBackendStatus(status: Incident['status']): string {
     case 'in-progress':
       return 'Đang xử lý';
     case 'review':
-      return 'Đang xử lý'; // No review status in backend
+      return 'Chờ nghiệm thu';
     case 'resolved':
       return 'Hoàn thành';
     default:

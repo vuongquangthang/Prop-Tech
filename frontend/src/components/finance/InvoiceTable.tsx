@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { Eye, Send, Filter, CheckCircle, X, RefreshCw, FileText, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { api } from '../../lib/api-client';
@@ -507,7 +507,7 @@ export function InvoiceTable() {
 
       {/* Confirm batch approve dialog */}
       {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <CheckCircle size={24} style={{ color: '#16a34a' }} />

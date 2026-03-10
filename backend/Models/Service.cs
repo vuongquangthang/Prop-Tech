@@ -32,6 +32,9 @@ public class Service
     [Precision(18, 2)]
     public decimal? CommonUnitPrice { get; set; }
 
+    [Column("NGAY_AP_DUNG")]
+    public DateTime? EffectiveDate { get; set; }
+
     [Required]
     [Column("IS_ACTIVE")]
     public bool IsActive { get; set; } = true;
@@ -39,4 +42,5 @@ public class Service
     // Navigation properties
     public ICollection<ChiTietSuDungDichVu> ChiTietSuDungDichVus { get; set; } = new List<ChiTietSuDungDichVu>();
     public ICollection<ChiTietHoaDon> ChiTietHoaDons { get; set; } = new List<ChiTietHoaDon>();
+    public ICollection<ServicePriceHistory> PriceHistories { get; set; } = new List<ServicePriceHistory>();
 }

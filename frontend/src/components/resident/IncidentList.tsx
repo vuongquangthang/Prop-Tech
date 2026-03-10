@@ -10,6 +10,8 @@ export function IncidentList() {
     switch (status) {
       case 'in-progress':
         return { bg: '#FEF3E8', text: '#E67E22', border: '#E67E22', label: 'Đang xử lý' };
+      case 'review':
+        return { bg: '#F3E8FF', text: '#7C3AED', border: '#7C3AED', label: 'Chờ nghiệm thu' };
       case 'resolved':
         return { bg: '#E8F5E9', text: '#1E7E34', border: '#1E7E34', label: 'Hoàn thành' };
       default:
@@ -71,7 +73,7 @@ export function IncidentList() {
             return (
               <button
                 key={incident.id}
-                onClick={() => navigate('/resident/incidents/tracking')}
+                onClick={() => navigate('/resident/incidents/tracking', { state: { incidentId: incident.id } })}
                 className="w-full bg-white rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow text-left"
               >
                 <div className="flex items-start justify-between mb-2">

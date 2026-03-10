@@ -1,11 +1,11 @@
-import { Send, MessageSquare, AlertCircle, X, ChevronRight } from 'lucide-react';
+﻿import { Send, MessageSquare, AlertCircle, X, ChevronRight, CheckCircle } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSignalRRefresh } from '../lib/useSignalRRefresh';
 import { useNavigate } from 'react-router';
 import { useSearch } from '../contexts/SearchContext';
 import { HighlightText } from './HighlightText';
 import { invoiceService, Invoice } from '../services/api.service';
-import { maintenanceService, MaintenanceRequest } from '../services/feature.service';
+import { maintenanceService, MaintenanceRequest, knowledgeService, KnowledgeBase } from '../services/feature.service';
 
 interface OverdueInvoice {
   id: string;
@@ -24,11 +24,7 @@ interface NewIssue {
   time: string;
 }
 
-const unansweredQuestions = [
-  { id: 'Q-2026-234', room: 'B-308', question: 'Quy định về nuôi thú cưng lớn hơn 10kg như thế nào?', time: '11:20 - 12/02/2026', category: 'Nội quy' },
-  { id: 'Q-2026-236', room: 'A-601', question: 'Phí gửi xe máy điện tính như xe máy thường hay có ưu đãi?', time: '09:30 - 11/02/2026', category: 'Phí dịch vụ' },
-  { id: 'Q-2026-237', room: 'D-112', question: 'Có thể lắp thêm điều hòa thứ 2 không? Cần thủ tục gì?', time: '13:15 - 10/02/2026', category: 'Thủ tục' },
-];
+
 
 const mapInvoice = (inv: Invoice): OverdueInvoice => {
   const due = inv.dueDate ? new Date(inv.dueDate) : null;
@@ -59,6 +55,7 @@ const mapMaintenance = (req: MaintenanceRequest): NewIssue => {
 export function QuickAccessTables() {
   const [overdueInvoices, setOverdueInvoices] = useState<OverdueInvoice[]>([]);
   const [newIssues, setNewIssues] = useState<NewIssue[]>([]);
+  const [pendingKBItems, setPendingKBItems] = useState<KnowledgeBase[]>([]);
   const [totalUnpaid, setTotalUnpaid] = useState(0);
   const [totalIssues, setTotalIssues] = useState(0);
   const [reminderModal, setReminderModal] = useState(false);
@@ -78,11 +75,19 @@ export function QuickAccessTables() {
 
     maintenanceService.getAll()
       .then(data => {
-        const pending = data.filter((r: MaintenanceRequest) =>
-          r.status === 'Pending' || r.status === 'Chờ xử lý' || r.status === 'pending',
-        );
-        setTotalIssues(pending.length);
-        setNewIssues(pending.slice(0, 3).map(mapMaintenance));
+        const newOnes = data
+          .filter((r: MaintenanceRequest) =>
+            r.status === 'Pending' || r.status === 'Chờ xử lý' || r.status === 'pending' || r.status === 'new' || r.status === 'Mới' || r.status === 'Yêu cầu sửa lại',
+          )
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setTotalIssues(newOnes.length);
+        setNewIssues(newOnes.map(mapMaintenance));
+      })
+      .catch(() => {});
+
+    knowledgeService.getAll()
+      .then(data => {
+        setPendingKBItems(data.filter(kb => !kb.isActive));
       })
       .catch(() => {});
   }, []);
@@ -124,12 +129,13 @@ export function QuickAccessTables() {
   }, [searchTerm, newIssues]);
 
   const filteredUnansweredQuestions = useMemo(() => {
-    if (!searchTerm) return unansweredQuestions;
-    return unansweredQuestions.filter(q => 
-      q.room.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.question.toLowerCase().includes(searchTerm.toLowerCase())
+    if (!searchTerm) return pendingKBItems;
+    const term = searchTerm.toLowerCase();
+    return pendingKBItems.filter(kb =>
+      (kb.category ?? '').toLowerCase().includes(term) ||
+      kb.title.toLowerCase().includes(term),
     );
-  }, [searchTerm]);
+  }, [searchTerm, pendingKBItems]);
 
   return (
     <>
@@ -281,7 +287,7 @@ export function QuickAccessTables() {
                     <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
                   </div>
                   <div>
-                    <h2 style={{ fontSize: '22px', color: 'var(--text-primary)', fontWeight: 700 }}>Sự cố mới gửi</h2>
+                    <h2 style={{ fontSize: '22px', color: 'var(--text-primary)', fontWeight: 700 }}>Sự cố chờ xử lý</h2>
                     <p style={{ fontSize: 'var(--type-caption)', color: 'var(--warning)' }}>{newIssues.length} sự cố{totalIssues > newIssues.length ? ` (Còn ${totalIssues - newIssues.length} nữa)` : ''}</p>
                   </div>
                 </div>
@@ -342,7 +348,7 @@ export function QuickAccessTables() {
                   </div>
                   <div>
                     <h2 style={{ fontSize: '22px', color: 'var(--text-primary)', fontWeight: 700 }}>Câu hỏi cần phê duyệt</h2>
-                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{unansweredQuestions.length} câu</p>
+                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{pendingKBItems.length} câu</p>
                   </div>
                 </div>
               </div>
@@ -370,24 +376,24 @@ export function QuickAccessTables() {
               <table className="w-full" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
-                    <th style={{ textAlign: 'left', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, width: '80px' }}>Phòng</th>
-                    <th style={{ textAlign: 'left', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, paddingLeft: '20px' }}>Câu hỏi</th>
+                    <th style={{ textAlign: 'left', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, width: '100px' }}>Danh mục</th>
+                    <th style={{ textAlign: 'left', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, paddingLeft: '20px' }}>Tiêu đề</th>
                     <th style={{ textAlign: 'center', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, width: '110px' }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUnansweredQuestions.map((q, index) => (
-                    <tr key={index} style={{ borderBottom: '1px solid var(--surface-border)' }}>
-                      <td style={{ paddingTop: '16px', paddingBottom: '16px', fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 700, width: '80px' }}>
-                        <HighlightText text={q.room} searchTerm={searchTerm} />
+                  {filteredUnansweredQuestions.map((kb, index) => (
+                    <tr key={kb.id ?? index} style={{ borderBottom: '1px solid var(--surface-border)' }}>
+                      <td style={{ paddingTop: '16px', paddingBottom: '16px', fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 700, width: '100px' }}>
+                        <HighlightText text={kb.category ?? '—'} searchTerm={searchTerm} />
                       </td>
                       <td style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '20px', paddingRight: '12px', fontSize: 'var(--type-body)', color: 'var(--text-primary)' }}>
-                        <HighlightText text={q.question} searchTerm={searchTerm} />
+                        <HighlightText text={kb.title} searchTerm={searchTerm} />
                       </td>
                       <td style={{ paddingTop: '16px', paddingBottom: '16px', textAlign: 'center', width: '110px' }}>
                         <button 
                           onClick={() => {
-                            setSelectedQuestion(q);
+                            setSelectedQuestion(kb);
                             setAnswerModal(true);
                           }}
                           className="rounded transition-colors"
@@ -415,7 +421,7 @@ export function QuickAccessTables() {
       {/* Modals */}
       {/* Reminder Modal */}
       {reminderModal && selectedInvoice && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-surface-card" style={{ 
             borderRadius: 'var(--radius-large)', 
             width: '600px',
@@ -520,7 +526,7 @@ export function QuickAccessTables() {
 
       {/* Answer Question Modal */}
       {answerModal && selectedQuestion && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-surface-card" style={{ 
             borderRadius: 'var(--radius-large)', 
             width: '700px',
@@ -541,8 +547,8 @@ export function QuickAccessTables() {
             </div>
             <div style={{ padding: 'var(--space-card)', display: 'flex', flexDirection: 'column', gap: 'var(--space-between)' }}>
               <div className="bg-blue-50 border border-blue-300 rounded p-4">
-                <p style={{ fontSize: 'var(--type-caption)', color: '#1e40af', marginBottom: '4px' }}>Câu hỏi từ phòng {selectedQuestion.room}</p>
-                <p style={{ fontSize: 'var(--type-body)', color: '#1e3a8a', fontWeight: 600 }}>{selectedQuestion.question}</p>
+                <p style={{ fontSize: 'var(--type-caption)', color: '#1e40af', marginBottom: '4px' }}>Danh mục: {selectedQuestion.category ?? '—'}</p>
+                <p style={{ fontSize: 'var(--type-body)', color: '#1e3a8a', fontWeight: 600 }}>{selectedQuestion.title}</p>
               </div>
 
               <div>
@@ -558,7 +564,7 @@ export function QuickAccessTables() {
                     color: 'var(--text-primary)',
                     height: 'var(--input-height)'
                   }}
-                  defaultValue={selectedQuestion.category}
+                  defaultValue={selectedQuestion.category ?? 'Khác'}
                 >
                   <option>Nội quy</option>
                   <option>Dịch vụ</option>

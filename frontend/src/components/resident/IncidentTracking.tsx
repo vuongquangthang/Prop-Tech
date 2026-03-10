@@ -1,13 +1,17 @@
-import { useNavigate } from 'react-router';
-import { ArrowLeft, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router';
+import { ArrowLeft, Clock, CheckCircle, AlertCircle, ThumbsUp, RotateCcw } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 
 export function IncidentTracking() {
   const navigate = useNavigate();
-  const { incidents } = useData();
+  const location = useLocation();
+  const { incidents, updateIncidentStatus } = useData();
 
-  // Get the most recent incident (last created)
-  const latestIncident = incidents[0];
+  // Use the incident ID passed via navigation state, else fall back to incidents[0]
+  const incidentId = (location.state as any)?.incidentId;
+  const latestIncident = incidentId
+    ? incidents.find(i => i.id === incidentId) ?? incidents[0]
+    : incidents[0];
 
   if (!latestIncident) {
     return (
@@ -42,15 +46,41 @@ export function IncidentTracking() {
       },
     ];
 
-    if (latestIncident.status === 'in-progress' || latestIncident.status === 'resolved') {
+    if (latestIncident.status === 'in-progress' || latestIncident.status === 'review' || latestIncident.status === 'resolved') {
       timeline.push({
         status: 'in-progress',
         label: 'Đang xử lý',
         time: formatDateTime(latestIncident.reportedAt),
         completed: true,
-        message: latestIncident.assignedTo 
+        message: latestIncident.assignedTo
           ? `Kỹ thuật viên ${latestIncident.assignedTo} đang xử lý`
           : 'Kỹ thuật viên đã đến hiện trường kiểm tra',
+      });
+    } else {
+      timeline.push({
+        status: 'in-progress',
+        label: 'Đang xử lý',
+        time: '',
+        completed: false,
+        message: 'Sự cố sẽ được xử lý trong vòng 24h',
+      });
+    }
+
+    if (latestIncident.status === 'review' || latestIncident.status === 'resolved') {
+      timeline.push({
+        status: 'review',
+        label: 'Chờ nghiệm thu',
+        time: '',
+        completed: true,
+        message: latestIncident.resolutionNote || 'Ban quản lý đã hoàn thành sửa chữa',
+      });
+    } else {
+      timeline.push({
+        status: 'review',
+        label: 'Chờ nghiệm thu',
+        time: '',
+        completed: false,
+        message: 'Bạn sẽ được thông báo khi kết quả sửa chữa sẵn sàng',
       });
     }
 
@@ -60,7 +90,7 @@ export function IncidentTracking() {
         label: 'Hoàn thành',
         time: latestIncident.resolvedAt ? formatDateTime(latestIncident.resolvedAt) : '',
         completed: true,
-        message: latestIncident.resolutionNote || 'Sự cố đã được giải quyết hoàn toàn',
+        message: 'Cư dân đã xác nhận hoàn thành',
       });
     } else {
       timeline.push({
@@ -68,7 +98,7 @@ export function IncidentTracking() {
         label: 'Hoàn thành',
         time: '',
         completed: false,
-        message: 'Sự cố sẽ được xử lý trong vòng 24h',
+        message: 'Sự cố sẽ được đóng sau khi bạn xác nhận',
       });
     }
 
@@ -81,6 +111,8 @@ export function IncidentTracking() {
     switch (status) {
       case 'in-progress':
         return { bg: '#FEF3E8', text: '#E67E22', border: '#E67E22', label: 'Đang xử lý' };
+      case 'review':
+        return { bg: '#F3E8FF', text: '#7C3AED', border: '#7C3AED', label: 'Chờ nghiệm thu' };
       case 'resolved':
         return { bg: '#E8F5E9', text: '#1E7E34', border: '#1E7E34', label: 'Đã hoàn thành' };
       default:
@@ -234,7 +266,77 @@ export function IncidentTracking() {
           </div>
         </div>
 
-        {/* Estimated Time */}
+        {/* Evaluation Card — only shown when status is 'review' */}
+        {latestIncident.status === 'review' && (
+          <div className="bg-white rounded-xl border-2 border-purple-300 overflow-hidden">
+            <div className="px-4 py-3 bg-purple-50 border-b border-purple-200">
+              <p style={{ fontSize: '14px', fontWeight: 700, color: '#7C3AED' }}>
+                🔍 Ban quản lý đã hoàn thành sửa chữa
+              </p>
+              <p style={{ fontSize: '12px', color: '#7C3AED', marginTop: '2px' }}>
+                Vui lòng xác nhận kết quả bên dưới
+              </p>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {/* Admin note */}
+              {latestIncident.resolutionNote && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Ghi chú từ ban quản lý:
+                  </p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                    {latestIncident.resolutionNote}
+                  </p>
+                </div>
+              )}
+
+              {/* Completion image */}
+              {latestIncident.completionImageUrl && (
+                <div>
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    Ảnh kết quả sửa chữa:
+                  </p>
+                  <img
+                    src={latestIncident.completionImageUrl}
+                    alt="Kết quả sửa chữa"
+                    className="w-full rounded-lg border border-gray-200 object-cover"
+                    style={{ maxHeight: '200px' }}
+                  />
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex space-x-3 pt-1">
+                <button
+                  onClick={async () => {
+                    await updateIncidentStatus(latestIncident.id, 'resolved');
+                    navigate('/resident/incidents');
+                  }}
+                  className="flex-1 py-3 rounded-xl flex items-center justify-center space-x-2"
+                  style={{ backgroundColor: '#1E7E34', color: '#FFF', fontSize: '14px', fontWeight: 700 }}
+                >
+                  <ThumbsUp size={18} />
+                  <span>Hài lòng</span>
+                </button>
+                <button
+                  onClick={async () => {
+                    await updateIncidentStatus(latestIncident.id, 'pending');
+                    navigate('/resident/incidents');
+                  }}
+                  className="flex-1 py-3 rounded-xl flex items-center justify-center space-x-2 border-2"
+                  style={{ borderColor: '#E67E22', color: '#E67E22', fontSize: '14px', fontWeight: 700 }}
+                >
+                  <RotateCcw size={18} />
+                  <span>Yêu cầu sửa lại</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Estimated Time — only show when not yet in review or resolved */}
+        {latestIncident.status !== 'review' && latestIncident.status !== 'resolved' && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-start space-x-2">
           <AlertCircle size={20} color="#E67E22" className="flex-shrink-0 mt-0.5" />
           <div>
@@ -242,10 +344,11 @@ export function IncidentTracking() {
               Thời gian dự kiến hoàn thành
             </p>
             <p style={{ fontSize: '12px', color: '#E67E22', marginTop: '4px' }}>
-              23/02/2026 - Trong vòng 24 giờ
+              Trong vòng 24 giờ kể từ khi tiếp nhận
             </p>
           </div>
         </div>
+        )}
 
         {/* Contact Support */}
         <div className="bg-white rounded-xl p-4 border border-gray-200 text-center">

@@ -1,4 +1,4 @@
-import { Save, LogOut, Camera, Loader2, AlertTriangle, Key, ChevronDown, ChevronUp } from 'lucide-react';
+﻿import { Save, LogOut, Camera, Loader2, AlertTriangle, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { authService } from '../../services/api.service';
 
@@ -353,7 +353,7 @@ export function MyProfileForm() {
       
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="p-8 text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -379,7 +379,7 @@ export function MyProfileForm() {
       
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Xác nhận đăng xuất</h3>

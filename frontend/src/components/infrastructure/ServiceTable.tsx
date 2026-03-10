@@ -1,6 +1,6 @@
-import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX } from 'lucide-react';
+﻿import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { serviceService } from '../../services/api.service';
+import { serviceService, ServicePriceHistory } from '../../services/api.service';
 
 interface ServiceData {
   id: number;
@@ -11,19 +11,6 @@ interface ServiceData {
   date: string;
   mandatory: boolean;
 }
-
-// Mock price history data - TODO: Fetch from API when backend implements history endpoint
-const priceHistoryData: any = {
-  'Tiền điện': [
-    { date: '01/01/2026', price: '3.500', reason: 'Theo quy định EVN 2026' },
-    { date: '01/07/2025', price: '3.200', reason: 'Điều chỉnh giá bán lẻ điện' },
-    { date: '01/01/2025', price: '3.000', reason: 'Giá ban đầu' },
-  ],
-  'Tiền nước': [
-    { date: '01/01/2026', price: '25.000', reason: 'Theo thông báo Cty Nước sạch' },
-    { date: '01/01/2025', price: '22.000', reason: 'Giá ban đầu' },
-  ],
-};
 
 export function ServiceTable() {
   const [services, setServices] = useState<ServiceData[]>([]);
@@ -45,8 +32,14 @@ export function ServiceTable() {
 
   // UpdatePrice form state
   const [updateNewPrice, setUpdateNewPrice] = useState('');
+  const [updateEffectiveDate, setUpdateEffectiveDate] = useState('');
+  const [updateReason, setUpdateReason] = useState('');
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+
+  // Price history state
+  const [priceHistory, setPriceHistory] = useState<ServicePriceHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Delete state
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -68,7 +61,9 @@ export function ServiceTable() {
         type: service.serviceType || service.loaiDichVu || 'Cố định',
         unit: service.unit || service.donVi || '',
         price: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
-        date: service.effectiveDate || service.ngayHieuLuc || '01/01/2026',
+        date: service.effectiveDate
+          ? (() => { const d = new Date(service.effectiveDate); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; })()
+          : '—',
         mandatory: service.isActive !== undefined ? service.isActive : (service.isMandatory !== undefined ? service.isMandatory : true),
       }));
       
@@ -84,6 +79,8 @@ export function ServiceTable() {
   const handleUpdatePriceClick = (service: any) => {
     setSelectedService(service);
     setUpdateNewPrice('');
+    setUpdateEffectiveDate(new Date().toISOString().split('T')[0]);
+    setUpdateReason('');
     setUpdateError(null);
     setShowUpdatePriceModal(true);
   };
@@ -96,7 +93,13 @@ export function ServiceTable() {
 
   const handleShowHistory = (service: any) => {
     setSelectedService(service);
+    setPriceHistory([]);
+    setHistoryLoading(true);
     setShowHistoryModal(true);
+    serviceService.getPriceHistory(service.id)
+      .then(data => setPriceHistory(data))
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
   };
 
   const openAddModal = () => {
@@ -132,10 +135,16 @@ export function ServiceTable() {
       setUpdateError('Vui lòng nhập đơn giá mới');
       return;
     }
+    if (!updateEffectiveDate) {
+      setUpdateError('Vui lòng chọn ngày áp dụng');
+      return;
+    }
     setUpdateLoading(true); setUpdateError(null);
     try {
       await serviceService.update(selectedService.id, {
         commonUnitPrice: parseFloat(updateNewPrice),
+        effectiveDate: new Date(updateEffectiveDate).toISOString(),
+        reason: updateReason.trim() || undefined,
       } as any);
       await fetchServices();
       setShowUpdatePriceModal(false);
@@ -308,7 +317,7 @@ export function ServiceTable() {
 
       {/* Add Service Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
               <div className="flex items-center space-x-2">
@@ -410,7 +419,7 @@ export function ServiceTable() {
 
       {/* Update Price Modal */}
       {showUpdatePriceModal && selectedService && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[600px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -453,7 +462,8 @@ export function ServiceTable() {
                 <label className="block text-sm text-gray-700 mb-2">Ngày áp dụng giá mới *</label>
                 <input 
                   type="date"
-                  defaultValue="2026-02-05"
+                  value={updateEffectiveDate}
+                  onChange={e => setUpdateEffectiveDate(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -463,10 +473,12 @@ export function ServiceTable() {
 
               {/* Reason */}
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Lý do thay đổi *</label>
+                <label className="block text-sm text-gray-700 mb-2">Lý do thay đổi</label>
                 <input 
                   type="text"
                   placeholder="VD: Theo quy định mới, Điều chỉnh giá..."
+                  value={updateReason}
+                  onChange={e => setUpdateReason(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
@@ -507,7 +519,7 @@ export function ServiceTable() {
 
       {/* Price History Modal */}
       {showHistoryModal && selectedService && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
               <div className="flex items-center space-x-2">
@@ -520,28 +532,36 @@ export function ServiceTable() {
             </div>
             
             <div className="p-6">
-              {priceHistoryData[selectedService.name] ? (
+              {historyLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={32} className="animate-spin text-gray-400" />
+                </div>
+              ) : priceHistory.length > 0 ? (
                 <div className="bg-white border border-gray-300 rounded">
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-300">
                       <tr>
                         <th className="px-4 py-3 text-left text-sm text-gray-600">STT</th>
                         <th className="px-4 py-3 text-left text-sm text-gray-600">Ngày áp dụng</th>
-                        <th className="px-4 py-3 text-right text-sm text-gray-600">Đơn giá (VNĐ)</th>
+                        <th className="px-4 py-3 text-right text-sm text-gray-600">Giá cũ (VNĐ)</th>
+                        <th className="px-4 py-3 text-right text-sm text-gray-600">Giá mới (VNĐ)</th>
                         <th className="px-4 py-3 text-left text-sm text-gray-600">Lý do thay đổi</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {priceHistoryData[selectedService.name].map((history: any, index: number) => (
-                        <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-700">{index + 1}</td>
-                          <td className="px-4 py-3 text-sm text-gray-800">{history.date}</td>
-                          <td className="px-4 py-3 text-sm text-gray-800 text-right font-bold">
-                            {history.price}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{history.reason}</td>
-                        </tr>
-                      ))}
+                      {priceHistory.map((history, index) => {
+                        const d = new Date(history.effectiveDate);
+                        const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+                        return (
+                          <tr key={history.id} className="border-b border-gray-200 hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-700">{index + 1}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">{dateStr}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700 text-right">{history.oldPrice.toLocaleString('vi-VN')}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800 text-right font-bold">{history.newPrice.toLocaleString('vi-VN')}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{history.reason || '—'}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -568,7 +588,7 @@ export function ServiceTable() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedService && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Xác nhận xóa</h3>

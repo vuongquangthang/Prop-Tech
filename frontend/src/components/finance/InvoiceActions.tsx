@@ -1,4 +1,4 @@
-import { X, Download, Send, Users, Check } from 'lucide-react';
+﻿import { X, Download, Send, Users, Check } from 'lucide-react';
 import { useState } from 'react';
 import { useData } from '../../contexts/DataContext';
 
@@ -24,7 +24,7 @@ export function PrintInvoiceModal({ invoice, onClose }: ActionModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[600px]">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <h3 className="text-base text-gray-800">In/Xuất hóa đơn - {invoice?.code}</h3>
@@ -170,7 +170,7 @@ export function SendInvoiceModal({ invoice, onClose }: ActionModalProps) {
   const selectedCount = selectedMembers.includes('all') ? members.length : selectedMembers.length;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">

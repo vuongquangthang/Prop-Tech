@@ -936,6 +936,10 @@ namespace backend.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("DON_GIA_CHUNG");
 
+                    b.Property<DateTime?>("EffectiveDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("NGAY_AP_DUNG");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit")
                         .HasColumnName("IS_ACTIVE");
@@ -960,6 +964,50 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DICH_VU");
+                });
+
+            modelBuilder.Entity("backend.Models.ServicePriceHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("ID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("NGAY_THAY_DOI");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("NGAY_AP_DUNG");
+
+                    b.Property<decimal>("NewPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("GIA_MOI");
+
+                    b.Property<decimal>("OldPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("GIA_CU");
+
+                    b.Property<string?>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("LY_DO");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("int")
+                        .HasColumnName("DICH_VU_ID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("IX_LICH_SU_GIA_DICH_VU_DICH_VU_ID");
+
+                    b.ToTable("LICH_SU_GIA_DICH_VU");
                 });
 
             modelBuilder.Entity("backend.Models.TaiSan", b =>
@@ -1726,6 +1774,19 @@ namespace backend.Migrations
                     b.Navigation("ChiTietHoaDons");
 
                     b.Navigation("ChiTietSuDungDichVus");
+
+                    b.Navigation("PriceHistories");
+                });
+
+            modelBuilder.Entity("backend.Models.ServicePriceHistory", b =>
+                {
+                    b.HasOne("backend.Models.Service", "Service")
+                        .WithMany("PriceHistories")
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("backend.Models.TaiSan", b =>

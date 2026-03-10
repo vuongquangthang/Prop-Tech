@@ -67,6 +67,7 @@ export const API_ENDPOINTS = {
   SERVICES: {
     BASE: '/api/Services',
     BY_ID: (id: number) => `/api/Services/${id}`,
+    PRICE_HISTORY: (id: number) => `/api/Services/${id}/price-history`,
   },
   
   // Invoices

@@ -128,6 +128,16 @@ export interface Service {
   unit?: string;
   commonUnitPrice?: number;
   isActive: boolean;
+  effectiveDate?: string;
+}
+
+export interface ServicePriceHistory {
+  id: number;
+  oldPrice: number;
+  newPrice: number;
+  effectiveDate: string;
+  reason?: string;
+  changedAt: string;
 }
 
 export interface User {
@@ -539,6 +549,15 @@ export const serviceService = {
   delete: async (id: number) => {
     try {
       await api.delete(API_ENDPOINTS.SERVICES.BY_ID(id));
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getPriceHistory: async (id: number) => {
+    try {
+      const response = await api.get<ServicePriceHistory[]>(API_ENDPOINTS.SERVICES.PRICE_HISTORY(id));
+      return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
     }
