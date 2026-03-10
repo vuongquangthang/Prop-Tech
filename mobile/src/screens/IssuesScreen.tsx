@@ -57,6 +57,7 @@ export default function IssuesScreen() {
     const statusMap: { [key: string]: string[] } = {
       'pending': ['Chờ xử lý', 'Yêu cầu sửa lại'],
       'processing': ['Đang xử lý'],
+      'review': ['Chờ nghiệm thu'],
       'completed': ['Hoàn thành', 'Đã đóng'],
     };
     
@@ -72,6 +73,7 @@ export default function IssuesScreen() {
     { id: 'all', label: 'Tất cả' },
     { id: 'pending', label: 'Chờ xử lý' },
     { id: 'processing', label: 'Đang xử lý' },
+    { id: 'review', label: 'Chờ nghiệm thu' },
     { id: 'completed', label: 'Hoàn thành' },
   ];
 

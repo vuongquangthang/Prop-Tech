@@ -82,7 +82,7 @@ export default function IssueDetailScreen() {
             try {
               setIsSubmitting(true);
               await maintenanceService.close(id, {
-                status: 'Đã đóng',
+                status: 'Hoàn thành',
                 adminNote: 'Cư dân xác nhận hài lòng',
               });
               Alert.alert('Thành công', 'Cảm ơn phản hồi của bạn!', [
@@ -103,6 +103,7 @@ export default function IssueDetailScreen() {
     const statusMap: Record<string, { label: string; color: string; bgColor: string }> = {
       'Chờ xử lý': { label: 'Chờ xử lý', color: '#D97706', bgColor: '#FEF3C7' },
       'Đang xử lý': { label: 'Đang xử lý', color: '#2563EB', bgColor: '#DBEAFE' },
+      'Chờ nghiệm thu': { label: 'Chờ nghiệm thu', color: '#7C3AED', bgColor: '#F3E8FF' },
       'Hoàn thành': { label: 'Hoàn thành', color: '#059669', bgColor: '#D1FAE5' },
       'Yêu cầu sửa lại': { label: 'Yêu cầu sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
       'Từ chối': { label: 'Từ chối', color: '#DC2626', bgColor: '#FEE2E2' },
@@ -144,7 +145,7 @@ export default function IssueDetailScreen() {
   }
 
   const statusInfo = getStatusInfo(request.status);
-  const showActions = request.status === 'Hoàn thành' && !request.closedAt;
+  const showActions = request.status === 'Chờ nghiệm thu';
 
   return (
     <SafeAreaView style={styles.container}>
