@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
-  itemUnread: { backgroundColor: '#EFF6FF' },
+  itemUnread: { backgroundColor: '#E8F0FB' },
   iconContainer: {
     width: 44,
     height: 44,

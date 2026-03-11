@@ -3,6 +3,7 @@ using backend.DTOs;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using PayOS.Models.Webhooks;
 
 namespace backend.Controllers;
 
@@ -12,11 +13,13 @@ namespace backend.Controllers;
 public class PaymentController : ControllerBase
 {
     private readonly IPaymentService _paymentService;
+    private readonly IPayOSService _payOSService;
     private readonly ILogger<PaymentController> _logger;
 
-    public PaymentController(IPaymentService paymentService, ILogger<PaymentController> logger)
+    public PaymentController(IPaymentService paymentService, IPayOSService payOSService, ILogger<PaymentController> logger)
     {
         _paymentService = paymentService;
+        _payOSService = payOSService;
         _logger = logger;
     }
 
@@ -106,6 +109,38 @@ public class PaymentController : ControllerBase
         {
             _logger.LogError(ex, "Error canceling payment {TransactionId}", transactionId);
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Webhook nhận kết quả thanh toán từ PayOS (không cần xác thực)
+    /// </summary>
+    [HttpPost("payos-webhook")]
+    [AllowAnonymous]
+    public async Task<ActionResult> PayOSWebhook([FromBody] Webhook webhookBody)
+    {
+        try
+        {
+            var webhookData = await _payOSService.VerifyWebhookAsync(webhookBody);
+            _logger.LogInformation("PayOS webhook received: orderCode={OrderCode}, code={Code}", webhookData.OrderCode, webhookData.Code);
+
+            if (webhookData.Code == "00")
+            {
+                await _paymentService.ProcessPaymentCallbackAsync(new PaymentCallbackDto
+                {
+                    TransactionCode = webhookData.OrderCode.ToString(),
+                    Status = "SUCCESS",
+                    PaidAt = DateTime.UtcNow
+                });
+            }
+
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "PayOS webhook processing error");
+            // Always return 200 to prevent PayOS from retrying indefinitely
+            return Ok(new { success = false, message = ex.Message });
         }
     }
 }

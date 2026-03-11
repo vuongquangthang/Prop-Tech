@@ -23,6 +23,7 @@ export interface InitiatePaymentResponse {
   amount: number;
   qrCodeUrl: string;
   paymentUrl: string;
+  checkoutUrl?: string;
 }
 
 export interface PendingPayment {

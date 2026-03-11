@@ -1,4 +1,4 @@
-import apiService from './api.service';
+﻿import apiService from './api.service';
 
 // Types matching backend DTOs
 export interface InvoiceLineItem {
@@ -143,7 +143,7 @@ class InvoiceService {
       'Chưa thanh toán': { color: '#D97706', bgColor: '#FEF3C7' },
       'Đã thanh toán': { color: '#059669', bgColor: '#D1FAE5' },
       'Quá hạn': { color: '#DC2626', bgColor: '#FEE2E2' },
-      'Thanh toán một phần': { color: '#2563EB', bgColor: '#DBEAFE' },
+      'Thanh toán một phần': { color: '#1A4B84', bgColor: '#E8F0FB' },
     };
     return statusMap[status] || { color: '#6B7280', bgColor: '#F3F4F6' };
   }

@@ -55,6 +55,8 @@ public class InitiatePaymentResponseDto
     public decimal Amount { get; set; }
     public string QrCodeUrl { get; set; } = null!;
     public string PaymentUrl { get; set; } = null!;
+    /// <summary>URL trang thanh toán PayOS - mở trong trình duyệt</summary>
+    public string? CheckoutUrl { get; set; }
 }
 
 public class PaymentCallbackResponseDto

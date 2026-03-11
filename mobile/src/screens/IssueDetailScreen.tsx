@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -102,7 +102,7 @@ export default function IssueDetailScreen() {
   const getStatusInfo = (status: string) => {
     const statusMap: Record<string, { label: string; color: string; bgColor: string }> = {
       'Chờ xử lý': { label: 'Chờ xử lý', color: '#D97706', bgColor: '#FEF3C7' },
-      'Đang xử lý': { label: 'Đang xử lý', color: '#2563EB', bgColor: '#DBEAFE' },
+      'Đang xử lý': { label: 'Đang xử lý', color: '#1A4B84', bgColor: '#E8F0FB' },
       'Chờ nghiệm thu': { label: 'Chờ nghiệm thu', color: '#7C3AED', bgColor: '#F3E8FF' },
       'Hoàn thành': { label: 'Hoàn thành', color: '#059669', bgColor: '#D1FAE5' },
       'Yêu cầu sửa lại': { label: 'Yêu cầu sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
@@ -116,7 +116,7 @@ export default function IssueDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color="#1A4B84" />
           <Text style={styles.loadingText}>Đang tải...</Text>
         </View>
       </SafeAreaView>
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 10,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1A4B84',
     borderRadius: 8,
   },
   retryText: {
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   },
   imageUrlText: {
     fontSize: 13,
-    color: '#2563EB',
+    color: '#1A4B84',
     marginBottom: 8,
   },
   completionImage: {
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#1E3A8A',
+    borderColor: '#1A4B84',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E3A8A',
+    color: '#1A4B84',
   },
   note: {
     fontSize: 12,

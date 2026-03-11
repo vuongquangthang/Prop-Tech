@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 
 interface NavButtonProps {
@@ -43,6 +43,6 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   activeLabel: {
-    color: '#2563EB',
+    color: '#1A4B84',
   },
 });

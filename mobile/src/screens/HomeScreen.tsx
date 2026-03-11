@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const [myRoom, setMyRoom] = useState<MyRoom | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [latestNotification, setLatestNotification] = useState<import('../services/notification.service').Notification | null>(null);
 
   useEffect(() => {
     loadData();
@@ -69,6 +70,13 @@ export default function HomeScreen() {
       // Load unread notification count
       const count = await notificationService.getUnreadCount();
       setUnreadNotifications(count);
+
+      // Load latest notification
+      const allNotifs = await notificationService.getMyNotifications();
+      if (allNotifs.length > 0) {
+        const sorted = allNotifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setLatestNotification(sorted[0]);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -96,12 +104,20 @@ export default function HomeScreen() {
             style={styles.heroImage}
           />
           <View style={styles.heroDarkOverlay} />
-          <TouchableOpacity style={styles.buildingSelector}>
+          <TouchableOpacity
+            style={styles.buildingSelector}
+            onPress={() => (navigation as any).navigate('RoomDetail')}
+          >
             <View style={styles.buildingIcon}>
-              <Text style={styles.buildingIconText}>SH</Text>
+              <Ionicons name="home" size={16} color="#FFFFFF" />
             </View>
-            <Text style={styles.buildingName}>SmartHome KĐT...</Text>
-            <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.buildingLabel}>Phòng của tôi</Text>
+              <Text style={styles.buildingName} numberOfLines={1}>
+                {myRoom ? `${myRoom.roomCode} · ${myRoom.buildingName}` : 'SmartHome KĐT'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
           {/* Notification Bell */}
           <TouchableOpacity
@@ -125,38 +141,49 @@ export default function HomeScreen() {
             Chào {user?.fullName || user?.phoneNumber || 'Cư dân'}
           </Text>
 
-          {/* My Room Card */}
-          {myRoom && (
+          {/* Latest Notification Card */}
+          {latestNotification ? (
             <TouchableOpacity
-              style={styles.roomCard}
-              // @ts-ignore - Navigation typing issue
-              onPress={() => navigation.navigate('RoomDetail' as never)}
+              style={styles.notifCard}
+              onPress={() => (navigation as any).navigate('Notifications')}
             >
-              <View style={styles.roomCardHeader}>
-                <View style={styles.roomCardIcon}>
-                  <Ionicons name="home" size={24} color="#2563EB" />
+              <View style={styles.notifCardHeader}>
+                <View style={[styles.notifCardIcon, !latestNotification.isRead && styles.notifCardIconUnread]}>
+                  <Ionicons
+                    name={
+                      latestNotification.notificationType === 'INVOICE' ? 'receipt-outline' :
+                      latestNotification.notificationType === 'PAYMENT' ? 'card-outline' :
+                      latestNotification.notificationType === 'COMPLAINT' ? 'construct-outline' :
+                      'notifications-outline'
+                    }
+                    size={20}
+                    color={latestNotification.isRead ? '#6B7280' : '#1A4B84'}
+                  />
                 </View>
-                <View style={styles.roomCardInfo}>
-                  <Text style={styles.roomCardTitle}>Phòng của tôi</Text>
-                  <Text style={styles.roomCardCode}>{myRoom.roomCode}</Text>
+                <View style={styles.notifCardInfo}>
+                  <Text style={styles.notifCardLabel}>THÔNG BÁO MỚI NHẤT</Text>
+                  <Text style={styles.notifCardTitle} numberOfLines={1}>{latestNotification.title}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                {!latestNotification.isRead && <View style={styles.notifUnreadDot} />}
               </View>
-              <View style={styles.roomCardDetails}>
-                <View style={styles.roomCardDetail}>
-                  <Ionicons name="layers-outline" size={16} color="#6B7280" />
-                  <Text style={styles.roomCardDetailText}>Tầng {myRoom.floorNumber}</Text>
+              <Text style={styles.notifCardBody} numberOfLines={2}>{latestNotification.content}</Text>
+              <View style={styles.notifCardFooter}>
+                <Text style={styles.notifCardTime}>
+                  {new Date(latestNotification.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Text style={styles.notifCardMore}>Xem tất cả  ›</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.notifCard}
+              onPress={() => (navigation as any).navigate('Notifications')}
+            >
+              <View style={styles.notifCardHeader}>
+                <View style={styles.notifCardIcon}>
+                  <Ionicons name="notifications-outline" size={20} color="#9CA3AF" />
                 </View>
-                {myRoom.area && (
-                  <View style={styles.roomCardDetail}>
-                    <Ionicons name="expand-outline" size={16} color="#6B7280" />
-                    <Text style={styles.roomCardDetailText}>{myRoom.area} m²</Text>
-                  </View>
-                )}
-                <View style={styles.roomCardDetail}>
-                  <Ionicons name="business-outline" size={16} color="#6B7280" />
-                  <Text style={styles.roomCardDetailText}>{myRoom.buildingName}</Text>
-                </View>
+                <Text style={styles.notifCardEmpty}>Chưa có thông báo nào</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -263,7 +290,7 @@ export default function HomeScreen() {
               onPress={() => navigation.navigate('ReportIssue' as never)}
             >
               <View style={styles.utilityIcon}>
-                <Ionicons name="construct" size={24} color="#2563EB" />
+                <Ionicons name="construct" size={24} color="#1A4B84" />
               </View>
               <Text style={styles.utilityText}>Báo cáo sự cố</Text>
             </TouchableOpacity>
@@ -273,7 +300,7 @@ export default function HomeScreen() {
               onPress={() => navigation.navigate('Issues' as never)}
             >
               <View style={styles.utilityIcon}>
-                <Ionicons name="list" size={24} color="#2563EB" />
+                <Ionicons name="list" size={24} color="#1A4B84" />
                 {maintenanceCount > 0 && (
                   <View style={styles.utilityBadge}>
                     <Text style={styles.utilityBadgeText}>{maintenanceCount}</Text>
@@ -324,25 +351,31 @@ const styles = StyleSheet.create({
   },
   buildingSelector: {
     position: 'absolute',
-    top: 48,
-    left: 24,
-    right: 24,
+    top: 64,
+    left: 20,
+    right: 80,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 24,
-    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    gap: 8,
+  },
+  buildingLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
   },
   buildingIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#2563EB',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#1A4B84',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
   },
   buildingIconText: {
     color: '#FFFFFF',
@@ -350,10 +383,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   buildingName: {
-    flex: 1,
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
   },
   notificationButton: {
     position: 'absolute',
@@ -402,7 +434,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 16,
-  },  roomCard: {
+  },  /* Notification card replacing roomCard */
+  notifCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -412,52 +445,81 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
-  roomCardHeader: {
+  notifCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
+    gap: 10,
   },
-  roomCardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EFF6FF',
+  notifCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  roomCardInfo: {
+  notifCardIconUnread: {
+    backgroundColor: '#E8F0FB',
+  },
+  notifCardInfo: {
     flex: 1,
   },
-  roomCardTitle: {
-    fontSize: 12,
-    color: '#6B7280',
+  notifCardLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
-  roomCardCode: {
-    fontSize: 18,
+  notifCardTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#111827',
   },
-  roomCardDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  roomCardDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  roomCardDetailText: {
+  notifCardBody: {
     fontSize: 13,
     color: '#6B7280',
-    marginLeft: 4,
-  },  warningBanner: {
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  notifCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  notifCardTime: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  notifCardMore: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1A4B84',
+  },
+  notifUnreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#1A4B84',
+  },
+  notifCardEmpty: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    flex: 1,
+  },
+  roomCard: {},
+  roomCardHeader: {},
+  roomCardIcon: {},
+  roomCardInfo: {},
+  roomCardTitle: {},
+  roomCardCode: {},
+  roomCardDetails: {},
+  roomCardDetail: {},
+  roomCardDetailText: {},  warningBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FEF2F2',
@@ -535,7 +597,7 @@ const styles = StyleSheet.create({
   billAmount: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: '#1A4B84',
   },
   noBillText: {
     fontSize: 14,
@@ -545,7 +607,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   payButton: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -599,7 +661,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F0FB',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -634,7 +696,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

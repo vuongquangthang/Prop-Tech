@@ -3,6 +3,7 @@ using backend.Models;
 using backend.Repositories;
 using backend.Hubs;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Configuration;
 
 namespace backend.Services;
 
@@ -22,6 +23,8 @@ public class PaymentService : IPaymentService
     private readonly IRoomRepository _roomRepository;
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly ILogger<PaymentService> _logger;
+    private readonly IPayOSService _payOSService;
+    private readonly IConfiguration _config;
 
     public PaymentService(
         IThanhToanRepository thanhToanRepository,
@@ -29,7 +32,9 @@ public class PaymentService : IPaymentService
         IHopDongRepository hopDongRepository,
         IRoomRepository roomRepository,
         IHubContext<NotificationHub> hubContext,
-        ILogger<PaymentService> logger)
+        ILogger<PaymentService> logger,
+        IPayOSService payOSService,
+        IConfiguration config)
     {
         _thanhToanRepository = thanhToanRepository;
         _hoaDonRepository = hoaDonRepository;
@@ -37,6 +42,8 @@ public class PaymentService : IPaymentService
         _roomRepository = roomRepository;
         _hubContext = hubContext;
         _logger = logger;
+        _payOSService = payOSService;
+        _config = config;
     }
 
     public async Task<InitiatePaymentResponseDto> InitiatePaymentAsync(InitTransactionDto dto, int userId)
@@ -70,32 +77,31 @@ public class PaymentService : IPaymentService
             throw new InvalidOperationException("Số tiền thanh toán phải lớn hơn 0");
         }
 
-        // Check if there's already a pending payment (prevent duplicate)
+        // Check if there's already a pending payment - cancel it to create a fresh PayOS link
         var pendingPayment = existingPayments.FirstOrDefault(p => p.Status == "PENDING");
         if (pendingPayment != null)
         {
-            // Generate QR for existing pending payment
-            var existingQrUrl = GenerateVietQRCode(pendingPayment.TransactionCode ?? "", pendingPayment.Amount, invoice);
-            
-            // Return existing pending payment (idempotent)
-            return new InitiatePaymentResponseDto
-            {
-                TransactionId = pendingPayment.Id,
-                TransactionCode = pendingPayment.TransactionCode ?? "",
-                Status = "PENDING",
-                Amount = pendingPayment.Amount,
-                QrCodeUrl = existingQrUrl,
-                PaymentUrl = $"/payment/gateway?txn={pendingPayment.TransactionCode}"
-            };
+            pendingPayment.Status = "CANCELLED";
+            _thanhToanRepository.Update(pendingPayment);
+            await _thanhToanRepository.SaveChangesAsync();
         }
 
-        // Create new pending transaction
-        var transactionCode = $"TXN{DateTime.UtcNow:yyyyMMddHHmmss}{invoice.Id:D6}";
+        // Generate unique orderCode for PayOS (millisecond timestamp)
+        var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Tạo link PayOS — PayOSService tự xử lý test mode (amount 5k vs thật)
+        // và trả về RealAmount để lưu đúng vào ThanhToan
+        var returnUrl = _config["PayOS:ReturnUrl"] ?? "proptech://payment/success";
+        var cancelUrl = _config["PayOS:CancelUrl"] ?? "proptech://payment/cancel";
+        var payosResult = await _payOSService.CreatePaymentLinkAsync(orderCode, invoiceId, returnUrl, cancelUrl);
+
+        // Create new pending transaction - lưu số tiền THỰC (RealAmount) để đối soát
+        var transactionCode = orderCode.ToString();
         var transaction = new ThanhToan
         {
             InvoiceId = invoiceId,
-            Amount = dto.Amount,
-            PaymentType = dto.PaymentMethod,
+            Amount = payosResult.RealAmount,   // số tiền thực, không phải test amount
+            PaymentType = dto.PaymentMethod ?? "QR",
             TransactionCode = transactionCode,
             Status = "PENDING",
             CreatedAt = DateTime.UtcNow,
@@ -104,9 +110,6 @@ public class PaymentService : IPaymentService
 
         await _thanhToanRepository.AddAsync(transaction);
         await _thanhToanRepository.SaveChangesAsync();
-
-        // Generate QR code for bank transfer
-        var qrCodeUrl = GenerateVietQRCode(transaction.TransactionCode, transaction.Amount, invoice);
 
         // Get contract and room info for notification
         var contract = await _hopDongRepository.GetByIdAsync(invoice.ContractId);
@@ -126,11 +129,11 @@ public class PaymentService : IPaymentService
                 amount = transaction.Amount,
                 status = "PENDING"
             });
-            _logger.LogInformation($"💰 Payment initiated: {transactionCode} for invoice {invoice.Id}");
+            _logger.LogInformation("💰 PayOS payment initiated: {TransactionCode} for invoice {InvoiceId}", transactionCode, invoice.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning($"⚠️  Failed to send SignalR notification: {ex.Message}");
+            _logger.LogWarning("⚠️  Failed to send SignalR notification: {Error}", ex.Message);
         }
 
         return new InitiatePaymentResponseDto
@@ -138,9 +141,10 @@ public class PaymentService : IPaymentService
             TransactionId = transaction.Id,
             TransactionCode = transactionCode,
             Status = "PENDING",
-            Amount = dto.Amount,
-            QrCodeUrl = qrCodeUrl,
-            PaymentUrl = $"/payment/gateway?txn={transactionCode}"
+            Amount = payosResult.RealAmount,   // hiển thị số tiền thực cho app
+            QrCodeUrl = payosResult.QrCode,
+            PaymentUrl = payosResult.CheckoutUrl,
+            CheckoutUrl = payosResult.CheckoutUrl
         };
     }
 
@@ -287,26 +291,4 @@ public class PaymentService : IPaymentService
     }
 
     /// <summary>
-    /// Generate VietQR code URL for bank transfer
-    /// Using VietQR API: https://api.vietqr.io
-    /// </summary>
-    private string GenerateVietQRCode(string transactionCode, decimal amount, HoaDon invoice)
-    {
-        // Bank info (you can configure this)
-        var bankId = "970422"; // MB Bank (Ngân hàng Quân Đội)
-        var accountNo = "0123456789"; // Số tài khoản nhận
-        var accountName = "CONG TY PROP TECH"; // Tên tài khoản
-        
-        // Payment description
-        var description = $"PROPTECH {transactionCode} T{invoice.Month:D2}/{invoice.Year}";
-        
-        // Generate QR code URL using VietQR API
-        // Format: https://img.vietqr.io/image/{BANK_ID}-{ACCOUNT_NO}-{TEMPLATE}.jpg?amount={AMOUNT}&addInfo={DESCRIPTION}
-        var qrUrl = $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.jpg" +
-                    $"?amount={amount:0}" +
-                    $"&addInfo={Uri.EscapeDataString(description)}" +
-                    $"&accountName={Uri.EscapeDataString(accountName)}";
-        
-        return qrUrl;
-    }
 }

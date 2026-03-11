@@ -167,6 +167,14 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<backend.Services.IChatService, backend.Services.ChatService>();
 builder.Services.AddScoped<backend.Services.IReportService, backend.Services.ReportService>();
 
+// PayOS Integration
+var payOsSection = builder.Configuration.GetSection("PayOS");
+builder.Services.AddSingleton(new PayOS.PayOSClient(
+    payOsSection["ClientId"]!,
+    payOsSection["ApiKey"]!,
+    payOsSection["ChecksumKey"]!));
+builder.Services.AddScoped<backend.Services.IPayOSService, backend.Services.PayOSService>();
+
 // Payment Service (Realtime QR Payment)
 builder.Services.AddScoped<backend.Services.IPaymentService, backend.Services.PaymentService>();
 

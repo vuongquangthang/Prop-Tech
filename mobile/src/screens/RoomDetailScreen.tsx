@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -65,7 +65,7 @@ export default function RoomDetailScreen() {
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color="#1A4B84" />
         </View>
       </SafeAreaView>
     );
@@ -114,7 +114,7 @@ export default function RoomDetailScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.roomHeader}>
             <View style={styles.roomBadge}>
-              <Ionicons name="home" size={24} color="#2563EB" />
+              <Ionicons name="home" size={24} color="#1A4B84" />
             </View>
             <View style={styles.roomHeaderText}>
               <Text style={styles.roomCode}>{room.roomCode}</Text>
@@ -146,7 +146,7 @@ export default function RoomDetailScreen() {
         {/* Contract Info Card */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="document-text" size={20} color="#2563EB" />
+            <Ionicons name="document-text" size={20} color="#1A4B84" />
             <Text style={styles.sectionTitle}>Thông tin hợp đồng</Text>
           </View>
 
@@ -177,7 +177,7 @@ export default function RoomDetailScreen() {
         {room.services.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="grid" size={20} color="#2563EB" />
+              <Ionicons name="grid" size={20} color="#1A4B84" />
               <Text style={styles.sectionTitle}>Dịch vụ</Text>
             </View>
 
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1A4B84',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F0FB',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   priceValue: {
-    color: '#2563EB',
+    color: '#1A4B84',
     fontWeight: '600',
   },
   sectionHeader: {
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   servicePrice: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#1A4B84',
     marginLeft: 12,
   },
   tierTable: {

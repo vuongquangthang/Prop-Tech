@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -50,27 +51,22 @@ export default function BillDetailScreen() {
     }
   };
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (!invoice || invoice.status === 'Đã thanh toán') return;
-    setShowPaymentSection(true);
-  };
-
-  const handleConfirmPayment = async () => {
-    if (!invoice) return;
     try {
       setIsPaymentProcessing(true);
-      // Create a PENDING transaction then immediately confirm it as SUCCESS
       const response = await paymentService.initiatePayment({
         invoiceId: invoice.id,
         amount: invoice.totalAmount,
         paymentMethod: 'QR',
       });
-      await paymentService.confirmPayment(response.transactionCode);
-      setShowPaymentSection(false);
-      await loadInvoice();
-      Alert.alert('✅ Thanh toán thành công', 'Hóa đơn đã được xác nhận thanh toán.');
+      const url = response.checkoutUrl || response.paymentUrl;
+      if (url) {
+        await Linking.openURL(url);
+        setShowPaymentSection(true);
+      }
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể xác nhận thanh toán');
+      Alert.alert('Lỗi', err.message || 'Không thể khởi tạo thanh toán');
     } finally {
       setIsPaymentProcessing(false);
     }
@@ -93,7 +89,7 @@ export default function BillDetailScreen() {
       <ScrollView style={styles.content}>
         {isLoading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#2563EB" />
+            <ActivityIndicator size="large" color="#1A4B84" />
             <Text style={styles.loadingText}>Đang tải...</Text>
           </View>
         ) : error || !invoice ? (
@@ -120,14 +116,36 @@ export default function BillDetailScreen() {
             <Text style={styles.sectionTitle}>Chi tiết hóa đơn</Text>
             <View style={styles.detailsList}>
               {invoice.lineItems && invoice.lineItems.length > 0 ? (
-                invoice.lineItems.map((item, index) => (
-                  <View key={index} style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>{item.description}</Text>
-                    <Text style={styles.detailValue}>
-                      {invoiceService.formatCurrency(item.subtotal)}
-                    </Text>
-                  </View>
-                ))
+                invoice.lineItems.map((item, index) => {
+                  const unitFallback: Record<string, string> = {
+                    Dien: 'kWh',
+                    Nuoc: 'm³',
+                    TienPhong: 'tháng',
+                    DichVu: 'tháng',
+                  };
+                  const displayUnit = item.unit || unitFallback[item.itemType] || '';
+                  const label =
+                    item.description ||
+                    item.serviceName ||
+                    invoiceService.getLineItemTypeLabel(item.itemType);
+                  return (
+                    <View key={index} style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>{label}</Text>
+                      <View style={styles.detailBottom}>
+                        {item.quantity != null && item.unitPrice != null ? (
+                          <Text style={styles.detailMeta}>
+                            {item.quantity} {displayUnit} × {invoiceService.formatCurrency(item.unitPrice)}
+                          </Text>
+                        ) : (
+                          <View />
+                        )}
+                        <Text style={styles.detailValue}>
+                          {invoiceService.formatCurrency(item.subtotal)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
               ) : (
                 <Text style={styles.noItemsText}>Chưa có chi tiết</Text>
               )}
@@ -142,63 +160,32 @@ export default function BillDetailScreen() {
               </Text>
             </View>
 
-        {/* Mock Payment Section - Show when resident taps "Thanh toán ngay" */}
+        {/* PayOS Payment Section - shown after opening checkout URL */}
         {showPaymentSection && invoice.status !== 'Đã thanh toán' && (
           <View style={styles.qrSection}>
-            <Text style={styles.sectionTitle}>Thông tin chuyển khoản</Text>
-            <View style={styles.qrCode}>
-              <Ionicons name="qr-code" size={160} color="#1F2937" />
-            </View>
-            <View style={styles.bankInfo}>
-              <View style={styles.bankRow}>
-                <Text style={styles.bankLabel}>Ngân hàng</Text>
-                <Text style={styles.bankValue}>MB Bank</Text>
-              </View>
-              <View style={styles.bankRow}>
-                <Text style={styles.bankLabel}>Số tài khoản</Text>
-                <Text style={styles.bankValue}>QTHANG315</Text>
-              </View>
-              <View style={styles.bankRow}>
-                <Text style={styles.bankLabel}>Tên tài khoản</Text>
-                <Text style={styles.bankValue}>VUONG QUANG THANG</Text>
-              </View>
-              <View style={styles.bankRow}>
-                <Text style={styles.bankLabel}>Số tiền</Text>
-                <Text style={[styles.bankValue, { color: '#2563EB' }]}>
-                  {invoiceService.formatCurrency(invoice.totalAmount)}
-                </Text>
-              </View>
-              <View style={styles.bankRow}>
-                <Text style={styles.bankLabel}>Nội dung CK</Text>
-                <Text style={styles.bankValue}>
-                  {`PROPTECH T${invoice.month.toString().padStart(2,'0')}/${invoice.year}`}
-                </Text>
-              </View>
-            </View>
+            <Ionicons name="time-outline" size={48} color="#1A4B84" />
+            <Text style={[styles.sectionTitle, { textAlign: 'center', marginTop: 12 }]}>
+              Đang chờ xác nhận thanh toán
+            </Text>
+            <Text style={{ color: '#6B7280', textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
+              Trang thanh toán PayOS đã được mở trong trình duyệt.{"\n"}
+              Hoàn thành thanh toán, hóa đơn sẽ tự động cập nhật.
+            </Text>
             <TouchableOpacity
-              style={[styles.confirmPayButton, isPaymentProcessing && styles.buttonDisabled]}
-              onPress={handleConfirmPayment}
-              disabled={isPaymentProcessing}
+              style={styles.confirmPayButton}
+              onPress={async () => { await loadInvoice(); }}
             >
-              {isPaymentProcessing ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.confirmPayText}>Xác nhận đã thanh toán</Text>
-                </>
-              )}
+              <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.confirmPayText}>Kiểm tra lại</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelPayButton}
               onPress={() => setShowPaymentSection(false)}
-              disabled={isPaymentProcessing}
             >
-              <Text style={styles.cancelPayText}>Hủy</Text>
+              <Text style={styles.cancelPayText}>Đóng</Text>
             </TouchableOpacity>
           </View>
         )}
-
             <View style={styles.actions}>
               {invoice.status === 'Đã thanh toán' ? (
                 <View style={styles.paidBadge}>
@@ -276,17 +263,30 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   detailRow: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  detailBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   detailLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#374151',
+    fontWeight: '500',
+    flexShrink: 1,
+  },
+  detailMeta: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    flexShrink: 1,
   },
   detailValue: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#111827',
+    textAlign: 'right',
   },
   totalDivider: {
     height: 1,
@@ -301,12 +301,12 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#1A4B84',
   },
   totalValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#1A4B84',
   },
   qrSection: {
     borderWidth: 1,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#1E3A8A',
+    borderColor: '#1A4B84',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E3A8A',
+    color: '#1A4B84',
   },
   centerContainer: {
     flex: 1,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1A4B84',
     borderRadius: 8,
   },
   retryText: {
@@ -499,14 +499,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F0FB',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2563EB',
+    borderColor: '#1A4B84',
   },
   openGatewayText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#1A4B84',
   },
 });

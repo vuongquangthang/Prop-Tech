@@ -1,4 +1,4 @@
-import apiService from './api.service';
+﻿import apiService from './api.service';
 
 // Types matching backend
 export interface Notification {
@@ -100,7 +100,7 @@ class NotificationService {
       'INVOICE': { color: '#D97706', bgColor: '#FEF3C7' },
       'PAYMENT': { color: '#059669', bgColor: '#D1FAE5' },
       'COMPLAINT': { color: '#DC2626', bgColor: '#FEE2E2' },
-      'SYSTEM': { color: '#2563EB', bgColor: '#DBEAFE' },
+      'SYSTEM': { color: '#1A4B84', bgColor: '#E8F0FB' },
       'ANNOUNCEMENT': { color: '#7C3AED', bgColor: '#EDE9FE' },
     };
     return colors[type] || { color: '#6B7280', bgColor: '#F3F4F6' };

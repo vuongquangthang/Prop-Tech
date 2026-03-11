@@ -2,7 +2,10 @@ using backend.Data;
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using backend.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using PayOS.Models.Webhooks;
 
 namespace backend.Services;
 
@@ -14,6 +17,11 @@ public interface IThanhToanService
     Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto);
     Task DeleteAsync(long id);
     Task<List<ThanhToanDto>> GetByUserIdAsync(int userId);
+    /// <summary>
+    /// Xử lý webhook từ PayOS: xác minh chữ ký, tìm hóa đơn theo orderCode
+    /// và đánh dấu "Đã thanh toán" bất kể số tiền thực tế.
+    /// </summary>
+    Task<string> ProcessPayOSWebhookAsync(Webhook webhookBody);
 }
 
 public class ThanhToanService : IThanhToanService
@@ -21,15 +29,21 @@ public class ThanhToanService : IThanhToanService
     private readonly IThanhToanRepository _thanhToanRepository;
     private readonly IHoaDonRepository _hoaDonRepository;
     private readonly ApplicationDbContext _context;
+    private readonly IPayOSService _payOSService;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public ThanhToanService(
         IThanhToanRepository thanhToanRepository,
         IHoaDonRepository hoaDonRepository,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        IPayOSService payOSService,
+        IHubContext<NotificationHub> hubContext)
     {
         _thanhToanRepository = thanhToanRepository;
         _hoaDonRepository = hoaDonRepository;
         _context = context;
+        _payOSService = payOSService;
+        _hubContext = hubContext;
     }
 
     public async Task<List<ThanhToanDto>> GetAllAsync()
@@ -162,5 +176,76 @@ public class ThanhToanService : IThanhToanService
             InvoiceReference = p.HoaDon != null ? $"{p.HoaDon.Month}/{p.HoaDon.Year}" : null,
             RoomNumber = p.HoaDon?.HopDong?.Room?.RoomCode,
         }).ToList();
+    }
+
+    /// <summary>
+    /// Xử lý webhook PayOS: xác minh → tìm ThanhToan → đánh "Đã thanh toán" bất kể số tiền.
+    /// Logic: dùng orderCode (= TransactionCode) để tra cứu hóa đơn gốc.
+    /// </summary>
+    public async Task<string> ProcessPayOSWebhookAsync(Webhook webhookBody)
+    {
+        // 1. Xác minh chữ ký từ PayOS (ném exception nếu sai)
+        var webhookData = await _payOSService.VerifyWebhookAsync(webhookBody);
+
+        // PayOS gửi event test khi đăng ký webhook — bỏ qua
+        if (webhookData.OrderCode == 123)
+            return "Webhook test acknowledged";
+
+        // 2. Chỉ xử lý khi PayOS báo thành công (code "00")
+        if (webhookData.Code != "00")
+            return $"Ignored: PayOS code={webhookData.Code}";
+
+        var orderCodeStr = webhookData.OrderCode.ToString();
+
+        // 3. Tìm ThanhToan theo orderCode (đã lưu trong TransactionCode)
+        var transaction = await _thanhToanRepository.FirstOrDefaultAsync(
+            t => t.TransactionCode == orderCodeStr);
+
+        if (transaction == null)
+            return $"ThanhToan not found for orderCode={orderCodeStr}";
+
+        // Idempotent: bỏ qua nếu đã xử lý
+        if (transaction.Status == "SUCCESS")
+            return $"Already processed: orderCode={orderCodeStr}";
+
+        // 4. Cập nhật ThanhToan → SUCCESS
+        transaction.Status = "SUCCESS";
+        transaction.PaidAt = DateTime.UtcNow;
+        _thanhToanRepository.Update(transaction);
+
+        // 5. Tìm HoaDon và đánh "Đã thanh toán" — BẤT KỂ số tiền thực tế
+        //    (test mode gửi 5k nhưng hóa đơn vẫn được gạch nợ)
+        string invoiceStatus = "Đã thanh toán";
+        HoaDon? invoice = null;
+        if (transaction.InvoiceId.HasValue)
+        {
+            invoice = await _hoaDonRepository.GetByIdAsync(transaction.InvoiceId.Value);
+            if (invoice != null)
+            {
+                invoice.Status = invoiceStatus;
+                _hoaDonRepository.Update(invoice);
+            }
+        }
+
+        await _thanhToanRepository.SaveChangesAsync();
+
+        // 6. Gửi SignalR để app cư dân tự động refresh
+        try
+        {
+            await _hubContext.Clients.All.SendAsync("PaymentSuccess", new
+            {
+                transactionId = transaction.Id,
+                transactionCode = orderCodeStr,
+                invoiceId = invoice?.Id,
+                month = invoice?.Month,
+                year = invoice?.Year,
+                amount = transaction.Amount,
+                status = "SUCCESS",
+                invoiceStatus
+            });
+        }
+        catch { /* SignalR failure không block flow chính */ }
+
+        return $"OK: invoice #{invoice?.Id} marked '{invoiceStatus}'";
     }
 }

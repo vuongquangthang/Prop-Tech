@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -174,7 +174,7 @@ export default function ReportIssueScreen() {
                   <Ionicons
                     name={maintenanceService.getIssueTypeIcon(type) as any}
                     size={24}
-                    color={selectedType === type ? '#2563EB' : '#6B7280'}
+                    color={selectedType === type ? '#1A4B84' : '#6B7280'}
                   />
                   <Text
                     style={[
@@ -231,11 +231,11 @@ export default function ReportIssueScreen() {
             {selectedImages.length < 3 && (
               <View style={styles.photoButtons}>
                 <TouchableOpacity style={styles.photoButton} onPress={() => pickImages('camera')}>
-                  <Ionicons name="camera" size={28} color="#2563EB" />
+                  <Ionicons name="camera" size={28} color="#1A4B84" />
                   <Text style={styles.photoButtonText}>Camera</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.photoButton} onPress={() => pickImages('library')}>
-                  <Ionicons name="images" size={28} color="#2563EB" />
+                  <Ionicons name="images" size={28} color="#1A4B84" />
                   <Text style={styles.photoButtonText}>Thư viện</Text>
                 </TouchableOpacity>
               </View>
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#BFDBFE',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F0FB',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   photoButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#2563EB',
+    color: '#1A4B84',
     marginTop: 8,
   },
   photoNote: {
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     flex: 1,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -459,8 +459,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   typeButtonActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
+    borderColor: '#1A4B84',
+    backgroundColor: '#E8F0FB',
   },
   typeButtonText: {
     fontSize: 13,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   typeButtonTextActive: {
-    color: '#2563EB',
+    color: '#1A4B84',
     fontWeight: '600',
   },
 });

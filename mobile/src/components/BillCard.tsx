@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -63,9 +63,9 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#1A4B84',
   },
   activeAmount: {
-    color: '#2563EB',
+    color: '#1A4B84',
   },
 });

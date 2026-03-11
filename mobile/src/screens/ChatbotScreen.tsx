@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -108,7 +108,7 @@ export default function ChatbotScreen() {
             {msg.type === 'bot' ? (
               <View style={styles.botMessageContainer}>
                 <View style={styles.botAvatar}>
-                  <Ionicons name="chatbubbles" size={18} color="#2563EB" />
+                  <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
                 </View>
                 <View style={styles.botMessage}>
                   <Text style={styles.botMessageText}>{msg.text}</Text>
@@ -132,10 +132,10 @@ export default function ChatbotScreen() {
           <View style={styles.messageWrapper}>
             <View style={styles.botMessageContainer}>
               <View style={styles.botAvatar}>
-                <Ionicons name="chatbubbles" size={18} color="#2563EB" />
+                <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
               </View>
               <View style={styles.botMessage}>
-                <ActivityIndicator size="small" color="#2563EB" />
+                <ActivityIndicator size="small" color="#1A4B84" />
               </View>
             </View>
           </View>
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#E8F0FB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   userMessage: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     borderRadius: 16,
     borderTopRightRadius: 4,
     padding: 12,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 12,
-    color: '#2563EB',
+    color: '#1A4B84',
   },
   inputContainer: {
     padding: 16,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

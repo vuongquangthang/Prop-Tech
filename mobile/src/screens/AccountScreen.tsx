@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   roleBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#E8F0FB',
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 12,
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     flex: 1,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#1A4B84',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
