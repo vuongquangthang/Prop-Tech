@@ -75,11 +75,12 @@ export interface ChatMessage {
 
 export interface Notification {
   id: number;
-  userId: number;
   title: string;
-  message: string;
+  content: string;
+  notificationType: string;
   isRead: boolean;
   createdAt: string;
+  senderPhone?: string;
 }
 
 export interface MaintenanceRequest {
@@ -208,9 +209,53 @@ export const notificationService = {
     }
   },
 
+  getUnreadCount: async (): Promise<number> => {
+    try {
+      const response = await api.get<{ count: number }>(API_ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT);
+      return response.data.count;
+    } catch {
+      return 0;
+    }
+  },
+
   markAsRead: async (id: number) => {
     try {
       await api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id));
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  markAllAsRead: async () => {
+    try {
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getAdminAll: async (limit: number = 200) => {
+    try {
+      const response = await api.get<Notification[]>(
+        `${API_ENDPOINTS.NOTIFICATIONS.ADMIN_ALL}?limit=${limit}`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  send: async (dto: { recipientId: number; title: string; content: string; notificationType?: string }) => {
+    try {
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.SEND, dto);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  broadcast: async (dto: { title: string; content: string; notificationType?: string }) => {
+    try {
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.BROADCAST, dto);
     } catch (error) {
       throw new Error(handleApiError(error));
     }

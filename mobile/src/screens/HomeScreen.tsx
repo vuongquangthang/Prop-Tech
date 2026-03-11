@@ -9,7 +9,6 @@ import {
   SafeAreaView,
   Image,
   ImageBackground,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -18,6 +17,7 @@ import invoiceService, { Invoice } from '../services/invoice.service';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
 // @ts-ignore - TypeScript cache issue, restart TS server if error persists
 import { roomService, MyRoom } from '../services/room.service';
+import notificationService from '../services/notification.service';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -26,6 +26,7 @@ export default function HomeScreen() {
   const [maintenanceCount, setMaintenanceCount] = useState(0);
   const [myRoom, setMyRoom] = useState<MyRoom | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -64,6 +65,10 @@ export default function HomeScreen() {
       // Load maintenance request count
       const requests = await maintenanceService.getMyRequests();
       setMaintenanceCount(requests.length);
+
+      // Load unread notification count
+      const count = await notificationService.getUnreadCount();
+      setUnreadNotifications(count);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -101,16 +106,16 @@ export default function HomeScreen() {
           {/* Notification Bell */}
           <TouchableOpacity
             style={styles.notificationButton}
-            onPress={() => {
-              // TODO: Navigate to notifications screen
-              Alert.alert('Thông báo', 'Tính năng thông báo đang được phát triển');
-            }}
+            onPress={() => (navigation as any).navigate('Notifications')}
           >
             <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-            {/* Uncomment when you have unread notification count */}
-            {/* <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>3</Text>
-            </View> */}
+            {unreadNotifications > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 

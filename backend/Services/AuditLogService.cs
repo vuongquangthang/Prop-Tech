@@ -10,6 +10,7 @@ public interface IAuditLogService
     Task<List<AuditLogDto>> GetByEntityAsync(string entityType, int? entityId = null, int limit = 100);
     Task<List<AuditLogDto>> GetByActionAsync(string action, int limit = 100);
     Task<List<AuditLogDto>> GetRecentAsync(int limit = 100);
+    Task LogAsync(int? userId, string action, string entityType, int? entityId = null, string? details = null, string? ipAddress = null, string? userAgent = null);
 }
 
 public class AuditLogService : IAuditLogService
@@ -45,8 +46,33 @@ public class AuditLogService : IAuditLogService
         return logs.Select(MapToDto).ToList();
     }
 
+    public async Task LogAsync(int? userId, string action, string entityType, int? entityId = null, string? details = null, string? ipAddress = null, string? userAgent = null)
+    {
+        try
+        {
+            var log = new AuditLog
+            {
+                UserId = userId,
+                Action = action,
+                EntityType = entityType,
+                EntityId = entityId,
+                NewValues = details,
+                IpAddress = ipAddress?.Length > 45 ? ipAddress[..45] : ipAddress,
+                UserAgent = userAgent?.Length > 500 ? userAgent[..500] : userAgent,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _repository.AddAsync(log);
+            await _repository.SaveChangesAsync();
+        }
+        catch
+        {
+            // Never let audit logging failures break the main operation
+        }
+    }
+
     private AuditLogDto MapToDto(AuditLog log)
     {
+        var fullName = log.User?.Resident?.FullName ?? log.User?.PhoneNumber;
         return new AuditLogDto
         {
             Id = log.Id,
@@ -55,8 +81,10 @@ public class AuditLogService : IAuditLogService
             Action = log.Action,
             UserId = log.UserId,
             Username = log.User?.PhoneNumber,
-            UserFullName = log.User?.PhoneNumber,
+            FullName = fullName,
+            UserFullName = fullName,
             UserRole = log.User?.Role,
+            Details = log.NewValues,
             OldValues = log.OldValues,
             NewValues = log.NewValues,
             IpAddress = log.IpAddress,
@@ -66,60 +94,3 @@ public class AuditLogService : IAuditLogService
     }
 }
 
-public interface INotificationService
-{
-    Task<List<NotificationDto>> GetByRecipientIdAsync(int recipientId, bool unreadOnly = false);
-    Task<NotificationDto?> GetByIdAsync(int id);
-    Task MarkAsReadAsync(int id);
-    Task MarkAllAsReadAsync(int recipientId);
-}
-
-public class NotificationService : INotificationService
-{
-    private readonly INotificationRepository _repository;
-
-    public NotificationService(INotificationRepository repository)
-    {
-        _repository = repository;
-    }
-
-    public async Task<List<NotificationDto>> GetByRecipientIdAsync(int recipientId, bool unreadOnly = false)
-    {
-        var notifications = await _repository.GetByRecipientIdAsync(recipientId, unreadOnly);
-        return notifications.Select(MapToDto).ToList();
-    }
-
-    public async Task<NotificationDto?> GetByIdAsync(int id)
-    {
-        var notification = await _repository.GetByIdAsync(id);
-        return notification == null ? null : MapToDto(notification);
-    }
-
-    public async Task MarkAsReadAsync(int id)
-    {
-        await _repository.MarkAsReadAsync(id);
-    }
-
-    public async Task MarkAllAsReadAsync(int recipientId)
-    {
-        await _repository.MarkAllAsReadAsync(recipientId);
-    }
-
-    private NotificationDto MapToDto(Notification notification)
-    {
-        return new NotificationDto
-        {
-            Id = notification.Id,
-            RecipientId = notification.RecipientId ?? 0,
-            RecipientName = notification.User?.PhoneNumber ?? "",
-            Title = notification.Title,
-            Content = notification.Content,
-            Type = notification.NotificationType,
-            RelatedEntityType = notification.ScopeType,
-            RelatedEntityId = notification.ScopeId,
-            IsRead = notification.IsRead,
-            ReadAt = notification.ReadAt,
-            CreatedAt = notification.CreatedAt
-        };
-    }
-}

@@ -3,19 +3,12 @@ import apiService from './api.service';
 // Types matching backend
 export interface Notification {
   id: number;
-  userId: number;
-  message: string;
+  title: string;
+  content: string;
   notificationType: 'INVOICE' | 'PAYMENT' | 'COMPLAINT' | 'SYSTEM' | 'ANNOUNCEMENT';
   isRead: boolean;
-  relatedEntityId?: number;
   createdAt: string;
-}
-
-export interface CreateNotification {
-  userId: number;
-  message: string;
-  notificationType: string;
-  relatedEntityId?: number;
+  senderPhone?: string;
 }
 
 class NotificationService {
@@ -26,10 +19,10 @@ class NotificationService {
    */
   async getMyNotifications(): Promise<Notification[]> {
     try {
-      const response = await apiService.get<{ items: Notification[] }>(
-        `${this.baseUrl}?pageNumber=1&pageSize=100`
+      const response = await apiService.get<Notification[]>(
+        `${this.baseUrl}/my-notifications`
       );
-      return response.items || [];
+      return response || [];
     } catch (error) {
       console.error('Error fetching notifications:', error);
       return [];
@@ -40,16 +33,26 @@ class NotificationService {
    * Get unread notifications
    */
   async getUnread(): Promise<Notification[]> {
-    const all = await this.getMyNotifications();
-    return all.filter(n => !n.isRead);
+    try {
+      const response = await apiService.get<Notification[]>(
+        `${this.baseUrl}/my-notifications?unreadOnly=true`
+      );
+      return response || [];
+    } catch (error) {
+      return [];
+    }
   }
 
   /**
    * Get unread count
    */
   async getUnreadCount(): Promise<number> {
-    const unread = await this.getUnread();
-    return unread.length;
+    try {
+      const response = await apiService.get<{ count: number }>(`${this.baseUrl}/unread-count`);
+      return response?.count ?? 0;
+    } catch {
+      return 0;
+    }
   }
 
   /**
@@ -57,7 +60,7 @@ class NotificationService {
    */
   async markAsRead(id: number): Promise<void> {
     try {
-      await apiService.put(`${this.baseUrl}/${id}/read`, {});
+      await apiService.post(`${this.baseUrl}/${id}/read`, {});
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -68,24 +71,12 @@ class NotificationService {
    */
   async markAllAsRead(): Promise<void> {
     try {
-      const notifications = await this.getMyNotifications();
-      const unread = notifications.filter(n => !n.isRead);
-      await Promise.all(unread.map(n => this.markAsRead(n.id)));
+      await apiService.post(`${this.baseUrl}/mark-all-read`, {});
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
   }
 
-  /**
-   * Delete notification
-   */
-  async delete(id: number): Promise<void> {
-    try {
-      await apiService.delete(`${this.baseUrl}/${id}`);
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-    }
-  }
 
   /**
    * Get notification type icon

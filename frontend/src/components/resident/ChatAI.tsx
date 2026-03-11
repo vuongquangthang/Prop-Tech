@@ -1,8 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, MessageCircle, RefreshCw, Trash2 } from 'lucide-react';
-
-const N8N_WEBHOOK = '/n8n-proxy/webhook/4091fa09-fb9a-4039-9411-7104d213f601/chat';
-const STORAGE_KEY = 'resident_chat_history';
+import { chatService } from '../../services/feature.service';
 
 interface Message {
   id: string;
@@ -25,25 +23,8 @@ const WELCOME_MESSAGE: Message = {
   time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
 };
 
-function loadHistory(): Message[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
-  return [WELCOME_MESSAGE];
-}
-
-function saveHistory(messages: Message[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
-  } catch {}
-}
-
 export function ChatAI() {
-  const [messages, setMessages] = useState<Message[]>(loadHistory);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -54,8 +35,17 @@ export function ChatAI() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    saveHistory(messages);
-  }, [messages]);
+    chatService.getHistory(100).then(history => {
+      if (history.length === 0) return;
+      const mapped: Message[] = history.map(m => ({
+        id: String(m.id),
+        type: m.messageRole === 'user' ? 'user' : 'ai',
+        text: m.messageText,
+        time: new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      }));
+      setMessages(mapped);
+    }).catch(() => {/* keep welcome message on error */});
+  }, []);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -73,24 +63,13 @@ export function ChatAI() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(N8N_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatInput: trimmed }),
-      });
-
-      if (!res.ok) throw new Error(`Server trả về lỗi ${res.status}`);
-
-      const data = await res.json();
-      const replyText =
-        data.output || data.text || data.message || data.response ||
-        (typeof data === 'string' ? data : 'Xép lỗi, tôi đang gặp vấn đề. Vui lòng thử lại sau.');
+      const response = await chatService.sendMessage(trimmed);
 
       setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
+        id: String(response.id),
         type: 'ai',
-        text: replyText,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        text: response.messageText,
+        time: new Date(response.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       }]);
     } catch (err: any) {
       setMessages(prev => [...prev, {

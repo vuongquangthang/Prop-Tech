@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import apiService from '../services/api.service';
 
 interface Message {
   id: string;
@@ -38,6 +39,19 @@ export default function ChatbotScreen() {
     }, 100);
   }, [messages]);
 
+  useEffect(() => {
+    // Load chat history from backend
+    apiService.get<any[]>('/api/Chat/history?limit=100').then(history => {
+      if (!history || history.length === 0) return;
+      const mapped: Message[] = history.map((m: any) => ({
+        id: String(m.id),
+        type: m.messageRole === 'user' ? 'user' : 'bot',
+        text: m.messageText,
+      }));
+      setMessages(mapped);
+    }).catch(() => {/* keep welcome message on error */});
+  }, []);
+
   const suggestions = [
     'Quy định tòa nhà là gì?',
     'Lấy pass wifi phòng chờ?',
@@ -57,21 +71,12 @@ export default function ChatbotScreen() {
     setIsTyping(true);
 
     try {
-      // Call n8n AI webhook directly (no CORS issue on mobile)
-      const res = await fetch(
-        'https://lhdpo.app.n8n.cloud/webhook/4091fa09-fb9a-4039-9411-7104d213f601/chat',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatInput: userMessageText }),
-        }
-      );
-      const data = await res.json();
+      const response = await apiService.post<any>('/api/Chat/send', { messageText: userMessageText });
 
       const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: String(response.id),
         type: 'bot',
-        text: data.output || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?',
+        text: response.messageText || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?',
       };
       setMessages(prev => [...prev, botMessage]);
     } catch (error: any) {

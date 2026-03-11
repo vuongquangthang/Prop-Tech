@@ -148,7 +148,12 @@ export interface User {
   role: string;
   isLocked: boolean;
   lastLogin?: string;
+  lastLoginAt?: string;
   residentId?: number;
+  residentName?: string;
+  email?: string;
+  address?: string;
+  avatarUrl?: string;
 }
 
 // Building Services
@@ -616,6 +621,14 @@ export const authService = {
   getCurrentUser: async () => {
     try {
       const response = await api.get<User>(API_ENDPOINTS.AUTH.ME);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+  updateProfile: async (data: { email?: string; address?: string; avatarUrl?: string }) => {
+    try {
+      const response = await api.put<User>(API_ENDPOINTS.AUTH.PROFILE, data);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

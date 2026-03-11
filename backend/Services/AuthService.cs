@@ -12,6 +12,7 @@ public interface IAuthService
     Task<LoginResponseDto> RefreshTokenAsync(string refreshToken);
     Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request);
     Task<UserDto?> GetUserByIdAsync(int userId);
+    Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileDto dto);
 }
 
 public class AuthService : IAuthService
@@ -183,6 +184,20 @@ public class AuthService : IAuthService
         return await MapToUserDto(user);
     }
 
+    public async Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileDto dto)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null) throw new InvalidOperationException("Người dùng không tồn tại");
+
+        user.Email = dto.Email;
+        user.Address = dto.Address;
+        user.AvatarUrl = dto.AvatarUrl;
+        _userRepository.Update(user);
+        await _userRepository.SaveChangesAsync();
+
+        return await MapToUserDto(user);
+    }
+
     private async Task<UserDto> MapToUserDto(User user)
     {
         string? residentName = null;
@@ -200,7 +215,10 @@ public class AuthService : IAuthService
             ResidentId = user.ResidentId,
             ResidentName = residentName,
             IsLocked = user.IsLocked,
-            LastLoginAt = user.LastLoginAt
+            LastLoginAt = user.LastLoginAt,
+            Email = user.Email,
+            Address = user.Address,
+            AvatarUrl = user.AvatarUrl
         };
     }
 

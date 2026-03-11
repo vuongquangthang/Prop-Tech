@@ -12,6 +12,9 @@ public class UserDto
     public string? ResidentName { get; set; }
     public bool IsLocked { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    public string? Email { get; set; }
+    public string? Address { get; set; }
+    public string? AvatarUrl { get; set; }
 }
 
 /// <summary>
@@ -23,6 +26,17 @@ public class CreateUserDto
     public string Password { get; set; } = null!;
     public string Role { get; set; } = "CuDan"; // Admin, QuanLy, CuDan, KeToan
     public int? ResidentId { get; set; }
+}
+
+/// <summary>
+/// DTO để cập nhật thông tin hồ sơ cá nhân (user tự cập nhật)
+/// </summary>
+public class UpdateProfileDto
+{
+    public string? Email { get; set; }
+    public string? Address { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string? FullName { get; set; }
 }
 
 /// <summary>

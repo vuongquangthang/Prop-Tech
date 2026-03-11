@@ -1,5 +1,7 @@
-﻿import { Save, LogOut, Camera, Loader2, AlertTriangle, Key, ChevronDown, ChevronUp } from 'lucide-react';
+﻿import { Save, LogOut, Camera, Loader2, AlertTriangle, Key, ChevronDown, ChevronUp, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/api.service';
 
 export function MyProfileForm() {
@@ -16,7 +18,16 @@ export function MyProfileForm() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [showPasswordSuccessModal, setShowPasswordSuccessModal] = useState(false);
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const { logout, changePassword } = useAuth();
 
   useEffect(() => {
     // Only fetch profile if user is logged in (has token)
@@ -34,12 +45,12 @@ export function MyProfileForm() {
       setLoading(true);
       setError(null);
       const user = await authService.getCurrentUser();
-      
-      // Set form fields from user data
+
       setFullName(user.residentName || user.phoneNumber || '');
       setPhone(user.phoneNumber || '');
-      // Email and address not available in UserDto - leave empty
-      // User can manually enter if needed
+      if (user.email)    setEmail(user.email);
+      if (user.address)  setAddress(user.address);
+      if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
     } catch (err: any) {
       // If 401/403 (not authenticated), show empty form instead of error
       if (err.message?.includes('401') || err.message?.includes('403') || err.message?.includes('Unauthorized')) {
@@ -81,39 +92,47 @@ export function MyProfileForm() {
     }
   };
 
-  const handleSaveChanges = () => {
-    // Validation
-    if (!fullName.trim()) {
-      alert('Vui lòng nhập Họ và Tên');
+  const handleSaveChanges = async () => {
+    if (!fullName.trim()) { alert('Vui lòng nhập Họ và Tên'); return; }
+    if (!phone.trim()) { alert('Vui lòng nhập Số điện thoại'); return; }
+
+    try {
+      await authService.updateProfile({ email: email.trim(), address: address.trim(), avatarUrl });
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Không thể cập nhật hồ sơ');
+    }
+  };
+
+  const handleChangePasswordSubmit = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(false);
+    if (!currentPassword.trim()) {
+      setPasswordError('Vui lòng nhập mật khẩu hiện tại');
       return;
     }
-    if (!email.trim()) {
-      alert('Vui lòng nhập Email');
+    if (!newPassword || newPassword.length < 8) {
+      setPasswordError('Mật khẩu mới phải có ít nhất 8 ký tự');
       return;
     }
-    if (!phone.trim()) {
-      alert('Vui lòng nhập Số điện thoại');
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Mật khẩu mới và xác nhận không khớp');
       return;
     }
-    
-    // Check if changing password
-    if (showPasswordForm && (newPassword || confirmPassword)) {
-      if (!currentPassword) {
-        alert('Vui lòng nhập mật khẩu hiện tại để đổi mật khẩu');
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        alert('Mật khẩu mới và xác nhận không khớp');
-        return;
-      }
-      if (newPassword.length < 8) {
-        alert('Mật khẩu mới phải có ít nhất 8 ký tự');
-        return;
-      }
+    try {
+      setPasswordLoading(true);
+      await changePassword(currentPassword, newPassword);
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordSuccessModal(true);
+      setTimeout(() => { setPasswordSuccess(false); setShowPasswordForm(false); }, 2500);
+    } catch (err: any) {
+      setPasswordError(err.message || 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.');
+    } finally {
+      setPasswordLoading(false);
     }
-    
-    // Show success modal
-    setShowSuccessModal(true);
   };
 
   const handleLogout = () => {
@@ -122,8 +141,8 @@ export function MyProfileForm() {
 
   const confirmLogout = () => {
     setShowLogoutModal(false);
-    // In a real app, this would redirect to login page
-    alert('Đã đăng xuất thành công');
+    logout();
+    navigate('/login');
   };
 
   // Loading state
@@ -284,42 +303,90 @@ export function MyProfileForm() {
         
         {showPasswordForm && (
         <div className="space-y-4 max-w-xl">
+          {/* Current password */}
           <div>
             <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu hiện tại *</label>
-            <input 
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="●●●●●●●●"
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-              style={{ fontSize: 'var(--type-caption)' }}
-            />
+            <div className="relative">
+              <input
+                type={showCurrentPass ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="●●●●●●●●"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                style={{ fontSize: 'var(--type-caption)' }}
+              />
+              <button type="button" onClick={() => setShowCurrentPass(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600">
+                {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
-          
+
+          {/* New password */}
           <div>
-            <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu mới</label>
-            <input 
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="●●●●●●●●"
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-              style={{ fontSize: 'var(--type-caption)' }}
-            />
-            <p className="text-gray-500 mt-1" style={{ fontSize: 'var(--type-caption)' }}>Tối thiểu 8 ký tự, bao gồm chữ hoa, chữ thường và số</p>
+            <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu mới *</label>
+            <div className="relative">
+              <input
+                type={showNewPass ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="●●●●●●●●"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                style={{ fontSize: 'var(--type-caption)' }}
+              />
+              <button type="button" onClick={() => setShowNewPass(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600">
+                {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-gray-500 mt-1" style={{ fontSize: 'var(--type-caption)' }}>Tối thiểu 8 ký tự</p>
           </div>
-          
+
+          {/* Confirm password */}
           <div>
-            <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Xác nhận mật khẩu mới</label>
-            <input 
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="●●●●●●●●"
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-              style={{ fontSize: 'var(--type-caption)' }}
-            />
+            <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Xác nhận mật khẩu mới *</label>
+            <div className="relative">
+              <input
+                type={showConfirmPass ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="●●●●●●●●"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                style={{ fontSize: 'var(--type-caption)' }}
+              />
+              <button type="button" onClick={() => setShowConfirmPass(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600">
+                {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
+
+          {/* Error */}
+          {passwordError && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700" style={{ fontSize: 'var(--type-caption)' }}>
+              <AlertTriangle size={15} />
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          {/* Success */}
+          {passwordSuccess && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded text-green-700" style={{ fontSize: 'var(--type-caption)' }}>
+              <CheckCircle size={15} />
+              <span>Đổi mật khẩu thành công!</span>
+            </div>
+          )}
+
+          {/* Submit button */}
+          <button
+            onClick={handleChangePasswordSubmit}
+            disabled={passwordLoading}
+            className="flex items-center gap-2 px-5 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 disabled:opacity-60"
+            style={{ fontSize: 'var(--type-caption)', height: 'var(--button-height)', borderRadius: 'var(--radius-button)' }}
+          >
+            {passwordLoading ? <Loader2 size={15} className="animate-spin" /> : <Key size={15} />}
+            <span>{passwordLoading ? 'Đang xử lý...' : 'Xác nhận đổi mật khẩu'}</span>
+          </button>
         </div>
         )}
         
@@ -377,6 +444,32 @@ export function MyProfileForm() {
         </div>
       )}
       
+      {/* Change Password Success Modal */}
+      {showPasswordSuccessModal && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-[460px] shadow-xl">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={32} className="text-green-600" />
+              </div>
+              <h3 className="text-gray-800 mb-2" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>
+                Đổi mật khẩu thành công!
+              </h3>
+              <p className="text-gray-500 mb-6" style={{ fontSize: 'var(--type-caption)' }}>
+                Mật khẩu của bạn đã được cập nhật. Vui lòng sử dụng mật khẩu mới cho lần đăng nhập tiếp theo.
+              </p>
+              <button
+                onClick={() => { setShowPasswordSuccessModal(false); setShowPasswordForm(false); }}
+                className="px-6 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
+                style={{ fontSize: 'var(--type-caption)', height: 'var(--button-height)', borderRadius: 'var(--radius-button)' }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">

@@ -1,10 +1,10 @@
 import { Search, Bell, User, LogOut, Menu } from 'lucide-react';
 import { useSearch } from '../contexts/SearchContext';
 import { useNavigate } from 'react-router';
-import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NotificationPanel } from './NotificationPanel';
+import { notificationService } from '../services/feature.service';
 
 interface TopbarProps {
   title?: string;
@@ -14,11 +14,16 @@ interface TopbarProps {
 export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: TopbarProps) {
   const { searchTerm, setSearchTerm } = useSearch();
   const navigate = useNavigate();
-  const { getUnreadNotificationCountByTarget } = useData();
   const { logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const unreadCount = getUnreadNotificationCountByTarget('admin');
+  useEffect(() => {
+    const load = () => notificationService.getUnreadCount().then(setUnreadCount);
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleExitAdmin = () => {
     if (confirm('Bạn có muốn đăng xuất khỏi hệ thống?')) {

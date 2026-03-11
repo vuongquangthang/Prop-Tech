@@ -1204,6 +1204,20 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("VAI_TRO");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("EMAIL");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("ADDRESS");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("AVATAR_URL");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PhoneNumber")

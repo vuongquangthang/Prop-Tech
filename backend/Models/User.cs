@@ -47,6 +47,17 @@ public class User
     [Column("REFRESH_TOKEN_EXPIRY_TIME")]
     public DateTime? RefreshTokenExpiryTime { get; set; }
 
+    [StringLength(200)]
+    [Column("EMAIL")]
+    public string? Email { get; set; }
+
+    [StringLength(500)]
+    [Column("ADDRESS")]
+    public string? Address { get; set; }
+
+    [Column("AVATAR_URL", TypeName = "nvarchar(max)")]
+    public string? AvatarUrl { get; set; }
+
     // Navigation properties
     [ForeignKey("ResidentId")]
     public Resident? Resident { get; set; }

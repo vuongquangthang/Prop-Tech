@@ -10,10 +10,12 @@ namespace backend.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IAuditLogService _auditLogService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IAuditLogService auditLogService)
     {
         _authService = authService;
+        _auditLogService = auditLogService;
     }
 
     /// <summary>
@@ -26,6 +28,9 @@ public class AuthController : ControllerBase
         try
         {
             var response = await _authService.LoginAsync(request);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var ua = Request.Headers["User-Agent"].FirstOrDefault();
+            await _auditLogService.LogAsync(response.User.Id, "LOGIN", "Auth", null, $"Đăng nhập: {request.PhoneNumber}", ip, ua);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -48,6 +53,9 @@ public class AuthController : ControllerBase
         try
         {
             var response = await _authService.RegisterAsync(request);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var ua = Request.Headers["User-Agent"].FirstOrDefault();
+            await _auditLogService.LogAsync(response.User.Id, "CREATE", "User", response.User.Id, $"Đăng ký tài khoản: {request.PhoneNumber}", ip, ua);
             return Ok(response);
         }
         catch (InvalidOperationException ex)
@@ -98,6 +106,9 @@ public class AuthController : ControllerBase
             }
 
             await _authService.ChangePasswordAsync(userId, request);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var ua = Request.Headers["User-Agent"].FirstOrDefault();
+            await _auditLogService.LogAsync(userId, "UPDATE", "User", userId, "Đổi mật khẩu", ip, ua);
             return Ok(new { message = "Đổi mật khẩu thành công" });
         }
         catch (UnauthorizedAccessException ex)
@@ -140,6 +151,34 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    [HttpPut("profile")]
+    [Authorize]
+    public async Task<ActionResult<UserDto>> UpdateProfile([FromBody] UpdateProfileDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Không thể xác định người dùng" });
+            }
+
+            var result = await _authService.UpdateProfileAsync(userId, dto);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var ua = Request.Headers["User-Agent"].FirstOrDefault();
+            await _auditLogService.LogAsync(userId, "UPDATE", "User", userId, "Cập nhật hồ sơ cá nhân", ip, ua);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Lỗi khi cập nhật hồ sơ", error = ex.Message });
         }
     }
 }

@@ -1,42 +1,56 @@
 import { X, CheckCheck } from 'lucide-react';
-import { useData } from '../contexts/DataContext';
-import { useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { notificationService, Notification } from '../services/feature.service';
 
 interface NotificationPanelProps {
   onClose: () => void;
 }
 
 export function NotificationPanel({ onClose }: NotificationPanelProps) {
-  const { getNotificationsByTarget, markNotificationAsRead, markAllNotificationsAsRead } = useData();
-  const navigate = useNavigate();
+  const [adminNotifications, setAdminNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const adminNotifications = getNotificationsByTarget('admin');
+  useEffect(() => {
+    notificationService.getAdminAll(100).then(data => {
+      setAdminNotifications(data);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
 
   const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'warning':
-        return { bg: '#FEF3E8', text: '#E67E22', icon: '⚠️' };
-      case 'success':
-        return { bg: '#E8F5E9', text: '#1E7E34', icon: '✅' };
-      case 'payment':
+    switch (type?.toUpperCase()) {
+      case 'INVOICE':
         return { bg: '#E8F0F8', text: '#1A4B84', icon: '💰' };
-      case 'incident':
-        return { bg: '#FEF3E8', text: '#E67E22', icon: '🔧' };
+      case 'PAYMENT':
+        return { bg: '#E8F5E9', text: '#1E7E34', icon: '✅' };
+      case 'COMPLAINT':
+        return { bg: '#FEF3E8', text: '#E67E22', icon: '⚠️' };
+      case 'SYSTEM':
+        return { bg: '#F3E5F5', text: '#7B1FA2', icon: 'ℹ️' };
+      case 'ANNOUNCEMENT':
+        return { bg: '#FEF3E8', text: '#E67E22', icon: '📢' };
       default:
         return { bg: '#F5F5F5', text: '#666', icon: 'ℹ️' };
     }
   };
 
-  const handleNotificationClick = (notificationId: string, relatedId?: string) => {
-    markNotificationAsRead(notificationId);
-    if (relatedId && relatedId.startsWith('INC')) {
-      navigate(`/maintenance-request`);
-      onClose();
-    }
+  const handleMarkAsRead = async (id: number) => {
+    await notificationService.markAsRead(id);
+    setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
-  const handleMarkAllRead = () => {
-    markAllNotificationsAsRead();
+  const handleMarkAllRead = async () => {
+    await notificationService.markAllAsRead();
+    setAdminNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = (now.getTime() - date.getTime()) / 1000;
+    if (diff < 60) return 'Vừa xong';
+    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+    return date.toLocaleDateString('vi-VN');
   };
 
   return (
@@ -114,11 +128,11 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           ) : (
             <div className="divide-y" style={{ borderColor: 'var(--surface-border)' }}>
               {adminNotifications.map((notification) => {
-                const typeColor = getTypeColor(notification.type);
+                const typeColor = getTypeColor(notification.notificationType);
                 return (
                   <button
                     key={notification.id}
-                    onClick={() => handleNotificationClick(notification.id, notification.relatedId)}
+                    onClick={() => handleMarkAsRead(notification.id)}
                     className="w-full text-left p-4 transition-colors hover:bg-gray-50"
                     style={{
                       borderLeft: notification.isRead ? 'none' : '4px solid var(--brand-primary)',
@@ -157,10 +171,10 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
                           marginBottom: '6px',
                           lineHeight: '1.5',
                         }}>
-                          {notification.message}
+                          {notification.content}
                         </p>
                         <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
-                          🕐 {notification.time}
+                          🕐 {formatTime(notification.createdAt)}
                         </p>
                       </div>
                     </div>

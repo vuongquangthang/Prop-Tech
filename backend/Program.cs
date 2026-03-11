@@ -11,7 +11,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://0.0.0.0:5052", "https://0.0.0.0:5053");
 
 // Add services to the container
-builder.Services.AddControllers()
+builder.Services.AddScoped<backend.Filters.AuditLogActionFilter>();
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.AddService<backend.Filters.AuditLogActionFilter>();
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -159,6 +163,7 @@ builder.Services.AddScoped<backend.Services.IAuditLogService, backend.Services.A
 builder.Services.AddScoped<backend.Services.INotificationService, backend.Services.NotificationService>();
 
 // Tier 3: Chatbot & Reports
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<backend.Services.IChatService, backend.Services.ChatService>();
 builder.Services.AddScoped<backend.Services.IReportService, backend.Services.ReportService>();
 

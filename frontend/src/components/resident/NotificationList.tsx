@@ -1,71 +1,37 @@
 import { Bell, AlertTriangle, Info, DollarSign, Wrench, CheckCircle, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useData } from '../../contexts/DataContext';
-import { useState } from 'react';
-
-interface Notification {
-  id: string;
-  type: 'warning' | 'info' | 'payment' | 'incident' | 'success';
-  title: string;
-  message: string;
-  time: string;
-  isRead: boolean;
-  relatedId?: string;
-}
+import { useState, useEffect } from 'react';
+import { notificationService, Notification } from '../../services/feature.service';
 
 export function NotificationList() {
   const navigate = useNavigate();
-  const { getNotificationsByTarget, confirmIncidentCompletion, incidents } = useData();
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  // Get only resident notifications
-  const notifications = getNotificationsByTarget('resident');
-  
+  useEffect(() => {
+    notificationService.getMy().then(data => {
+      setNotifications(data);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
   const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'warning':
-        return { icon: AlertTriangle, color: '#E67E22', bg: '#FFF3E0' };
-      case 'info':
-        return { icon: Info, color: '#1A4B84', bg: '#E3F2FD' };
-      case 'payment':
-        return { icon: DollarSign, color: '#27AE60', bg: '#E8F5E9' };
-      case 'incident':
-        return { icon: Wrench, color: '#9B59B6', bg: '#F3E5F5' };
-      case 'success':
+    switch (type?.toUpperCase()) {
+      case 'INVOICE':
+        return { icon: DollarSign, color: '#1A4B84', bg: '#E3F2FD' };
+      case 'PAYMENT':
         return { icon: CheckCircle, color: '#27AE60', bg: '#E8F5E9' };
+      case 'COMPLAINT':
+        return { icon: AlertTriangle, color: '#E67E22', bg: '#FFF3E0' };
+      case 'SYSTEM':
+        return { icon: Info, color: '#1A4B84', bg: '#E3F2FD' };
+      case 'ANNOUNCEMENT':
+        return { icon: Wrench, color: '#9B59B6', bg: '#F3E5F5' };
       default:
         return { icon: Bell, color: '#95A5A6', bg: '#F5F5F5' };
     }
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const handleConfirmCompletion = (incidentId: string) => {
-    setConfirmingId(incidentId);
-    confirmIncidentCompletion(incidentId);
-    
-    // Show success feedback
-    setTimeout(() => {
-      setConfirmingId(null);
-    }, 1500);
-  };
-
-  // Check if notification is for review (chờ nghiệm thu)
-  const isReviewNotification = (notification: any) => {
-    if (!notification.relatedId) return false;
-    const incident = incidents.find(inc => inc.id === notification.relatedId);
-    return incident?.status === 'review' && notification.title === 'Yêu cầu nghiệm thu';
-  };
-
-  const handleNotificationClick = (notification: any) => {
-    // Navigate based on notification type
-    if (notification.type === 'payment') {
-      navigate('/resident/bill-detail');
-    } else if (notification.type === 'incident' && notification.relatedId) {
-      navigate('/resident/incidents/tracking');
-    }
-    // You can add more navigation logic for other types
-  };
 
   return (
     <div className="bg-gray-50 min-h-full">
@@ -94,9 +60,8 @@ export function NotificationList() {
       {/* Notifications List */}
       <div className="p-3 space-y-2">
         {notifications.map((notification) => {
-          const iconConfig = getNotificationIcon(notification.type);
+          const iconConfig = getNotificationIcon(notification.notificationType);
           const Icon = iconConfig.icon;
-          const showConfirmButton = isReviewNotification(notification);
 
           return (
             <div
@@ -110,7 +75,12 @@ export function NotificationList() {
                   borderWidth: notification.isRead ? '1px' : '2px',
                   opacity: notification.isRead ? 0.7 : 1,
                 }}
-                onClick={() => handleNotificationClick(notification)}
+                onClick={async () => {
+                  if (!notification.isRead) {
+                    await notificationService.markAsRead(notification.id);
+                    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+                  }
+                }}
               >
                 <div className="flex space-x-3">
                   {/* Icon */}
@@ -156,43 +126,15 @@ export function NotificationList() {
                       lineHeight: 1.4,
                       marginBottom: '6px'
                     }}>
-                      {notification.message}
+                      {notification.content}
                     </p>
                     <p style={{ 
                       fontSize: '10px', 
                       color: 'var(--text-tertiary)',
                       lineHeight: 1,
-                      marginBottom: showConfirmButton ? '8px' : '0'
                     }}>
-                      {notification.time}
+                      {new Date(notification.createdAt).toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    
-                    {/* Confirm Button for Review Notifications */}
-                    {showConfirmButton && notification.relatedId && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleConfirmCompletion(notification.relatedId!);
-                        }}
-                        disabled={confirmingId === notification.relatedId}
-                        className="w-full mt-2 px-3 py-2 rounded-lg font-semibold text-white transition-all"
-                        style={{
-                          backgroundColor: confirmingId === notification.relatedId ? '#27AE60' : '#FF5733',
-                          fontSize: '12px',
-                          opacity: confirmingId === notification.relatedId ? 0.8 : 1,
-                          cursor: confirmingId === notification.relatedId ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {confirmingId === notification.relatedId ? (
-                          <span className="flex items-center justify-center space-x-1">
-                            <CheckCircle size={14} />
-                            <span>Đã xác nhận!</span>
-                          </span>
-                        ) : (
-                          '✓ Xác nhận hoàn thành hài lòng'
-                        )}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>

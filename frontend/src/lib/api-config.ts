@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     CHANGE_PASSWORD: '/api/Auth/change-password',
     LOGOUT: '/api/Auth/logout',
     ME: '/api/Auth/me',
+    PROFILE: '/api/Auth/profile',
   },
   
   // Users
@@ -184,6 +185,11 @@ export const API_ENDPOINTS = {
     MY: '/api/Notifications/my-notifications',
     BY_ID: (id: number) => `/api/Notifications/${id}`,
     MARK_READ: (id: number) => `/api/Notifications/${id}/read`,
+    MARK_ALL_READ: '/api/Notifications/mark-all-read',
+    UNREAD_COUNT: '/api/Notifications/unread-count',
+    ADMIN_ALL: '/api/Notifications/admin/all',
+    SEND: '/api/Notifications/send',
+    BROADCAST: '/api/Notifications/broadcast',
   },
   
   // Audit Logs
