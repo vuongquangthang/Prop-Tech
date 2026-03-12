@@ -129,6 +129,8 @@ class SignalRService {
           type: 'SUCCESS',
           ...payment
         }));
+        // Trigger invoice list refresh (e.g. BillsScreen)
+        this.invoiceHandlers.forEach(handler => handler(payment));
         // Also trigger notification
         this.notificationHandlers.forEach(handler =>
           handler({

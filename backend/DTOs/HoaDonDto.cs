@@ -80,6 +80,7 @@ public class PayHoaDonDto
 /// </summary>
 public class CalculateInvoiceResultDto
 {
+    public int TotalContracts { get; set; }
     public int TotalInvoices { get; set; }
     public decimal TotalAmount { get; set; }
     public int Skipped { get; set; }

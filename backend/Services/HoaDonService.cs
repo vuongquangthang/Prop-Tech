@@ -139,28 +139,29 @@ public class HoaDonService : IHoaDonService
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
+            result.TotalContracts = contracts.Count;
+
             foreach (var contract in contracts)
             {
-                // Kiểm tra hóa đơn đã tồn tại
+                // Kiểm tra hóa đơn đã tồn tại (bao gồm cả "Bị từ chối" để tránh vi phạm unique index)
                 var existingInvoice = await _context.HoaDons
                     .Include(hd => hd.ChiTietHoaDons)
-                    .FirstOrDefaultAsync(hd => hd.ContractId == contract.Id && hd.Month == month && hd.Year == year
-                                               && hd.Status != "Bị từ chối");
+                    .FirstOrDefaultAsync(hd => hd.ContractId == contract.Id && hd.Month == month && hd.Year == year);
 
                 if (existingInvoice != null)
                 {
-                    // Nếu đã approved/paid, bỏ qua hoàn toàn
-                    if (existingInvoice.Status != "Nháp")
+                    // Nếu đã approved/paid/unpaid → bỏ qua hoàn toàn
+                    if (existingInvoice.Status != "Nháp" && existingInvoice.Status != "Bị từ chối")
                     {
                         result.Skipped++;
                         result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
                         continue;
                     }
-                    // Nếu là Nháp → xóa để tạo lại với dữ liệu mới (bao gồm chỉ số điện/nước)
+                    // Nếu là Nháp hoặc Bị từ chối → xóa để tạo lại với dữ liệu mới
                     _context.ChiTietHoaDons.RemoveRange(existingInvoice.ChiTietHoaDons);
                     _context.HoaDons.Remove(existingInvoice);
                     await _context.SaveChangesAsync();
-                    result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Tính lại hóa đơn nháp tháng {month}/{year}");
+                    result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Tính lại hóa đơn tháng {month}/{year} (trạng thái cũ: {existingInvoice.Status})");
                 }
 
                 var room = contract.Room;

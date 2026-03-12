@@ -36,7 +36,14 @@ export function UtilityReadingTable() {
   const [errors, setErrors] = useState<string[]>([]);
   const [successMsg, setSuccessMsg] = useState('');
   const [calculateModal, setCalculateModal] = useState(false);
-  const [calcResult, setCalcResult] = useState<{ totalInvoices: number; totalAmount: number; errors: string[] } | null>(null);
+  const [calcResult, setCalcResult] = useState<{
+    totalContracts: number;
+    totalInvoices: number;
+    totalAmount: number;
+    skipped: number;
+    skippedReasons: string[];
+    errors: string[];
+  } | null>(null);
 
   const loadReadings = useCallback(async () => {
     setLoading(true);
@@ -118,7 +125,14 @@ export function UtilityReadingTable() {
     setCalculating(true);
     setErrors([]);
     try {
-      const res = await api.post<{ totalInvoices: number; totalAmount: number; errors: string[] }>(
+      const res = await api.post<{
+        totalContracts: number;
+        totalInvoices: number;
+        totalAmount: number;
+        skipped: number;
+        skippedReasons: string[];
+        errors: string[];
+      }>(
         API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth)
       );
       setCalcResult(res.data);
@@ -315,7 +329,7 @@ export function UtilityReadingTable() {
       {/* Calculate Result Modal */}
       {calculateModal && calcResult && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-[500px]">
+          <div className="bg-white rounded-lg w-[520px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Calculator size={20} className="text-gray-800" />
@@ -324,21 +338,68 @@ export function UtilityReadingTable() {
               <button onClick={() => setCalculateModal(false)}><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="bg-green-50 border border-green-300 rounded p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle size={20} className="text-green-600" />
-                  <span className="font-semibold text-green-800">Đã tạo thành công!</span>
+              {/* Summary row */}
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                  <p className="text-xs text-gray-500 mb-1">Hợp đồng xử lý</p>
+                  <p className="text-xl font-bold text-gray-800">{calcResult.totalContracts}</p>
                 </div>
-                <p className="text-sm text-green-700">Tổng hóa đơn nháp: <strong>{calcResult.totalInvoices}</strong></p>
-                <p className="text-sm text-green-700">Tổng tiền: <strong>{calcResult.totalAmount.toLocaleString('vi-VN')} đ</strong></p>
+                <div className={`border rounded p-3 ${calcResult.totalInvoices > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <p className="text-xs text-gray-500 mb-1">Hóa đơn đã tạo</p>
+                  <p className={`text-xl font-bold ${calcResult.totalInvoices > 0 ? 'text-green-700' : 'text-gray-400'}`}>{calcResult.totalInvoices}</p>
+                </div>
+                <div className={`border rounded p-3 ${calcResult.skipped > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <p className="text-xs text-gray-500 mb-1">Bỏ qua</p>
+                  <p className={`text-xl font-bold ${calcResult.skipped > 0 ? 'text-yellow-600' : 'text-gray-400'}`}>{calcResult.skipped}</p>
+                </div>
               </div>
-              {calcResult.errors.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
-                  <p className="text-sm font-medium text-yellow-800 mb-1">⚠️ Một số phòng chưa chốt chỉ số:</p>
-                  {calcResult.errors.map((e, i) => <p key={i} className="text-xs text-yellow-700">• {e}</p>)}
+
+              {/* Success / warning banner */}
+              {calcResult.totalInvoices > 0 ? (
+                <div className="bg-green-50 border border-green-300 rounded p-4 flex items-start gap-3">
+                  <CheckCircle size={18} className="text-green-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-green-800 text-sm">Tạo hóa đơn thành công!</p>
+                    <p className="text-sm text-green-700 mt-1">Tổng tiền: <strong>{calcResult.totalAmount.toLocaleString('vi-VN')} đ</strong></p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-300 rounded p-4 flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-yellow-800 text-sm">Không có hóa đơn nào được tạo mới.</p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      {calcResult.skipped > 0
+                        ? 'Tất cả hợp đồng đã có hóa đơn được phê duyệt hoặc đã thanh toán.'
+                        : calcResult.totalContracts === 0
+                          ? 'Không tìm thấy hợp đồng nào có cư dân đang ở. Vui lòng kiểm tra dữ liệu hợp đồng.'
+                          : 'Kiểm tra chi tiết bên dưới.'}
+                    </p>
+                  </div>
                 </div>
               )}
-              <p className="text-sm text-gray-600">Vào trang <strong>Quản lý Hóa đơn</strong> để xem xét và phê duyệt.</p>
+
+              {/* Skipped reasons */}
+              {calcResult.skippedReasons.length > 0 && (
+                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                  <p className="text-xs font-semibold text-gray-600 mb-2">Chi tiết xử lý:</p>
+                  <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                    {calcResult.skippedReasons.map((r, i) => <p key={i} className="text-xs text-gray-500">• {r}</p>)}
+                  </div>
+                </div>
+              )}
+
+              {/* Meter-reading errors */}
+              {calcResult.errors.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
+                  <p className="text-xs font-semibold text-yellow-700 mb-1">⚠️ Một số phòng chưa chốt chỉ số (hóa đơn vẫn được tạo không có khoản điện/nước):</p>
+                  <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                    {calcResult.errors.map((e, i) => <p key={i} className="text-xs text-yellow-600">• {e}</p>)}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500">Vào trang <strong>Quản lý Hóa đơn</strong> để xem hóa đơn nháp và phê duyệt.</p>
               <div className="flex justify-end pt-2 border-t">
                 <button onClick={() => setCalculateModal(false)} className="px-5 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">Đóng</button>
               </div>

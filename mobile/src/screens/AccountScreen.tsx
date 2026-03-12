@@ -18,10 +18,17 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { SettingRow } from '../components/SettingRow';
 import apiService from '../services/api.service';
+// @ts-ignore - TypeScript cache issue, restart TS server if error persists
+import { roomService, MyRoom } from '../services/room.service';
 
 export default function AccountScreen() {
   const navigation = useNavigation();
   const { user, logout } = useAuthStore();
+  const [myRoom, setMyRoom] = useState<MyRoom | null>(null);
+
+  React.useEffect(() => {
+    roomService.getMyRoom().then(setMyRoom).catch(() => {});
+  }, []);
 
   // Change password modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -100,7 +107,7 @@ export default function AccountScreen() {
   };
 
   const getInitials = () => {
-    const name = user?.fullName || '';
+    const name = myRoom?.householdHeadName || user?.residentName || '';
     const parts = name.trim().split(' ');
     if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     if (name.length > 0) return name[0].toUpperCase();
@@ -125,7 +132,7 @@ export default function AccountScreen() {
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>
-              {user?.fullName || user?.phoneNumber || 'Cư dân'}
+              {myRoom?.householdHeadName || user?.residentName || user?.phoneNumber || 'Cư dân'}
             </Text>
             <Text style={styles.profilePhone}>{user?.phoneNumber}</Text>
             <View style={styles.roleBadge}>
@@ -149,7 +156,7 @@ export default function AccountScreen() {
             <SettingRow
               icon="person-outline"
               title="Họ và tên"
-              subtitle={user?.fullName || 'Chưa cập nhật'}
+              subtitle={user?.residentName || 'Chưa cập nhật'}
               borderBottom
             />
             <SettingRow

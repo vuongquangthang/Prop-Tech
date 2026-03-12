@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { UnauthorizedPage } from "./pages/UnauthorizedPage";
 import { PlatformSelector } from "./components/PlatformSelector";
 import { AppSelector } from "./components/AppSelector";
@@ -48,6 +49,10 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: <PublicRoute><LoginPage /></PublicRoute>,
+  },
+  {
+    path: "/forgot-password",
+    element: <PublicRoute><ForgotPasswordPage /></PublicRoute>,
   },
   {
     path: "/unauthorized",

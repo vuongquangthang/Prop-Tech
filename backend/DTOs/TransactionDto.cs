@@ -57,6 +57,18 @@ public class InitiatePaymentResponseDto
     public string PaymentUrl { get; set; } = null!;
     /// <summary>URL trang thanh toán PayOS - mở trong trình duyệt</summary>
     public string? CheckoutUrl { get; set; }
+    /// <summary>Số tài khoản ngân hàng nhận tiền</summary>
+    public string BankAccountNumber { get; set; } = "";
+    /// <summary>Tên chủ tài khoản</summary>
+    public string BankAccountName { get; set; } = "";
+    /// <summary>BIN ngân hàng (dùng cho VietQR)</summary>
+    public string BankBin { get; set; } = "";
+    /// <summary>Nội dung chuyển khoản</summary>
+    public string TransferDescription { get; set; } = "";
+    /// <summary>Tên rút gọn ngân hàng (VietinBank, MB, Vietcombank...)</summary>
+    public string BankName { get; set; } = "";
+    /// <summary>URL logo ngân hàng từ VietQR</summary>
+    public string BankLogoUrl { get; set; } = "";
 }
 
 public class PaymentCallbackResponseDto

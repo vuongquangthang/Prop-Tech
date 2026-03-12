@@ -1,14 +1,16 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, useLocation } from 'react-router';
+import { useNavigate, useLocation, Link } from 'react-router';
 import { getDefaultRoute } from '../lib/roles';
 
 export function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, user } = useAuth();
+
+  const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -16,35 +18,18 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    console.log('🔐 Attempting login with:', { phoneNumber, passwordLength: password.length });
-
     try {
       await login(phoneNumber, password);
-      console.log('✅ Login successful!');
-      
-      // Get user data immediately after login
       const userDataStr = localStorage.getItem('user');
-      console.log('📦 User data from localStorage:', userDataStr);
-      
       if (userDataStr) {
         const userData = JSON.parse(userDataStr);
-        console.log('👤 User role:', userData.role);
-        
         const defaultRoute = getDefaultRoute(userData.role);
-        console.log('🎯 Default route for role:', defaultRoute);
-        
         const from = (location.state as any)?.from?.pathname;
-        const targetRoute = from || defaultRoute;
-        console.log('🚀 Navigating to:', targetRoute);
-        
-        navigate(targetRoute, { replace: true });
+        navigate(from || defaultRoute, { replace: true });
       } else {
-        console.error('❌ No user data in localStorage!');
         setError('Lỗi: Không lưu được thông tin đăng nhập');
       }
     } catch (err) {
-      console.error('❌ Login error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Đăng nhập thất bại';
       setError(errorMessage);
     } finally {
@@ -53,81 +38,75 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Đăng nhập hệ thống
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Quản lý chung cư
-          </p>
-        </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-          
-          <div className="rounded-md shadow-sm space-y-4">
+    <div className="min-h-screen w-full relative flex items-center justify-center font-sans">
+      <div className="absolute inset-0 z-0">
+        <img 
+          src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1920&auto=format&fit=crop" 
+          alt="Background" 
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/50"></div>
+      </div>
+
+      <div className="relative z-10 px-4" style={{ width: '100%', maxWidth: '560px' }}>
+        <div className="rounded-3xl shadow-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '0.5px solid rgba(255,255,255,0.2)', padding: '80px 48px' }}>
+          <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow text-center mb-10">Đăng nhập</h1>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <p className="text-red-400 text-sm text-center bg-red-500/10 rounded-lg p-3">{error}</p>
+            )}
+
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Số điện thoại
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
+              <input 
+                type="text" 
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="0123456789"
+                placeholder="Số điện thoại" 
+                className="w-full bg-transparent border-0 border-b border-white/50 py-3 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
+                required
               />
             </div>
-            
+
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Mật khẩu
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
+              <input 
+                type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="••••••••"
+                placeholder="Mật khẩu" 
+                className="w-full bg-transparent border-0 border-b border-white/50 py-3 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
+                required
               />
             </div>
-          </div>
 
-          <div>
-            <button
+            <div className="flex justify-between items-center pt-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border border-white/50 accent-white cursor-pointer"
+                />
+                <span className="text-sm font-normal" style={{ color: 'rgba(255,255,255,0.85)' }}>Ghi nhớ đăng nhập</span>
+              </label>
+              <Link to="/forgot-password" className="text-sm transition-colors" style={{ color: 'rgba(255,255,255,0.85)' }}>Quên mật khẩu?</Link>
+            </div>
+
+            <button 
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-white text-gray-900 font-bold py-3 rounded-lg mt-8 hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-50"
             >
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
-          </div>
 
-          <div className="text-center text-sm text-gray-600">
-            <div className="bg-blue-50 p-4 rounded-md">
-              <p className="font-semibold mb-2">Demo Accounts:</p>
-              <div className="space-y-1 text-xs font-mono">
-                <p className="text-purple-700">👑 Admin: 0123456789 / Admin@123</p>
-                <p className="text-blue-700">👤 Manager: 0987654321 / Manager@123</p>
-                <p className="text-green-700">🏠 Resident: 0111222333 / Resident@123</p>
-                <p className="text-orange-700">💰 Accountant: 0444555666 / Accountant@123</p>
-                <p className="text-gray-700">🔧 Staff: 0777888999 / Staff@123</p>
-              </div>
+            <div className="text-center pt-4">
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Tài khoản được cấp bởi quản trị viên. Vui lòng liên hệ ban quản lý nếu cần hỗ trợ.
+              </p>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -94,6 +94,7 @@ public class MyRoomDto
     public DateTime? ContractEndDate { get; set; }
     public decimal RentPrice { get; set; }
     public decimal Deposit { get; set; }
+    public string? HouseholdHeadName { get; set; }
     
     // Services info
     public List<ServiceInfoDto> Services { get; set; } = new();

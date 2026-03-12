@@ -19,6 +19,7 @@ public class HoaDonController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin,QuanLy,KeToan,NhanVien")]
     public async Task<ActionResult<List<HoaDonDto>>> GetAll()
     {
         try { return Ok(await _hoaDonService.GetAllAsync()); }

@@ -33,6 +33,7 @@ export interface MyRoom {
   contractEndDate: string | null;
   rentPrice: number;
   deposit: number;
+  householdHeadName?: string;
   
   services: ServiceInfo[];
   

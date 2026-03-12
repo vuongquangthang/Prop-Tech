@@ -6,7 +6,16 @@ using backend.Repositories;
 namespace backend.Services;
 
 /// <summary>Kết quả tạo link thanh toán PayOS</summary>
-public record PayOSCreateResult(string CheckoutUrl, string QrCode, decimal RealAmount);
+public record PayOSCreateResult(
+    string CheckoutUrl,
+    string QrCode,
+    decimal RealAmount,
+    int PaymentAmount,
+    string AccountNumber,
+    string AccountName,
+    string Bin,
+    string Description
+);
 
 public interface IPayOSService
 {
@@ -66,10 +75,21 @@ public class PayOSService : IPayOSService
         };
 
         var result = await _client.PaymentRequests.CreateAsync(request);
-        _logger.LogInformation("PayOS link created: {CheckoutUrl}", result.CheckoutUrl);
+        _logger.LogInformation(
+            "PayOS link created: CheckoutUrl={CheckoutUrl}, QrCode={QrCode}, AccountNumber={AccountNumber}, AccountName={AccountName}, Bin={Bin}",
+            result.CheckoutUrl, result.QrCode, result.AccountNumber, result.AccountName, result.Bin);
 
-        // Trả về RealAmount để caller (PaymentService) lưu đúng vào ThanhToan
-        return new PayOSCreateResult(result.CheckoutUrl, result.QrCode ?? "", realAmount);
+        // Trả về cả số tiền thực và số tiền gửi sang PayOS để UI hiển thị đúng khi test 5.000đ
+        return new PayOSCreateResult(
+            result.CheckoutUrl,
+            result.QrCode ?? "",
+            realAmount,
+            payosAmount,
+            result.AccountNumber ?? "",
+            result.AccountName ?? "",
+            result.Bin ?? "",
+            description
+        );
     }
 
     public async Task<WebhookData> VerifyWebhookAsync(Webhook webhookBody)

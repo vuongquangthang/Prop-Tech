@@ -149,6 +149,13 @@ public class RoomService : IRoomService
         var floor = await _floorRepository.GetByIdAsync(room.FloorId);
         var building = floor != null ? await _buildingRepository.GetByIdAsync(floor.BuildingId) : null;
 
+        // Find household head (Người thuê chính) for this contract
+        var allResidencies = await _chiTietORepository.GetByContractIdAsync(contract.Id);
+        var householdHead = allResidencies
+            .FirstOrDefault(ct => ct.ResidencyRole == "Người thuê chính" && (ct.ToDate == null || ct.ToDate > DateTime.Now));
+        var householdHeadName = householdHead?.Resident?.FullName
+            ?? allResidencies.FirstOrDefault()?.Resident?.FullName; // fallback to first resident
+
         // For now, return basic room info
         // Services and pricing can be added later when the schema supports it
         return new MyRoomDto
@@ -167,6 +174,7 @@ public class RoomService : IRoomService
             ContractEndDate = contract.ExpectedEndDate,
             RentPrice = contract.ActualRentPrice,
             Deposit = contract.DepositAmount ?? 0,
+            HouseholdHeadName = householdHeadName,
             Services = new List<ServiceInfoDto>(), // TODO: Load services when schema is ready
             ElectricityBasePrice = null,
             ElectricityTiers = new List<ElectricityTierDto>(),

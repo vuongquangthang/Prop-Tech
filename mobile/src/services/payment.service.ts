@@ -24,6 +24,12 @@ export interface InitiatePaymentResponse {
   qrCodeUrl: string;
   paymentUrl: string;
   checkoutUrl?: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+  bankBin: string;
+  transferDescription: string;
+  bankName: string;
+  bankLogoUrl: string;
 }
 
 export interface PendingPayment {

@@ -20,7 +20,7 @@ export interface RefreshTokenRequest {
 export interface UserDto {
   id: number;
   phoneNumber: string;
-  fullName: string;
+  residentName?: string;
   role: string;
   residentId?: number;
 }

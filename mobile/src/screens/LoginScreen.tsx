@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,17 +9,25 @@ import {
   Platform,
   ScrollView,
   Alert,
-  Image,
+  ImageBackground,
+  StatusBar,
 } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 
-export default function LoginScreen() {
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AuthStackParamList } from '../navigation/AuthStack';
+
+type Props = {
+  navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
+};
+
+export default function LoginScreen({ navigation }: Props) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const { login, isLoading, error, clearError } = useAuthStore();
 
   const handleLogin = async () => {
-    // Validation
     if (!phoneNumber.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập số điện thoại');
       return;
@@ -28,183 +36,233 @@ export default function LoginScreen() {
       Alert.alert('Lỗi', 'Vui lòng nhập mật khẩu');
       return;
     }
-
     try {
       clearError();
       await login(phoneNumber.trim(), password);
-      // Navigation will be handled automatically by RootNavigator
     } catch (err: any) {
       const isNetworkError = !err.response;
       Alert.alert(
         'Đăng nhập thất bại',
         isNetworkError
-          ? `Không kết nối được đến máy chủ.\nKiểm tra lại kết nối mạng hoặc địa chỉ server.`
+          ? 'Không kết nối được đến máy chủ.\nKiểm tra lại kết nối mạng.'
           : err.response?.data?.message || 'Số điện thoại hoặc mật khẩu không đúng'
       );
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <ImageBackground
+      source={{ uri: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1920&auto=format&fit=crop' }}
+      style={styles.bg}
+      resizeMode="cover"
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.content}>
-          {/* Logo/Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Quản lý Chung cư</Text>
-            <Text style={styles.subtitle}>Đăng nhập để tiếp tục</Text>
-          </View>
+      <StatusBar barStyle="light-content" />
+      {/* Dark overlay */}
+      <View style={styles.overlay} />
 
-          {/* Form */}
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Số điện thoại</Text>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Glass card */}
+          <View style={styles.card}>
+            <Text style={styles.title}>Đăng nhập</Text>
+
+            {error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            {/* Phone input */}
+            <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Nhập số điện thoại"
+                placeholder="Số điện thoại"
+                placeholderTextColor="rgba(255,255,255,0.6)"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 keyboardType="phone-pad"
                 autoCapitalize="none"
                 editable={!isLoading}
+                selectionColor="white"
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mật khẩu</Text>
+            {/* Password input */}
+            <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Nhập mật khẩu"
+                placeholder="Mật khẩu"
+                placeholderTextColor="rgba(255,255,255,0.6)"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 autoCapitalize="none"
                 editable={!isLoading}
+                selectionColor="white"
               />
             </View>
 
-            {error && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+            {/* Remember me + Forgot password */}
+            <View style={styles.row}>
+              <TouchableOpacity style={styles.checkboxRow} onPress={() => setRememberMe(!rememberMe)} activeOpacity={0.7}>
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.rememberText}>Ghi nhớ đăng nhập</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('ForgotPassword')}>
+                <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+              </TouchableOpacity>
+            </View>
 
+            {/* Login button */}
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={isLoading}
+              activeOpacity={0.85}
             >
               <Text style={styles.buttonText}>
                 {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </Text>
             </TouchableOpacity>
-          </View>
 
-          {/* Demo accounts info */}
-          <View style={styles.demoInfo}>
-            <Text style={styles.demoTitle}>Tài khoản demo:</Text>
-            <Text style={styles.demoText}>Resident: 0909000003 / password123</Text>
+            {/* Footer note */}
+            <Text style={styles.footerText}>
+              Tài khoản được cấp bởi quản trị viên. Vui lòng liên hệ ban quản lý nếu cần hỗ trợ.
+            </Text>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  flex: {
+    flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.52)',
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  content: {
-    flex: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 24,
+    paddingVertical: 48,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 48,
+  card: {
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 28,
+    paddingHorizontal: 28,
+    paddingVertical: 44,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  form: {
-    width: '100%',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#F9FAFB',
-  },
-  button: {
-    height: 50,
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  buttonDisabled: {
-    backgroundColor: '#93C5FD',
-  },
-  buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 36,
   },
-  errorContainer: {
-    backgroundColor: '#FEE2E2',
+  errorBox: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderRadius: 10,
     padding: 12,
-    borderRadius: 8,
     marginBottom: 16,
   },
   errorText: {
-    color: '#DC2626',
+    color: '#FCA5A5',
     fontSize: 14,
+    textAlign: 'center',
   },
-  demoInfo: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
+  inputWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.5)',
+    marginBottom: 24,
   },
-  demoTitle: {
+  input: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    paddingVertical: 10,
+    fontWeight: '500',
+    backgroundColor: 'transparent',
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 28,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  checkboxChecked: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  checkmark: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#111',
+    lineHeight: 14,
+  },
+  rememberText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '400',
   },
-  demoText: {
-    fontSize: 13,
-    color: '#6B7280',
+  forgotText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  button: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  buttonText: {
+    color: '#111827',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  footerText: {
+    marginTop: 24,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

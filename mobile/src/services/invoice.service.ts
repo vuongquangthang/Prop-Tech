@@ -56,11 +56,11 @@ class InvoiceService {
   private baseUrl = '/api/HoaDon';
 
   /**
-   * Get all invoices (only approved/paid - excludes Nháp)
+   * Get invoices for the current logged-in resident only
    */
   async getAll(): Promise<Invoice[]> {
-    const all = await apiService.get<Invoice[]>(this.baseUrl);
-    // Filter out draft invoices - residents should not see Nháp
+    const all = await apiService.get<Invoice[]>(`${this.baseUrl}/my`);
+    // Filter out draft and rejected invoices
     return all.filter(inv => inv.status !== 'Nháp' && inv.status !== 'Bị từ chối');
   }
 

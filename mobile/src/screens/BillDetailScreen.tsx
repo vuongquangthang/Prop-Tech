@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,15 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Image,
+  Clipboard,
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import invoiceService, { Invoice } from '../services/invoice.service';
-import paymentService from '../services/payment.service';
+import paymentService, { InitiatePaymentResponse } from '../services/payment.service';
+import signalRService from '../services/signalr.service';
 
 type RootStackParamList = {
   BillDetail: { id: number };
@@ -30,7 +33,7 @@ export default function BillDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPaymentSection, setShowPaymentSection] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState<InitiatePaymentResponse | null>(null);
 
   const loadInvoice = async () => {
     if (!invoiceId) {
@@ -60,11 +63,8 @@ export default function BillDetailScreen() {
         amount: invoice.totalAmount,
         paymentMethod: 'QR',
       });
-      const url = response.checkoutUrl || response.paymentUrl;
-      if (url) {
-        await Linking.openURL(url);
-        setShowPaymentSection(true);
-      }
+      console.log('[PayOS] initiate response:', JSON.stringify(response, null, 2));
+      setPaymentInfo(response);
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể khởi tạo thanh toán');
     } finally {
@@ -72,9 +72,45 @@ export default function BillDetailScreen() {
     }
   };
 
+  /**
+   * PayOS trả về raw EMV QR string (000201...), không phải URL.
+   * Dùng qrserver.com để render thành ảnh.
+   */
+  const buildQrImageUri = (qrData: string): string => {
+    if (!qrData) return '';
+    if (qrData.startsWith('http')) return qrData;
+    if (qrData.startsWith('data:')) return qrData;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    Clipboard.setString(text);
+    Alert.alert('Đã sao chép', `${label} đã được sao chép`);
+  };
+
   useEffect(() => {
     loadInvoice();
   }, [invoiceId]);
+
+  // Auto-refresh when PayOS webhook fires PaymentSuccess via SignalR
+  useEffect(() => {
+    const unsub = signalRService.onPaymentUpdate((payment) => {
+      if (payment.invoiceId === invoiceId && payment.type === 'SUCCESS') {
+        loadInvoice();
+        setPaymentInfo(null);
+      }
+    });
+    return unsub;
+  }, [invoiceId]);
+
+  // Re-fetch when user returns to screen (e.g., after pressing Home then back)
+  useFocusEffect(
+    useCallback(() => {
+      if (paymentInfo) {
+        loadInvoice();
+      }
+    }, [paymentInfo])
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -160,39 +196,124 @@ export default function BillDetailScreen() {
               </Text>
             </View>
 
-        {/* PayOS Payment Section - shown after opening checkout URL */}
-        {showPaymentSection && invoice.status !== 'Đã thanh toán' && (
-          <View style={styles.qrSection}>
-            <Ionicons name="time-outline" size={48} color="#1A4B84" />
-            <Text style={[styles.sectionTitle, { textAlign: 'center', marginTop: 12 }]}>
-              Đang chờ xác nhận thanh toán
-            </Text>
-            <Text style={{ color: '#6B7280', textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
-              Trang thanh toán PayOS đã được mở trong trình duyệt.{"\n"}
-              Hoàn thành thanh toán, hóa đơn sẽ tự động cập nhật.
-            </Text>
-            <TouchableOpacity
-              style={styles.confirmPayButton}
-              onPress={async () => { await loadInvoice(); }}
-            >
-              <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.confirmPayText}>Kiểm tra lại</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelPayButton}
-              onPress={() => setShowPaymentSection(false)}
-            >
-              <Text style={styles.cancelPayText}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Inline QR payment panel - shown after initiating payment */}
+        {paymentInfo && invoice.status !== 'Đã thanh toán' && (() => {
+          const qrUri = buildQrImageUri(paymentInfo.qrCodeUrl);
+          return (
+            <View style={styles.qrSection}>
+              <Text style={styles.qrTitle}>Quét mã QR để thanh toán</Text>
+
+              {/* Bank logo + name header */}
+              {(paymentInfo.bankLogoUrl || paymentInfo.bankName) ? (
+                <View style={styles.bankHeader}>
+                  {paymentInfo.bankLogoUrl ? (
+                    <Image
+                      source={{ uri: paymentInfo.bankLogoUrl }}
+                      style={styles.bankLogo}
+                      resizeMode="contain"
+                    />
+                  ) : null}
+                  {paymentInfo.bankName ? (
+                    <Text style={styles.bankName}>{paymentInfo.bankName}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* QR code image */}
+              {qrUri ? (
+                <View style={styles.qrCode}>
+                  <Image
+                    source={{ uri: qrUri }}
+                    style={styles.qrImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              ) : (
+                <Text style={styles.qrPlaceholder}>Đang tải mã QR…</Text>
+              )}
+
+              {/* Bank transfer details */}
+              <View style={styles.bankInfo}>
+                <View style={styles.bankRow}>
+                  <Text style={styles.bankLabel}>Số tiền</Text>
+                  <Text style={[styles.bankValue, { color: '#1A4B84' }]}>
+                    {invoiceService.formatCurrency(paymentInfo.amount)}
+                  </Text>
+                </View>
+                {paymentInfo.bankAccountNumber ? (
+                  <TouchableOpacity
+                    style={styles.bankRow}
+                    onPress={() => copyToClipboard(paymentInfo.bankAccountNumber, 'Số tài khoản')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.bankLabel}>Số tài khoản</Text>
+                    <View style={styles.bankValueRow}>
+                      <Text style={styles.bankValue}>{paymentInfo.bankAccountNumber}</Text>
+                      <Ionicons name="copy-outline" size={14} color="#6B7280" style={{ marginLeft: 4 }} />
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
+                {paymentInfo.bankAccountName ? (
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Chủ tài khoản</Text>
+                    <Text style={styles.bankValue}>{paymentInfo.bankAccountName}</Text>
+                  </View>
+                ) : null}
+                {paymentInfo.transferDescription ? (
+                  <TouchableOpacity
+                    style={styles.bankRow}
+                    onPress={() => copyToClipboard(paymentInfo.transferDescription, 'Nội dung chuyển khoản')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.bankLabel}>Nội dung CK</Text>
+                    <View style={styles.bankValueRow}>
+                      <Text numberOfLines={1} style={[styles.bankValue, { maxWidth: '60%' }]}>
+                        {paymentInfo.transferDescription}
+                      </Text>
+                      <Ionicons name="copy-outline" size={14} color="#6B7280" style={{ marginLeft: 4 }} />
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Action buttons */}
+              <View style={styles.qrActions}>
+                <TouchableOpacity
+                  style={styles.qrActionButton}
+                  onPress={async () => { await loadInvoice(); }}
+                >
+                  <Ionicons name="refresh-outline" size={18} color="#374151" />
+                  <Text style={styles.qrActionText}>Kiểm tra</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.qrActionButton}
+                  onPress={() => setPaymentInfo(null)}
+                >
+                  <Ionicons name="close-outline" size={18} color="#374151" />
+                  <Text style={styles.qrActionText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Fallback: open PayOS in browser */}
+              {(paymentInfo.checkoutUrl || paymentInfo.paymentUrl) ? (
+                <TouchableOpacity
+                  style={styles.openGatewayButton}
+                  onPress={() => Linking.openURL((paymentInfo.checkoutUrl || paymentInfo.paymentUrl)!)}
+                >
+                  <Ionicons name="open-outline" size={16} color="#1A4B84" />
+                  <Text style={styles.openGatewayText}>Mở trang thanh toán</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          );
+        })()}
             <View style={styles.actions}>
               {invoice.status === 'Đã thanh toán' ? (
                 <View style={styles.paidBadge}>
                   <Ionicons name="checkmark-circle" size={24} color="#059669" />
                   <Text style={styles.paidBadgeText}>Đã thanh toán</Text>
                 </View>
-              ) : !showPaymentSection ? (
+              ) : !paymentInfo ? (
                 <TouchableOpacity 
                   style={[styles.primaryButton, isPaymentProcessing && styles.buttonDisabled]} 
                   onPress={handlePayment}
@@ -313,17 +434,47 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     borderStyle: 'dashed',
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
-    marginBottom: 32,
+    marginBottom: 24,
+    gap: 12,
+  },
+  qrTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  bankHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  bankLogo: {
+    width: 80,
+    height: 32,
+  },
+  bankName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
   },
   qrCode: {
-    marginBottom: 24,
+    marginVertical: 4,
   },
   qrImage: {
-    width: 180,
-    height: 180,
+    width: 200,
+    height: 200,
+    borderRadius: 8,
   },
   qrPlaceholder: {
     marginTop: 8,
@@ -337,6 +488,14 @@ const styles = StyleSheet.create({
   bankRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  bankValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   bankLabel: {
     fontSize: 14,

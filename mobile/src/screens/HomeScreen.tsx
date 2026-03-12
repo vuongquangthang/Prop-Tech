@@ -112,7 +112,7 @@ export default function HomeScreen() {
               <Ionicons name="home" size={16} color="#FFFFFF" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.buildingLabel}>Phòng của tôi</Text>
+              <Text style={styles.buildingLabel}>Smart Home</Text>
               <Text style={styles.buildingName} numberOfLines={1}>
                 {myRoom ? `${myRoom.roomCode} · ${myRoom.buildingName}` : 'SmartHome KĐT'}
               </Text>
@@ -138,7 +138,7 @@ export default function HomeScreen() {
         {/* Main Content */}
         <View style={styles.contentContainer}>
           <Text style={styles.greeting}>
-            Chào {user?.fullName || user?.phoneNumber || 'Cư dân'}
+            Chào {myRoom?.householdHeadName || user?.residentName || user?.phoneNumber || 'Cư dân'}
           </Text>
 
           {/* Latest Notification Card */}
@@ -229,20 +229,18 @@ export default function HomeScreen() {
 
               <View style={styles.billDivider} />
 
-              <View style={styles.billDetails}>
-                <View>
-                  <Text style={styles.billTotalLabel}>Tổng tiền:</Text>
-                  <Text style={styles.billDeadline}>
-                    Hạn thanh toán:{' '}
-                    {currentInvoice.dueDate
-                      ? new Date(currentInvoice.dueDate).toLocaleDateString('vi-VN')
-                      : 'Chưa có'}
-                  </Text>
-                </View>
+              <View style={styles.billAmountRow}>
+                <Text style={styles.billTotalLabel}>Tổng tiền:</Text>
                 <Text style={styles.billAmount}>
                   {invoiceService.formatCurrency(currentInvoice.totalAmount)}
                 </Text>
               </View>
+              <Text style={styles.billDeadline}>
+                Hạn thanh toán:{' '}
+                {currentInvoice.dueDate
+                  ? new Date(currentInvoice.dueDate).toLocaleDateString('vi-VN')
+                  : 'Chưa có'}
+              </Text>
 
               <TouchableOpacity 
                 style={styles.payButton}
@@ -254,6 +252,8 @@ export default function HomeScreen() {
               >
                 <Text style={styles.payButtonText}>Thanh toán ngay {'>'}</Text>
               </TouchableOpacity>
+
+              <View style={styles.billDividerThin} />
 
               <TouchableOpacity
                 style={styles.historyButton}
@@ -301,11 +301,6 @@ export default function HomeScreen() {
             >
               <View style={styles.utilityIcon}>
                 <Ionicons name="list" size={24} color="#1A4B84" />
-                {maintenanceCount > 0 && (
-                  <View style={styles.utilityBadge}>
-                    <Text style={styles.utilityBadgeText}>{maintenanceCount}</Text>
-                  </View>
-                )}
               </View>
               <Text style={styles.utilityText}>Danh sách sự cố</Text>
             </TouchableOpacity>
@@ -351,13 +346,13 @@ const styles = StyleSheet.create({
   },
   buildingSelector: {
     position: 'absolute',
-    top: 64,
+    top: 110,
     left: 20,
     right: 80,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderRadius: 25,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
@@ -365,8 +360,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   buildingLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    color: '#1A4B84',
     fontWeight: '500',
   },
   buildingIcon: {
@@ -383,13 +378,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   buildingName: {
-    color: '#FFFFFF',
+    color: '#1A4B84',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   notificationButton: {
     position: 'absolute',
-    top: 48,
+    top: 112,
     right: 24,
     width: 44,
     height: 44,
@@ -554,48 +549,58 @@ const styles = StyleSheet.create({
     color: '#78350F',
   },
   billCard: {
-    backgroundColor: '#F0F4F8',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   billLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#9CA3AF',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   billMonth: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   billDivider: {
     height: 1,
     backgroundColor: '#E5E7EB',
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  billDetails: {
+  billDividerThin: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginBottom: 12,
+  },
+  billAmountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: 4,
   },
   billTotalLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
-    marginBottom: 4,
   },
   billDeadline: {
     fontSize: 12,
     color: '#6B7280',
+    marginBottom: 18,
   },
   billAmount: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#1A4B84',
   },
@@ -608,21 +613,23 @@ const styles = StyleSheet.create({
   },
   payButton: {
     backgroundColor: '#1A4B84',
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   payButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   historyButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
+    paddingTop: 4,
   },
   historyButtonText: {
     flex: 1,

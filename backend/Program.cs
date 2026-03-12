@@ -164,6 +164,7 @@ builder.Services.AddScoped<backend.Services.INotificationService, backend.Servic
 
 // Tier 3: Chatbot & Reports
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<backend.Services.IChatService, backend.Services.ChatService>();
 builder.Services.AddScoped<backend.Services.IReportService, backend.Services.ReportService>();
 
@@ -177,6 +178,9 @@ builder.Services.AddScoped<backend.Services.IPayOSService, backend.Services.PayO
 
 // Payment Service (Realtime QR Payment)
 builder.Services.AddScoped<backend.Services.IPaymentService, backend.Services.PaymentService>();
+
+// VietQR Integration (bank info + QR generation)
+builder.Services.AddSingleton<backend.Services.IVietQRService, backend.Services.VietQRService>();
 
 // Utility Reading & Invoice Workflow Services
 builder.Services.AddScoped<backend.Services.IUtilityReadingService, backend.Services.UtilityReadingService>();

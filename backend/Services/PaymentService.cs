@@ -25,6 +25,7 @@ public class PaymentService : IPaymentService
     private readonly ILogger<PaymentService> _logger;
     private readonly IPayOSService _payOSService;
     private readonly IConfiguration _config;
+    private readonly IVietQRService _vietQRService;
 
     public PaymentService(
         IThanhToanRepository thanhToanRepository,
@@ -34,7 +35,8 @@ public class PaymentService : IPaymentService
         IHubContext<NotificationHub> hubContext,
         ILogger<PaymentService> logger,
         IPayOSService payOSService,
-        IConfiguration config)
+        IConfiguration config,
+        IVietQRService vietQRService)
     {
         _thanhToanRepository = thanhToanRepository;
         _hoaDonRepository = hoaDonRepository;
@@ -44,6 +46,7 @@ public class PaymentService : IPaymentService
         _logger = logger;
         _payOSService = payOSService;
         _config = config;
+        _vietQRService = vietQRService;
     }
 
     public async Task<InitiatePaymentResponseDto> InitiatePaymentAsync(InitTransactionDto dto, int userId)
@@ -136,15 +139,36 @@ public class PaymentService : IPaymentService
             _logger.LogWarning("⚠️  Failed to send SignalR notification: {Error}", ex.Message);
         }
 
+        // Gọi VietQR song song: lấy tên/logo ngân hàng + tạo ảnh QR đẹp
+        var bankInfoTask = _vietQRService.GetBankInfoByBinAsync(payosResult.Bin);
+        var vietQrTask   = _vietQRService.GenerateQRDataUrlAsync(
+            payosResult.AccountNumber,
+            payosResult.AccountName,
+            payosResult.Bin,
+            payosResult.PaymentAmount,
+            payosResult.Description);
+
+        await Task.WhenAll(bankInfoTask, vietQrTask);
+
+        var bankInfo  = bankInfoTask.Result;
+        var qrDataUrl = vietQrTask.Result;
+
         return new InitiatePaymentResponseDto
         {
-            TransactionId = transaction.Id,
-            TransactionCode = transactionCode,
-            Status = "PENDING",
-            Amount = payosResult.RealAmount,   // hiển thị số tiền thực cho app
-            QrCodeUrl = payosResult.QrCode,
-            PaymentUrl = payosResult.CheckoutUrl,
-            CheckoutUrl = payosResult.CheckoutUrl
+            TransactionId       = transaction.Id,
+            TransactionCode     = transactionCode,
+            Status              = "PENDING",
+            Amount              = payosResult.PaymentAmount,
+            // Dùng ảnh QR từ VietQR (có logo ngân hàng), fallback về QrCode của PayOS
+            QrCodeUrl           = !string.IsNullOrEmpty(qrDataUrl) ? qrDataUrl : payosResult.QrCode,
+            PaymentUrl          = payosResult.CheckoutUrl,
+            CheckoutUrl         = payosResult.CheckoutUrl,
+            BankAccountNumber   = payosResult.AccountNumber,
+            BankAccountName     = payosResult.AccountName,
+            BankBin             = payosResult.Bin,
+            TransferDescription = payosResult.Description,
+            BankName            = bankInfo?.ShortName ?? "",
+            BankLogoUrl         = bankInfo?.Logo ?? ""
         };
     }
 

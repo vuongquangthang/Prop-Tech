@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { maintenanceService, notificationService } from '../services/feature.service';
 import { invoiceService, paymentService } from '../services/api.service';
 import { notificationHub, initializeSignalR, disconnectSignalR } from '../lib/signalr-service';
+import { useAuth } from './AuthContext';
 
 // Types
 export interface Incident {
@@ -211,12 +212,13 @@ function formatTime(dateString: string): string {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch all data from API
@@ -298,8 +300,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Initialize data and SignalR on mount
+  // Initialize data and SignalR — only when authenticated
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      setIncidents([]);
+      setNotifications([]);
+      setBills([]);
+      setInvoices([]);
+      setActivities([]);
+      setError(null);
+      disconnectSignalR();
+      return;
+    }
+
     fetchData();
 
     // Initialize SignalR for real-time updates
@@ -426,7 +441,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       disconnectSignalR();
     };
-  }, []);
+  }, [isAuthenticated, authLoading]);
 
   // CRUD operations
   const addIncident = async (incident: Omit<Incident, 'id' | 'reportedAt' | 'status'>) => {
