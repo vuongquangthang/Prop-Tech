@@ -15,6 +15,12 @@ public interface INotificationService
     Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto);
     Task BroadcastAsync(int senderUserId, string title, string content, string type);
     Task<List<NotificationResponseDto>> GetAllRecentAsync(int limit = 200);
+    /// <summary>Tạo thông báo DB + push SignalR cho cư dân cụ thể</summary>
+    Task SendToUserAsync(int recipientUserId, string title, string content, string type);
+    /// <summary>Tạo thông báo DB chỉ hiển thị trên trang quản lý (ScopeType=ADMIN)</summary>
+    Task CreateAdminNotificationAsync(string title, string content, string type);
+    /// <summary>Số thông báo ADMIN chưa đọc (dùng cho badge BQL)</summary>
+    Task<int> GetAdminUnreadCountAsync();
 }
 
 public class NotificationService : INotificationService
@@ -109,6 +115,48 @@ public class NotificationService : INotificationService
     {
         var items = await _repo.GetAllRecentAsync(limit);
         return items.Select(MapToDto).ToList();
+    }
+
+    public async Task SendToUserAsync(int recipientUserId, string title, string content, string type)
+    {
+        var notification = new Notification
+        {
+            RecipientId = recipientUserId,
+            ScopeType = "USER",
+            NotificationType = type,
+            Title = title,
+            Content = content,
+            Priority = "NORMAL",
+            IsRead = false,
+            SentAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+        };
+        await _repo.AddAsync(notification);
+        await _repo.SaveChangesAsync();
+        var dto = MapToDto(notification);
+        await _hub.Clients.Group($"user_{recipientUserId}").SendAsync("ReceiveNotification", dto);
+    }
+
+    public async Task CreateAdminNotificationAsync(string title, string content, string type)
+    {
+        var notification = new Notification
+        {
+            ScopeType = "ADMIN",
+            NotificationType = type,
+            Title = title,
+            Content = content,
+            Priority = "NORMAL",
+            IsRead = false,
+            SentAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+        };
+        await _repo.AddAsync(notification);
+        await _repo.SaveChangesAsync();
+    }
+
+    public async Task<int> GetAdminUnreadCountAsync()
+    {
+        return await _repo.GetAdminUnreadCountAsync();
     }
 
     private static NotificationResponseDto MapToDto(Notification n) => new()

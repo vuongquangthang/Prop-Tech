@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using backend.Hubs;
 using backend.Data;
+using System.Globalization;
+using System.Text;
 
 namespace backend.Services;
 
@@ -34,6 +36,7 @@ public class HoaDonService : IHoaDonService
     private readonly IThanhToanRepository _thanhToanRepository;
     private readonly ApplicationDbContext _context;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly INotificationService _notificationService;
 
     public HoaDonService(
         IHoaDonRepository hoaDonRepository,
@@ -41,7 +44,8 @@ public class HoaDonService : IHoaDonService
         IServiceRepository serviceRepository,
         IThanhToanRepository thanhToanRepository,
         ApplicationDbContext context,
-        IHubContext<NotificationHub> hubContext)
+        IHubContext<NotificationHub> hubContext,
+        INotificationService notificationService)
     {
         _hoaDonRepository = hoaDonRepository;
         _hopDongRepository = hopDongRepository;
@@ -49,6 +53,7 @@ public class HoaDonService : IHoaDonService
         _thanhToanRepository = thanhToanRepository;
         _context = context;
         _hubContext = hubContext;
+        _notificationService = notificationService;
     }
 
     public async Task<List<HoaDonDto>> GetAllAsync()
@@ -165,6 +170,13 @@ public class HoaDonService : IHoaDonService
                 }
 
                 var room = contract.Room;
+                if (room == null)
+                {
+                    result.Errors.Add($"Hợp đồng {contract.Id}: Không có phòng để tính hóa đơn tháng {month}/{year}");
+                    continue;
+                }
+
+                var activeUsages = GetActiveServiceUsagesForPeriod(room.ChiTietSuDungDichVus, year, month);
                 var lineItems = new List<ChiTietHoaDon>();
                 decimal total = 0;
 
@@ -180,8 +192,8 @@ public class HoaDonService : IHoaDonService
                 lineItems.Add(rentItem);
 
                 // 2. Tiền điện
-                var elecUsage = room.ChiTietSuDungDichVus
-                    .FirstOrDefault(u => u.Service.ServiceType == "Điện" && u.ApplyTo == null);
+                var elecUsage = activeUsages
+                    .FirstOrDefault(u => IsElectricityService(u.Service));
                 if (elecUsage != null)
                 {
                     var prevElec = await _context.ChiSoDiens
@@ -219,8 +231,8 @@ public class HoaDonService : IHoaDonService
                 }
 
                 // 3. Tiền nước
-                var waterUsage = room.ChiTietSuDungDichVus
-                    .FirstOrDefault(u => u.Service.ServiceType == "Nước" && u.ApplyTo == null);
+                var waterUsage = activeUsages
+                    .FirstOrDefault(u => IsWaterService(u.Service));
                 if (waterUsage != null)
                 {
                     var prevWater = await _context.ChiSoNuocs
@@ -258,8 +270,8 @@ public class HoaDonService : IHoaDonService
                 }
 
                 // 4. Các dịch vụ khác (không phải điện/nước)
-                var otherServices = room.ChiTietSuDungDichVus
-                    .Where(u => u.Service.ServiceType != "Điện" && u.Service.ServiceType != "Nước" && u.ApplyTo == null)
+                var otherServices = activeUsages
+                    .Where(u => !IsElectricityService(u.Service) && !IsWaterService(u.Service))
                     .ToList();
                 foreach (var svc in otherServices)
                 {
@@ -427,6 +439,7 @@ public class HoaDonService : IHoaDonService
 
             foreach (var user in residentUsers)
             {
+                // SignalR push để app cập nhật real-time
                 await NotificationHub.Notifications.SendNotificationToUser(
                     _hubContext,
                     user.Id.ToString(),
@@ -439,6 +452,13 @@ public class HoaDonService : IHoaDonService
                         year = invoice.Year,
                         totalAmount = invoice.TotalAmount
                     });
+
+                // Lưu thông báo vào DB để hiện trong mục Thông báo của cư dân
+                await _notificationService.SendToUserAsync(
+                    user.Id,
+                    $"Hóa đơn tháng {invoice.Month}/{invoice.Year}",
+                    $"Hóa đơn tháng {invoice.Month}/{invoice.Year} đã được phát hành. Tổng tiền: {invoice.TotalAmount:N0}đ. Vui lòng thanh toán trước hạn.",
+                    "INVOICE");
             }
         }
         catch (Exception ex)
@@ -594,6 +614,149 @@ public class HoaDonService : IHoaDonService
 
         _hoaDonRepository.Remove(invoice);
         await _hoaDonRepository.SaveChangesAsync();
+    }
+
+    private async Task<List<CreateChiTietHoaDonDto>> BuildInvoiceLineItemsFromUsageAsync(int contractId, byte month, short year)
+    {
+        var contract = await _context.HopDongs
+            .Include(hd => hd.Room)
+                .ThenInclude(r => r.ChiTietSuDungDichVus)
+                    .ThenInclude(u => u.Service)
+            .FirstOrDefaultAsync(hd => hd.Id == contractId);
+
+        if (contract?.Room == null)
+        {
+            return new List<CreateChiTietHoaDonDto>();
+        }
+
+        var room = contract.Room;
+        var lineItems = new List<CreateChiTietHoaDonDto>
+        {
+            new()
+            {
+                ItemType = "TienPhong",
+                Quantity = 1,
+                UnitPrice = contract.ActualRentPrice,
+                Description = $"Tiền thuê phòng tháng {month}/{year}"
+            }
+        };
+
+        var activeUsages = GetActiveServiceUsagesForPeriod(room.ChiTietSuDungDichVus, year, month);
+
+        var elecUsage = activeUsages.FirstOrDefault(u => IsElectricityService(u.Service));
+        if (elecUsage != null)
+        {
+            var prevElec = await _context.ChiSoDiens
+                .Where(c => c.ServiceUsageDetailId == elecUsage.Id
+                            && (c.Year < year || (c.Year == year && c.Month < month)))
+                .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
+                .FirstOrDefaultAsync();
+
+            var currElec = await _context.ChiSoDiens
+                .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == elecUsage.Id
+                                          && c.Month == month && c.Year == year);
+
+            if (currElec != null)
+            {
+                var oldReading = prevElec?.NewReading ?? 0;
+                var consumption = currElec.NewReading - oldReading;
+                lineItems.Add(new CreateChiTietHoaDonDto
+                {
+                    ItemType = "Dien",
+                    ServiceId = elecUsage.ServiceId,
+                    Quantity = consumption,
+                    UnitPrice = elecUsage.OverrideUnitPrice ?? elecUsage.Service.CommonUnitPrice ?? 0,
+                    Description = $"Điện tháng {month}/{year}: {oldReading} → {currElec.NewReading} = {consumption} kWh"
+                });
+            }
+        }
+
+        var waterUsage = activeUsages.FirstOrDefault(u => IsWaterService(u.Service));
+        if (waterUsage != null)
+        {
+            var prevWater = await _context.ChiSoNuocs
+                .Where(c => c.ServiceUsageDetailId == waterUsage.Id
+                            && (c.Year < year || (c.Year == year && c.Month < month)))
+                .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
+                .FirstOrDefaultAsync();
+
+            var currWater = await _context.ChiSoNuocs
+                .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == waterUsage.Id
+                                          && c.Month == month && c.Year == year);
+
+            if (currWater != null)
+            {
+                var oldReading = prevWater?.NewReading ?? 0;
+                var consumption = currWater.NewReading - oldReading;
+                lineItems.Add(new CreateChiTietHoaDonDto
+                {
+                    ItemType = "Nuoc",
+                    ServiceId = waterUsage.ServiceId,
+                    Quantity = consumption,
+                    UnitPrice = waterUsage.OverrideUnitPrice ?? waterUsage.Service.CommonUnitPrice ?? 0,
+                    Description = $"Nước tháng {month}/{year}: {oldReading} → {currWater.NewReading} = {consumption} m³"
+                });
+            }
+        }
+
+        foreach (var usage in activeUsages.Where(u => !IsElectricityService(u.Service) && !IsWaterService(u.Service)))
+        {
+            lineItems.Add(new CreateChiTietHoaDonDto
+            {
+                ItemType = "DichVu",
+                ServiceId = usage.ServiceId,
+                Quantity = usage.Quantity ?? 1,
+                UnitPrice = usage.OverrideUnitPrice ?? usage.Service.CommonUnitPrice ?? 0,
+                Description = usage.Service.Name
+            });
+        }
+
+        return lineItems;
+    }
+
+    private static List<ChiTietSuDungDichVu> GetActiveServiceUsagesForPeriod(IEnumerable<ChiTietSuDungDichVu> usages, short year, byte month)
+    {
+        var periodStart = new DateTime(year, month, 1);
+        var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+
+        return usages
+            .Where(u => u.ApplyFrom <= periodEnd && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+            .ToList();
+    }
+
+    private static bool IsElectricityService(Service? service)
+    {
+        if (service == null) return false;
+        if (service.Id == 1) return true;
+
+        var normalized = NormalizeKey(service.ServiceType);
+        return normalized == "dien" || normalized == "electricity" || normalized == "electric";
+    }
+
+    private static bool IsWaterService(Service? service)
+    {
+        if (service == null) return false;
+        if (service.Id == 2) return true;
+
+        var normalized = NormalizeKey(service.ServiceType);
+        return normalized == "nuoc" || normalized == "water";
+    }
+
+    private static string NormalizeKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(c == 'đ' ? 'd' : c);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private HoaDonDto MapToDto(HoaDon invoice)

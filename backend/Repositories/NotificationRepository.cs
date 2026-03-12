@@ -73,4 +73,10 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
             .ToListAsync();
     }
 
+    public async Task<int> GetAdminUnreadCountAsync()
+    {
+        return await _context.Notifications
+            .CountAsync(n => n.ScopeType == "ADMIN" && !n.IsRead);
+    }
+
 }

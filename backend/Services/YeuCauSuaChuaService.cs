@@ -28,19 +28,22 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
     private readonly IUserRepository _userRepository;
     private readonly ApplicationDbContext _context;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly INotificationService _notificationService;
 
     public YeuCauSuaChuaService(
         IYeuCauSuaChuaRepository yeuCauRepository,
         IRoomRepository roomRepository,
         IUserRepository userRepository,
         ApplicationDbContext context,
-        IHubContext<NotificationHub> hubContext)
+        IHubContext<NotificationHub> hubContext,
+        INotificationService notificationService)
     {
         _yeuCauRepository = yeuCauRepository;
         _roomRepository = roomRepository;
         _userRepository = userRepository;
         _context = context;
         _hubContext = hubContext;
+        _notificationService = notificationService;
     }
 
     public async Task<List<YeuCauSuaChuaDto>> GetAllAsync()
@@ -193,7 +196,17 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             // Log but don't fail the request creation
             Console.WriteLine($"⚠️  Failed to send SignalR notification: {ex.Message}");
         }
-        
+
+        // Tạo thông báo DB cho BQL: yêu cầu sửa chữa mới
+        try
+        {
+            await _notificationService.CreateAdminNotificationAsync(
+                $"Sự cố mới - {(room2 != null ? $"Phòng {room2.RoomCode}" : $"Phòng #{roomId}")}",
+                $"{(room2 != null ? $"Phòng {room2.RoomCode}" : "Cư dân")} đã gửi yêu cầu sửa chữa: {created.IssueType}.",
+                "COMPLAINT");
+        }
+        catch { /* Không block flow chính */ }
+
         return MapToDto(created, room2, user2);
     }
 
@@ -242,7 +255,21 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         {
             Console.WriteLine($"⚠️  Failed to send SignalR notification: {ex.Message}");
         }
-        
+
+        // Nếu trạng thái chuyển sang "Chờ nghiệm thu": thông báo cho cư dân đi nghiệm thu
+        if (dto.Status == "Chờ nghiệm thu")
+        {
+            try
+            {
+                await _notificationService.SendToUserAsync(
+                    closed.UserId,
+                    "Yêu cầu sửa chữa hoàn thành",
+                    $"Yêu cầu sửa chữa tại {(room != null ? $"phòng {room.RoomCode}" : "phòng của bạn")} ({closed.IssueType}) đã hoàn thành. Vui lòng kiểm tra và nghiệm thu.",
+                    "COMPLAINT");
+            }
+            catch { /* Không block flow chính */ }
+        }
+
         return MapToDto(closed, room, user);
     }
 
@@ -294,7 +321,21 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         {
             Console.WriteLine($"⚠️  Failed to send SignalR notification: {ex.Message}");
         }
-        
+
+        // Thông báo cho BQL: cư dân đã phản hồi nghiệm thu (hài lòng hoặc yêu cầu sửa lại)
+        try
+        {
+            var roomLabel = room != null ? $"Phòng {room.RoomCode}" : "Cư dân";
+            var feedbackMsg = updated.Status == "Đã đóng"
+                ? $"{roomLabel} hài lòng với kết quả xử lý sự cố: {updated.IssueType}."
+                : $"{roomLabel} yêu cầu sửa lại sự cố: {updated.IssueType}.";
+            await _notificationService.CreateAdminNotificationAsync(
+                $"Phản hồi nghiệm thu - {roomLabel}",
+                feedbackMsg,
+                "COMPLAINT");
+        }
+        catch { /* Không block flow chính */ }
+
         return MapToDto(updated, room, user);
     }
 

@@ -70,7 +70,8 @@ class SignalRService {
         console.log('📬 Received notification:', notification);
         this.notificationHandlers.forEach(handler => handler(notification));
         // Route invoice-type notifications to invoice handlers for real-time refresh
-        if (notification?.type === 'INVOICE') {
+        // Backend DTO uses notificationType; raw SignalR push from NotifyResidentAsync uses type
+        if (notification?.type === 'INVOICE' || notification?.notificationType === 'INVOICE') {
           console.log('📄 Invoice approved notification:', notification);
           this.invoiceHandlers.forEach(handler => handler(notification));
         }

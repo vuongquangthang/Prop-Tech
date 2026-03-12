@@ -31,19 +31,22 @@ public class ThanhToanService : IThanhToanService
     private readonly ApplicationDbContext _context;
     private readonly IPayOSService _payOSService;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly INotificationService _notificationService;
 
     public ThanhToanService(
         IThanhToanRepository thanhToanRepository,
         IHoaDonRepository hoaDonRepository,
         ApplicationDbContext context,
         IPayOSService payOSService,
-        IHubContext<NotificationHub> hubContext)
+        IHubContext<NotificationHub> hubContext,
+        INotificationService notificationService)
     {
         _thanhToanRepository = thanhToanRepository;
         _hoaDonRepository = hoaDonRepository;
         _context = context;
         _payOSService = payOSService;
         _hubContext = hubContext;
+        _notificationService = notificationService;
     }
 
     public async Task<List<ThanhToanDto>> GetAllAsync()
@@ -228,6 +231,22 @@ public class ThanhToanService : IThanhToanService
         }
 
         await _thanhToanRepository.SaveChangesAsync();
+
+        // Tạo thông báo DB cho BQL: phòng X đã thanh toán hóa đơn
+        try
+        {
+            var roomCode = invoice != null
+                ? await _context.HopDongs
+                    .Where(h => h.Id == invoice.ContractId)
+                    .Select(h => h.Room != null ? h.Room.RoomCode : null)
+                    .FirstOrDefaultAsync()
+                : null;
+
+            var title = $"Thanh toán hóa đơn - {(roomCode != null ? $"Phòng {roomCode}" : $"HĐ #{invoice?.Id}")}";
+            var content = $"{(roomCode != null ? $"Phòng {roomCode}" : "Cư dân")} đã thanh toán hóa đơn tháng {invoice?.Month}/{invoice?.Year}.";
+            await _notificationService.CreateAdminNotificationAsync(title, content, "PAYMENT");
+        }
+        catch { /* Không block flow chính */ }
 
         // 6. Gửi SignalR để app cư dân tự động refresh
         try

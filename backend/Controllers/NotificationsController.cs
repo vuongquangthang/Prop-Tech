@@ -36,6 +36,10 @@ public class NotificationsController : ControllerBase
     public async Task<IActionResult> GetUnreadCount()
     {
         var count = await _service.GetUnreadCountAsync(GetUserId());
+        if (User.IsInRole("Admin") || User.IsInRole("QuanLy") || User.IsInRole("KeToan"))
+        {
+            count += await _service.GetAdminUnreadCountAsync();
+        }
         return Ok(new { count });
     }
 
