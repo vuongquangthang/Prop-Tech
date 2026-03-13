@@ -1,6 +1,7 @@
 ﻿import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { serviceService, ServicePriceHistory } from '../../services/api.service';
+import { formatLocalDateInput, toLocalIsoString } from '../../lib/date-utils';
 
 interface ServiceData {
   id: number;
@@ -79,7 +80,7 @@ export function ServiceTable() {
   const handleUpdatePriceClick = (service: any) => {
     setSelectedService(service);
     setUpdateNewPrice('');
-    setUpdateEffectiveDate(new Date().toISOString().split('T')[0]);
+    setUpdateEffectiveDate(formatLocalDateInput());
     setUpdateReason('');
     setUpdateError(null);
     setShowUpdatePriceModal(true);
@@ -143,7 +144,7 @@ export function ServiceTable() {
     try {
       await serviceService.update(selectedService.id, {
         commonUnitPrice: parseFloat(updateNewPrice),
-        effectiveDate: new Date(updateEffectiveDate).toISOString(),
+        effectiveDate: toLocalIsoString(updateEffectiveDate),
         reason: updateReason.trim() || undefined,
       } as any);
       await fetchServices();

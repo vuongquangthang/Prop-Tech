@@ -84,7 +84,7 @@ Start-Sleep -Seconds 2
 
 # 4. Start Ngrok tunnel
 Write-Host "`n4. Starting Ngrok tunnel..." -ForegroundColor Yellow
-Start-Process cmd -ArgumentList "/K", "cd /d D:\Ngrok && ngrok http --domain=praiseworthy-katlyn-discountable.ngrok-free.dev 5052"
+Start-Process cmd -ArgumentList "/K", "cd /d D:\Prop_Tech\Ngrok && ngrok http --domain=praiseworthy-katlyn-discountable.ngrok-free.dev 5052"
 Write-Host "   Ngrok tunnel starting on praiseworthy-katlyn-discountable.ngrok-free.dev" -ForegroundColor Green
 
 # 5. Start Frontend

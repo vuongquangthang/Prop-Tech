@@ -10,11 +10,17 @@ public class FileController : ControllerBase
 {
     private readonly IWebHostEnvironment _environment;
     private readonly ILogger<FileController> _logger;
+    private readonly string _uploadsPath;
 
-    public FileController(IWebHostEnvironment environment, ILogger<FileController> logger)
+    public FileController(IWebHostEnvironment environment, ILogger<FileController> logger, IConfiguration configuration)
     {
         _environment = environment;
         _logger = logger;
+
+        var configuredUploadsPath = configuration["Uploads:RootPath"];
+        _uploadsPath = string.IsNullOrWhiteSpace(configuredUploadsPath)
+            ? Path.Combine(_environment.ContentRootPath, "uploads")
+            : Environment.ExpandEnvironmentVariables(configuredUploadsPath);
     }
 
     [HttpPost("upload")]
@@ -42,15 +48,14 @@ public class FileController : ControllerBase
             }
 
             // Create uploads directory if not exists
-            var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads");
-            if (!Directory.Exists(uploadsPath))
+            if (!Directory.Exists(_uploadsPath))
             {
-                Directory.CreateDirectory(uploadsPath);
+                Directory.CreateDirectory(_uploadsPath);
             }
 
             // Generate unique filename
             var fileName = $"{Guid.NewGuid()}{extension}";
-            var filePath = Path.Combine(uploadsPath, fileName);
+            var filePath = Path.Combine(_uploadsPath, fileName);
 
             // Save file
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -78,7 +83,7 @@ public class FileController : ControllerBase
     {
         try
         {
-            var filePath = Path.Combine(_environment.ContentRootPath, "uploads", fileName);
+            var filePath = Path.Combine(_uploadsPath, fileName);
             
             if (!System.IO.File.Exists(filePath))
             {

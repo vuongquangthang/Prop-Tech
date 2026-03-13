@@ -8,7 +8,7 @@ public interface INotificationRepository : IRepository<Notification>
     Task<int> GetUnreadCountAsync(int recipientId);
     Task<Notification?> GetByIdWithUserAsync(int id);
     Task MarkAsReadAsync(int id);
-    Task MarkAllAsReadAsync(int recipientId);
+    Task MarkAllAsReadAsync(int recipientId, bool includeAdmin = false);
     Task<List<Notification>> GetAllRecentAsync(int limit = 200);
     Task<int> GetAdminUnreadCountAsync();
 }

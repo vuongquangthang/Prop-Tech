@@ -25,7 +25,7 @@ public class ChiTietPhieuTatToan
     [StringLength(50)]
     public string? Type { get; set; } // DepositRefund, Debt, Deduction, Compensation
 
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
     [ForeignKey("SettlementId")]

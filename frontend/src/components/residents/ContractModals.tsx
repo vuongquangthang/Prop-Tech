@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
+import { formatLocalDateInput } from '../../lib/date-utils';
 
 interface ContractModalProps {
   contract?: any;
@@ -37,7 +38,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   const [tenantPhone, setTenantPhone] = useState('');
 
   // Form state - Step 3 (contract terms)
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(() => formatLocalDateInput());
   const [durationMonths, setDurationMonths] = useState('12');
   const [monthlyRent, setMonthlyRent] = useState('');
   const [deposit, setDeposit] = useState('');
@@ -110,7 +111,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       await contractService.create({
         roomId: parseInt(selectedRoomId),
         startDate,
-        expectedEndDate: end.toISOString().split('T')[0],
+        expectedEndDate: formatLocalDateInput(end),
         actualRentPrice: parseFloat(monthlyRent.replace(/[^0-9.]/g, '')),
         depositAmount: deposit ? parseFloat(deposit.replace(/[^0-9.]/g, '')) : undefined,
         residents: residentsPayload,

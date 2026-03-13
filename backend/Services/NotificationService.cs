@@ -10,8 +10,8 @@ public interface INotificationService
 {
     Task<List<NotificationResponseDto>> GetMyNotificationsAsync(int userId, bool unreadOnly = false);
     Task<int> GetUnreadCountAsync(int userId);
-    Task MarkAsReadAsync(int id, int userId);
-    Task MarkAllAsReadAsync(int userId);
+    Task MarkAsReadAsync(int id, int userId, bool canManageAdmin = false);
+    Task MarkAllAsReadAsync(int userId, bool includeAdmin = false);
     Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto);
     Task BroadcastAsync(int senderUserId, string title, string content, string type);
     Task<List<NotificationResponseDto>> GetAllRecentAsync(int limit = 200);
@@ -47,19 +47,21 @@ public class NotificationService : INotificationService
         return await _repo.GetUnreadCountAsync(userId);
     }
 
-    public async Task MarkAsReadAsync(int id, int userId)
+    public async Task MarkAsReadAsync(int id, int userId, bool canManageAdmin = false)
     {
         // Verify the notification belongs to the user (or is a broadcast)
         var notification = await _repo.GetByIdWithUserAsync(id);
         if (notification == null) return;
-        if (notification.RecipientId != userId && notification.ScopeType != "ALL") return;
+        var canReadOwnOrBroadcast = notification.RecipientId == userId || notification.ScopeType == "ALL";
+        var canReadAdmin = canManageAdmin && notification.ScopeType == "ADMIN";
+        if (!canReadOwnOrBroadcast && !canReadAdmin) return;
 
         await _repo.MarkAsReadAsync(id);
     }
 
-    public async Task MarkAllAsReadAsync(int userId)
+    public async Task MarkAllAsReadAsync(int userId, bool includeAdmin = false)
     {
-        await _repo.MarkAllAsReadAsync(userId);
+        await _repo.MarkAllAsReadAsync(userId, includeAdmin);
     }
 
     public async Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto)

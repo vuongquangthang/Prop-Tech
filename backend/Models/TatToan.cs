@@ -41,7 +41,7 @@ public class TatToan
     [StringLength(50)]
     public string? Status { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }
 

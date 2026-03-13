@@ -40,6 +40,8 @@ services:
     depends_on:
       sqlserver:
         condition: service_healthy
+    volumes:
+      - backend_uploads:/app/uploads
     networks:
       - apartment_network
     restart: unless-stopped
@@ -64,4 +66,6 @@ networks:
 
 volumes:
   sqlserver_data:
+    driver: local
+  backend_uploads:
     driver: local

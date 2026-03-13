@@ -62,6 +62,15 @@ Thumbs.db
 ################################
 coverage/
 
+################################
+# Runtime / local-generated files
+################################
+backend/build-verify-temp/
+backend/uploads/
+!backend/uploads/.gitkeep
+mobile/.expo/
+mobile/.expo-shared/
+
 
 ################################
 # text
@@ -88,3 +97,4 @@ backend/all_dotnet_files.txt
 TESTING_GUIDE.md
 CMD.txt
 frontend/FRONTEND_README.md
+start-all.ps1

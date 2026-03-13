@@ -47,7 +47,8 @@ public class NotificationsController : ControllerBase
     [HttpPost("{id:int}/read")]
     public async Task<IActionResult> MarkAsRead(int id)
     {
-        await _service.MarkAsReadAsync(id, GetUserId());
+        var canManageAdmin = User.IsInRole("Admin") || User.IsInRole("QuanLy") || User.IsInRole("KeToan");
+        await _service.MarkAsReadAsync(id, GetUserId(), canManageAdmin);
         return NoContent();
     }
 
@@ -55,7 +56,8 @@ public class NotificationsController : ControllerBase
     [HttpPost("mark-all-read")]
     public async Task<IActionResult> MarkAllAsRead()
     {
-        await _service.MarkAllAsReadAsync(GetUserId());
+        var includeAdmin = User.IsInRole("Admin") || User.IsInRole("QuanLy") || User.IsInRole("KeToan");
+        await _service.MarkAllAsReadAsync(GetUserId(), includeAdmin);
         return NoContent();
     }
 

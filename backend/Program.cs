@@ -19,6 +19,8 @@ builder.Services.AddControllers(options =>
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new backend.Json.UtcDateTimeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new backend.Json.NullableUtcDateTimeJsonConverter());
     });
 
 // Configure SQL Server Database
@@ -291,7 +293,10 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowAll");
 
 // Serve static files from uploads folder
-var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+var configuredUploadsPath = builder.Configuration["Uploads:RootPath"];
+var uploadsPath = string.IsNullOrWhiteSpace(configuredUploadsPath)
+    ? Path.Combine(builder.Environment.ContentRootPath, "uploads")
+    : Environment.ExpandEnvironmentVariables(configuredUploadsPath);
 if (!Directory.Exists(uploadsPath))
 {
     Directory.CreateDirectory(uploadsPath);

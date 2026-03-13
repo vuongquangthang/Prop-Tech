@@ -97,7 +97,7 @@ public class HoaDonService : IHoaDonService
                     (hd.Status == "Chưa thanh toán" || hd.Status == "Đã thanh toán một phần") &&
                     hd.HopDong.ChiTietOs.Any(ct =>
                         ct.Resident.Users.Any(u => u.Id == userId.Value) &&
-                        (ct.ToDate == null || ct.ToDate > DateTime.Now)))
+                        (ct.ToDate == null || ct.ToDate > DateTime.UtcNow)))
                 .OrderByDescending(hd => hd.Year).ThenByDescending(hd => hd.Month)
                 .ToListAsync();
             return invoices.Select(MapToDto).ToList();

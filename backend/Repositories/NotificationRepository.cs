@@ -48,10 +48,10 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
         }
     }
 
-    public async Task MarkAllAsReadAsync(int recipientId)
+    public async Task MarkAllAsReadAsync(int recipientId, bool includeAdmin = false)
     {
         var unread = await _context.Notifications
-            .Where(n => (n.RecipientId == recipientId || n.ScopeType == "ALL") && !n.IsRead)
+            .Where(n => ((n.RecipientId == recipientId || n.ScopeType == "ALL") || (includeAdmin && n.ScopeType == "ADMIN")) && !n.IsRead)
             .ToListAsync();
 
         foreach (var n in unread)

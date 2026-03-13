@@ -84,7 +84,7 @@ public class ChiTietOService : IChiTietOService
         }
 
         // Set ToDate to mark as moved out
-        chiTietO.ToDate = DateTime.Now;
+        chiTietO.ToDate = DateTime.UtcNow;
         _chiTietORepository.Update(chiTietO);
         await _chiTietORepository.SaveChangesAsync();
     }

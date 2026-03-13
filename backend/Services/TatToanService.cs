@@ -85,7 +85,7 @@ namespace backend.Services
                 ResidentSignature = dto.ResidentSignature,
                 ManagerSignature = dto.ManagerSignature,
                 Status = dto.Status,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
 
             var created = await _tatToanRepository.CreateAsync(tatToan);
@@ -99,7 +99,7 @@ namespace backend.Services
                     Description = detailDto.Description,
                     Amount = detailDto.Amount,
                     Type = detailDto.Type,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
                 await _detailRepository.CreateAsync(detail);
             }
@@ -158,7 +158,7 @@ namespace backend.Services
                         Description = detailDto.Description,
                         Amount = detailDto.Amount,
                         Type = detailDto.Type,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     };
                     await _detailRepository.CreateAsync(detail);
                 }

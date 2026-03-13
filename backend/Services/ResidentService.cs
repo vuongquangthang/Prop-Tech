@@ -157,7 +157,7 @@ public class ResidentService : IResidentService
 
         // Check if resident has active contracts
         var hasActiveContracts = resident.ChiTietOs?.Any(ct => 
-            ct.HopDong.ExpectedEndDate == null || ct.HopDong.ExpectedEndDate > DateTime.Now) ?? false;
+            ct.HopDong.ExpectedEndDate == null || ct.HopDong.ExpectedEndDate > DateTime.UtcNow) ?? false;
         
         if (hasActiveContracts)
         {

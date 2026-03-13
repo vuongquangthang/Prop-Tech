@@ -75,7 +75,7 @@ namespace backend.Repositories
 
         public async Task<TatToan> UpdateAsync(TatToan tatToan)
         {
-            tatToan.UpdatedAt = DateTime.Now;
+            tatToan.UpdatedAt = DateTime.UtcNow;
             _context.TatToans.Update(tatToan);
             await _context.SaveChangesAsync();
             return tatToan;

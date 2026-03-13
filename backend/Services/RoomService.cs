@@ -95,7 +95,7 @@ public class RoomService : IRoomService
             DefaultRentPrice = room.DefaultRentPrice,
             Status = room.Status,
             ActiveContracts = room.HopDongs?
-                .Where(hd => hd.ExpectedEndDate == null || hd.ExpectedEndDate > DateTime.Now)
+                .Where(hd => hd.ExpectedEndDate == null || hd.ExpectedEndDate > DateTime.UtcNow)
                 .Select(hd => new ContractSummaryDto
                 {
                     Id = hd.Id,
@@ -127,7 +127,7 @@ public class RoomService : IRoomService
         // Find active residency for this resident
         var activeResidency = await _chiTietORepository.FirstOrDefaultAsync(ct => 
             ct.ResidentId == user.ResidentId.Value &&
-            (ct.ToDate == null || ct.ToDate > DateTime.Now));
+            (ct.ToDate == null || ct.ToDate > DateTime.UtcNow));
 
         if (activeResidency == null)
         {
@@ -152,7 +152,7 @@ public class RoomService : IRoomService
         // Find household head (Người thuê chính) for this contract
         var allResidencies = await _chiTietORepository.GetByContractIdAsync(contract.Id);
         var householdHead = allResidencies
-            .FirstOrDefault(ct => ct.ResidencyRole == "Người thuê chính" && (ct.ToDate == null || ct.ToDate > DateTime.Now));
+            .FirstOrDefault(ct => ct.ResidencyRole == "Người thuê chính" && (ct.ToDate == null || ct.ToDate > DateTime.UtcNow));
         var householdHeadName = householdHead?.Resident?.FullName
             ?? allResidencies.FirstOrDefault()?.Resident?.FullName; // fallback to first resident
 
@@ -250,7 +250,7 @@ public class RoomService : IRoomService
 
         // Check if room has active contracts
         var hasActiveContracts = room.HopDongs?.Any(hd => 
-            hd.ExpectedEndDate == null || hd.ExpectedEndDate > DateTime.Now) ?? false;
+            hd.ExpectedEndDate == null || hd.ExpectedEndDate > DateTime.UtcNow) ?? false;
         
         if (hasActiveContracts)
         {
