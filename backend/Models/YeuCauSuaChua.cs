@@ -51,6 +51,10 @@ public class YeuCauSuaChua
     [Column("CREATED_AT")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    [Required]
+    [Column("UPDATED_AT")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
     [Column("CLOSED_AT")]
     public DateTime? ClosedAt { get; set; }
 

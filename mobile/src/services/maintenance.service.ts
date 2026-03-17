@@ -14,6 +14,7 @@ export interface MaintenanceRequest {
   adminNote?: string;
   completionImageUrl?: string;
   createdAt: string;
+  updatedAt?: string;
   closedAt?: string;
 }
 

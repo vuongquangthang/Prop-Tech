@@ -106,6 +106,7 @@ public class PaymentService : IPaymentService
             Amount = payosResult.RealAmount,   // số tiền thực, không phải test amount
             PaymentType = dto.PaymentMethod ?? "QR",
             TransactionCode = transactionCode,
+            TransferDescription = payosResult.Description,
             Status = "PENDING",
             CreatedAt = DateTime.UtcNow,
             PaidAt = null
@@ -287,6 +288,7 @@ public class PaymentService : IPaymentService
             Amount = pending.Amount,
             PaymentType = pending.PaymentType,
             TransactionCode = pending.TransactionCode,
+            TransferDescription = pending.TransferDescription,
             Status = pending.Status,
             CreatedAt = pending.CreatedAt,
             PaidAt = pending.PaidAt,

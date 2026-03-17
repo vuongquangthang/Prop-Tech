@@ -1,13 +1,16 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   SafeAreaView,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -19,9 +22,39 @@ interface Message {
   text: string;
 }
 
+const MessageItem = memo(({ item }: { item: Message }) => {
+  if (item.type === 'bot') {
+    return (
+      <View style={styles.messageWrapper}>
+        <View style={styles.botMessageContainer}>
+          <View style={styles.botAvatar}>
+            <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
+          </View>
+          <View style={styles.botMessage}>
+            <Text style={styles.botMessageText}>{item.text}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.messageWrapper}>
+      <View style={styles.userMessageContainer}>
+        <View style={styles.userMessage}>
+          <Text style={styles.userMessageText}>{item.text}</Text>
+        </View>
+        <View style={styles.userAvatar}>
+          <Ionicons name="person" size={18} color="#6B7280" />
+        </View>
+      </View>
+    </View>
+  );
+});
+
 export default function ChatbotScreen() {
   const navigation = useNavigation();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const listRef = useRef<FlatList<Message>>(null);
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -33,15 +66,24 @@ export default function ChatbotScreen() {
   ]);
 
   useEffect(() => {
-    // Auto scroll to bottom when messages change
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    // Keep latest message visible.
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    });
   }, [messages]);
 
   useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      });
+    });
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
     // Load chat history from backend
-    apiService.get<any[]>('/api/Chat/history?limit=100').then(history => {
+    apiService.get<any[]>('/api/Chat/history?limit=40').then(history => {
       if (!history || history.length === 0) return;
       const mapped: Message[] = history.map((m: any) => ({
         id: String(m.id),
@@ -56,6 +98,8 @@ export default function ChatbotScreen() {
     'Quy định tòa nhà là gì?',
     'Lấy pass wifi phòng chờ?',
   ];
+
+  const renderItem = useCallback(({ item }: { item: Message }) => <MessageItem item={item} />, []);
 
   const handleSend = async () => {
     if (message.trim() === '' || isTyping) return;
@@ -84,7 +128,7 @@ export default function ChatbotScreen() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        text: 'Xép lỗi, tôi đang gặp vấn đề. Vui lòng thử lại sau.',
+        text: 'Xin lỗi, tôi đang gặp vấn đề. Vui lòng thử lại sau.',
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -94,6 +138,11 @@ export default function ChatbotScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#4B5563" />
@@ -102,60 +151,49 @@ export default function ChatbotScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.messagesContainer} ref={scrollViewRef}>
-        {messages.map((msg) => (
-          <View key={msg.id} style={styles.messageWrapper}>
-            {msg.type === 'bot' ? (
-              <View style={styles.botMessageContainer}>
-                <View style={styles.botAvatar}>
-                  <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
-                </View>
-                <View style={styles.botMessage}>
-                  <Text style={styles.botMessageText}>{msg.text}</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.userMessageContainer}>
-                <View style={styles.userMessage}>
-                  <Text style={styles.userMessageText}>{msg.text}</Text>
-                </View>
-                <View style={styles.userAvatar}>
-                  <Ionicons name="person" size={18} color="#6B7280" />
+      <FlatList
+        ref={listRef}
+        style={styles.messagesContainer}
+        contentContainerStyle={styles.messagesContent}
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={8}
+        removeClippedSubviews
+        ListFooterComponent={
+          <>
+            {isTyping && (
+              <View style={styles.messageWrapper}>
+                <View style={styles.botMessageContainer}>
+                  <View style={styles.botAvatar}>
+                    <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
+                  </View>
+                  <View style={styles.botMessage}>
+                    <ActivityIndicator size="small" color="#1A4B84" />
+                  </View>
                 </View>
               </View>
             )}
-          </View>
-        ))}
 
-        {/* Typing Indicator */}
-        {isTyping && (
-          <View style={styles.messageWrapper}>
-            <View style={styles.botMessageContainer}>
-              <View style={styles.botAvatar}>
-                <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
+            {messages.length === 1 && (
+              <View style={styles.suggestionsContainer}>
+                {suggestions.map((suggestion, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.suggestionChip}
+                    onPress={() => setMessage(suggestion)}
+                  >
+                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={styles.botMessage}>
-                <ActivityIndicator size="small" color="#1A4B84" />
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Suggestions */}
-        {messages.length === 1 && (
-          <View style={styles.suggestionsContainer}>
-            {suggestions.map((suggestion, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.suggestionChip}
-                onPress={() => setMessage(suggestion)}
-              >
-                <Text style={styles.suggestionText}>{suggestion}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+            )}
+          </>
+        }
+      />
 
       <View style={styles.inputContainer}>
         <View style={styles.inputWrapper}>
@@ -179,6 +217,7 @@ export default function ChatbotScreen() {
           AI có thể không chính xác 100%. Vui lòng không chia sẻ mã số cá nhân.
         </Text>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -206,7 +245,10 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  messagesContent: {
     padding: 16,
+    paddingBottom: 12,
   },
   messageWrapper: {
     marginBottom: 20,

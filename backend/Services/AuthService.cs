@@ -172,6 +172,7 @@ public class AuthService : IAuthService
         }
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.MustChangePassword = false;
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync();
     }
@@ -215,6 +216,7 @@ public class AuthService : IAuthService
             ResidentId = user.ResidentId,
             ResidentName = residentName,
             IsLocked = user.IsLocked,
+            MustChangePassword = user.MustChangePassword,
             LastLoginAt = user.LastLoginAt,
             Email = user.Email,
             Address = user.Address,

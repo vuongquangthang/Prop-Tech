@@ -83,6 +83,57 @@ public class ChatController : ControllerBase
     }
 
     /// <summary>
+    /// [Admin/QuanLy] Lấy danh sách câu hỏi AI chưa đủ dữ liệu để trả lời
+    /// </summary>
+    [HttpGet("admin/unanswered")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<List<UnansweredChatItemDto>>> GetUnanswered([FromQuery] int limit = 200)
+    {
+        try
+        {
+            var items = await _chatService.GetUnansweredChatsAsync(limit);
+            return Ok(items);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// [Admin/QuanLy] Trả lời câu hỏi thiếu dữ liệu và tự động thêm vào Knowledge Base
+    /// </summary>
+    [HttpPost("admin/unanswered/{assistantMessageId:long}/resolve")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<KnowledgeBaseDto>> ResolveUnanswered(long assistantMessageId, [FromBody] ResolveUnansweredChatDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng" });
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.AnswerText))
+            {
+                return BadRequest(new { message = "Nội dung trả lời không được để trống" });
+            }
+
+            var created = await _chatService.ResolveUnansweredAsync(assistantMessageId, dto, userId);
+            return Ok(created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Gửi tin nhắn đến chatbot
     /// </summary>
     [HttpPost("send")]

@@ -182,6 +182,7 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             Description = dto.Description,
             MediaUrl = dto.MediaUrl,
             Status = "Chờ xử lý",
+            UpdatedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -262,6 +263,8 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
 
         if (dto.CompletionImageUrl != null)
             request.CompletionImageUrl = dto.CompletionImageUrl;
+
+        request.UpdatedAt = DateTime.UtcNow;
 
         _yeuCauRepository.Update(request);
         await _yeuCauRepository.SaveChangesAsync();
@@ -345,6 +348,8 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             request.ClosedAt = null;
         }
 
+        request.UpdatedAt = DateTime.UtcNow;
+
         _yeuCauRepository.Update(request);
         await _yeuCauRepository.SaveChangesAsync();
 
@@ -415,6 +420,7 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             AdminNote = request.AdminNote,
             CompletionImageUrl = request.CompletionImageUrl,
             CreatedAt = request.CreatedAt,
+            UpdatedAt = request.UpdatedAt,
             ClosedAt = request.ClosedAt
         };
     }

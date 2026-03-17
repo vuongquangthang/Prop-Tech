@@ -1,21 +1,54 @@
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useEffect, useMemo, useState } from 'react';
+import { reportService } from '../services/feature.service';
 
-const revenueData = [
-  { month: 'Th 8', revenue: 95000000 },
-  { month: 'Th 9', revenue: 102000000 },
-  { month: 'Th 10', revenue: 98000000 },
-  { month: 'Th 11', revenue: 110000000 },
-  { month: 'Th 12', revenue: 118000000 },
-  { month: 'Th 1', revenue: 125500000 },
-];
+interface RevenueBarItem {
+  month: string;
+  revenue: number;
+}
 
-const occupancyData = [
-  { name: 'Đã thuê', value: 68, color: '#1f2937' },
-  { name: 'Trống', value: 12, color: '#d1d5db' },
-  { name: 'Bảo trì', value: 5, color: '#9ca3af' },
-];
+interface OccupancyItem {
+  name: string;
+  value: number;
+  color: string;
+}
 
 export function Charts() {
+  const [revenueData, setRevenueData] = useState<RevenueBarItem[]>([]);
+  const [occupancyData, setOccupancyData] = useState<OccupancyItem[]>([]);
+
+  useEffect(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+
+    Promise.all([reportService.getMonthlyRevenue(year), reportService.getRoomStats()])
+      .then(([monthly, roomStats]) => {
+        const bars = (monthly || [])
+          .sort((a, b) => a.month - b.month)
+          .slice(-6)
+          .map((m) => ({
+            month: `Th ${m.month}`,
+            revenue: m.totalRevenue || 0,
+          }));
+        setRevenueData(bars);
+
+        setOccupancyData([
+          { name: 'Đã thuê', value: roomStats?.occupiedRooms || 0, color: '#1f2937' },
+          { name: 'Trống', value: roomStats?.availableRooms || 0, color: '#d1d5db' },
+          { name: 'Bảo trì', value: roomStats?.maintenanceRooms || 0, color: '#9ca3af' },
+        ]);
+      })
+      .catch(() => {
+        setRevenueData([]);
+        setOccupancyData([]);
+      });
+  }, []);
+
+  const occupancyLabelData = useMemo(
+    () => occupancyData.filter((item) => item.value > 0),
+    [occupancyData]
+  );
+
   return (
     <div className="grid grid-cols-3 gap-6 mb-8">
       {/* Bar Chart - 70% */}
@@ -41,7 +74,7 @@ export function Charts() {
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie
-              data={occupancyData}
+              data={occupancyLabelData}
               cx="50%"
               cy="50%"
               labelLine={false}
@@ -50,7 +83,7 @@ export function Charts() {
               fill="#8884d8"
               dataKey="value"
             >
-              {occupancyData.map((entry, index) => (
+              {occupancyLabelData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>

@@ -34,6 +34,10 @@ public class ThanhToan
     [StringLength(100)]
     public string? TransactionCode { get; set; }
 
+    [Column("NOI_DUNG_CHUYEN_KHOAN")]
+    [StringLength(255)]
+    public string? TransferDescription { get; set; }
+
     [Column("PAID_AT")]
     public DateTime? PaidAt { get; set; }
 

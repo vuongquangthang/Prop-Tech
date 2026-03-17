@@ -24,6 +24,7 @@ public class HopDongService : IHopDongService
     private readonly IServiceRepository _serviceRepository;
     private readonly IChiTietSuDungDichVuRepository _chiTietSuDungDichVuRepository;
     private readonly IChiTietORepository _chiTietORepository;
+    private readonly IUserRepository _userRepository;
 
     public HopDongService(
         IHopDongRepository hopDongRepository,
@@ -31,7 +32,8 @@ public class HopDongService : IHopDongService
         IResidentRepository residentRepository,
         IServiceRepository serviceRepository,
         IChiTietSuDungDichVuRepository chiTietSuDungDichVuRepository,
-        IChiTietORepository chiTietORepository)
+        IChiTietORepository chiTietORepository,
+        IUserRepository userRepository)
     {
         _hopDongRepository = hopDongRepository;
         _roomRepository = roomRepository;
@@ -39,6 +41,7 @@ public class HopDongService : IHopDongService
         _serviceRepository = serviceRepository;
         _chiTietSuDungDichVuRepository = chiTietSuDungDichVuRepository;
         _chiTietORepository = chiTietORepository;
+        _userRepository = userRepository;
     }
 
     public async Task<List<HopDongDto>> GetAllAsync()
@@ -144,6 +147,8 @@ public class HopDongService : IHopDongService
             .FirstOrDefault(r => r.ResidencyRole == "Người thuê chính")?.ResidentId
             ?? dto.Residents.FirstOrDefault(r => r.ResidencyRole == "Người thuê")?.ResidentId
             ?? dto.Residents.First().ResidentId;
+
+        await EnsureResidentAccountAsync(primaryResidentId);
 
         if (defaultServices.Count > 0)
         {
@@ -281,5 +286,61 @@ public class HopDongService : IHopDongService
         }
 
         return true;
+    }
+
+    private async Task EnsureResidentAccountAsync(int residentId)
+    {
+        var resident = await _residentRepository.GetByIdAsync(residentId);
+        if (resident == null)
+        {
+            throw new InvalidOperationException("Không tìm thấy cư dân chủ hộ để tạo tài khoản");
+        }
+
+        var phone = (resident.PhoneNumber ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            throw new InvalidOperationException("Chủ hộ chưa có số điện thoại, không thể tự động tạo tài khoản");
+        }
+
+        var existingByResident = await _userRepository.FirstOrDefaultAsync(u => u.ResidentId == residentId);
+        if (existingByResident != null)
+        {
+            return;
+        }
+
+        var existingByPhone = await _userRepository.GetByPhoneNumberAsync(phone);
+        if (existingByPhone != null)
+        {
+            if (!string.Equals(existingByPhone.Role, "CuDan", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Số điện thoại {phone} đang thuộc tài khoản hệ thống khác, không thể gán cho cư dân");
+            }
+
+            if (existingByPhone.ResidentId.HasValue && existingByPhone.ResidentId.Value != residentId)
+            {
+                throw new InvalidOperationException($"Số điện thoại {phone} đã được gắn với cư dân khác");
+            }
+
+            existingByPhone.ResidentId = residentId;
+            existingByPhone.IsLocked = false;
+            existingByPhone.MustChangePassword = true;
+            _userRepository.Update(existingByPhone);
+            await _userRepository.SaveChangesAsync();
+            return;
+        }
+
+        var defaultPassword = "123456";
+        var user = new User
+        {
+            PhoneNumber = phone,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
+            Role = "CuDan",
+            ResidentId = residentId,
+            IsLocked = false,
+            MustChangePassword = true
+        };
+
+        await _userRepository.AddAsync(user);
+        await _userRepository.SaveChangesAsync();
     }
 }

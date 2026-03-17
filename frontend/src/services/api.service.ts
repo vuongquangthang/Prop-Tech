@@ -87,6 +87,7 @@ export interface Payment {
   invoiceId?: number;
   amount: number;
   paymentMethod: string;
+  transferDescription?: string;
   paidAt: string;
   notes?: string;
 }
@@ -115,6 +116,7 @@ export interface ResidentPayment {
   invoiceId?: number;
   amount: number;
   transactionCode?: string;
+  transferDescription?: string;
   status: string;
   paidAt?: string;
   createdAt: string;
@@ -163,6 +165,7 @@ export interface User {
   phoneNumber?: string;
   role: string;
   isLocked: boolean;
+  mustChangePassword?: boolean;
   lastLogin?: string;
   lastLoginAt?: string;
   residentId?: number;
@@ -662,6 +665,15 @@ export const userService = {
   getById: async (id: number) => {
     try {
       const response = await api.get<User>(API_ENDPOINTS.USERS.BY_ID(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  create: async (dto: { phoneNumber: string; password: string; role: string; residentId?: number }) => {
+    try {
+      const response = await api.post<User>(API_ENDPOINTS.USERS.CREATE, dto);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

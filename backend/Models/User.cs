@@ -37,6 +37,10 @@ public class User
     [Column("IS_LOCKED")]
     public bool IsLocked { get; set; } = false;
 
+    [Required]
+    [Column("MUST_CHANGE_PASSWORD")]
+    public bool MustChangePassword { get; set; } = false;
+
     [Column("LAST_LOGIN_AT")]
     public DateTime? LastLoginAt { get; set; }
 

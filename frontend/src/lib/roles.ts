@@ -115,6 +115,6 @@ export const ROUTE_ACCESS = {
   '/revenue-report': [UserRole.ADMIN],
   '/occupancy-report': [UserRole.ADMIN],
   '/user-accounts': [UserRole.ADMIN],
-  '/audit-logs': [UserRole.ADMIN],
+  '/audit-logs': [UserRole.ADMIN, UserRole.MANAGER],
   
 };

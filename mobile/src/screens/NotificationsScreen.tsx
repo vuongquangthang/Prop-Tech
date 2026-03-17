@@ -42,6 +42,40 @@ export default function NotificationsScreen() {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
+  const navigateByNotification = (notification: Notification) => {
+    const type = (notification.notificationType || '').toUpperCase();
+
+    if (type === 'INVOICE' || type === 'PAYMENT') {
+      if (notification.relatedId) {
+        // @ts-ignore
+        navigation.navigate('BillDetail', { id: notification.relatedId });
+        return;
+      }
+      // @ts-ignore
+      navigation.navigate('MainTabs', { screen: 'Bills' });
+      return;
+    }
+
+    if (type === 'COMPLAINT' || type === 'MAINTENANCE') {
+      if (notification.relatedId) {
+        // @ts-ignore
+        navigation.navigate('IssueDetail', { id: notification.relatedId });
+        return;
+      }
+      // @ts-ignore
+      navigation.navigate('MainTabs', { screen: 'Issues' });
+      return;
+    }
+
+    // @ts-ignore
+    navigation.navigate('MainTabs', { screen: 'Home' });
+  };
+
+  const handleNotificationPress = async (notification: Notification) => {
+    await handleMarkAsRead(notification.id);
+    navigateByNotification(notification);
+  };
+
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead();
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
@@ -66,7 +100,7 @@ export default function NotificationsScreen() {
     return (
       <TouchableOpacity
         style={[styles.item, !item.isRead && styles.itemUnread]}
-        onPress={() => handleMarkAsRead(item.id)}
+        onPress={() => handleNotificationPress(item)}
         activeOpacity={0.7}
       >
         <View style={[styles.iconContainer, { backgroundColor: style.bgColor }]}>

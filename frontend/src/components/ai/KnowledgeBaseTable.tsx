@@ -51,6 +51,13 @@ export function KnowledgeBaseTable() {
   const activeCount = knowledgeData.filter(k => k.isActive).length;
   const inactiveCount = knowledgeData.length - activeCount;
   const categories = new Set(knowledgeData.map(k => k.category)).size;
+  const categoryStats = Array.from(
+    knowledgeData.reduce((acc, item) => {
+      const key = item.category || 'Khác';
+      acc.set(key, (acc.get(key) || 0) + 1);
+      return acc;
+    }, new Map<string, number>())
+  ).map(([name, count]) => ({ name, count }));
 
   return (
     <div className="space-y-4">
@@ -238,7 +245,7 @@ export function KnowledgeBaseTable() {
       )}
       
       {manageCategoryModal && (
-        <ManageCategoryModal onClose={() => setManageCategoryModal(false)} />
+        <ManageCategoryModal categories={categoryStats} onClose={() => setManageCategoryModal(false)} />
       )}
     </div>
   );

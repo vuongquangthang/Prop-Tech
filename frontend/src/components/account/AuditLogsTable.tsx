@@ -73,6 +73,7 @@ const parseDate = (timeString: string) => {
 export function AuditLogsTable() {
   const [auditLogsData, setAuditLogsData] = useState<AuditLogRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [accountFilter, setAccountFilter] = useState('all');
   const [actionFilter, setActionFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -81,9 +82,13 @@ export function AuditLogsTable() {
 
   const fetchLogs = useCallback(() => {
     setLoading(true);
+    setError(null);
     auditLogService.getAll(500)
       .then(data => setAuditLogsData(data.map(mapAuditLog)))
-      .catch(() => setAuditLogsData([]))
+      .catch((err: any) => {
+        setAuditLogsData([]);
+        setError(err?.message || 'Không tải được nhật ký hoạt động');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -137,6 +142,12 @@ export function AuditLogsTable() {
         </div>
       </div>
       
+      {error && (
+        <div className="bg-red-50 border border-red-300 rounded p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Filter Bar */}
       <div className="flex items-center flex-wrap gap-3">
         <div className="flex items-center space-x-3 flex-wrap gap-3">

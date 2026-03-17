@@ -22,7 +22,7 @@ public class AuditLogsController : ControllerBase
     /// Lấy nhật ký hoạt động gần đây (Admin only)
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<List<AuditLogDto>>> GetRecent([FromQuery] int limit = 500)
     {
         try

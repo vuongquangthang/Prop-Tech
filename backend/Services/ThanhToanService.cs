@@ -94,6 +94,9 @@ public class ThanhToanService : IThanhToanService
         if (dto.TransactionCode != null)
             payment.TransactionCode = dto.TransactionCode;
 
+        if (dto.TransferDescription != null)
+            payment.TransferDescription = dto.TransferDescription;
+
         _thanhToanRepository.Update(payment);
         await _thanhToanRepository.SaveChangesAsync();
 
@@ -143,6 +146,7 @@ public class ThanhToanService : IThanhToanService
             SettlementId = payment.SettlementId,
             Amount = payment.Amount,
             TransactionCode = payment.TransactionCode,
+            TransferDescription = payment.TransferDescription,
             Status = payment.Status,
             PaidAt = payment.PaidAt,
             CreatedAt = payment.CreatedAt,
@@ -173,6 +177,7 @@ public class ThanhToanService : IThanhToanService
             InvoiceId = p.InvoiceId,
             Amount = p.Amount,
             TransactionCode = p.TransactionCode,
+            TransferDescription = p.TransferDescription,
             Status = p.Status,
             PaidAt = p.PaidAt,
             CreatedAt = p.CreatedAt,

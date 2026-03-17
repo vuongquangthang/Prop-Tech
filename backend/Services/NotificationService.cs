@@ -167,6 +167,8 @@ public class NotificationService : INotificationService
         Title = n.Title,
         Content = n.Content,
         NotificationType = n.NotificationType,
+        RelatedId = n.RelatedId,
+        LinkUrl = n.LinkUrl,
         IsRead = n.IsRead,
         CreatedAt = n.CreatedAt,
         SenderPhone = n.User?.PhoneNumber,

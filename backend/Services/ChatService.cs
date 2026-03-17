@@ -10,8 +10,16 @@ public interface IChatService
 {
     Task<List<ChatMessageDto>> GetChatHistoryAsync(int userId, int limit = 100);
     Task<List<ChatMessageDto>> GetAllUsersHistoryAsync(int limit = 1000);
+    Task<List<UnansweredChatItemDto>> GetUnansweredChatsAsync(int limit = 200);
+    Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId);
     Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto);
     Task<ChatConversationDto> GetConversationAsync(int userId);
+}
+
+internal sealed class ChatResponseResult
+{
+    public string Text { get; set; } = string.Empty;
+    public bool IsKnowledgeGap { get; set; }
 }
 
 public class ChatService : IChatService
@@ -45,6 +53,93 @@ public class ChatService : IChatService
         return chats.OrderByDescending(x => x.CreatedAt).Select(MapToDto).ToList();
     }
 
+    public async Task<List<UnansweredChatItemDto>> GetUnansweredChatsAsync(int limit = 200)
+    {
+        var chats = await _chatRepository.GetRecentAsync(Math.Max(limit * 4, 200));
+        var ordered = chats.OrderBy(x => x.CreatedAt).ToList();
+
+        var unresolved = ordered
+            .Where(x => x.MessageRole == "assistant" && x.IsKnowledgeGap)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(limit)
+            .Select(assistant =>
+            {
+                var question = ordered
+                    .Where(x =>
+                        x.UserId == assistant.UserId &&
+                        x.MessageRole == "user" &&
+                        x.CreatedAt <= assistant.CreatedAt)
+                    .OrderByDescending(x => x.CreatedAt)
+                    .FirstOrDefault();
+
+                return new UnansweredChatItemDto
+                {
+                    AssistantMessageId = assistant.Id,
+                    UserId = assistant.UserId,
+                    UserPhone = assistant.User?.PhoneNumber,
+                    Question = question?.MessageText ?? "",
+                    AiResponse = assistant.MessageText,
+                    AskedAt = question?.CreatedAt ?? assistant.CreatedAt,
+                    IsResolved = false
+                };
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Question))
+            .ToList();
+
+        return unresolved;
+    }
+
+    public async Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId)
+    {
+        var assistantMessage = await _chatRepository.GetByIdAsync(assistantMessageId);
+        if (assistantMessage == null || assistantMessage.MessageRole != "assistant")
+        {
+            throw new InvalidOperationException("Không tìm thấy câu trả lời AI cần xử lý");
+        }
+
+        var recentChats = await _chatRepository.GetByUserIdAsync(assistantMessage.UserId, 500);
+        var question = recentChats
+            .Where(x => x.MessageRole == "user" && x.CreatedAt <= assistantMessage.CreatedAt)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefault();
+
+        if (question == null || string.IsNullOrWhiteSpace(question.MessageText))
+        {
+            throw new InvalidOperationException("Không tìm thấy câu hỏi tương ứng");
+        }
+
+        var kb = new KnowledgeBase
+        {
+            Title = question.MessageText.Trim(),
+            Content = dto.AnswerText.Trim(),
+            Category = string.IsNullOrWhiteSpace(dto.Category) ? "Khác" : dto.Category.Trim(),
+            Tags = BuildTagsFromQuestion(question.MessageText),
+            IsActive = dto.ActivateImmediately,
+            UpdatedAt = DateTime.UtcNow,
+            UpdatedBy = resolverUserId
+        };
+
+        await _knowledgeBaseRepository.AddAsync(kb);
+
+        assistantMessage.IsKnowledgeGap = false;
+        _chatRepository.Update(assistantMessage);
+
+        await _chatRepository.SaveChangesAsync();
+
+        return new KnowledgeBaseDto
+        {
+            Id = kb.Id,
+            Title = kb.Title,
+            Content = kb.Content,
+            Category = kb.Category,
+            Tags = kb.Tags,
+            IsActive = kb.IsActive,
+            UpdatedAt = kb.UpdatedAt,
+            UpdatedBy = kb.UpdatedBy,
+            UpdatedByName = null
+        };
+    }
+
     public async Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto)
     {
         // Save user message
@@ -67,7 +162,8 @@ public class ChatService : IChatService
         {
             UserId = userId,
             MessageRole = "assistant",
-            MessageText = response,
+            MessageText = response.Text,
+            IsKnowledgeGap = response.IsKnowledgeGap,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -91,80 +187,97 @@ public class ChatService : IChatService
         };
     }
 
-    private async Task<string> GenerateResponseAsync(string userMessage)
+    private async Task<ChatResponseResult> GenerateResponseAsync(string userMessage)
     {
-        // Search knowledge base FIRST — admin-curated content takes priority
-
-        // 1. Full-phrase search
-        var knowledgeItems = await _knowledgeBaseRepository.SearchAsync(userMessage);
-
-        // 2. If no full-phrase match, try each meaningful word individually
-        if (!knowledgeItems.Any())
-        {
-            var words = userMessage
-                .Split(new[] { ' ', '?', '.', ',', '!', '\t' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(w => w.Length >= 3)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            foreach (var word in words)
-            {
-                var results = await _knowledgeBaseRepository.SearchAsync(word);
-                if (results.Any())
-                {
-                    knowledgeItems = results;
-                    break;
-                }
-            }
-        }
-
-        if (knowledgeItems.Any())
-        {
-            var bestMatch = knowledgeItems.First();
-            return $"📚 {bestMatch.Title}\n\n{bestMatch.Content}";
-        }
-
-        // No KB match — try n8n AI webhook
+        // Always use n8n AI webhook for answer generation.
         try
         {
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(15);
-            var payload = JsonSerializer.Serialize(new { chatInput = userMessage });
+            var payload = JsonSerializer.Serialize(new
+            {
+                chatInput = userMessage,
+                message = userMessage,
+                userMessage
+            });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             var res = await client.PostAsync(N8nWebhookUrl, content);
             if (res.IsSuccessStatusCode)
             {
                 var json = await res.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("output", out var outputEl))
+                var text = ExtractN8nText(json);
+                if (!string.IsNullOrWhiteSpace(text))
                 {
-                    var text = outputEl.GetString();
-                    if (!string.IsNullOrWhiteSpace(text))
-                        return text;
+                    return new ChatResponseResult
+                    {
+                        Text = text,
+                        IsKnowledgeGap = false
+                    };
                 }
             }
         }
         catch
         {
-            // n8n unavailable — fall through to keyword-based fallback
+            // n8n unavailable — return unresolved response below
         }
 
-        // Keyword fallback
-        var lowerMessage = userMessage.ToLower();
+        return new ChatResponseResult
+        {
+            Text = "Tôi chưa tìm thấy thông tin đủ chính xác để trả lời. Câu hỏi của bạn đã được ghi nhận để ban quản lý bổ sung vào kho tri thức.",
+            IsKnowledgeGap = true
+        };
+    }
 
-        if (lowerMessage.Contains("giá") || lowerMessage.Contains("tiền"))
-            return "Để biết thông tin về giá phòng và chi phí, vui lòng liên hệ ban quản lý hoặc xem trong hợp đồng của bạn.";
+    private static string? ExtractN8nText(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
 
-        if (lowerMessage.Contains("hóa đơn") || lowerMessage.Contains("thanh toán"))
-            return "Bạn có thể xem hóa đơn và thanh toán qua ứng dụng. Hóa đơn được phát hành vào đầu tháng và hạn thanh toán là ngày 10 hàng tháng.";
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
 
-        if (lowerMessage.Contains("sửa chữa") || lowerMessage.Contains("hỏng"))
-            return "Để yêu cầu sửa chữa, vui lòng tạo yêu cầu trong mục 'Bảo trì' của ứng dụng. Ban quản lý sẽ xử lý trong vòng 24-48 giờ.";
+        if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+        {
+            root = root[0];
+        }
 
-        if (lowerMessage.Contains("xe") || lowerMessage.Contains("parking"))
-            return "Thông tin về đăng ký xe và chỗ đậu xe có thể xem trong mục 'Phương tiện' của ứng dụng.";
+        var candidates = new[] { "output", "answer", "response", "message", "text" };
+        foreach (var key in candidates)
+        {
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String)
+            {
+                var text = value.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    return text;
+                }
+            }
+        }
 
-        return "Cảm ơn bạn đã liên hệ! Tôi chưa tìm thấy thông tin phù hợp. Vui lòng liên hệ ban quản lý để được hỗ trợ tốt hơn, hoặc tìm kiếm trong mục FAQ/Nội quy.";
+        if (root.ValueKind == JsonValueKind.String)
+        {
+            var text = root.GetString();
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private static string BuildTagsFromQuestion(string question)
+    {
+        var tags = question
+            .ToLowerInvariant()
+            .Split(new[] { ' ', '\t', '\r', '\n', '?', '.', ',', '!', ':', ';', '"', '\'' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(x => x.Length >= 3)
+            .Distinct()
+            .Take(8);
+
+        return string.Join(",", tags);
     }
 
     private ChatMessageDto MapToDto(LichSuChat chat)
@@ -176,6 +289,7 @@ public class ChatService : IChatService
             UserPhone = chat.User?.PhoneNumber,
             MessageRole = chat.MessageRole,
             MessageText = chat.MessageText,
+            IsKnowledgeGap = chat.IsKnowledgeGap,
             CreatedAt = chat.CreatedAt
         };
     }

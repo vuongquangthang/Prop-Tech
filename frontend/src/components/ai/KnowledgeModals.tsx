@@ -101,26 +101,12 @@ export function AddKnowledgeModal({ onClose }: KnowledgeModalProps) {
               <p className="text-xs text-gray-500">
                 Nên viết rõ ràng, đầy đủ thông tin. AI sẽ diễn đạt lại theo ngữ cảnh.
               </p>
-              <span className="text-xs text-gray-500">0/500</span>
+              <span className="text-xs text-gray-500">{answer.length}/500</span>
             </div>
           </div>
 
           <div>
             <label className="block text-sm text-gray-700 mb-2 font-bold">Từ khóa liên quan (để tìm kiếm)</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              <span className="inline-flex items-center px-2 py-1 bg-gray-100 border border-gray-300 text-xs rounded">
-                hồ bơi
-                <button className="ml-1 text-gray-600 hover:text-red-600">×</button>
-              </span>
-              <span className="inline-flex items-center px-2 py-1 bg-gray-100 border border-gray-300 text-xs rounded">
-                giờ mở cửa
-                <button className="ml-1 text-gray-600 hover:text-red-600">×</button>
-              </span>
-              <span className="inline-flex items-center px-2 py-1 bg-gray-100 border border-gray-300 text-xs rounded">
-                tiện ích
-                <button className="ml-1 text-gray-600 hover:text-red-600">×</button>
-              </span>
-            </div>
             <input 
               type="text"
               placeholder="Nhập từ khóa và Enter..."
@@ -342,24 +328,6 @@ export function DeleteKnowledgeModal({ knowledge, onClose }: KnowledgeModalProps
               <div>
                 <span className="text-gray-600">Câu trả lời:</span>
                 <p className="text-gray-800 mt-1">{knowledge?.content}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <h4 className="text-sm text-gray-700 font-bold mb-3">Thống kê sử dụng:</h4>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
-                <p className="text-xl text-gray-900 font-bold">127</p>
-                <p className="text-xs text-gray-600">Lần sử dụng</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl text-green-600 font-bold">92%</p>
-                <p className="text-xs text-gray-600">Hài lòng</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl text-blue-600 font-bold">#3</p>
-                <p className="text-xs text-gray-600">Phổ biến</p>
               </div>
             </div>
           </div>
@@ -669,7 +637,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function ManageCategoryModal({ onClose }: { onClose: () => void }) {
+export function ManageCategoryModal({ onClose, categories }: { onClose: () => void; categories: Array<{ name: string; count: number }> }) {
   return (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
@@ -692,7 +660,7 @@ export function ManageCategoryModal({ onClose }: { onClose: () => void }) {
 
           <div className="bg-white border border-gray-300 rounded">
             <div className="border-b border-gray-300 px-4 py-3 flex items-center justify-between">
-              <h4 className="text-sm text-gray-800 font-bold">Danh sách danh mục (8)</h4>
+              <h4 className="text-sm text-gray-800 font-bold">Danh sách danh mục ({categories.length})</h4>
               <button className="px-3 py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 flex items-center space-x-1">
                 <FolderPlus size={14} />
                 <span>Thêm danh mục</span>
@@ -700,206 +668,27 @@ export function ManageCategoryModal({ onClose }: { onClose: () => void }) {
             </div>
             
             <div className="divide-y divide-gray-200">
-              {/* Category Item */}
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 border border-blue-300 rounded flex items-center justify-center text-lg">
-                      🏢
-                    </div>
+              {categories.length === 0 && (
+                <div className="p-4 text-sm text-gray-500">Chưa có dữ liệu danh mục.</div>
+              )}
+              {categories.map((category) => (
+                <div key={category.name} className="p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="text-sm text-gray-800 font-bold">Nội quy</p>
-                      <p className="text-xs text-gray-600">32 tri thức • Màu xanh dương</p>
+                      <p className="text-sm text-gray-800 font-bold">{category.name}</p>
+                      <p className="text-xs text-gray-600">{category.count} tri thức</p>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded border border-blue-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded" title="Sửa">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded" title="Xóa">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button className="p-1.5 hover:bg-gray-100 rounded" title="Sửa" disabled>
+                        <Edit size={14} className="text-gray-400" />
+                      </button>
+                      <button className="p-1.5 hover:bg-gray-100 rounded" title="Xóa" disabled>
+                        <Trash2 size={14} className="text-gray-400" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 border border-purple-300 rounded flex items-center justify-center text-lg">
-                      📋
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">Thủ tục hành chính</p>
-                      <p className="text-xs text-gray-600">28 tri thức • Màu tím</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-purple-100 text-purple-800 px-3 py-1 rounded border border-purple-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 border border-green-300 rounded flex items-center justify-center text-lg">
-                      💰
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">Giá dịch vụ</p>
-                      <p className="text-xs text-gray-600">15 tri thức • Màu xanh lá</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-green-100 text-green-800 px-3 py-1 rounded border border-green-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 border border-orange-300 rounded flex items-center justify-center text-lg">
-                      💳
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">Tài chính</p>
-                      <p className="text-xs text-gray-600">24 tri thức • Màu cam</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-orange-100 text-orange-800 px-3 py-1 rounded border border-orange-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-red-100 border border-red-300 rounded flex items-center justify-center text-lg">
-                      🔧
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">Kỹ thuật</p>
-                      <p className="text-xs text-gray-600">19 tri thức • Màu đỏ</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-red-100 text-red-800 px-3 py-1 rounded border border-red-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-cyan-100 border border-cyan-300 rounded flex items-center justify-center text-lg">
-                      🏊
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">Tiện ích</p>
-                      <p className="text-xs text-gray-600">22 tri thức • Màu xanh ngọc</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-cyan-100 text-cyan-800 px-3 py-1 rounded border border-cyan-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-yellow-100 border border-yellow-300 rounded flex items-center justify-center text-lg">
-                      🔐
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">An ninh</p>
-                      <p className="text-xs text-gray-600">11 tri thức • Màu vàng</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-3 py-1 rounded border border-yellow-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gray-100 border border-gray-300 rounded flex items-center justify-center text-lg">
-                      📌
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">Khác</p>
-                      <p className="text-xs text-gray-600">5 tri thức • Màu xám</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-gray-100 text-gray-800 px-3 py-1 rounded border border-gray-300">
-                      Xem mẫu
-                    </span>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Edit size={14} className="text-gray-600" />
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-100 rounded">
-                      <Trash2 size={14} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

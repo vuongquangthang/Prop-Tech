@@ -1,5 +1,6 @@
 import { X, CheckCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { notificationService, Notification } from '../services/feature.service';
 
 interface NotificationPanelProps {
@@ -7,6 +8,7 @@ interface NotificationPanelProps {
 }
 
 export function NotificationPanel({ onClose }: NotificationPanelProps) {
+  const navigate = useNavigate();
   const [adminNotifications, setAdminNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,6 +38,42 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const handleMarkAsRead = async (id: number) => {
     await notificationService.markAsRead(id);
     setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
+
+  const resolveNotificationPath = (notification: Notification): string => {
+    if (notification.linkUrl && notification.linkUrl.trim()) {
+      return notification.linkUrl;
+    }
+
+    const type = (notification.notificationType || '').toUpperCase();
+    switch (type) {
+      case 'INVOICE':
+        return '/invoice-management';
+      case 'PAYMENT':
+      case 'DEBT':
+      case 'DEBT_REMINDER':
+        return '/transaction-history';
+      case 'COMPLAINT':
+      case 'MAINTENANCE':
+        return '/maintenance-request';
+      case 'CHAT':
+      case 'CHATBOT':
+        return '/chat-history';
+      case 'KNOWLEDGE':
+      case 'KNOWLEDGE_BASE':
+        return '/knowledge-base';
+      case 'ANNOUNCEMENT':
+      case 'SYSTEM':
+      default:
+        return '/dashboard';
+    }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    await handleMarkAsRead(notification.id);
+    const path = resolveNotificationPath(notification);
+    onClose();
+    navigate(path);
   };
 
   const handleMarkAllRead = async () => {
@@ -132,7 +170,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
                 return (
                   <button
                     key={notification.id}
-                    onClick={() => handleMarkAsRead(notification.id)}
+                    onClick={() => handleNotificationClick(notification)}
                     className="w-full text-left p-4 transition-colors hover:bg-gray-50"
                     style={{
                       borderLeft: notification.isRead ? 'none' : '4px solid var(--brand-primary)',

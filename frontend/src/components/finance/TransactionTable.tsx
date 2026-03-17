@@ -52,11 +52,13 @@ export function TransactionTable() {
           time,
           paidAt: payment.paidAt || '',
           amount: payment.amount || 0,
-          content: [
-            payment.paymentType || 'Thanh toán',
-            payment.roomNumber ? `Phòng ${payment.roomNumber}` : null,
-            payment.invoiceReference ? `HĐ ${payment.invoiceReference}` : null,
-          ].filter(Boolean).join(' - '),
+          content: (payment.transferDescription && String(payment.transferDescription).trim())
+            ? payment.transferDescription
+            : [
+                payment.paymentType || 'Thanh toán',
+                payment.roomNumber ? `Phòng ${payment.roomNumber}` : null,
+                payment.invoiceReference ? `HĐ ${payment.invoiceReference}` : null,
+              ].filter(Boolean).join(' - '),
           invoice: payment.invoiceReference
             ? `${payment.invoiceReference}${payment.invoiceId ? ` (#${payment.invoiceId})` : ''}`
             : payment.invoiceId ? `#${payment.invoiceId}` : '-',

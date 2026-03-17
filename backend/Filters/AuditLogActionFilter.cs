@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Filters;
+using System.Security.Claims;
 using backend.Services;
 
 namespace backend.Filters;
@@ -61,7 +62,9 @@ public class AuditLogActionFilter : IAsyncActionFilter
 
         // Extract userId from JWT claims
         int? userId = null;
-        var userIdClaim = context.HttpContext.User.FindFirst("UserId")?.Value;
+        var userIdClaim = context.HttpContext.User.FindFirst("id")?.Value
+            ?? context.HttpContext.User.FindFirst("UserId")?.Value
+            ?? context.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int parsedUserId))
             userId = parsedUserId;
 

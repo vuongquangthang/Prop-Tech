@@ -177,7 +177,7 @@ public class KnowledgeBaseController : ControllerBase
     /// Upload file PDF/DOCX/TXT để trích xuất kiến thức (Admin/QuảnLý only)
     /// </summary>
     [HttpPost("upload-document")]
-    [Authorize(Roles = "Admin,QuảnLý")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<DocumentUploadResultDto>> UploadDocument(
         [FromForm] IFormFile file,
         [FromForm] string category = "Khác",

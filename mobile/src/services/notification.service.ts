@@ -6,6 +6,8 @@ export interface Notification {
   title: string;
   content: string;
   notificationType: 'INVOICE' | 'PAYMENT' | 'COMPLAINT' | 'SYSTEM' | 'ANNOUNCEMENT';
+  relatedId?: number;
+  linkUrl?: string;
   isRead: boolean;
   createdAt: string;
   senderPhone?: string;

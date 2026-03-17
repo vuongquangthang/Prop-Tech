@@ -11,6 +11,7 @@ public class UserDto
     public int? ResidentId { get; set; }
     public string? ResidentName { get; set; }
     public bool IsLocked { get; set; }
+    public bool MustChangePassword { get; set; }
     public DateTime? LastLoginAt { get; set; }
     public string? Email { get; set; }
     public string? Address { get; set; }

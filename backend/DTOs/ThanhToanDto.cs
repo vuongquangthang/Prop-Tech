@@ -11,6 +11,7 @@ public class ThanhToanDto
     public int? SettlementId { get; set; }
     public decimal Amount { get; set; }
     public string? TransactionCode { get; set; }
+    public string? TransferDescription { get; set; }
     public string Status { get; set; } = "PENDING"; // PENDING, SUCCESS, FAILED
     public DateTime? PaidAt { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -30,6 +31,7 @@ public class CreateThanhToanDto
     public int? SettlementId { get; set; }
     public decimal Amount { get; set; }
     public string? TransactionCode { get; set; }
+    public string? TransferDescription { get; set; }
 }
 
 /// <summary>
@@ -39,4 +41,5 @@ public class UpdateThanhToanDto
 {
     public string? PaymentType { get; set; }
     public string? TransactionCode { get; set; }
+    public string? TransferDescription { get; set; }
 }

@@ -17,6 +17,7 @@ public class YeuCauSuaChuaDto
     public string? AdminNote { get; set; }
     public string? CompletionImageUrl { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
 }
 
@@ -46,7 +47,7 @@ public class UpdateYeuCauSuaChuaDto
 /// </summary>
 public class CloseYeuCauSuaChuaDto
 {
-    public string Status { get; set; } = "Hoàn thành"; // Hoàn thành hoặc Từ chối
+    public string Status { get; set; } = "Đã đóng"; // Đã đóng (hài lòng) hoặc Chờ xử lý (yêu cầu sửa lại)
     public string? AdminNote { get; set; }
     public string? CompletionImageUrl { get; set; }
 }

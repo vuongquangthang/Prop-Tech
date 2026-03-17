@@ -188,19 +188,31 @@ public class YeuCauSuaChuaController : ControllerBase
             // Verify ownership for residents
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
             var normalizedStatus = (dto.Status ?? string.Empty).Trim().ToLowerInvariant();
+            var isSatisfiedStatus = normalizedStatus == "đã đóng" || normalizedStatus == "da dong" || normalizedStatus == "dadong" || normalizedStatus == "closed"
+                || normalizedStatus == "hoàn thành" || normalizedStatus == "hoan thanh" || normalizedStatus == "hoanthanh" || normalizedStatus == "completed";
+            var isReworkStatus = normalizedStatus == "chờ xử lý" || normalizedStatus == "cho xu ly" || normalizedStatus == "choxuly" || normalizedStatus == "pending";
 
             // Only resident can mark request as completed/satisfied.
-            if ((normalizedStatus == "đã đóng" || normalizedStatus == "da dong" || normalizedStatus == "dadong" || normalizedStatus == "closed")
+            if (isSatisfiedStatus
                 && userRole != "CuDan")
             {
                 return BadRequest(new { message = "Chỉ cư dân mới có thể xác nhận hài lòng để đóng sự cố." });
             }
 
             // Close endpoint only accepts resident feedback statuses.
-            if (normalizedStatus != "đã đóng" && normalizedStatus != "da dong" && normalizedStatus != "dadong" && normalizedStatus != "closed"
-                && normalizedStatus != "chờ xử lý" && normalizedStatus != "cho xu ly" && normalizedStatus != "choxuly" && normalizedStatus != "pending")
+            if (!isSatisfiedStatus && !isReworkStatus)
             {
                 return BadRequest(new { message = "Phản hồi nghiệm thu chỉ chấp nhận trạng thái 'Đã đóng' hoặc 'Chờ xử lý'." });
+            }
+
+            // Backward compatibility: old clients may send "Hoàn thành" for resident satisfaction.
+            if (isSatisfiedStatus)
+            {
+                dto.Status = "Đã đóng";
+            }
+            else if (isReworkStatus)
+            {
+                dto.Status = "Chờ xử lý";
             }
 
             if (userRole == "CuDan")

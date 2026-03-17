@@ -54,6 +54,15 @@ export function UserAccountsTable() {
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
   
+  // Create user modal states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newUserPhone, setNewUserPhone] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState('CuDan');
+  const [newUserResidentId, setNewUserResidentId] = useState<number | null>(null);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  
   // Filter states
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -103,6 +112,43 @@ export function UserAccountsTable() {
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUserPhone.trim()) {
+      setCreateError('Số điện thoại không được để trống');
+      return;
+    }
+    if (!newUserPassword.trim()) {
+      setCreateError('Mật khẩu không được để trống');
+      return;
+    }
+
+    try {
+      setCreateLoading(true);
+      setCreateError(null);
+      
+      await userService.create({
+        phoneNumber: newUserPhone.trim(),
+        password: newUserPassword,
+        role: newUserRole,
+        residentId: newUserRole === 'CuDan' ? newUserResidentId || undefined : undefined,
+      });
+
+      // Reset form and close modal
+      setNewUserPhone('');
+      setNewUserPassword('');
+      setNewUserRole('CuDan');
+      setNewUserResidentId(null);
+      setShowCreateModal(false);
+
+      // Refresh user list
+      await fetchUsers();
+    } catch (err: any) {
+      setCreateError(err.message || 'Không thể tạo tài khoản');
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -196,40 +242,50 @@ export function UserAccountsTable() {
       </div>
       
       {/* Filter Bar */}
-      <div className="flex items-center space-x-4">
-        <Filter size={16} className="text-gray-500" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Filter size={16} className="text-gray-500" />
+          
+          <select 
+            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+            style={{ fontSize: 'var(--type-caption)' }}
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="all">Tất cả vai trò</option>
+            <option value="Admin">Admin</option>
+            <option value="CuDan">Cư dân</option>
+          </select>
+          
+          <select 
+            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+            style={{ fontSize: 'var(--type-caption)' }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="locked">Đang bị khóa</option>
+            <option value="inactive">Chưa kích hoạt</option>
+          </select>
+          
+          <input 
+            type="text"
+            placeholder="Tìm kiếm theo tên hoặc SĐT..."
+            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-64"
+            style={{ fontSize: 'var(--type-caption)' }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+        </div>
         
-        <select 
-          className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
           style={{ fontSize: 'var(--type-caption)' }}
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
         >
-          <option value="all">Tất cả vai trò</option>
-          <option value="Admin">Admin</option>
-          <option value="CuDan">Cư dân</option>
-        </select>
-        
-        <select 
-          className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
-          style={{ fontSize: 'var(--type-caption)' }}
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="active">Đang hoạt động</option>
-          <option value="locked">Đang bị khóa</option>
-          <option value="inactive">Chưa kích hoạt</option>
-        </select>
-        
-        <input 
-          type="text"
-          placeholder="Tìm kiếm theo tên hoặc SĐT..."
-          className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-64"
-          style={{ fontSize: 'var(--type-caption)' }}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-        />
+          + Thêm tài khoản
+        </button>
       </div>
       
       {/* Table */}
@@ -475,6 +531,104 @@ export function UserAccountsTable() {
                 style={{ fontSize: 'var(--type-caption)' }}
               >
                 {actionLoading ? 'Đang xử lý...' : (selectedUser?.isLocked ? 'Xác nhận Mở khóa' : 'Xác nhận Khóa')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-[600px]">
+            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>
+                Tạo tài khoản mới
+              </h3>
+              <button onClick={() => setShowCreateModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <span className="text-gray-600 text-xl">×</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {createError && (
+                <div className="bg-red-50 border border-red-300 rounded p-3 text-sm text-red-700">
+                  {createError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium" style={{ fontSize: 'var(--type-caption)' }}>
+                  Số điện thoại <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newUserPhone}
+                  onChange={(e) => setNewUserPhone(e.target.value)}
+                  placeholder="Nhập số điện thoại..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  style={{ fontSize: 'var(--type-body)' }}
+                  disabled={createLoading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium" style={{ fontSize: 'var(--type-caption)' }}>
+                  Mật khẩu <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  style={{ fontSize: 'var(--type-body)' }}
+                  disabled={createLoading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium" style={{ fontSize: 'var(--type-caption)' }}>
+                  Vai trò <span className="text-red-600">*</span>
+                </label>
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  style={{ fontSize: 'var(--type-body)' }}
+                  disabled={createLoading}
+                >
+                  <option value="CuDan">Cư dân</option>
+                  <option value="Admin">Admin</option>
+                  <option value="QuanLy">Quản lý (BQL)</option>
+                  <option value="KeToan">Kế toán</option>
+                  <option value="NhanVien">Nhân viên</option>
+                </select>
+              </div>
+
+              <div>
+                <p className="text-gray-600 text-xs mb-2" style={{ fontSize: 'var(--type-caption)' }}>
+                  💡 Lưu ý: Nếu là "Cư dân", tài khoản sẽ chỉ được tạo khi lập hợp đồng (nếu cư dân chưa có tài khoản).
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+                style={{ fontSize: 'var(--type-caption)' }}
+                disabled={createLoading}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleCreateUser}
+                disabled={createLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                style={{ fontSize: 'var(--type-caption)' }}
+              >
+                {createLoading ? 'Đang tạo...' : 'Tạo tài khoản'}
               </button>
             </div>
           </div>

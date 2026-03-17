@@ -70,7 +70,18 @@ export interface ChatMessage {
   userPhone: string;
   messageRole: string;
   messageText: string;
+  isKnowledgeGap?: boolean;
   createdAt: string;
+}
+
+export interface UnansweredChatItem {
+  assistantMessageId: number;
+  userId: number;
+  userPhone?: string;
+  question: string;
+  aiResponse: string;
+  askedAt: string;
+  isResolved: boolean;
 }
 
 export interface Notification {
@@ -78,6 +89,8 @@ export interface Notification {
   title: string;
   content: string;
   notificationType: string;
+  relatedId?: number;
+  linkUrl?: string;
   isRead: boolean;
   createdAt: string;
   senderPhone?: string;
@@ -176,6 +189,29 @@ export const chatService = {
     try {
       const response = await api.get<ChatMessage[]>(
         `${API_ENDPOINTS.CHAT.ADMIN_ALL}?limit=${limit}`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getUnanswered: async (limit: number = 200) => {
+    try {
+      const response = await api.get<UnansweredChatItem[]>(
+        `${API_ENDPOINTS.CHAT.ADMIN_UNANSWERED}?limit=${limit}`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  resolveUnanswered: async (assistantMessageId: number, payload: { answerText: string; category?: string; activateImmediately?: boolean }) => {
+    try {
+      const response = await api.post<KnowledgeBase>(
+        API_ENDPOINTS.CHAT.RESOLVE_UNANSWERED(assistantMessageId),
+        payload
       );
       return response.data;
     } catch (error) {

@@ -27,6 +27,10 @@ public class LichSuChat
     public string MessageText { get; set; } = null!;
 
     [Required]
+    [Column("IS_KNOWLEDGE_GAP")]
+    public bool IsKnowledgeGap { get; set; }
+
+    [Required]
     [Column("CREATED_AT")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

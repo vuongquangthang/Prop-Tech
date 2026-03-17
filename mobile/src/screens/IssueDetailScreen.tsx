@@ -54,8 +54,9 @@ export default function IssueDetailScreen() {
           onPress: async () => {
             try {
               setIsSubmitting(true);
-              await maintenanceService.updateStatus(id, {
-                status: 'Yêu cầu sửa lại',
+              await maintenanceService.close(id, {
+                status: 'Chờ xử lý',
+                adminNote: 'Cư dân yêu cầu sửa lại',
               });
               Alert.alert('Thành công', 'Đã gửi yêu cầu sửa lại đến ban quản lý');
               loadRequestDetail(); // Reload to get updated data
@@ -82,7 +83,7 @@ export default function IssueDetailScreen() {
             try {
               setIsSubmitting(true);
               await maintenanceService.close(id, {
-                status: 'Hoàn thành',
+                status: 'Đã đóng',
                 adminNote: 'Cư dân xác nhận hài lòng',
               });
               Alert.alert('Thành công', 'Cảm ơn phản hồi của bạn!', [
@@ -110,6 +111,11 @@ export default function IssueDetailScreen() {
       'Đã đóng': { label: 'Đã đóng', color: '#6B7280', bgColor: '#F3F4F6' },
     };
     return statusMap[status] || { label: status, color: '#6B7280', bgColor: '#F3F4F6' };
+  };
+
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return 'Chưa có mốc thời gian';
+    return new Date(dateStr).toLocaleString('vi-VN');
   };
 
   if (isLoading) {
@@ -146,6 +152,21 @@ export default function IssueDetailScreen() {
 
   const statusInfo = getStatusInfo(request.status);
   const showActions = request.status === 'Chờ nghiệm thu';
+
+  const reachedStatuses = {
+    received: request.status !== 'Chờ xử lý',
+    processing: ['Đang xử lý', 'Chờ nghiệm thu', 'Đã đóng', 'Hoàn thành', 'Yêu cầu sửa lại', 'Từ chối'].includes(request.status),
+    review: ['Chờ nghiệm thu', 'Đã đóng', 'Hoàn thành', 'Yêu cầu sửa lại'].includes(request.status),
+    final: ['Đã đóng', 'Hoàn thành', 'Yêu cầu sửa lại', 'Từ chối'].includes(request.status),
+  };
+
+  const finalLabel = request.status === 'Yêu cầu sửa lại'
+    ? 'Cư dân phản hồi: Yêu cầu sửa lại'
+    : request.status === 'Từ chối'
+      ? 'Ban quản lý từ chối yêu cầu'
+      : request.status === 'Đã đóng' || request.status === 'Hoàn thành'
+        ? 'Sự cố đã được đóng'
+        : 'Kết thúc xử lý';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -200,33 +221,42 @@ export default function IssueDetailScreen() {
           <View style={styles.timelineItem}>
             <View style={[styles.timelineDot, styles.activeDot]} />
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineText}>
-                {new Date(request.createdAt).toLocaleString('vi-VN')} - Bạn đã gửi yêu cầu
-              </Text>
+              <Text style={styles.timelineTitle}>Cư dân gửi yêu cầu</Text>
+              <Text style={styles.timelineText}>{formatDateTime(request.createdAt)}</Text>
             </View>
           </View>
-          
-          {request.status !== 'Chờ xử lý' && (
-            <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, styles.activeDot]} />
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineText}>
-                  BQL đã tiếp nhận - {statusInfo.label}
-                </Text>
-              </View>
+
+          <View style={styles.timelineItem}>
+            <View style={[styles.timelineDot, reachedStatuses.received ? styles.activeDot : styles.inactiveDot]} />
+            <View style={styles.timelineContent}>
+              <Text style={styles.timelineTitle}>Ban quản lý tiếp nhận</Text>
+              <Text style={styles.timelineText}>{reachedStatuses.received ? formatDateTime(request.updatedAt || request.createdAt) : 'Chưa tiếp nhận'}</Text>
             </View>
-          )}
-          
-          {request.closedAt && (
-            <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, styles.activeDot]} />
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineText}>
-                  {new Date(request.closedAt).toLocaleString('vi-VN')} - Đã đóng
-                </Text>
-              </View>
+          </View>
+
+          <View style={styles.timelineItem}>
+            <View style={[styles.timelineDot, reachedStatuses.processing ? styles.activeDot : styles.inactiveDot]} />
+            <View style={styles.timelineContent}>
+              <Text style={styles.timelineTitle}>Đang xử lý sự cố</Text>
+              <Text style={styles.timelineText}>{request.status === 'Đang xử lý' ? formatDateTime(request.updatedAt || request.createdAt) : (reachedStatuses.processing ? 'Đã qua bước này' : 'Chưa xử lý')}</Text>
             </View>
-          )}
+          </View>
+
+          <View style={styles.timelineItem}>
+            <View style={[styles.timelineDot, reachedStatuses.review ? styles.activeDot : styles.inactiveDot]} />
+            <View style={styles.timelineContent}>
+              <Text style={styles.timelineTitle}>Chờ cư dân nghiệm thu</Text>
+              <Text style={styles.timelineText}>{request.status === 'Chờ nghiệm thu' ? formatDateTime(request.updatedAt || request.createdAt) : (reachedStatuses.review ? 'Đã phản hồi nghiệm thu' : 'Chưa tới bước nghiệm thu')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.timelineItem}>
+            <View style={[styles.timelineDot, reachedStatuses.final ? styles.activeDot : styles.inactiveDot]} />
+            <View style={styles.timelineContent}>
+              <Text style={styles.timelineTitle}>{finalLabel}</Text>
+              <Text style={styles.timelineText}>{reachedStatuses.final ? formatDateTime(request.closedAt || request.updatedAt || request.createdAt) : 'Đang chờ phản hồi cuối'}</Text>
+            </View>
+          </View>
         </View>
 
         {request.adminNote && (
@@ -402,11 +432,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4B5563',
     lineHeight: 20,
+  inactiveDot: {
+    backgroundColor: '#D1D5DB',
+  },
   },
   resultCard: {
     backgroundColor: '#F9FAFB',
+  timelineTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
+  },
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    fontSize: 13,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,

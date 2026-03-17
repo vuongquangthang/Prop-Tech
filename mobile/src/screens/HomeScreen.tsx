@@ -26,7 +26,7 @@ export default function HomeScreen() {
   const [myRoom, setMyRoom] = useState<MyRoom | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [latestNotification, setLatestNotification] = useState<import('../services/notification.service').Notification | null>(null);
+  const [latestUnreadNotification, setLatestUnreadNotification] = useState<import('../services/notification.service').Notification | null>(null);
 
   useEffect(() => {
     loadData();
@@ -70,11 +70,14 @@ export default function HomeScreen() {
       const count = await notificationService.getUnreadCount();
       setUnreadNotifications(count);
 
-      // Load latest notification
+      // Load newest unread notification
       const allNotifs = await notificationService.getMyNotifications();
-      if (allNotifs.length > 0) {
-        const sorted = allNotifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setLatestNotification(sorted[0]);
+      const unread = allNotifs.filter(n => !n.isRead);
+      if (unread.length > 0) {
+        const sortedUnread = unread.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setLatestUnreadNotification(sortedUnread[0]);
+      } else {
+        setLatestUnreadNotification(null);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -141,34 +144,34 @@ export default function HomeScreen() {
           </Text>
 
           {/* Latest Notification Card */}
-          {latestNotification ? (
+          {latestUnreadNotification ? (
             <TouchableOpacity
               style={styles.notifCard}
               onPress={() => (navigation as any).navigate('Notifications')}
             >
               <View style={styles.notifCardHeader}>
-                <View style={[styles.notifCardIcon, !latestNotification.isRead && styles.notifCardIconUnread]}>
+                <View style={[styles.notifCardIcon, styles.notifCardIconUnread]}>
                   <Ionicons
                     name={
-                      latestNotification.notificationType === 'INVOICE' ? 'receipt-outline' :
-                      latestNotification.notificationType === 'PAYMENT' ? 'card-outline' :
-                      latestNotification.notificationType === 'COMPLAINT' ? 'construct-outline' :
+                      latestUnreadNotification.notificationType === 'INVOICE' ? 'receipt-outline' :
+                      latestUnreadNotification.notificationType === 'PAYMENT' ? 'card-outline' :
+                      latestUnreadNotification.notificationType === 'COMPLAINT' ? 'construct-outline' :
                       'notifications-outline'
                     }
                     size={20}
-                    color={latestNotification.isRead ? '#6B7280' : '#1A4B84'}
+                    color={'#1A4B84'}
                   />
                 </View>
                 <View style={styles.notifCardInfo}>
-                  <Text style={styles.notifCardLabel}>THÔNG BÁO MỚI NHẤT</Text>
-                  <Text style={styles.notifCardTitle} numberOfLines={1}>{latestNotification.title}</Text>
+                  <Text style={styles.notifCardLabel}>THÔNG BÁO CHƯA ĐỌC MỚI NHẤT</Text>
+                  <Text style={styles.notifCardTitle} numberOfLines={1}>{latestUnreadNotification.title}</Text>
                 </View>
-                {!latestNotification.isRead && <View style={styles.notifUnreadDot} />}
+                <View style={styles.notifUnreadDot} />
               </View>
-              <Text style={styles.notifCardBody} numberOfLines={2}>{latestNotification.content}</Text>
+              <Text style={styles.notifCardBody} numberOfLines={2}>{latestUnreadNotification.content}</Text>
               <View style={styles.notifCardFooter}>
                 <Text style={styles.notifCardTime}>
-                  {new Date(latestNotification.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(latestUnreadNotification.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </Text>
                 <Text style={styles.notifCardMore}>Xem tất cả  ›</Text>
               </View>

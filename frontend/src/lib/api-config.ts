@@ -18,11 +18,12 @@ export const API_ENDPOINTS = {
   
   // Users
   USERS: {
-    BASE: '/api/Users',
-    BY_ID: (id: number) => `/api/Users/${id}`,
-    LOCK: (id: number) => `/api/Users/${id}/lock`,
-    UNLOCK: (id: number) => `/api/Users/${id}/unlock`,
-    RESET_PASSWORD: (id: number) => `/api/Users/${id}/reset-password`,
+    BASE: '/api/users',
+    BY_ID: (id: number) => `/api/users/${id}`,
+    LOCK: (id: number) => `/api/users/${id}/lock`,
+    UNLOCK: (id: number) => `/api/users/${id}/unlock`,
+    RESET_PASSWORD: (id: number) => `/api/users/${id}/reset-password`,
+    CREATE: '/api/users',
   },
   
   // Buildings
@@ -173,6 +174,8 @@ export const API_ENDPOINTS = {
     CONVERSATION: '/api/Chat/conversation',
     SEND: '/api/Chat/send',
     ADMIN_ALL: '/api/Chat/admin/all',
+    ADMIN_UNANSWERED: '/api/Chat/admin/unanswered',
+    RESOLVE_UNANSWERED: (assistantMessageId: number) => `/api/Chat/admin/unanswered/${assistantMessageId}/resolve`,
   },
   
   // Debt Reminders
@@ -197,7 +200,7 @@ export const API_ENDPOINTS = {
   
   // Audit Logs
   AUDIT_LOGS: {
-    BASE: '/api/AuditLogs',
+    BASE: '/api/auditlogs',
   },
   
   // Reports

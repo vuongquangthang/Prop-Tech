@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { X, Send, CheckCircle, AlertTriangle, User, ArrowRight, Clock } from 'lucide-react';
+import { X, Send, CheckCircle, AlertTriangle, User, ArrowRight, Clock, ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 

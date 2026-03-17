@@ -9,6 +9,8 @@ public class NotificationResponseDto
     public string Title { get; set; } = null!;
     public string Content { get; set; } = null!;
     public string NotificationType { get; set; } = null!;
+    public int? RelatedId { get; set; }
+    public string? LinkUrl { get; set; }
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? SenderPhone { get; set; }

@@ -76,7 +76,8 @@ namespace backend.Services
                 PasswordHash = passwordHash,
                 Role = dto.Role,
                 ResidentId = dto.ResidentId,
-                IsLocked = false
+                IsLocked = false,
+                MustChangePassword = string.Equals(dto.Role, "CuDan", StringComparison.OrdinalIgnoreCase)
             };
 
             await _userRepository.AddAsync(user);
@@ -153,6 +154,7 @@ namespace backend.Services
             if (user == null) return false;
 
             user.PasswordHash = BC.HashPassword(newPassword);
+            user.MustChangePassword = true;
             _userRepository.Update(user);
             await _userRepository.SaveChangesAsync();
             return true;
@@ -178,6 +180,7 @@ namespace backend.Services
                 ResidentId = user.ResidentId,
                 ResidentName = user.Resident?.FullName,
                 IsLocked = user.IsLocked,
+                MustChangePassword = user.MustChangePassword,
                 LastLoginAt = user.LastLoginAt
             };
         }
