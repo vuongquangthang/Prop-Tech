@@ -111,3 +111,15 @@ public class RejectInvoiceDto
 {
     public string Reason { get; set; } = null!;
 }
+
+public class SendInvoiceReminderRequestDto
+{
+    public string? Content { get; set; }
+}
+
+public class SendInvoiceReminderResultDto
+{
+    public int InvoiceId { get; set; }
+    public int SentCount { get; set; }
+    public List<int> RecipientUserIds { get; set; } = new();
+}

@@ -25,31 +25,48 @@ public class UtilityReadingService : IUtilityReadingService
     /// </summary>
     public async Task<List<RoomUtilityReadingDto>> GetMonthReadingsAsync(short year, byte month)
     {
-        // Lấy tất cả phòng đang có hợp đồng active (chưa tất toán)
+        var periodStart = new DateTime(year, month, 1);
+        var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+
+        // Lấy phòng có hợp đồng giao với kỳ đang chọn
         var rooms = await _context.Rooms
             .Include(r => r.Floor).ThenInclude(f => f.Building)
             .Include(r => r.HopDongs).ThenInclude(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident)
             .Include(r => r.ChiTietSuDungDichVus).ThenInclude(ctsdv => ctsdv.Service)
-            .Where(r => r.HopDongs.Any(hd => hd.ChiTietOs.Any()))
+            .Where(r => r.HopDongs.Any(hd =>
+                hd.StartDate <= periodEnd &&
+                (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStart) &&
+                hd.ChiTietOs.Any(ct => ct.FromDate <= periodEnd && (ct.ToDate == null || ct.ToDate >= periodStart))))
             .ToListAsync();
 
         var result = new List<RoomUtilityReadingDto>();
 
         foreach (var room in rooms)
         {
-            // Lấy hợp đồng active: chưa tất toán
-            var activeContract = room.HopDongs.FirstOrDefault();
+            // Chỉ lấy hợp đồng giao với kỳ đang chọn
+            var activeContract = room.HopDongs
+                .Where(hd => hd.StartDate <= periodEnd && (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStart))
+                .OrderByDescending(hd => hd.StartDate)
+                .FirstOrDefault();
             if (activeContract == null) continue;
 
-            var residentName = activeContract.ChiTietOs.FirstOrDefault()?.Resident?.FullName;
+            var residentName = activeContract.ChiTietOs
+                .Where(ct => ct.FromDate <= periodEnd && (ct.ToDate == null || ct.ToDate >= periodStart))
+                .OrderBy(ct => ct.FromDate)
+                .Select(ct => ct.Resident.FullName)
+                .FirstOrDefault();
 
-            // Tìm usage detail cho điện (ServiceId = 1)
+            // Tìm usage detail cho điện có hiệu lực trong kỳ (ServiceId = 1)
             var elecUsage = room.ChiTietSuDungDichVus
-                .FirstOrDefault(u => u.ServiceId == 1 && u.ApplyTo == null);
+                .Where(u => u.ServiceId == 1 && u.ApplyFrom <= periodEnd && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+                .OrderByDescending(u => u.ApplyFrom)
+                .FirstOrDefault();
 
-            // Tìm usage detail cho nước (ServiceId = 2)
+            // Tìm usage detail cho nước có hiệu lực trong kỳ (ServiceId = 2)
             var waterUsage = room.ChiTietSuDungDichVus
-                .FirstOrDefault(u => u.ServiceId == 2 && u.ApplyTo == null);
+                .Where(u => u.ServiceId == 2 && u.ApplyFrom <= periodEnd && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+                .OrderByDescending(u => u.ApplyFrom)
+                .FirstOrDefault();
 
             // Lấy chỉ số cũ (tháng trước)
             decimal? oldElec = null;

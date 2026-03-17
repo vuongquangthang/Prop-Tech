@@ -11,6 +11,18 @@
     <Content Remove="_OLD\**" />
     <EmbeddedResource Remove="_OLD\**" />
     <None Remove="_OLD\**" />
+    <Compile Remove="build-verify-temp\**" />
+    <Content Remove="build-verify-temp\**" />
+    <EmbeddedResource Remove="build-verify-temp\**" />
+    <None Remove="build-verify-temp\**" />
+    <Compile Remove="build-verify-temp-*\**" />
+    <Content Remove="build-verify-temp-*\**" />
+    <EmbeddedResource Remove="build-verify-temp-*\**" />
+    <None Remove="build-verify-temp-*\**" />
+    <Compile Remove="build-check-fixed\**" />
+    <Content Remove="build-check-fixed\**" />
+    <EmbeddedResource Remove="build-check-fixed\**" />
+    <None Remove="build-check-fixed\**" />
   </ItemGroup>
 
   <ItemGroup>

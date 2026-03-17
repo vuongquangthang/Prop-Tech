@@ -12,6 +12,7 @@ public class RoomDto
     public int FloorNumber { get; set; }
     public string RoomCode { get; set; } = null!;
     public decimal? Area { get; set; }
+    public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
     public string Status { get; set; } = null!; // Trống, Đã thuê, Bảo trì, Khác
 }
@@ -24,6 +25,7 @@ public class CreateRoomDto
     public int FloorId { get; set; }
     public string RoomCode { get; set; } = null!;
     public decimal? Area { get; set; }
+    public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
     public string Status { get; set; } = "Trống";
 }
@@ -35,6 +37,7 @@ public class UpdateRoomDto
 {
     public string? RoomCode { get; set; }
     public decimal? Area { get; set; }
+    public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
     public string? Status { get; set; }
 }

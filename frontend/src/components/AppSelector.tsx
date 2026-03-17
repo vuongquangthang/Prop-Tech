@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { Building2, Users, Home } from 'lucide-react';
+import { Building2, Home } from 'lucide-react';
 
 export function AppSelector() {
   const navigate = useNavigate();
@@ -65,7 +65,7 @@ export function AppSelector() {
         </div>
 
         {/* App Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+        <div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
           {/* Admin App */}
           <button
             onClick={() => navigate('/dashboard')}
@@ -102,7 +102,7 @@ export function AppSelector() {
                     Màn hình
                   </p>
                   <p style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700, color: 'var(--brand-primary)', marginTop: '4px' }}>
-                    21 màn hình
+                    20 màn hình
                   </p>
                 </div>
                 <div>
@@ -126,69 +126,6 @@ export function AppSelector() {
               }}
             >
               Truy cập Admin
-            </div>
-          </button>
-
-          {/* Resident App */}
-          <button
-            onClick={() => navigate('/resident')}
-            className="bg-white rounded-3xl p-10 hover:shadow-2xl transition-all transform hover:scale-105"
-          >
-            <div 
-              className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6"
-              style={{ backgroundColor: '#E67E22' }}
-            >
-              <Users size={40} color="#FFF" strokeWidth={2} />
-            </div>
-            
-            <h2 style={{ 
-              fontSize: 'var(--type-section-title)', 
-              fontWeight: 700, 
-              color: 'var(--text-primary)',
-              marginBottom: '12px',
-            }}>
-              Ứng dụng Cư Dân
-            </h2>
-            
-            <p style={{ 
-              fontSize: 'var(--type-body)', 
-              color: 'var(--text-secondary)',
-              lineHeight: 1.6,
-            }}>
-              Xem hóa đơn, thanh toán, báo cáo sự cố và trò chuyện với AI
-            </p>
-
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="grid grid-cols-2 gap-4 text-left">
-                <div>
-                  <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
-                    Thiết kế
-                  </p>
-                  <p style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700, color: '#E67E22', marginTop: '4px' }}>
-                    Mobile-first
-                  </p>
-                </div>
-                <div>
-                  <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
-                    Tính năng
-                  </p>
-                  <p style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700, color: '#E67E22', marginTop: '4px' }}>
-                    4 chính
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div 
-              className="mt-6 py-3 rounded-xl"
-              style={{ 
-                backgroundColor: '#E67E22',
-                color: '#FFF',
-                fontSize: 'var(--type-body-bold)',
-                fontWeight: 600,
-              }}
-            >
-              Truy cập Cư dân
             </div>
           </button>
         </div>

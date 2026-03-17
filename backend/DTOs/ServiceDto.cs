@@ -51,3 +51,22 @@ public class ServicePriceHistoryDto
     public string? Reason { get; set; }
     public DateTime ChangedAt { get; set; }
 }
+
+/// <summary>
+/// DTO dịch vụ áp dụng theo hợp đồng/phòng
+/// </summary>
+public class ServiceInContractDto
+{
+    public int ServiceId { get; set; }
+    public string ServiceName { get; set; } = null!;
+    public string ServiceType { get; set; } = null!;
+    public string? Unit { get; set; }
+    public decimal? UnitPrice { get; set; }
+    public DateTime ApplyFrom { get; set; }
+    public DateTime? ApplyTo { get; set; }
+    public decimal TotalQuantity { get; set; }
+    public int ResidentCount { get; set; }
+    public List<string> ResidentNames { get; set; } = new();
+    public bool IsActive { get; set; }
+    public string? Note { get; set; }
+}

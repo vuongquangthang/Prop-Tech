@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, X, ChevronRight, Filter, RefreshCw, FileText, AlertTriangle, Edit2 } from 'lucide-react';
+import { CheckCircle, X, ChevronRight, Filter, FileText, AlertTriangle, Edit2 } from 'lucide-react';
 import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
 
@@ -157,14 +157,6 @@ export function DraftInvoicesPage() {
             Xem xét và phê duyệt hóa đơn trước khi gửi đến cư dân
           </p>
         </div>
-        <button
-          onClick={loadDrafts}
-          disabled={loading}
-          style={{ padding: '8px 16px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <RefreshCw size={16} />
-          Làm mới
-        </button>
       </div>
 
       {/* Step 1: Calculate */}

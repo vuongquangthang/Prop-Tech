@@ -77,7 +77,7 @@ public class RoomService : IRoomService
 
     public async Task<RoomDetailDto?> GetByIdAsync(int id)
     {
-        var room = await _roomRepository.GetByIdAsync(id);
+        var room = await _roomRepository.GetWithDetailsAsync(id);
         if (room == null) return null;
 
         var floor = await _floorRepository.GetByIdAsync(room.FloorId);
@@ -92,6 +92,7 @@ public class RoomService : IRoomService
             FloorNumber = floor?.FloorNumber ?? 0,
             RoomCode = room.RoomCode,
             Area = room.Area,
+            MaxOccupants = room.MaxOccupants,
             DefaultRentPrice = room.DefaultRentPrice,
             Status = room.Status,
             ActiveContracts = room.HopDongs?
@@ -108,7 +109,7 @@ public class RoomService : IRoomService
                 .Select(ct => new AssetSummaryDto
                 {
                     AssetId = ct.AssetId,
-                    AssetName = ct.TaiSan.AssetName,
+                    AssetName = ct.TaiSan?.AssetName ?? string.Empty,
                     Quantity = ct.Quantity,
                     Condition = ct.Condition
                 }).ToList()
@@ -203,6 +204,7 @@ public class RoomService : IRoomService
             FloorId = dto.FloorId,
             RoomCode = dto.RoomCode,
             Area = dto.Area,
+            MaxOccupants = dto.MaxOccupants,
             DefaultRentPrice = dto.DefaultRentPrice,
             Status = dto.Status
         };
@@ -232,6 +234,7 @@ public class RoomService : IRoomService
         }
 
         if (dto.Area.HasValue) room.Area = dto.Area;
+        if (dto.MaxOccupants.HasValue) room.MaxOccupants = dto.MaxOccupants;
         if (dto.DefaultRentPrice.HasValue) room.DefaultRentPrice = dto.DefaultRentPrice;
         if (dto.Status != null) room.Status = dto.Status;
 
@@ -275,6 +278,7 @@ public class RoomService : IRoomService
             FloorNumber = floor?.FloorNumber ?? 0,
             RoomCode = room.RoomCode,
             Area = room.Area,
+            MaxOccupants = room.MaxOccupants,
             DefaultRentPrice = room.DefaultRentPrice,
             Status = room.Status
         };

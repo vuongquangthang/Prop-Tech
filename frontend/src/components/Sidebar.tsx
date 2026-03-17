@@ -58,7 +58,6 @@ const menuItems = [
     subItems: [
       { label: 'Báo cáo Doanh thu', path: '/revenue-report' },
       { label: 'Báo cáo Lấp đầy', path: '/occupancy-report' },
-      { label: 'Báo cáo Công nợ', path: '/debt-report' },
     ]
   },
   { 

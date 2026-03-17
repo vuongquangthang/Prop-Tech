@@ -28,6 +28,9 @@ public class Room
     [Precision(10, 2)]
     public decimal? Area { get; set; }
 
+    [Column("SO_NGUOI_TOI_DA")]
+    public int? MaxOccupants { get; set; }
+
     [Column("DON_GIA_THUE_MAC_DINH")]
     [Precision(18, 2)]
     public decimal? DefaultRentPrice { get; set; }

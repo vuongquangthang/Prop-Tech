@@ -16,6 +16,7 @@ public class HopDongRepository : Repository<HopDong>, IHopDongRepository
             .Include(hd => hd.Room)
             .Include(hd => hd.ChiTietOs)
                 .ThenInclude(ct => ct.Resident)
+                    .ThenInclude(r => r.Users)
             .OrderByDescending(hd => hd.StartDate)
             .ToListAsync();
     }
@@ -26,6 +27,7 @@ public class HopDongRepository : Repository<HopDong>, IHopDongRepository
             .Include(hd => hd.Room)
             .Include(hd => hd.ChiTietOs)
                 .ThenInclude(ct => ct.Resident)
+                    .ThenInclude(r => r.Users)
             .Where(hd => hd.RoomId == roomId)
             .OrderByDescending(hd => hd.StartDate)
             .ToListAsync();
@@ -38,6 +40,7 @@ public class HopDongRepository : Repository<HopDong>, IHopDongRepository
             .Include(hd => hd.Room)
             .Include(hd => hd.ChiTietOs)
                 .ThenInclude(ct => ct.Resident)
+                    .ThenInclude(r => r.Users)
             .Where(hd => hd.RoomId == roomId 
                 && hd.StartDate <= today 
                 && (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= today))
@@ -52,6 +55,7 @@ public class HopDongRepository : Repository<HopDong>, IHopDongRepository
                     .ThenInclude(f => f.Building)
             .Include(hd => hd.ChiTietOs)
                 .ThenInclude(ct => ct.Resident)
+                    .ThenInclude(r => r.Users)
             .Include(hd => hd.HoaDons)
             .Include(hd => hd.TatToan)
             .FirstOrDefaultAsync(hd => hd.Id == id);
@@ -64,6 +68,7 @@ public class HopDongRepository : Repository<HopDong>, IHopDongRepository
             .Include(hd => hd.Room)
             .Include(hd => hd.ChiTietOs)
                 .ThenInclude(ct => ct.Resident)
+                    .ThenInclude(r => r.Users)
             .Where(hd => hd.StartDate <= today 
                 && (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= today))
             .ToListAsync();
@@ -75,6 +80,7 @@ public class HopDongRepository : Repository<HopDong>, IHopDongRepository
             .Include(hd => hd.Room)
             .Include(hd => hd.ChiTietOs)
                 .ThenInclude(ct => ct.Resident)
+                    .ThenInclude(r => r.Users)
             .Where(hd => hd.ExpectedEndDate != null 
                 && hd.ExpectedEndDate >= fromDate 
                 && hd.ExpectedEndDate <= toDate)

@@ -28,6 +28,7 @@ export interface Room {
   floorNumber?: number;
   roomCode: string;
   area?: number;
+  maxOccupants?: number;
   defaultRentPrice?: number;
   status: string;
   description?: string;
@@ -138,6 +139,21 @@ export interface ServicePriceHistory {
   effectiveDate: string;
   reason?: string;
   changedAt: string;
+}
+
+export interface ServiceInContract {
+  serviceId: number;
+  serviceName: string;
+  serviceType: string;
+  unit?: string;
+  unitPrice?: number;
+  applyFrom: string;
+  applyTo?: string;
+  totalQuantity: number;
+  residentCount: number;
+  residentNames: string[];
+  isActive: boolean;
+  note?: string;
 }
 
 export interface User {
@@ -261,6 +277,15 @@ export const roomService = {
     }
   },
 
+  getById: async (id: number) => {
+    try {
+      const response = await api.get<Room>(API_ENDPOINTS.ROOMS.BY_ID(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
   getByFloor: async (floorId: number) => {
     try {
       const response = await api.get<Room[]>(API_ENDPOINTS.ROOMS.BY_FLOOR(floorId));
@@ -358,6 +383,15 @@ export const contractService = {
   getAll: async () => {
     try {
       const response = await api.get<Contract[]>(API_ENDPOINTS.CONTRACTS.BASE);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getById: async (id: number) => {
+    try {
+      const response = await api.get<Contract>(API_ENDPOINTS.CONTRACTS.BY_ID(id));
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -464,6 +498,18 @@ export const invoiceService = {
     }
   },
 
+  sendReminder: async (id: number, content?: string) => {
+    try {
+      const response = await api.post<{ invoiceId: number; sentCount: number; recipientUserIds: number[] }>(
+        API_ENDPOINTS.INVOICES.SEND_REMINDER(id),
+        { content }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
   getMy: async () => {
     try {
       const response = await api.get<HoaDonDetail[]>(API_ENDPOINTS.INVOICES.MY);
@@ -524,6 +570,15 @@ export const serviceService = {
     }
   },
 
+  getActive: async () => {
+    try {
+      const response = await api.get<Service[]>(API_ENDPOINTS.SERVICES.ACTIVE);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
   getById: async (id: number) => {
     try {
       const response = await api.get<Service>(API_ENDPOINTS.SERVICES.BY_ID(id));
@@ -562,6 +617,30 @@ export const serviceService = {
   getPriceHistory: async (id: number) => {
     try {
       const response = await api.get<ServicePriceHistory[]>(API_ENDPOINTS.SERVICES.PRICE_HISTORY(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getByContract: async (contractId: number) => {
+    try {
+      const response = await api.get<ServiceInContract[]>(API_ENDPOINTS.SERVICES.BY_CONTRACT(contractId));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getByRoom: async (roomId: number, fromDate?: string, toDate?: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (fromDate) params.append('fromDate', fromDate);
+      if (toDate) params.append('toDate', toDate);
+      const query = params.toString();
+      const url = `${API_ENDPOINTS.SERVICES.BY_ROOM(roomId)}${query ? `?${query}` : ''}`;
+
+      const response = await api.get<ServiceInContract[]>(url);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

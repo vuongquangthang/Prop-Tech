@@ -172,7 +172,7 @@ function mapBackendStatus(status: Incident['status']): string {
     case 'review':
       return 'Chờ nghiệm thu';
     case 'resolved':
-      return 'Hoàn thành';
+      return 'Đã đóng';
     default:
       return 'Chờ xử lý';
   }
@@ -474,7 +474,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const backendStatus = mapBackendStatus(status);
       if (status === 'resolved') {
-        await maintenanceService.close(parseInt(id), 'Hoàn thành', resolutionNote, completionImageUrl);
+        await maintenanceService.close(parseInt(id), 'Đã đóng', resolutionNote, completionImageUrl);
       } else {
         await maintenanceService.update(parseInt(id), backendStatus, resolutionNote, completionImageUrl);
       }

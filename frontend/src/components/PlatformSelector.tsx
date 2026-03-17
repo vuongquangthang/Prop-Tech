@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { Smartphone, Monitor, Home } from 'lucide-react';
+import { Monitor, Home } from 'lucide-react';
 
 export function PlatformSelector() {
   const navigate = useNavigate();
@@ -27,67 +27,7 @@ export function PlatformSelector() {
         </div>
 
         {/* Platform Selection Cards */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Resident App Card */}
-          <button
-            onClick={() => navigate('/resident')}
-            className="bg-white rounded-3xl p-8 hover:shadow-2xl transition-all hover:scale-105 text-left group"
-            style={{ border: '3px solid transparent' }}
-          >
-            <div 
-              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"
-              style={{ backgroundColor: '#FEF3E8' }}
-            >
-              <Smartphone size={40} color="#E67E22" />
-            </div>
-            
-            <h2 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
-              📱 App Cư Dân
-            </h2>
-            <p style={{ fontSize: '17px', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-              Giao diện mobile 360×700px dành cho cư dân
-            </p>
-
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1E7E34' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Báo cáo sự cố
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1E7E34' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Thanh toán hóa đơn
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1E7E34' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Theo dõi tiến độ
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1E7E34' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Nhận thông báo
-                </span>
-              </div>
-            </div>
-
-            <div 
-              className="mt-6 py-3 px-6 rounded-xl text-center"
-              style={{ 
-                backgroundColor: '#E67E22',
-                color: '#FFF',
-                fontSize: '17px',
-                fontWeight: 700,
-              }}
-            >
-              Vào App Cư Dân →
-            </div>
-          </button>
-
+        <div className="max-w-2xl mx-auto">
           {/* Admin Web Card */}
           <button
             onClick={() => navigate('/dashboard')}
@@ -153,10 +93,10 @@ export function PlatformSelector() {
         <div className="mt-12 text-center">
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 inline-block">
             <p style={{ fontSize: '15px', color: '#E8F0F8', marginBottom: '8px' }}>
-              💡 <strong>Demo Account:</strong> Nguyễn Văn A • Căn hộ A-1205 • 0901234567
+              💡 <strong>Admin:</strong> Truy cập web Ban quản lý tại nền tảng này
             </p>
             <p style={{ fontSize: '13px', color: '#D1E7F8' }}>
-              Dữ liệu đồng bộ real-time giữa App và Web • Font Inter • Design tokens nhất quán
+              App cư dân đã được tách riêng tại thư mục mobile
             </p>
           </div>
         </div>
@@ -164,7 +104,7 @@ export function PlatformSelector() {
         {/* Version */}
         <div className="mt-8 text-center">
           <p style={{ fontSize: '13px', color: '#B8D4E8' }}>
-            Version 1.0.0 • Desktop 1440×1024 • Mobile 360×700
+            Version 1.0.0 • Desktop 1440×1024
           </p>
         </div>
       </div>

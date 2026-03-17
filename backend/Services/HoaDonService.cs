@@ -24,6 +24,7 @@ public interface IHoaDonService
     Task<HoaDonDto> ApproveAsync(int id, int approvedByUserId);
     Task<BatchReadingResultDto> BatchApproveAsync(List<int> invoiceIds, int approvedByUserId);
     Task<HoaDonDto> RejectAsync(int id, string reason);
+    Task<SendInvoiceReminderResultDto> SendReminderAsync(int invoiceId, int sentByUserId, string? customContent = null);
     Task DeleteAsync(int id);
     Task<List<HoaDonDto>> GetByUserIdAsync(int userId);
 }
@@ -614,6 +615,82 @@ public class HoaDonService : IHoaDonService
 
         _hoaDonRepository.Remove(invoice);
         await _hoaDonRepository.SaveChangesAsync();
+    }
+
+    public async Task<SendInvoiceReminderResultDto> SendReminderAsync(int invoiceId, int sentByUserId, string? customContent = null)
+    {
+        var invoice = await _context.HoaDons
+            .Include(hd => hd.HopDong)
+                .ThenInclude(hd => hd.Room)
+            .Include(hd => hd.HopDong)
+                .ThenInclude(hd => hd.ChiTietOs)
+                    .ThenInclude(ct => ct.Resident)
+                        .ThenInclude(r => r.Users)
+            .Include(hd => hd.ThanhToans)
+            .FirstOrDefaultAsync(hd => hd.Id == invoiceId);
+
+        if (invoice == null)
+        {
+            throw new InvalidOperationException("Hóa đơn không tồn tại");
+        }
+
+        var paidAmount = invoice.ThanhToans?.Where(t => t.Status == "SUCCESS").Sum(t => t.Amount) ?? 0;
+        var remainingAmount = invoice.TotalAmount - paidAmount;
+        if (remainingAmount <= 0)
+        {
+            throw new InvalidOperationException("Hóa đơn đã được thanh toán, không cần gửi nhắc nợ");
+        }
+
+        var now = DateTime.UtcNow;
+        var residentUserIds = invoice.HopDong?.ChiTietOs
+            .Where(ct => ct.ToDate == null || ct.ToDate > now)
+            .SelectMany(ct => ct.Resident.Users)
+            .Where(u => u.Role == "CuDan")
+            .Select(u => u.Id)
+            .Distinct()
+            .ToList() ?? new List<int>();
+
+        if (residentUserIds.Count == 0)
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản cư dân để gửi nhắc nợ");
+        }
+
+        var due = invoice.DueDate;
+        var daysLate = due.HasValue ? Math.Max(0, (now.Date - due.Value.Date).Days) : 0;
+        var roomCode = invoice.HopDong?.Room?.RoomCode ?? "—";
+        var title = $"Nhắc nợ hóa đơn phòng {roomCode}";
+        var content = string.IsNullOrWhiteSpace(customContent)
+            ? $"Hóa đơn tháng {invoice.Month}/{invoice.Year} còn nợ {remainingAmount:N0}đ{(daysLate > 0 ? $", quá hạn {daysLate} ngày" : "")}. Vui lòng thanh toán sớm."
+            : customContent.Trim();
+
+        foreach (var userId in residentUserIds)
+        {
+            await _notificationService.SendToUserAsync(userId, title, content, "PAYMENT_REMINDER");
+
+            var reminderCount = await _context.NhatKyNhacNos
+                .CountAsync(r => r.InvoiceId == invoiceId && r.SentToUserId == userId);
+
+            _context.NhatKyNhacNos.Add(new NhatKyNhacNo
+            {
+                InvoiceId = invoiceId,
+                SentToUserId = userId,
+                SentByUserId = sentByUserId > 0 ? sentByUserId : null,
+                ReminderCount = reminderCount + 1,
+                ReminderTime = now,
+                ReminderMethod = "App notification",
+                Content = content,
+                SendStatus = "Thành công"
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        return new SendInvoiceReminderResultDto
+        {
+            InvoiceId = invoiceId,
+            SentCount = residentUserIds.Count,
+            RecipientUserIds = residentUserIds
+        };
     }
 
     private async Task<List<CreateChiTietHoaDonDto>> BuildInvoiceLineItemsFromUsageAsync(int contractId, byte month, short year)

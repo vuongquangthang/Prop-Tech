@@ -186,6 +186,20 @@ public class HoaDonController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 
+    [HttpPost("{id}/send-reminder")]
+    [Authorize(Roles = "Admin,QuanLy,KeToan")]
+    public async Task<ActionResult<SendInvoiceReminderResultDto>> SendReminder(int id, [FromBody] SendInvoiceReminderRequestDto? dto)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var result = await _hoaDonService.SendReminderAsync(id, userId, dto?.Content);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
+    }
+
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)

@@ -1,4 +1,4 @@
-import { Filter, Monitor, Smartphone, RefreshCw } from 'lucide-react';
+import { Filter, Monitor, Smartphone } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { auditLogService, AuditLog } from '../../services/api.service';
 
@@ -138,7 +138,7 @@ export function AuditLogsTable() {
       </div>
       
       {/* Filter Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center flex-wrap gap-3">
         <div className="flex items-center space-x-3 flex-wrap gap-3">
           <Filter size={16} className="text-gray-500" />
           
@@ -201,14 +201,6 @@ export function AuditLogsTable() {
           />
         </div>
 
-        <button
-          onClick={fetchLogs}
-          disabled={loading}
-          className="px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          <span>Làm mới</span>
-        </button>
       </div>
       
       {/* Table */}

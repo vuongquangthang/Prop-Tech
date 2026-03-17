@@ -21,15 +21,24 @@ public class HopDongService : IHopDongService
     private readonly IHopDongRepository _hopDongRepository;
     private readonly IRoomRepository _roomRepository;
     private readonly IResidentRepository _residentRepository;
+    private readonly IServiceRepository _serviceRepository;
+    private readonly IChiTietSuDungDichVuRepository _chiTietSuDungDichVuRepository;
+    private readonly IChiTietORepository _chiTietORepository;
 
     public HopDongService(
         IHopDongRepository hopDongRepository,
         IRoomRepository roomRepository,
-        IResidentRepository residentRepository)
+        IResidentRepository residentRepository,
+        IServiceRepository serviceRepository,
+        IChiTietSuDungDichVuRepository chiTietSuDungDichVuRepository,
+        IChiTietORepository chiTietORepository)
     {
         _hopDongRepository = hopDongRepository;
         _roomRepository = roomRepository;
         _residentRepository = residentRepository;
+        _serviceRepository = serviceRepository;
+        _chiTietSuDungDichVuRepository = chiTietSuDungDichVuRepository;
+        _chiTietORepository = chiTietORepository;
     }
 
     public async Task<List<HopDongDto>> GetAllAsync()
@@ -58,6 +67,19 @@ public class HopDongService : IHopDongService
 
     public async Task<HopDongDto> CreateAsync(CreateHopDongDto dto)
     {
+        if (dto.Residents == null || dto.Residents.Count == 0)
+        {
+            throw new InvalidOperationException("Hợp đồng phải có ít nhất 1 cư dân");
+        }
+
+        var duplicateResident = dto.Residents
+            .GroupBy(r => r.ResidentId)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateResident != null)
+        {
+            throw new InvalidOperationException("Danh sách cư dân bị trùng lặp");
+        }
+
         // Validate room exists
         var room = await _roomRepository.GetByIdAsync(dto.RoomId);
         if (room == null)
@@ -95,7 +117,10 @@ public class HopDongService : IHopDongService
         await _hopDongRepository.AddAsync(contract);
         await _hopDongRepository.SaveChangesAsync();
 
-        // Create ChiTietO records for each resident
+        // Auto-generate contract code after ID is available.
+        contract.ContractCode = $"HD-{DateTime.UtcNow:yyyy}-{contract.Id:D5}";
+
+        // Persist ChiTietO records explicitly to avoid missing residents in detail views.
         foreach (var residentDto in dto.Residents)
         {
             var chiTietO = new ChiTietO
@@ -105,7 +130,49 @@ public class HopDongService : IHopDongService
                 ResidencyRole = residentDto.ResidencyRole,
                 FromDate = residentDto.FromDate
             };
-            contract.ChiTietOs.Add(chiTietO);
+            await _chiTietORepository.AddAsync(chiTietO);
+        }
+        await _chiTietORepository.SaveChangesAsync();
+
+        // Auto-create default service usages so monthly invoice calculation has baseline services.
+        var activeServices = (await _serviceRepository.GetActiveServicesAsync()).ToList();
+        var defaultServices = activeServices
+            .Where(IsAutoAssignableDefaultService)
+            .ToList();
+
+        var primaryResidentId = dto.Residents
+            .FirstOrDefault(r => r.ResidencyRole == "Người thuê chính")?.ResidentId
+            ?? dto.Residents.FirstOrDefault(r => r.ResidencyRole == "Người thuê")?.ResidentId
+            ?? dto.Residents.First().ResidentId;
+
+        if (defaultServices.Count > 0)
+        {
+            var existingUsages = (await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(dto.RoomId)).ToList();
+
+            foreach (var service in defaultServices)
+            {
+                var hasOverlap = existingUsages.Any(u =>
+                    u.ServiceId == service.Id
+                    && u.ApplyFrom <= (dto.ExpectedEndDate ?? DateTime.MaxValue)
+                    && (u.ApplyTo == null || u.ApplyTo >= dto.StartDate));
+
+                if (hasOverlap)
+                {
+                    continue;
+                }
+
+                await _chiTietSuDungDichVuRepository.AddAsync(new ChiTietSuDungDichVu
+                {
+                    ServiceId = service.Id,
+                    ResidentId = primaryResidentId,
+                    RoomId = dto.RoomId,
+                    ApplyFrom = dto.StartDate,
+                    ApplyTo = dto.ExpectedEndDate,
+                    Quantity = 1,
+                    CreatedAt = DateTime.UtcNow,
+                    Note = $"Tự động tạo khi phát sinh hợp đồng {contract.ContractCode}"
+                });
+            }
         }
 
         // Update room status to "Đã thuê"
@@ -175,6 +242,7 @@ public class HopDongService : IHopDongService
         return new HopDongDto
         {
             Id = contract.Id,
+            ContractCode = contract.ContractCode,
             RoomId = contract.RoomId,
             RoomNumber = contract.Room?.RoomCode,
             StartDate = contract.StartDate,
@@ -186,10 +254,32 @@ public class HopDongService : IHopDongService
                 ResidentId = ct.ResidentId,
                 FullName = ct.Resident?.FullName,
                 PhoneNumber = ct.Resident?.PhoneNumber,
+                Email = ct.Resident?.Users?.FirstOrDefault()?.Email,
+                IdCardNumber = ct.Resident?.IdCardNumber,
+                Hometown = ct.Resident?.Hometown,
                 ResidencyRole = ct.ResidencyRole,
                 FromDate = ct.FromDate,
                 ToDate = ct.ToDate
             }).ToList()
         };
+    }
+
+    private static bool IsAutoAssignableDefaultService(Service service)
+    {
+        if (!service.IsActive)
+        {
+            return false;
+        }
+
+        var serviceType = (service.ServiceType ?? string.Empty).ToLowerInvariant();
+        var serviceName = (service.Name ?? string.Empty).ToLowerInvariant();
+
+        // Parking services require vehicle binding; skip auto assignment here.
+        if (serviceType.Contains("gửi xe") || serviceType.Contains("xe") || serviceName.Contains("xe"))
+        {
+            return false;
+        }
+
+        return true;
     }
 }

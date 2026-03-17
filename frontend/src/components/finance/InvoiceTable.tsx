@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
-import { Eye, Send, Filter, CheckCircle, X, RefreshCw, FileText, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, Send, Filter, CheckCircle, X, FileText, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -21,6 +21,7 @@ interface Invoice {
   billingPeriodId: number;
   roomId: number;
   roomCode: string;
+  roomNumber?: string;
   headcount?: number;
   roomCharge?: number;
   waterCharge?: number;
@@ -100,7 +101,12 @@ export function InvoiceTable() {
     setErrors([]);
     try {
       const res = await api.get<Invoice[]>(API_ENDPOINTS.INVOICES.BASE);
-      setAllInvoices(res.data);
+      const normalized = (res.data || []).map((inv: any) => ({
+        ...inv,
+        roomCode: inv.roomCode || inv.roomNumber || inv.soPhong || '',
+        roomNumber: inv.roomNumber || inv.roomCode || inv.soPhong || '',
+      }));
+      setAllInvoices(normalized);
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Không thể tải danh sách hóa đơn.']);
     } finally {
@@ -225,21 +231,13 @@ export function InvoiceTable() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>Quản lý Hóa đơn</h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
             Tính toán, xem xét và theo dõi toàn bộ hóa đơn
           </p>
         </div>
-        <button
-          onClick={loadInvoices}
-          disabled={loading}
-          style={{ padding: '8px 16px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}
-        >
-          <RefreshCw size={16} />
-          Làm mới
-        </button>
       </div>
 
       {/* Messages */}

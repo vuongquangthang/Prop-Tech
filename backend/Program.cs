@@ -247,8 +247,86 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE HOA_DON ADD APPROVED_AT DATETIME2 NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOA_DON') AND name = 'REJECTED_REASON')
                     ALTER TABLE HOA_DON ADD REJECTED_REASON NVARCHAR(500) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'SO_NGUOI_TOI_DA')
+                    ALTER TABLE PHONG ADD SO_NGUOI_TOI_DA INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'MA_HOP_DONG')
+                    ALTER TABLE HOP_DONG ADD MA_HOP_DONG NVARCHAR(50) NULL;
             ");
             Console.WriteLine("✅ HOA_DON columns ensured");
+
+            context.Database.ExecuteSqlRaw(@"
+                UPDATE HOP_DONG
+                SET MA_HOP_DONG = CONCAT('HD-', YEAR(GETDATE()), '-', RIGHT(CONCAT('00000', CAST(HOP_DONG_ID AS VARCHAR(10))), 5))
+                WHERE MA_HOP_DONG IS NULL OR LTRIM(RTRIM(MA_HOP_DONG)) = '';
+            ");
+            Console.WriteLine("✅ Contract codes ensured");
+
+            context.Database.ExecuteSqlRaw(@"
+                UPDATE [USER]
+                SET EMAIL = CONCAT(REPLACE(SO_DIEN_THOAI, ' ', ''), '@resident.local')
+                WHERE VAI_TRO = N'CuDan'
+                  AND SO_DIEN_THOAI IS NOT NULL
+                  AND (EMAIL IS NULL OR LTRIM(RTRIM(EMAIL)) = '');
+            ");
+            Console.WriteLine("✅ Resident emails ensured");
+
+            // Upgrade legacy sample assets (common-area) to in-room assets for existing databases
+            context.Database.ExecuteSqlRaw(@"
+                DELETE FROM CHI_TIET_TAI_SAN_PHONG
+                WHERE TAI_SAN_ID IN (
+                    SELECT TAI_SAN_ID FROM TAI_SAN
+                    WHERE MA_TAI_SAN IN ('THANGMAY-01', 'DIEUHOA-SANH', 'MAYPHATSONG-WIFI', 'CAMERA-SANH-01', 'BANGHEXUONG')
+                );
+
+                DELETE FROM TAI_SAN
+                WHERE MA_TAI_SAN IN ('THANGMAY-01', 'DIEUHOA-SANH', 'MAYPHATSONG-WIFI', 'CAMERA-SANH-01', 'BANGHEXUONG');
+
+                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-DIEUHOA')
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Điều hòa', 'TS-PHONG-DIEUHOA');
+                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-MAYGIAT')
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Máy giặt', 'TS-PHONG-MAYGIAT');
+                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-GIUONG')
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Giường', 'TS-PHONG-GIUONG');
+                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TULANH')
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Tủ lạnh', 'TS-PHONG-TULANH');
+                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TUQUANAO')
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Tủ quần áo', 'TS-PHONG-TUQUANAO');
+                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-BINHNONG')
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Bình nóng lạnh', 'TS-PHONG-BINHNONG');
+
+                DECLARE @Room101Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '101');
+                DECLARE @Room201Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '201');
+                DECLARE @Room301Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '301');
+
+                DECLARE @AssetDieuHoa INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-DIEUHOA');
+                DECLARE @AssetMayGiat INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-MAYGIAT');
+                DECLARE @AssetGiuong INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-GIUONG');
+                DECLARE @AssetTuLanh INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TULANH');
+                DECLARE @AssetTuQuanAo INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TUQUANAO');
+                DECLARE @AssetBinhNong INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-BINHNONG');
+
+                IF @Room101Id IS NOT NULL AND @AssetDieuHoa IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room101Id AND TAI_SAN_ID = @AssetDieuHoa)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room101Id, @AssetDieuHoa, 1, N'Tốt', N'Điều hòa phòng khách');
+                IF @Room101Id IS NOT NULL AND @AssetGiuong IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room101Id AND TAI_SAN_ID = @AssetGiuong)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room101Id, @AssetGiuong, 2, N'Tốt', N'Giường phòng ngủ');
+                IF @Room101Id IS NOT NULL AND @AssetTuLanh IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room101Id AND TAI_SAN_ID = @AssetTuLanh)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room101Id, @AssetTuLanh, 1, N'Tốt', N'Tủ lạnh 2 cánh');
+
+                IF @Room201Id IS NOT NULL AND @AssetDieuHoa IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room201Id AND TAI_SAN_ID = @AssetDieuHoa)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room201Id, @AssetDieuHoa, 1, N'Tốt', N'Điều hòa inverter');
+                IF @Room201Id IS NOT NULL AND @AssetMayGiat IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room201Id AND TAI_SAN_ID = @AssetMayGiat)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room201Id, @AssetMayGiat, 1, N'Tốt', N'Máy giặt cửa ngang');
+                IF @Room201Id IS NOT NULL AND @AssetTuQuanAo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room201Id AND TAI_SAN_ID = @AssetTuQuanAo)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room201Id, @AssetTuQuanAo, 1, N'Tốt', N'Tủ quần áo gỗ');
+
+                IF @Room301Id IS NOT NULL AND @AssetDieuHoa IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room301Id AND TAI_SAN_ID = @AssetDieuHoa)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room301Id, @AssetDieuHoa, 1, N'Tốt', N'Điều hòa phòng ngủ');
+                IF @Room301Id IS NOT NULL AND @AssetBinhNong IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room301Id AND TAI_SAN_ID = @AssetBinhNong)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room301Id, @AssetBinhNong, 1, N'Tốt', N'Bình nóng lạnh phòng tắm');
+                IF @Room301Id IS NOT NULL AND @AssetGiuong IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room301Id AND TAI_SAN_ID = @AssetGiuong)
+                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room301Id, @AssetGiuong, 1, N'Tốt', N'Giường đôi');
+            ");
+            Console.WriteLine("✅ Room assets sample data ensured");
 
             // Fix seeded invoices: move from current month to 2 months ago so draft workflow is available
             // Only moves invoices with no line items and no payments (pure seeded data)

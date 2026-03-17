@@ -23,22 +23,10 @@ import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { ChatHistoryPage } from "./pages/ChatHistoryPage";
 import { RevenueReportPage } from "./pages/RevenueReportPage";
 import { OccupancyReportPage } from "./pages/OccupancyReportPage";
-import { DebtReportPage } from "./pages/DebtReportPage";
 import { UserAccountsPage } from "./pages/UserAccountsPage";
 import { MyProfilePage } from "./pages/MyProfilePage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { ResidentLayout } from "./components/resident/ResidentLayout";
-import { ResidentHome } from "./components/resident/ResidentHome";
-import { BillDetail } from "./components/resident/BillDetail";
-import { PaymentQR } from "./components/resident/PaymentQR";
-import { CreateIncident } from "./components/resident/CreateIncident";
-import { IncidentTracking } from "./components/resident/IncidentTracking";
-import { IncidentList } from "./components/resident/IncidentList";
-import { ChatAI } from "./components/resident/ChatAI";
-import { ResidentProfile } from "./components/resident/ResidentProfile";
-import { PaymentHistory } from "./components/resident/PaymentHistory";
-import { NotificationList } from "./components/resident/NotificationList";
-import { ProtectedRoute, PublicRoute, AdminRoute, ResidentRoute, AccountantRoute, StaffRoute } from "./components/ProtectedRoute";
+import { ProtectedRoute, PublicRoute, AdminRoute, AccountantRoute, StaffRoute } from "./components/ProtectedRoute";
 import { UserRole } from "./lib/roles";
 
 export const router = createBrowserRouter([
@@ -70,7 +58,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF, UserRole.ACCOUNTANT]}>
+      <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
         <AdminLayout />
       </ProtectedRoute>
     ),
@@ -78,7 +66,7 @@ export const router = createBrowserRouter([
       {
         path: "dashboard",
         element: (
-          <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF, UserRole.ACCOUNTANT]}>
+          <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
             <DashboardPage />
           </ProtectedRoute>
         ),
@@ -148,10 +136,6 @@ export const router = createBrowserRouter([
         element: <AdminRoute><OccupancyReportPage /></AdminRoute>,
       },
       {
-        path: "debt-report",
-        element: <AccountantRoute><DebtReportPage /></AccountantRoute>,
-      },
-      {
         path: "user-accounts",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
@@ -174,53 +158,6 @@ export const router = createBrowserRouter([
             <AuditLogsPage />
           </ProtectedRoute>
         ),
-      },
-    ],
-  },
-  // Resident App Routes - Protected
-  {
-    path: "/resident",
-    element: <ResidentRoute><ResidentLayout /></ResidentRoute>,
-    children: [
-      {
-        index: true,
-        Component: ResidentHome,
-      },
-      {
-        path: "bill-detail",
-        Component: BillDetail,
-      },
-      {
-        path: "payment-qr",
-        Component: PaymentQR,
-      },
-      {
-        path: "payment-history",
-        Component: PaymentHistory,
-      },
-      {
-        path: "incidents",
-        Component: IncidentList,
-      },
-      {
-        path: "incidents/create",
-        Component: CreateIncident,
-      },
-      {
-        path: "incidents/tracking",
-        Component: IncidentTracking,
-      },
-      {
-        path: "chat",
-        Component: ChatAI,
-      },
-      {
-        path: "profile",
-        Component: ResidentProfile,
-      },
-      {
-        path: "notifications",
-        Component: NotificationList,
       },
     ],
   },

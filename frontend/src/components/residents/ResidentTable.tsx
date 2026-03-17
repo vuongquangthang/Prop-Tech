@@ -48,8 +48,8 @@ export function ResidentTable() {
         phoneNumber: r.phoneNumber || r.soDienThoai || '',
         email: r.email || '',
         idCardNumber: r.idCardNumber || r.soCCCD || '',
-        room: '',  // TODO: Get from residency/contract data
-        status: 'active',  // TODO: Get from user account status
+        room: r.roomCode || r.soPhong || '',
+        status: r.isLocked ? 'locked' : 'active',
         contractCode: '',  // TODO: Get from contract data
         debt: '0'  // TODO: Get from invoice data
       })));
@@ -111,14 +111,6 @@ export function ResidentTable() {
             <option value="locked">Bị khóa</option>
           </select>
 
-          <button 
-            onClick={fetchResidents}
-            className="px-4 py-2 bg-gray-500 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-600"
-            disabled={loading}
-          >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-            <span>Làm mới</span>
-          </button>
         </div>
         
         <button 

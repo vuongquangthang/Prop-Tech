@@ -6,7 +6,7 @@ interface UserData {
   id: number | string;
   username: string;
   fullName: string;
-  role: string;
+  role: 'Admin' | 'CuDan';
   status: string;
   lastLogin: string;
   isLocked: boolean;
@@ -14,13 +14,19 @@ interface UserData {
 
 const roleColors = {
   Admin: 'bg-purple-100 text-purple-800 border-purple-300',
-  'QuanLy': 'bg-orange-100 text-orange-800 border-orange-300',
-  'Manager': 'bg-orange-100 text-orange-800 border-orange-300',
-  'KeToan': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'Cư dân': 'bg-blue-100 text-blue-800 border-blue-300',
-  'CuDan': 'bg-blue-100 text-blue-800 border-blue-300',
-  'Resident': 'bg-blue-100 text-blue-800 border-blue-300',
+  CuDan: 'bg-blue-100 text-blue-800 border-blue-300',
 };
+
+const roleLabels = {
+  Admin: 'Admin',
+  CuDan: 'Cư dân',
+};
+
+function normalizeRole(rawRole: string | undefined): 'Admin' | 'CuDan' {
+  const role = (rawRole || '').toLowerCase();
+  if (role === 'admin') return 'Admin';
+  return 'CuDan';
+}
 
 const statusColors = {
   active: 'bg-green-100 text-green-800 border-green-300',
@@ -76,7 +82,7 @@ export function UserAccountsTable() {
           id: user.id || user.userId || 0,
           username: user.phoneNumber || user.username || user.tenDangNhap || '',
           fullName: user.residentName || user.fullName || user.hoTen || '',
-          role: user.role || user.vaiTro || 'CuDan',
+          role: normalizeRole(user.role || user.vaiTro),
           status,
           lastLogin: user.lastLoginAt
             ? new Date(user.lastLoginAt).toLocaleString('vi-VN', {
@@ -125,11 +131,7 @@ export function UserAccountsTable() {
 
   // Filter data based on selections
   const filteredUsers = users.filter(user => {
-    const roleMatch = roleFilter === 'all' || user.role === roleFilter || 
-      (roleFilter === 'Admin' && user.role === 'Admin') ||
-      (roleFilter === 'QuanLy' && user.role === 'QuanLy') ||
-      (roleFilter === 'KeToan' && user.role === 'KeToan') ||
-      (roleFilter === 'CuDan' && (user.role === 'Cư dân' || user.role === 'CuDan' || user.role === 'Resident'));
+    const roleMatch = roleFilter === 'all' || user.role === roleFilter;
     const statusMatch = statusFilter === 'all' || user.status === statusFilter;
     const searchMatch = searchText === '' || 
       user.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -205,8 +207,6 @@ export function UserAccountsTable() {
         >
           <option value="all">Tất cả vai trò</option>
           <option value="Admin">Admin</option>
-          <option value="QuanLy">Quản lý</option>
-          <option value="KeToan">Kế toán</option>
           <option value="CuDan">Cư dân</option>
         </select>
         
@@ -267,8 +267,8 @@ export function UserAccountsTable() {
                     <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{user.username}</td>
                     <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.fullName}</td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded border ${roleColors[user.role as keyof typeof roleColors] || 'bg-gray-100 text-gray-800 border-gray-300'}`} style={{ fontSize: 'var(--type-caption)' }}>
-                        {user.role}
+                      <span className={`inline-block px-3 py-1 rounded border ${roleColors[user.role]}`} style={{ fontSize: 'var(--type-caption)' }}>
+                        {roleLabels[user.role]}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">

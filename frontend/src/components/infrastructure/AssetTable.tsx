@@ -1,4 +1,4 @@
-﻿import { Plus, Edit2, Trash2, X, AlertTriangle, Package, RefreshCw, Link2, Loader2, Pencil, Check } from 'lucide-react';
+﻿import { Plus, Edit2, Trash2, X, AlertTriangle, Package, Link2, Loader2, Pencil, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -238,17 +238,7 @@ export function AssetTable() {
   return (
     <div className="space-y-6">
       {/* Action Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={fetchAssets}
-            className="p-2 hover:bg-gray-100 rounded"
-            title="Làm mới"
-          >
-            <RefreshCw size={16} className="text-gray-500" />
-          </button>
-        </div>
-        
+      <div className="flex items-center justify-end">
         <button 
           onClick={() => { setFormData({ assetName: '', assetCode: '' }); setShowAddModal(true); }}
           className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"

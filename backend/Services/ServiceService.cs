@@ -10,6 +10,8 @@ public interface IServiceService
 {
     Task<List<ServiceDto>> GetAllAsync();
     Task<List<ServiceDto>> GetActiveServicesAsync();
+    Task<List<ServiceInContractDto>> GetServicesByContractAsync(int contractId);
+    Task<List<ServiceInContractDto>> GetServicesByRoomAsync(int roomId, DateTime? fromDate = null, DateTime? toDate = null);
     Task<ServiceDto?> GetByIdAsync(int id);
     Task<ServiceDto> CreateAsync(CreateServiceDto dto);
     Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto);
@@ -38,6 +40,58 @@ public class ServiceService : IServiceService
     {
         var services = await _serviceRepository.FindAsync(s => s.IsActive);
         return services.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<ServiceInContractDto>> GetServicesByContractAsync(int contractId)
+    {
+        var contract = await _context.HopDongs
+            .AsNoTracking()
+            .Include(h => h.ChiTietOs)
+            .FirstOrDefaultAsync(h => h.Id == contractId);
+
+        if (contract == null)
+        {
+            throw new InvalidOperationException("Hợp đồng không tồn tại");
+        }
+
+        var contractStart = contract.StartDate;
+        var contractEnd = contract.ExpectedEndDate ?? DateTime.UtcNow;
+        var residentIds = contract.ChiTietOs.Select(x => x.ResidentId).Distinct().ToList();
+
+        var usagesQuery = _context.ChiTietSuDungDichVus
+            .AsNoTracking()
+            .Include(u => u.Service)
+            .Include(u => u.Resident)
+            .Where(u => u.RoomId == contract.RoomId
+                && u.ApplyFrom <= contractEnd
+                && (u.ApplyTo == null || u.ApplyTo >= contractStart)
+                && u.Service.IsActive);
+
+        if (residentIds.Count > 0)
+        {
+            usagesQuery = usagesQuery.Where(u => residentIds.Contains(u.ResidentId));
+        }
+
+        var usages = await usagesQuery.ToListAsync();
+        return AggregateServices(usages);
+    }
+
+    public async Task<List<ServiceInContractDto>> GetServicesByRoomAsync(int roomId, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var from = fromDate ?? DateTime.MinValue;
+        var to = toDate ?? DateTime.MaxValue;
+
+        var usages = await _context.ChiTietSuDungDichVus
+            .AsNoTracking()
+            .Include(u => u.Service)
+            .Include(u => u.Resident)
+            .Where(u => u.RoomId == roomId
+                && u.ApplyFrom <= to
+                && (u.ApplyTo == null || u.ApplyTo >= from)
+                && u.Service.IsActive)
+            .ToListAsync();
+
+        return AggregateServices(usages);
     }
 
     public async Task<ServiceDto?> GetByIdAsync(int id)
@@ -171,5 +225,51 @@ public class ServiceService : IServiceService
             IsActive = service.IsActive,
             EffectiveDate = service.EffectiveDate
         };
+    }
+
+    private static List<ServiceInContractDto> AggregateServices(List<ChiTietSuDungDichVu> usages)
+    {
+        var now = DateTime.UtcNow;
+
+        return usages
+            .GroupBy(u => u.ServiceId)
+            .Select(group =>
+            {
+                var latest = group.OrderByDescending(x => x.ApplyFrom).First();
+                var latestWithOverride = group
+                    .Where(x => x.OverrideUnitPrice.HasValue)
+                    .OrderByDescending(x => x.ApplyFrom)
+                    .FirstOrDefault();
+
+                var applyToValues = group
+                    .Where(x => x.ApplyTo.HasValue)
+                    .Select(x => x.ApplyTo!.Value)
+                    .ToList();
+
+                return new ServiceInContractDto
+                {
+                    ServiceId = group.Key,
+                    ServiceName = latest.Service?.Name ?? string.Empty,
+                    ServiceType = latest.Service?.ServiceType ?? string.Empty,
+                    Unit = latest.Service?.Unit,
+                    UnitPrice = latestWithOverride?.OverrideUnitPrice ?? latest.Service?.CommonUnitPrice,
+                    ApplyFrom = group.Min(x => x.ApplyFrom),
+                    ApplyTo = applyToValues.Count > 0 ? applyToValues.Max() : null,
+                    TotalQuantity = group.Sum(x => x.Quantity ?? 1),
+                    ResidentCount = group.Select(x => x.ResidentId).Distinct().Count(),
+                    ResidentNames = group
+                        .Select(x => x.Resident?.FullName)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Distinct()
+                        .ToList()!,
+                    IsActive = group.Any(x => x.ApplyFrom <= now && (x.ApplyTo == null || x.ApplyTo >= now)),
+                    Note = group
+                        .OrderByDescending(x => x.ApplyFrom)
+                        .Select(x => x.Note)
+                        .FirstOrDefault(note => !string.IsNullOrWhiteSpace(note))
+                };
+            })
+            .OrderBy(x => x.ServiceName)
+            .ToList();
     }
 }

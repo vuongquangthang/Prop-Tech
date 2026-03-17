@@ -46,7 +46,7 @@ export function LandingPage() {
               <a href="#clients" className="text-[15px] text-gray-300 hover:text-white transition-colors font-medium">Khách hàng</a>
               <a href="#contact" className="text-[15px] text-gray-300 hover:text-white transition-colors font-medium">Liên hệ</a>
               <button 
-                onClick={() => navigate('/select-platform')}
+                onClick={() => navigate('/login')}
                 className="px-8 py-3 bg-[#1A4B84] text-white rounded-lg hover:bg-[#153A6B] transition-colors font-bold shadow-lg text-[15px]"
               >
                 Đăng nhập
@@ -93,7 +93,7 @@ export function LandingPage() {
               {/* CTA Buttons */}
               <div className="flex flex-wrap gap-4 mb-16">
                 <button 
-                  onClick={() => navigate('/select-platform')}
+                  onClick={() => navigate('/login')}
                   className="px-10 py-4 bg-[#1A4B84] text-white rounded-xl hover:bg-[#153A6B] transition-all font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-1 text-[15px]"
                 >
                   Dùng thử miễn phí
@@ -458,7 +458,7 @@ export function LandingPage() {
           </p>
           <div className="flex flex-wrap justify-center gap-6">
             <button 
-              onClick={() => navigate('/select-platform')}
+              onClick={() => navigate('/login')}
               className="px-10 py-5 bg-white text-[#1A4B84] rounded-xl hover:bg-gray-100 transition-all text-lg font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
             >
               Dùng thử miễn phí

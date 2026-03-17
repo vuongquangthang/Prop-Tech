@@ -1,38 +1,35 @@
-import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle } from 'lucide-react';
+import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle, X, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { tatToanService } from '../../services/api.service';
+import { tatToanService, contractService } from '../../services/api.service';
 
-const settlementData = {
-  contract: {
-    code: 'HD-2025-089',
-    room: 'C-312',
-    tenant: 'Lê Văn C',
-    startDate: '01/03/2025',
-    endDate: '28/02/2026',
-    actualEndDate: '05/02/2026',
-  },
-  deposit: {
-    amount: 10000000,
-  },
-  deductions: {
-    proRata: {
-      days: 5,
-      amount: 1666667,
-      calculation: '(10.000.000 ÷ 30) × 5 ngày'
-    },
-    utilities: [
-      { name: 'Tiền điện', amount: 350000 },
-      { name: 'Tiền nước', amount: 120000 },
-      { name: 'Phí quản lý', amount: 500000 },
-    ],
-  }
-};
+function parseAmount(input: string): number {
+  const normalized = input.replace(/[^0-9.-]/g, '');
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : 0;
+}
 
-const totalDeductions = 
-  settlementData.deductions.proRata.amount +
-  settlementData.deductions.utilities.reduce((sum, item) => sum + item.amount, 0);
+function formatAmount(input: string): string {
+  const value = parseAmount(input);
+  return value.toLocaleString('vi-VN');
+}
 
-const finalAmount = settlementData.deposit.amount - totalDeductions;
+function getContractStatus(contract: any): string {
+  return (contract?.status || '').toString().toLowerCase();
+}
+
+function isActiveContract(contract: any): boolean {
+  const s = getContractStatus(contract);
+  if (!s) return true;
+  return s.includes('active') || s.includes('đang') || s.includes('hieu') || s.includes('hiệu');
+}
+
+function getMainResidentName(contract: any): string {
+  const residents: any[] = Array.isArray(contract?.residents) ? contract.residents : [];
+  const head = residents.find((r: any) => r.residencyRole === 'Người thuê chính')
+    || residents.find((r: any) => r.residencyRole === 'Người thuê')
+    || residents[0];
+  return head?.fullName || head?.hoTen || contract?.tenantName || contract?.tenCuDan || '-';
+}
 
 
 
@@ -85,6 +82,8 @@ function ViewSettlementsTab() {
   const [settlements, setSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSettlement, setSelectedSettlement] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     fetchSettlements();
@@ -120,6 +119,18 @@ function ViewSettlementsTab() {
       (s.residentName || '').toLowerCase().includes(q)
     );
   });
+
+  const openSettlementDetail = async (settlementId: number) => {
+    try {
+      setLoadingDetail(true);
+      const detail = await tatToanService.getById(settlementId);
+      setSelectedSettlement(detail);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải chi tiết hồ sơ tất toán');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   return (
     <div className="flex flex-col space-y-4">
@@ -206,7 +217,10 @@ function ViewSettlementsTab() {
                       <span className={`inline-block px-3 py-1 rounded-full text-sm ${cls}`}>{label}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button className="px-4 py-2 bg-[var(--brand-primary)] text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                      <button
+                        onClick={() => openSettlementDetail(Number(s.id))}
+                        className="px-4 py-2 bg-[var(--brand-primary)] text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      >
                         Xem chi tiết
                       </button>
                     </td>
@@ -218,12 +232,222 @@ function ViewSettlementsTab() {
         </div>
         )}
       </div>
+
+      {(loadingDetail || selectedSettlement) && (
+        <SettlementDetailModal
+          settlement={selectedSettlement}
+          loading={loadingDetail}
+          onClose={() => {
+            setLoadingDetail(false);
+            setSelectedSettlement(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function SettlementDetailModal({ settlement, loading, onClose }: { settlement: any; loading: boolean; onClose: () => void }) {
+  const details: any[] = Array.isArray(settlement?.details) ? settlement.details : [];
+
+  return (
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl bg-white rounded-xl border border-gray-300 shadow-lg max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <FileText size={18} className="text-gray-700" />
+            <h3 className="text-lg text-gray-900">Chi tiết hồ sơ tất toán</h3>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100">
+            <X size={18} className="text-gray-600" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-10 text-gray-600">
+              <Loader2 size={22} className="animate-spin mr-2" />
+              Đang tải chi tiết...
+            </div>
+          ) : !settlement ? (
+            <div className="py-10 text-center text-gray-500">Không có dữ liệu hồ sơ</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                  <p className="text-gray-500">Mã hồ sơ</p>
+                  <p className="text-gray-900 font-medium">TS-{String(settlement.id).padStart(3, '0')}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                  <p className="text-gray-500">Trạng thái</p>
+                  <p className="text-gray-900 font-medium">{settlement.status || 'Pending'}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                  <p className="text-gray-500">Phòng</p>
+                  <p className="text-gray-900 font-medium">{settlement.roomNumber || '-'}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                  <p className="text-gray-500">Cư dân</p>
+                  <p className="text-gray-900 font-medium">{settlement.residentName || '-'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-green-50 border border-green-200 rounded p-3">
+                  <p className="text-gray-600">Hoàn cọc</p>
+                  <p className="text-green-700 font-semibold">+{Number(settlement.depositRefund || 0).toLocaleString('vi-VN')} VNĐ</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded p-3">
+                  <p className="text-gray-600">Công nợ + Khấu trừ</p>
+                  <p className="text-red-700 font-semibold">-{(Number(settlement.outstandingDebt || 0) + Number(settlement.deductions || 0)).toLocaleString('vi-VN')} VNĐ</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded">
+                <div className="px-4 py-3 border-b border-gray-200 text-sm text-gray-700">Chi tiết các khoản</div>
+                {details.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-gray-500">Không có chi tiết khoản mục</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {details.map((d: any) => (
+                      <div key={d.id} className="px-4 py-3 text-sm flex items-center justify-between">
+                        <div>
+                          <p className="text-gray-900">{d.description || d.type || 'Khoản mục'}</p>
+                          <p className="text-xs text-gray-500">Loại: {d.type || '-'}</p>
+                        </div>
+                        <p className="text-gray-900 font-medium">{Number(d.amount || 0).toLocaleString('vi-VN')} VNĐ</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded p-4 text-right">
+                <p className="text-sm text-gray-700">Tổng tất toán</p>
+                <p className="text-2xl text-blue-700 font-semibold">{Number(settlement.totalSettlement || 0).toLocaleString('vi-VN')} VNĐ</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 // Component for creating new settlement
 function CreateSettlementTab() {
+  const [contracts, setContracts] = useState<any[]>([]);
+  const [settlements, setSettlements] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [contractQuery, setContractQuery] = useState('');
+  const [selectedContractId, setSelectedContractId] = useState('');
+  const [settlementDate, setSettlementDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [depositRefundInput, setDepositRefundInput] = useState('0');
+  const [outstandingDebtInput, setOutstandingDebtInput] = useState('0');
+  const [compensationInput, setCompensationInput] = useState('0');
+  const [deductionsInput, setDeductionsInput] = useState('0');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const loadData = async () => {
+    try {
+      setLoadingData(true);
+      setError(null);
+      const [contractsData, settlementsData] = await Promise.all([
+        contractService.getAll(),
+        tatToanService.getAll(),
+      ]);
+      setContracts(Array.isArray(contractsData) ? contractsData : []);
+      setSettlements(Array.isArray(settlementsData) ? settlementsData : []);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải dữ liệu hợp đồng/tất toán');
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const settledContractIds = new Set<number>(
+    settlements.map((s: any) => Number(s.residencyId)).filter((id: number) => Number.isFinite(id))
+  );
+
+  const eligibleContracts = contracts
+    .filter((c: any) => isActiveContract(c) && !settledContractIds.has(Number(c.id)))
+    .filter((c: any) => {
+      if (!contractQuery.trim()) return true;
+      const q = contractQuery.toLowerCase();
+      const code = (c.contractCode || c.maHopDong || '').toString().toLowerCase();
+      const room = (c.roomNumber || c.soPhong || '').toString().toLowerCase();
+      const tenant = getMainResidentName(c).toLowerCase();
+      return code.includes(q) || room.includes(q) || tenant.includes(q);
+    });
+
+  const selectedContract = eligibleContracts.find((c: any) => String(c.id) === selectedContractId)
+    || contracts.find((c: any) => String(c.id) === selectedContractId)
+    || null;
+
+  useEffect(() => {
+    if (!selectedContract) return;
+    const defaultDeposit = Number(selectedContract.depositAmount ?? selectedContract.deposit ?? 0);
+    setDepositRefundInput(String(defaultDeposit));
+  }, [selectedContractId]);
+
+  const depositRefund = parseAmount(depositRefundInput);
+  const outstandingDebt = parseAmount(outstandingDebtInput);
+  const compensation = parseAmount(compensationInput);
+  const deductions = parseAmount(deductionsInput);
+  const totalSettlement = depositRefund - outstandingDebt + compensation - deductions;
+
+  const handleCreate = async () => {
+    if (!selectedContract) {
+      setError('Vui lòng chọn hợp đồng cần tất toán');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      setSuccess(null);
+
+      const details: any[] = [];
+      if (depositRefund > 0) details.push({ description: 'Hoàn tiền cọc', amount: depositRefund, type: 'DepositRefund' });
+      if (outstandingDebt > 0) details.push({ description: 'Công nợ chưa thanh toán', amount: outstandingDebt, type: 'Debt' });
+      if (compensation > 0) details.push({ description: 'Bồi thường', amount: compensation, type: 'Compensation' });
+      if (deductions > 0) details.push({ description: notes || 'Khấu trừ khác', amount: deductions, type: 'Deduction' });
+
+      await tatToanService.create({
+        residencyId: Number(selectedContract.id),
+        settlementDate,
+        depositRefund,
+        outstandingDebt,
+        compensation,
+        deductions,
+        status: 'Pending',
+        details,
+      });
+
+      setSuccess('Đã tạo hồ sơ tất toán thành công');
+      setSelectedContractId('');
+      setContractQuery('');
+      setDepositRefundInput('0');
+      setOutstandingDebtInput('0');
+      setCompensationInput('0');
+      setDeductionsInput('0');
+      setNotes('');
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || 'Không thể tạo hồ sơ tất toán');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col space-y-4 h-full">
       {/* Search Contract */}
@@ -233,16 +457,37 @@ function CreateSettlementTab() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Tìm theo mã hợp đồng hoặc số phòng..."
+              placeholder="Tìm theo mã hợp đồng, số phòng hoặc chủ hộ..."
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:border-gray-500"
-              defaultValue="HD-2025-089"
+              value={contractQuery}
+              onChange={(e) => setContractQuery(e.target.value)}
             />
           </div>
-          <button className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">
-            Tìm kiếm
-          </button>
+          <select
+            className="min-w-[360px] px-3 py-2 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:border-gray-500"
+            value={selectedContractId}
+            onChange={(e) => setSelectedContractId(e.target.value)}
+            disabled={loadingData}
+          >
+            <option value="">Chọn hợp đồng đủ điều kiện tất toán...</option>
+            {eligibleContracts.map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {(c.contractCode || c.maHopDong || `HD-${c.id}`)} - {(c.roomNumber || c.soPhong || '-')} - {getMainResidentName(c)}
+              </option>
+            ))}
+          </select>
         </div>
+        {loadingData && <p className="mt-2 text-xs text-gray-500">Đang tải hợp đồng...</p>}
+        {!loadingData && eligibleContracts.length === 0 && (
+          <p className="mt-2 text-xs text-orange-600">Không còn hợp đồng đang hiệu lực nào chưa có hồ sơ tất toán.</p>
+        )}
       </div>
+
+      {(error || success) && (
+        <div className={`border rounded p-3 text-sm ${error ? 'bg-red-50 border-red-300 text-red-800' : 'bg-green-50 border-green-300 text-green-800'}`}>
+          {error || success}
+        </div>
+      )}
 
       {/* Main Content - 2 Columns */}
       <div className="grid grid-cols-2 gap-4 flex-1">
@@ -256,19 +501,24 @@ function CreateSettlementTab() {
             <div className="p-4 grid grid-cols-2 gap-3 text-xs">
               <div>
                 <p className="text-gray-600 mb-1">Mã HĐ</p>
-                <p className="text-gray-900">{settlementData.contract.code}</p>
+                <p className="text-gray-900">{selectedContract?.contractCode || selectedContract?.maHopDong || '-'}</p>
               </div>
               <div>
                 <p className="text-gray-600 mb-1">Phòng</p>
-                <p className="text-gray-900">{settlementData.contract.room}</p>
+                <p className="text-gray-900">{selectedContract?.roomNumber || selectedContract?.soPhong || '-'}</p>
               </div>
               <div>
                 <p className="text-gray-600 mb-1">Chủ hộ</p>
-                <p className="text-gray-900">{settlementData.contract.tenant}</p>
+                <p className="text-gray-900">{selectedContract ? getMainResidentName(selectedContract) : '-'}</p>
               </div>
               <div>
                 <p className="text-gray-600 mb-1">Ngày trả phòng</p>
-                <p className="text-red-600">{settlementData.contract.actualEndDate}</p>
+                <input
+                  type="date"
+                  value={settlementDate}
+                  onChange={(e) => setSettlementDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-2 py-1"
+                />
               </div>
             </div>
           </div>
@@ -279,7 +529,12 @@ function CreateSettlementTab() {
               <h3 className="text-sm text-gray-800">1. Tiền cọc gốc</h3>
             </div>
             <div className="p-4">
-              <p className="text-2xl text-gray-900">{settlementData.deposit.amount.toLocaleString()}</p>
+              <input
+                type="text"
+                value={formatAmount(depositRefundInput)}
+                onChange={(e) => setDepositRefundInput(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-xl text-gray-900"
+              />
               <p className="text-xs text-gray-600 mt-1">VNĐ</p>
             </div>
           </div>
@@ -290,29 +545,43 @@ function CreateSettlementTab() {
               <h3 className="text-sm text-gray-800">2. Các khoản khấu trừ</h3>
             </div>
             <div className="p-4 space-y-3 text-xs">
-              {/* Pro-rata */}
               <div>
                 <div className="flex items-center justify-between">
-                  <p className="text-gray-700">Tiền phòng lẻ ({settlementData.deductions.proRata.days} ngày)</p>
-                  <p className="text-gray-900">-{settlementData.deductions.proRata.amount.toLocaleString()}</p>
+                  <p className="text-gray-700">Công nợ chưa thanh toán</p>
+                  <input
+                    type="text"
+                    value={formatAmount(outstandingDebtInput)}
+                    onChange={(e) => setOutstandingDebtInput(e.target.value)}
+                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
+                  />
                 </div>
-                <p className="text-gray-500 mt-1">{settlementData.deductions.proRata.calculation}</p>
               </div>
 
               <div className="border-t border-gray-200 pt-2">
-                <p className="text-gray-700 mb-2">Dịch vụ chưa thanh toán:</p>
-                {settlementData.deductions.utilities.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between mb-1">
-                    <p className="text-gray-600">• {item.name}</p>
-                    <p className="text-gray-900">-{item.amount.toLocaleString()}</p>
-                  </div>
-                ))}
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-gray-700">Khấu trừ khác</p>
+                  <input
+                    type="text"
+                    value={formatAmount(deductionsInput)}
+                    onChange={(e) => setDeductionsInput(e.target.value)}
+                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-700">Bồi thường cộng thêm</p>
+                  <input
+                    type="text"
+                    value={formatAmount(compensationInput)}
+                    onChange={(e) => setCompensationInput(e.target.value)}
+                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
+                  />
+                </div>
               </div>
 
               <div className="border-t-2 border-gray-300 pt-2">
                 <div className="flex items-center justify-between">
                   <p className="text-gray-800">Tổng khấu trừ:</p>
-                  <p className="text-lg text-red-600">-{totalDeductions.toLocaleString()}</p>
+                  <p className="text-lg text-red-600">-{(outstandingDebt + deductions).toLocaleString('vi-VN')}</p>
                 </div>
               </div>
             </div>
@@ -332,15 +601,19 @@ function CreateSettlementTab() {
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between pb-3 border-b border-gray-300 text-sm">
                 <p className="text-gray-700">Tiền cọc gốc:</p>
-                <p className="text-gray-900">+{settlementData.deposit.amount.toLocaleString()}</p>
+                <p className="text-gray-900">+{depositRefund.toLocaleString('vi-VN')}</p>
               </div>
               <div className="flex items-center justify-between pb-3 border-b border-gray-300 text-sm">
                 <p className="text-gray-700">Tổng khấu trừ:</p>
-                <p className="text-red-600">-{totalDeductions.toLocaleString()}</p>
+                <p className="text-red-600">-{(outstandingDebt + deductions).toLocaleString('vi-VN')}</p>
+              </div>
+              <div className="flex items-center justify-between pb-3 border-b border-gray-300 text-sm">
+                <p className="text-gray-700">Bồi thường cộng thêm:</p>
+                <p className="text-blue-600">+{compensation.toLocaleString('vi-VN')}</p>
               </div>
               <div className="flex items-center justify-between pt-2">
                 <p className="text-base text-gray-800">Số tiền hoàn trả:</p>
-                <p className="text-3xl text-green-600">{finalAmount.toLocaleString()}</p>
+                <p className={`text-3xl ${totalSettlement >= 0 ? 'text-green-600' : 'text-red-600'}`}>{totalSettlement.toLocaleString('vi-VN')}</p>
               </div>
               <p className="text-xs text-gray-600 text-right">VNĐ</p>
             </div>
@@ -355,14 +628,20 @@ function CreateSettlementTab() {
               <textarea 
                 className="w-full h-24 p-2 border border-gray-300 rounded text-xs focus:outline-none focus:border-gray-500"
                 placeholder="Nhập ghi chú về quá trình tất toán..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
               ></textarea>
             </div>
           </div>
 
           {/* Action Button */}
-          <button className="w-full px-4 py-3 bg-gray-800 text-white text-sm rounded flex items-center justify-center space-x-2 hover:bg-gray-700">
+          <button
+            onClick={handleCreate}
+            disabled={!selectedContract || submitting}
+            className="w-full px-4 py-3 bg-gray-800 text-white text-sm rounded flex items-center justify-center space-x-2 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <CheckCircle size={18} />
-            <span>Xác nhận tất toán</span>
+            <span>{submitting ? 'Đang tạo hồ sơ...' : 'Xác nhận tất toán'}</span>
           </button>
 
           {/* Warning */}

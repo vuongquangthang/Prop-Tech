@@ -392,19 +392,41 @@ public static class DatabaseSeeder
         context.ThanhToans.AddRange(payments);
         context.SaveChanges();
 
-        // 15. Create Assets (TAI_SAN) - 5 assets
+        // 15. Create Assets (TAI_SAN) - room assets
         var assets = new List<TaiSan>
         {
-            new TaiSan { AssetCode = "THANGMAY-01", AssetName = "Thang máy tầng 1-5" },
-            new TaiSan { AssetCode = "DIEUHOA-SANH", AssetName = "Điều hòa sảnh tầng 1" },
-            new TaiSan { AssetCode = "MAYPHATSONG-WIFI", AssetName = "Máy phát sóng Wifi" },
-            new TaiSan { AssetCode = "CAMERA-SANH-01", AssetName = "Camera an ninh sảnh tầng 1" },
-            new TaiSan { AssetCode = "BANGHEXUONG", AssetName = "Bảng hiệu tòa nhà" }
+            new TaiSan { AssetCode = "TS-PHONG-DIEUHOA", AssetName = "Điều hòa" },
+            new TaiSan { AssetCode = "TS-PHONG-MAYGIAT", AssetName = "Máy giặt" },
+            new TaiSan { AssetCode = "TS-PHONG-GIUONG", AssetName = "Giường" },
+            new TaiSan { AssetCode = "TS-PHONG-TULANH", AssetName = "Tủ lạnh" },
+            new TaiSan { AssetCode = "TS-PHONG-TUQUANAO", AssetName = "Tủ quần áo" },
+            new TaiSan { AssetCode = "TS-PHONG-BINHNONG", AssetName = "Bình nóng lạnh" }
         };
         context.TaiSans.AddRange(assets);
         context.SaveChanges();
 
-        // 16. Create Maintenance Requests (YEU_CAU_SUA_CHUA) - 5 requests
+        // 16. Assign assets to rooms (CHI_TIET_TAI_SAN_PHONG)
+        var roomAssets = new List<ChiTietTaiSanPhong>
+        {
+            // Room 101
+            new ChiTietTaiSanPhong { RoomId = room101.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-DIEUHOA").Id, Quantity = 1, Condition = "Tốt", Note = "Điều hòa phòng khách" },
+            new ChiTietTaiSanPhong { RoomId = room101.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-GIUONG").Id, Quantity = 2, Condition = "Tốt", Note = "Giường phòng ngủ" },
+            new ChiTietTaiSanPhong { RoomId = room101.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-TULANH").Id, Quantity = 1, Condition = "Tốt", Note = "Tủ lạnh 2 cánh" },
+
+            // Room 201
+            new ChiTietTaiSanPhong { RoomId = room201.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-DIEUHOA").Id, Quantity = 1, Condition = "Tốt", Note = "Điều hòa inverter" },
+            new ChiTietTaiSanPhong { RoomId = room201.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-MAYGIAT").Id, Quantity = 1, Condition = "Tốt", Note = "Máy giặt cửa ngang" },
+            new ChiTietTaiSanPhong { RoomId = room201.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-TUQUANAO").Id, Quantity = 1, Condition = "Tốt", Note = "Tủ quần áo gỗ" },
+
+            // Room 301
+            new ChiTietTaiSanPhong { RoomId = room301.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-DIEUHOA").Id, Quantity = 1, Condition = "Tốt", Note = "Điều hòa phòng ngủ" },
+            new ChiTietTaiSanPhong { RoomId = room301.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-BINHNONG").Id, Quantity = 1, Condition = "Tốt", Note = "Bình nóng lạnh phòng tắm" },
+            new ChiTietTaiSanPhong { RoomId = room301.Id, AssetId = assets.First(a => a.AssetCode == "TS-PHONG-GIUONG").Id, Quantity = 1, Condition = "Tốt", Note = "Giường đôi" }
+        };
+        context.ChiTietTaiSanPhongs.AddRange(roomAssets);
+        context.SaveChanges();
+
+        // 17. Create Maintenance Requests (YEU_CAU_SUA_CHUA) - 5 requests
         var maintenanceRequests = new List<YeuCauSuaChua>
         {
             new YeuCauSuaChua
@@ -466,7 +488,7 @@ public static class DatabaseSeeder
         context.YeuCauSuaChuas.AddRange(maintenanceRequests);
         context.SaveChanges();
 
-        // 17. Create Chat History (LICH_SU_CHAT) - 20 messages
+        // 18. Create Chat History (LICH_SU_CHAT) - 20 messages
         var chatMessages = new List<LichSuChat>
         {
             new LichSuChat { UserId = userResident1.Id, MessageRole = "user", MessageText = "Wifi của tòa nhà là gì?", CreatedAt = DateTime.UtcNow.AddDays(-10) },
@@ -493,7 +515,7 @@ public static class DatabaseSeeder
         context.LichSuChats.AddRange(chatMessages);
         context.SaveChanges();
 
-        // 18. Create Payment Reminders (NHAT_KY_NHAC_NO) - 5 reminders
+        // 19. Create Payment Reminders (NHAT_KY_NHAC_NO) - 5 reminders
         var reminders = new List<NhatKyNhacNo>
         {
             new NhatKyNhacNo

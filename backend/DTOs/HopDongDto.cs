@@ -6,6 +6,7 @@ namespace backend.DTOs;
 public class HopDongDto
 {
     public int Id { get; set; }
+    public string? ContractCode { get; set; }
     public int RoomId { get; set; }
     public string? RoomNumber { get; set; }
     public DateTime StartDate { get; set; }
@@ -56,6 +57,9 @@ public class ResidentInContractDto
     public int ResidentId { get; set; }
     public string? FullName { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
+    public string? IdCardNumber { get; set; }
+    public string? Hometown { get; set; }
     public string ResidencyRole { get; set; } = null!;
     public DateTime FromDate { get; set; }
     public DateTime? ToDate { get; set; }

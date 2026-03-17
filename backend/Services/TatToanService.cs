@@ -188,7 +188,9 @@ namespace backend.Services
 
         private TatToanDto MapToDto(TatToan tatToan)
         {
-            var mainResident = tatToan.Residency?.ChiTietOs?.FirstOrDefault(c => c.ResidencyRole == "Người thuê")?.Resident;
+            var mainResident = tatToan.Residency?.ChiTietOs?.FirstOrDefault(c => c.ResidencyRole == "Người thuê")?.Resident
+                ?? tatToan.Residency?.ChiTietOs?.FirstOrDefault(c => c.ResidencyRole == "Người thuê chính")?.Resident
+                ?? tatToan.Residency?.ChiTietOs?.FirstOrDefault()?.Resident;
             
             return new TatToanDto
             {

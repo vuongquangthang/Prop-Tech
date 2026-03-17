@@ -15,7 +15,6 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import invoiceService, { Invoice } from '../services/invoice.service';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
-// @ts-ignore - TypeScript cache issue, restart TS server if error persists
 import { roomService, MyRoom } from '../services/room.service';
 import notificationService from '../services/notification.service';
 
@@ -109,7 +108,7 @@ export default function HomeScreen() {
             onPress={() => (navigation as any).navigate('RoomDetail')}
           >
             <View style={styles.buildingIcon}>
-              <Ionicons name="home" size={16} color="#FFFFFF" />
+              <Ionicons name="business-outline" size={16} color="#FFFFFF" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.buildingLabel}>Smart Home</Text>

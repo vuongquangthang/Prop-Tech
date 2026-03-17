@@ -61,16 +61,7 @@ export function ProtectedRoute({
 // Wrapper for Admin-only routes
 export function AdminRoute({ children }: { children: ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER]}>
-      {children}
-    </ProtectedRoute>
-  );
-}
-
-// Wrapper for Resident-only routes
-export function ResidentRoute({ children }: { children: ReactNode }) {
-  return (
-    <ProtectedRoute allowedRoles={[UserRole.RESIDENT]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
       {children}
     </ProtectedRoute>
   );
@@ -79,7 +70,7 @@ export function ResidentRoute({ children }: { children: ReactNode }) {
 // Wrapper for Accountant routes
 export function AccountantRoute({ children }: { children: ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
       {children}
     </ProtectedRoute>
   );
@@ -88,7 +79,7 @@ export function AccountantRoute({ children }: { children: ReactNode }) {
 // Wrapper for Staff routes
 export function StaffRoute({ children }: { children: ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
       {children}
     </ProtectedRoute>
   );

@@ -83,12 +83,12 @@ export function hasAnyRole(userRole: string, allowedRoles: UserRole[]): boolean 
 export function getDefaultRoute(role: string): string {
   switch (role) {
     case UserRole.ADMIN:
+      return '/dashboard';
     case UserRole.MANAGER:
     case UserRole.ACCOUNTANT:
     case UserRole.STAFF:
-      return '/dashboard';
     case UserRole.RESIDENT:
-      return '/resident';
+      return '/unauthorized';
     default:
       return '/';
   }
@@ -96,29 +96,25 @@ export function getDefaultRoute(role: string): string {
 
 // Route Access Rules
 export const ROUTE_ACCESS = {
-  // Admin routes - require admin/manager
-  '/dashboard': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT, UserRole.STAFF],
-  '/building-management': [UserRole.ADMIN, UserRole.MANAGER],
-  '/resident-management': [UserRole.ADMIN, UserRole.MANAGER],
-  '/contract-management': [UserRole.ADMIN, UserRole.MANAGER],
-  '/invoice-management': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT],
-  '/transaction-history': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT],
-  '/payment-history': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT],
-  '/debt-management': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT],
-  '/service-pricing': [UserRole.ADMIN, UserRole.MANAGER],
-  '/asset-inventory': [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF],
-  '/settlement': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT],
-  '/utility-reading': [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF],
-  '/maintenance-request': [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF],
-  '/knowledge-base': [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF],
-  '/chat-history': [UserRole.ADMIN, UserRole.MANAGER],
-  '/revenue-report': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT],
-  '/occupancy-report': [UserRole.ADMIN, UserRole.MANAGER],
-  '/debt-report': [UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT],
+  // Admin web routes - admin only
+  '/dashboard': [UserRole.ADMIN],
+  '/building-management': [UserRole.ADMIN],
+  '/resident-management': [UserRole.ADMIN],
+  '/contract-management': [UserRole.ADMIN],
+  '/invoice-management': [UserRole.ADMIN],
+  '/transaction-history': [UserRole.ADMIN],
+  '/payment-history': [UserRole.ADMIN],
+  '/debt-management': [UserRole.ADMIN],
+  '/service-pricing': [UserRole.ADMIN],
+  '/asset-inventory': [UserRole.ADMIN],
+  '/settlement': [UserRole.ADMIN],
+  '/utility-reading': [UserRole.ADMIN],
+  '/maintenance-request': [UserRole.ADMIN],
+  '/knowledge-base': [UserRole.ADMIN],
+  '/chat-history': [UserRole.ADMIN],
+  '/revenue-report': [UserRole.ADMIN],
+  '/occupancy-report': [UserRole.ADMIN],
   '/user-accounts': [UserRole.ADMIN],
   '/audit-logs': [UserRole.ADMIN],
   
-  // Resident routes - only residents
-  '/resident': [UserRole.RESIDENT],
-  '/resident/*': [UserRole.RESIDENT],
 };

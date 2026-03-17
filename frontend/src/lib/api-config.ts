@@ -69,6 +69,8 @@ export const API_ENDPOINTS = {
     BASE: '/api/Services',
     BY_ID: (id: number) => `/api/Services/${id}`,
     PRICE_HISTORY: (id: number) => `/api/Services/${id}/price-history`,
+    BY_CONTRACT: (contractId: number) => `/api/Services/contract/${contractId}`,
+    BY_ROOM: (roomId: number) => `/api/Services/room/${roomId}`,
   },
   
   // Invoices
@@ -81,6 +83,7 @@ export const API_ENDPOINTS = {
     APPROVE: (id: number) => `/api/HoaDon/${id}/approve`,
     APPROVE_BATCH: '/api/HoaDon/approve-batch',
     REJECT: (id: number) => `/api/HoaDon/${id}/reject`,
+    SEND_REMINDER: (id: number) => `/api/HoaDon/${id}/send-reminder`,
     EDIT_DRAFT: (id: number) => `/api/HoaDon/${id}/edit-draft`,
     GENERATE: '/api/HoaDon/generate',
     FINALIZE: (id: number) => `/api/HoaDon/${id}/finalize`,

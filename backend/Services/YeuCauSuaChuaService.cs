@@ -23,6 +23,20 @@ public interface IYeuCauSuaChuaService
 
 public class YeuCauSuaChuaService : IYeuCauSuaChuaService
 {
+    private static string NormalizeStatus(string? status)
+    {
+        var s = (status ?? string.Empty).Trim().ToLowerInvariant();
+        return s switch
+        {
+            "chờ xử lý" or "cho xu ly" or "choxuly" or "pending" => "Chờ xử lý",
+            "đang xử lý" or "dang xu ly" or "dangxuly" or "in-progress" or "inprogress" => "Đang xử lý",
+            "chờ nghiệm thu" or "cho nghiem thu" or "chonghiemthu" or "review" => "Chờ nghiệm thu",
+            "đã đóng" or "da dong" or "dadong" or "closed" => "Đã đóng",
+            "hoàn thành" or "hoan thanh" or "hoanthanh" or "completed" or "resolved" => "Hoàn thành",
+            _ => status?.Trim() ?? string.Empty
+        };
+    }
+
     private readonly IYeuCauSuaChuaRepository _yeuCauRepository;
     private readonly IRoomRepository _roomRepository;
     private readonly IUserRepository _userRepository;
@@ -224,7 +238,24 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         }
 
         if (!string.IsNullOrWhiteSpace(dto.Status))
-            request.Status = dto.Status;
+        {
+            var currentStatus = NormalizeStatus(request.Status);
+            var nextStatus = NormalizeStatus(dto.Status);
+
+            // BQL workflow: from review, can only keep waiting or return to pending.
+            if (currentStatus == "Chờ nghiệm thu" && nextStatus != "Chờ nghiệm thu" && nextStatus != "Chờ xử lý")
+            {
+                throw new InvalidOperationException("Sự cố ở trạng thái nghiệm thu chỉ được giữ chờ phản hồi cư dân hoặc chuyển về chờ xử lý.");
+            }
+
+            // Never allow direct completion through generic update endpoint.
+            if (nextStatus == "Hoàn thành" || nextStatus == "Đã đóng")
+            {
+                throw new InvalidOperationException("Không thể chuyển hoàn thành trực tiếp. Chỉ cư dân xác nhận hài lòng mới được đóng sự cố.");
+            }
+
+            request.Status = nextStatus;
+        }
 
         if (dto.AdminNote != null)
             request.AdminNote = dto.AdminNote;
@@ -257,7 +288,7 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         }
 
         // Nếu trạng thái chuyển sang "Chờ nghiệm thu": thông báo cho cư dân đi nghiệm thu
-        if (dto.Status == "Chờ nghiệm thu")
+        if (NormalizeStatus(dto.Status) == "Chờ nghiệm thu")
         {
             try
             {
@@ -286,15 +317,32 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             throw new InvalidOperationException("Yêu cầu đã được đóng");
         }
 
-        request.Status = dto.Status;
+        var currentStatus = NormalizeStatus(request.Status);
+        var requestedStatus = NormalizeStatus(dto.Status);
+
+        if (currentStatus != "Chờ nghiệm thu")
+        {
+            throw new InvalidOperationException("Chỉ được phản hồi đóng/mở lại khi sự cố đang ở trạng thái chờ nghiệm thu.");
+        }
+
+        if (requestedStatus != "Đã đóng" && requestedStatus != "Chờ xử lý")
+        {
+            throw new InvalidOperationException("Phản hồi nghiệm thu chỉ hợp lệ với trạng thái 'Đã đóng' hoặc 'Chờ xử lý'.");
+        }
+
+        request.Status = requestedStatus;
         request.AdminNote = dto.AdminNote;
         request.CompletionImageUrl = dto.CompletionImageUrl;
         
         // Only set closedAt when resident marks as satisfied ("Đã đóng")
         // Don't set it when admin marks as complete ("Hoàn thành")
-        if (dto.Status == "Đã đóng")
+        if (requestedStatus == "Đã đóng")
         {
             request.ClosedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            request.ClosedAt = null;
         }
 
         _yeuCauRepository.Update(request);
@@ -326,7 +374,7 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         try
         {
             var roomLabel = room != null ? $"Phòng {room.RoomCode}" : "Cư dân";
-            var feedbackMsg = updated.Status == "Đã đóng"
+            var feedbackMsg = NormalizeStatus(updated.Status) == "Đã đóng"
                 ? $"{roomLabel} hài lòng với kết quả xử lý sự cố: {updated.IssueType}."
                 : $"{roomLabel} yêu cầu sửa lại sự cố: {updated.IssueType}.";
             await _notificationService.CreateAdminNotificationAsync(

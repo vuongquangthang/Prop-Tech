@@ -64,6 +64,9 @@ export function QuickAccessTables() {
   const [selectedQuestion, setSelectedQuestion] = useState<any>(null);
   
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [sendingBatchReminder, setSendingBatchReminder] = useState(false);
 
   const loadData = useCallback(() => {
     invoiceService.getUnpaid()
@@ -137,6 +140,55 @@ export function QuickAccessTables() {
     );
   }, [searchTerm, pendingKBItems]);
 
+  const getDefaultReminderMessage = (invoice: OverdueInvoice) =>
+    `Kính gửi ${invoice.tenant},\n\nChúng tôi ghi nhận hóa đơn phòng ${invoice.room} còn nợ ${invoice.amount} VNĐ và đã quá hạn ${invoice.daysLate} ngày.\n\nVui lòng thanh toán trong thời gian sớm nhất để tránh ảnh hưởng các dịch vụ liên quan.\n\nTrân trọng,\nBan quản lý`;
+
+  const openReminderModal = (invoice: OverdueInvoice) => {
+    setSelectedInvoice(invoice);
+    setReminderMessage(getDefaultReminderMessage(invoice));
+    setReminderModal(true);
+  };
+
+  const handleSendReminder = async () => {
+    if (!selectedInvoice?.invoiceId) return;
+    try {
+      setSendingReminder(true);
+      const result = await invoiceService.sendReminder(selectedInvoice.invoiceId, reminderMessage);
+      alert(`Đã gửi nhắc nợ thành công cho ${result.sentCount} cư dân.`);
+      setSelectedInvoices(prev => prev.filter(id => id !== selectedInvoice.id));
+      setReminderModal(false);
+      setSelectedInvoice(null);
+      loadData();
+    } catch (error: any) {
+      alert(error?.message || 'Gửi nhắc nợ thất bại');
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
+  const handleSendBatchReminders = async () => {
+    if (selectedInvoices.length === 0) return;
+
+    const selected = overdueInvoices.filter(i => selectedInvoices.includes(i.id));
+    if (selected.length === 0) return;
+
+    try {
+      setSendingBatchReminder(true);
+      const results = await Promise.allSettled(selected.map(i => invoiceService.sendReminder(i.invoiceId)));
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const failCount = results.length - successCount;
+
+      alert(`Đã gửi nhắc nợ cho ${successCount}/${results.length} hóa đơn.${failCount > 0 ? ` ${failCount} hóa đơn gửi lỗi.` : ''}`);
+
+      if (successCount > 0) {
+        setSelectedInvoices([]);
+        loadData();
+      }
+    } finally {
+      setSendingBatchReminder(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-8">
@@ -160,7 +212,8 @@ export function QuickAccessTables() {
               <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
                 {selectedInvoices.length > 0 && (
                   <button 
-                    onClick={() => navigate('/debt-management')}
+                    onClick={handleSendBatchReminders}
+                    disabled={sendingBatchReminder}
                     className="rounded shadow transition-colors"
                     style={{ 
                       padding: '16px 20px',
@@ -172,10 +225,11 @@ export function QuickAccessTables() {
                       height: 'var(--button-height)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px'
+                      gap: '8px',
+                      opacity: sendingBatchReminder ? 0.7 : 1
                     }}
                   >
-                    Nhắc nợ {selectedInvoices.length} hóa đơn đã chọn
+                    {sendingBatchReminder ? 'Đang gửi...' : `Nhắc nợ ${selectedInvoices.length} hóa đơn đã chọn`}
                   </button>
                 )}
                 <button 
@@ -252,10 +306,7 @@ export function QuickAccessTables() {
                     </td>
                     <td style={{ paddingTop: '20px', paddingBottom: '20px', textAlign: 'center' }}>
                       <button 
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setReminderModal(true);
-                        }}
+                        onClick={() => openReminderModal(invoice)}
                         className="rounded transition-colors"
                         style={{ 
                           padding: '12px 20px',
@@ -481,7 +532,8 @@ export function QuickAccessTables() {
                     color: 'var(--text-primary)',
                     lineHeight: 1.5
                   }}
-                  defaultValue={`Kính gửi ${selectedInvoice.tenant},\n\nChúng tôi nhận thấy hóa đơn phòng ${selectedInvoice.room} số tiền ${selectedInvoice.amount} VNĐ đã quá hạn ${selectedInvoice.daysLate} ngày.\n\nVui lòng thanh toán trong vòng 3 ngày làm việc.\n\nTrân trọng,\nBan quản lý`}
+                  value={reminderMessage}
+                  onChange={(e) => setReminderMessage(e.target.value)}
                 />
               </div>
 
@@ -513,10 +565,14 @@ export function QuickAccessTables() {
                   borderRadius: 'var(--radius-button)',
                   height: 'var(--button-height)',
                   gap: '8px',
-                  border: 'none'
-                }}>
+                  border: 'none',
+                  opacity: sendingReminder ? 0.7 : 1
+                }}
+                onClick={handleSendReminder}
+                disabled={sendingReminder}
+                >
                   <Send size={20} />
-                  <span>Gửi tin nhắn</span>
+                  <span>{sendingReminder ? 'Đang gửi...' : 'Gửi tin nhắn'}</span>
                 </button>
               </div>
             </div>

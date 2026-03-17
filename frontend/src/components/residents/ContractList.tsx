@@ -5,6 +5,7 @@ import { contractService } from '../../services/api.service';
 
 interface ContractData {
   id: number;
+  roomId: number;
   code: string;
   contractCode: string;
   room: string;
@@ -15,6 +16,7 @@ interface ContractData {
   monthlyRent: number;
   daysLeft: number;
   status: string;
+  residents: any[];
 }
 
 export function ContractList() {
@@ -34,6 +36,7 @@ export function ContractList() {
       
       // Map contracts to table format
       const contractData: ContractData[] = data.map((contract: any) => {
+        const contractId = contract.id || contract.hopDongId || 0;
         const endDateRaw = contract.expectedEndDate || contract.endDate || null;
         const endDate = endDateRaw ? new Date(endDateRaw) : null;
         const today = new Date();
@@ -44,15 +47,25 @@ export function ContractList() {
         else if (daysLeft <= 7) status = 'danger';
         else if (daysLeft <= 30) status = 'warning';
 
+        const residents: any[] = (contract.residents || []).map((r: any) => ({
+          id: r.id || r.residentId,
+          residentId: r.residentId || r.id,
+          fullName: r.fullName || r.hoTen,
+          phoneNumber: r.phoneNumber || r.soDienThoai,
+          idCardNumber: r.idCardNumber || r.soCCCD,
+          email: r.email,
+          residencyRole: r.residencyRole || r.vaiTroCuTru,
+        }));
+
         // Tenant: main resident from residents array (role = "Người thuê chính" or first resident)
-        const residents: any[] = contract.residents || [];
         const mainResident = residents.find((r: any) => r.residencyRole === 'Người thuê chính') || residents[0];
         const tenantName = mainResident?.fullName || contract.tenantName || contract.tenCuDan || '-';
         
         return {
-          id: contract.id || contract.hopDongId || 0,
-          code: contract.contractCode || contract.maHopDong || `HD-${String(contract.id).padStart(4, '0')}`,
-          contractCode: contract.contractCode || contract.maHopDong || `HD-${String(contract.id).padStart(4, '0')}`,
+          id: contractId,
+          roomId: contract.roomId || contract.phongId || 0,
+          code: contract.contractCode || contract.maHopDong || `HD-${String(contractId).padStart(4, '0')}`,
+          contractCode: contract.contractCode || contract.maHopDong || `HD-${String(contractId).padStart(4, '0')}`,
           room: contract.roomNumber || contract.soPhong || '-',
           tenant: tenantName,
           startDate: contract.startDate ? new Date(contract.startDate).toLocaleDateString('vi-VN') : '-',
@@ -61,6 +74,7 @@ export function ContractList() {
           monthlyRent: contract.actualRentPrice ?? contract.monthlyRent ?? contract.giaThue ?? 0,
           daysLeft,
           status,
+          residents,
         };
       });
       

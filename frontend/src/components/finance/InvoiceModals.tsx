@@ -90,30 +90,6 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
               </div>
 
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Phòng & Hợp đồng</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Phòng:</span>
-                    <span className="text-gray-800 font-bold">{invoice?.room}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Diện tích:</span>
-                    <span className="text-gray-800">50m²</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Hợp đồng:</span>
-                    <span className="text-gray-800 font-bold">HD-2025-045</span>
-                  </div>
-                  <button className="w-full mt-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50">
-                    → Xem chi tiết phòng & hợp đồng
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 Thông tin từ <strong>Quản lý Hợp đồng & Cơ cấu tòa nhà</strong>
-                </p>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm text-gray-600">Thành viên trong hộ</h4>
                   <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">4 người</span>

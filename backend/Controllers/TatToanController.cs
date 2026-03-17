@@ -54,7 +54,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin,QuanLy")]
+        [Authorize(Roles = "Admin,QuanLy,KeToan")]
         public async Task<ActionResult<TatToanDto>> Create([FromBody] CreateTatToanDto dto)
         {
             try
@@ -69,7 +69,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,QuanLy")]
+        [Authorize(Roles = "Admin,QuanLy,KeToan")]
         public async Task<ActionResult<TatToanDto>> Update(int id, [FromBody] UpdateTatToanDto dto)
         {
             try

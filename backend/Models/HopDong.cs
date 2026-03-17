@@ -18,6 +18,10 @@ public class HopDong
     [Column("PHONG_ID")]
     public int RoomId { get; set; }
 
+    [StringLength(50)]
+    [Column("MA_HOP_DONG")]
+    public string? ContractCode { get; set; }
+
     [Required]
     [Column("NGAY_BAT_DAU")]
     public DateTime StartDate { get; set; }

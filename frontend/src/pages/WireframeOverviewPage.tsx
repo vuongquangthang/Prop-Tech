@@ -17,10 +17,9 @@ export function WireframeOverviewPage() {
     { title: '15. Trợ lý ảo AI - Lịch sử hội thoại', path: '/chat-history' },
     { title: '16. Báo cáo & Thống kê - Báo cáo Doanh thu', path: '/revenue-report' },
     { title: '17. Báo cáo & Thống kê - Báo cáo Lấp đầy', path: '/occupancy-report' },
-    { title: '18. Báo cáo & Thống kê - Báo cáo Công nợ', path: '/debt-report' },
-    { title: '19. Quản lý Tài khoản - Danh sách Tài khoản', path: '/user-accounts' },
-    { title: '20. Quản lý Tài khoản - Hồ sơ cá nhân', path: '/my-profile' },
-    { title: '21. Quản lý Tài khoản - Nhật ký hoạt động', path: '/audit-logs' },
+    { title: '18. Quản lý Tài khoản - Danh sách Tài khoản', path: '/user-accounts' },
+    { title: '19. Quản lý Tài khoản - Hồ sơ cá nhân', path: '/my-profile' },
+    { title: '20. Quản lý Tài khoản - Nhật ký hoạt động', path: '/audit-logs' },
   ];
 
   return (
@@ -32,13 +31,13 @@ export function WireframeOverviewPage() {
             🖼️ WIREFRAME OVERVIEW - HỆ THỐNG QUẢN LÝ CHUNG CƯ
           </h1>
           <p className="text-sm text-gray-600 mb-4">
-            Tổng hợp <strong>21 màn hình wireframe</strong> từ 8 phân hệ. 
+            Tổng hợp <strong>20 màn hình wireframe</strong> từ 8 phân hệ. 
             Desktop 1440x1024px. Đen-Trắng-Xám.
           </p>
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-gray-50 border border-gray-300 rounded p-3">
               <p className="text-xs text-gray-600">Tổng số màn hình</p>
-              <p className="text-2xl font-bold text-gray-900">21</p>
+              <p className="text-2xl font-bold text-gray-900">20</p>
             </div>
             <div className="bg-gray-50 border border-gray-300 rounded p-3">
               <p className="text-xs text-gray-600">Tổng số phân hệ</p>

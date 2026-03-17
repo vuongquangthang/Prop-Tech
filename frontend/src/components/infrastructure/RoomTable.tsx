@@ -43,6 +43,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [addFloorId, setAddFloorId] = useState<number>(0);
   const [addRoomCode, setAddRoomCode] = useState('');
   const [addArea, setAddArea] = useState('');
+  const [addMaxPeople, setAddMaxPeople] = useState('');
   const [addPrice, setAddPrice] = useState('');
   const [addStatus, setAddStatus] = useState('Trống');
   const [addLoading, setAddLoading] = useState(false);
@@ -52,6 +53,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [selectedRoom, setSelectedRoom] = useState<RoomData | null>(null);
   const [editRoomCode, setEditRoomCode] = useState('');
   const [editArea, setEditArea] = useState('');
+  const [editMaxPeople, setEditMaxPeople] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editStatus, setEditStatus] = useState('Trống');
   const [editLoading, setEditLoading] = useState(false);
@@ -78,7 +80,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         code: room.roomCode || room.maPhong || '',
         roomNumber: room.roomNumber || room.soPhong || '',
         area: room.area || room.dienTich || 0,
-        maxPeople: room.maxOccupants || room.soNguoiToiDa || 0,
+        maxPeople: room.maxOccupants || 0,
         price: room.defaultRentPrice || room.monthlyRent || room.giaThue || 0,
         status: room.status || room.trangThai || 'Trống',
       }));
@@ -102,6 +104,11 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const buildingFloorIds = selectedBuildingId
     ? floors.filter(f => f.buildingId === selectedBuildingId).map(f => f.id)
     : null;
+
+  const selectableFloors = selectedBuildingId
+    ? floors.filter(f => f.buildingId === selectedBuildingId)
+    : floors;
+
   const filteredRooms = rooms
     .filter(room =>
       selectedFloorId != null ? room.floorId === selectedFloorId
@@ -117,9 +124,30 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       return true;
     });
 
-  const openAddModal = () => {
-    setAddFloorId(floors[0]?.id ?? 0);
-    setAddRoomCode(''); setAddArea(''); setAddPrice(''); setAddStatus('Trống'); setAddError(null);
+  const openAddModal = async () => {
+    let refreshedFloors = selectableFloors;
+    try {
+      const allFloors = await floorService.getAll();
+      setFloors(allFloors);
+      refreshedFloors = selectedBuildingId
+        ? allFloors.filter(f => f.buildingId === selectedBuildingId)
+        : allFloors;
+    } catch {
+      // Use current in-memory list if fetch fails.
+    }
+
+    const defaultFloorId =
+      (selectedFloorId != null && refreshedFloors.some(f => f.id === selectedFloorId) ? selectedFloorId : null)
+      ?? refreshedFloors[0]?.id
+      ?? 0;
+
+    setAddFloorId(defaultFloorId);
+    setAddRoomCode('');
+    setAddArea('');
+    setAddMaxPeople('');
+    setAddPrice('');
+    setAddStatus('Trống');
+    setAddError(null);
     setShowAddModal(true);
   };
 
@@ -128,7 +156,16 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     if (!addFloorId) { setAddError('Vui lòng chọn tầng'); return; }
     setAddLoading(true); setAddError(null);
     try {
-      await roomService.create({ floorId: addFloorId, roomCode: addRoomCode.trim(), area: parseFloat(addArea), defaultRentPrice: parseFloat(addPrice), status: addStatus } as any);
+      const maxPeopleValue = addMaxPeople ? parseInt(addMaxPeople, 10) : 0;
+      await roomService.create({
+        floorId: addFloorId,
+        roomCode: addRoomCode.trim(),
+        area: parseFloat(addArea),
+        maxOccupants: maxPeopleValue,
+        defaultRentPrice: parseFloat(addPrice),
+        status: addStatus
+      } as any);
+
       await fetchRooms();
       setShowAddModal(false);
     } catch (err: any) { setAddError(err.message || 'Có lỗi xảy ra'); }
@@ -136,7 +173,13 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   };
 
   const openEditModal = (room: RoomData) => {
-    setSelectedRoom(room); setEditRoomCode(room.code); setEditArea(String(room.area)); setEditPrice(String(room.price)); setEditStatus(room.status); setEditError(null);
+    setSelectedRoom(room);
+    setEditRoomCode(room.code);
+    setEditArea(String(room.area));
+    setEditMaxPeople(String(room.maxPeople || ''));
+    setEditPrice(String(room.price));
+    setEditStatus(room.status);
+    setEditError(null);
     setShowEditModal(true);
   };
 
@@ -144,7 +187,15 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     if (!selectedRoom || !editRoomCode.trim() || !editArea || !editPrice) { setEditError('Vui lòng điền đầy đủ thông tin'); return; }
     setEditLoading(true); setEditError(null);
     try {
-      await roomService.update(selectedRoom.id, { roomCode: editRoomCode.trim(), area: parseFloat(editArea), defaultRentPrice: parseFloat(editPrice), status: editStatus } as any);
+      const maxPeopleValue = editMaxPeople ? parseInt(editMaxPeople, 10) : 0;
+      await roomService.update(selectedRoom.id, {
+        roomCode: editRoomCode.trim(),
+        area: parseFloat(editArea),
+        maxOccupants: maxPeopleValue,
+        defaultRentPrice: parseFloat(editPrice),
+        status: editStatus
+      } as any);
+
       await fetchRooms();
       setShowEditModal(false);
     } catch (err: any) { setEditError(err.message || 'Có lỗi xảy ra'); }
@@ -211,9 +262,6 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <button onClick={fetchRooms} className="px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 flex items-center space-x-2">
-            <Filter size={16} /><span>Làm mới</span>
-          </button>
           <button onClick={openAddModal} className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700">
             <Plus size={16} /><span>Thêm Phòng</span>
           </button>
@@ -275,7 +323,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Tầng *</label>
                 <select value={addFloorId} onChange={e => setAddFloorId(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-                  {floors.length === 0 ? <option value={0}>Chưa có tầng nào</option> : floors.map(f => <option key={f.id} value={f.id}>Tầng {f.floorNumber}{f.buildingName ? ` - ${f.buildingName}` : ''}</option>)}
+                  {selectableFloors.length === 0 ? <option value={0}>Chưa có tầng nào</option> : selectableFloors.map(f => <option key={f.id} value={f.id}>Tầng {f.floorNumber}{f.buildingName ? ` - ${f.buildingName}` : ''}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -287,6 +335,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                   <label className="block text-sm text-gray-700 mb-2">Diện tích (m²) *</label>
                   <input type="number" placeholder="VD: 45" value={addArea} onChange={e => setAddArea(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Số người tối đa</label>
+                <input type="number" placeholder="VD: 4" value={addMaxPeople} onChange={e => setAddMaxPeople(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -330,6 +382,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                   <label className="block text-sm text-gray-700 mb-2">Diện tích (m²) *</label>
                   <input type="number" value={editArea} onChange={e => setEditArea(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Số người tối đa</label>
+                <input type="number" value={editMaxPeople} onChange={e => setEditMaxPeople(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

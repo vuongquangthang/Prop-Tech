@@ -70,7 +70,8 @@ export function UtilityReadingTable() {
   useEffect(() => { loadReadings(); }, [loadReadings]);
 
   const handleInputChange = (roomId: number, field: 'newElec' | 'newWater', value: string) => {
-    setEdits(prev => ({ ...prev, [roomId]: { ...prev[roomId], [field]: value } }));
+    const integerOnly = value.replace(/[^0-9]/g, '');
+    setEdits(prev => ({ ...prev, [roomId]: { ...prev[roomId], [field]: integerOnly } }));
   };
 
   const isAbnormal = (room: RoomUtilityReading, field: 'elec' | 'water') => {
@@ -85,11 +86,11 @@ export function UtilityReadingTable() {
   const calcUsage = (room: RoomUtilityReading, field: 'elec' | 'water') => {
     const edit = edits[room.roomId];
     if (!edit) return '-';
-    const newVal = parseFloat(field === 'elec' ? edit.newElec : edit.newWater);
+    const newVal = parseInt(field === 'elec' ? edit.newElec : edit.newWater, 10);
     const oldVal = (field === 'elec' ? room.oldElecReading : room.oldWaterReading) ?? 0;
     if (isNaN(newVal)) return '-';
     const usage = newVal - oldVal;
-    return usage >= 0 ? usage.toFixed(field === 'water' ? 1 : 0) : '-';
+    return usage >= 0 ? String(Math.round(usage)) : '-';
   };
 
   const handleSaveBatch = async () => {
@@ -103,8 +104,8 @@ export function UtilityReadingTable() {
           roomId: r.roomId,
           month: selectedMonth,
           year: selectedYear,
-          newElecReading: edits[r.roomId]?.newElec ? parseFloat(edits[r.roomId].newElec) : undefined,
-          newWaterReading: edits[r.roomId]?.newWater ? parseFloat(edits[r.roomId].newWater) : undefined,
+          newElecReading: edits[r.roomId]?.newElec ? parseInt(edits[r.roomId].newElec, 10) : undefined,
+          newWaterReading: edits[r.roomId]?.newWater ? parseInt(edits[r.roomId].newWater, 10) : undefined,
         }));
 
       const res = await api.post<{ success: number; failed: number; errors: string[] }>(
@@ -272,6 +273,7 @@ export function UtilityReadingTable() {
                           {room.elecUsageDetailId ? (
                             <input
                               type="number"
+                              step={1}
                               placeholder="Nhập..."
                               value={edit.newElec}
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
@@ -296,6 +298,7 @@ export function UtilityReadingTable() {
                           {room.waterUsageDetailId ? (
                             <input
                               type="number"
+                              step={1}
                               placeholder="Nhập..."
                               value={edit.newWater}
                               onChange={e => handleInputChange(room.roomId, 'newWater', e.target.value)}

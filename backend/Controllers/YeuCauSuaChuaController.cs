@@ -187,6 +187,22 @@ public class YeuCauSuaChuaController : ControllerBase
         {
             // Verify ownership for residents
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+            var normalizedStatus = (dto.Status ?? string.Empty).Trim().ToLowerInvariant();
+
+            // Only resident can mark request as completed/satisfied.
+            if ((normalizedStatus == "đã đóng" || normalizedStatus == "da dong" || normalizedStatus == "dadong" || normalizedStatus == "closed")
+                && userRole != "CuDan")
+            {
+                return BadRequest(new { message = "Chỉ cư dân mới có thể xác nhận hài lòng để đóng sự cố." });
+            }
+
+            // Close endpoint only accepts resident feedback statuses.
+            if (normalizedStatus != "đã đóng" && normalizedStatus != "da dong" && normalizedStatus != "dadong" && normalizedStatus != "closed"
+                && normalizedStatus != "chờ xử lý" && normalizedStatus != "cho xu ly" && normalizedStatus != "choxuly" && normalizedStatus != "pending")
+            {
+                return BadRequest(new { message = "Phản hồi nghiệm thu chỉ chấp nhận trạng thái 'Đã đóng' hoặc 'Chờ xử lý'." });
+            }
+
             if (userRole == "CuDan")
             {
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");

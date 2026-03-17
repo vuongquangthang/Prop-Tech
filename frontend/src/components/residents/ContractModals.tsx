@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
 import { formatLocalDateInput } from '../../lib/date-utils';
+import { api } from '../../lib/api-client';
+import { API_ENDPOINTS } from '../../lib/api-config';
+import { invoiceService, serviceService } from '../../services/api.service';
 
 interface ContractModalProps {
   contract?: any;
@@ -23,16 +26,20 @@ interface FamilyMember {
 export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [activePricingCatalog, setActivePricingCatalog] = useState<any[]>([]);
 
   // API data
   const [buildings, setBuildings] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
+  const [residents, setResidents] = useState<any[]>([]);
 
   // Form state - Step 1
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
 
   // Form state - Step 2 (tenant)
+  const [tenantType, setTenantType] = useState<'new' | 'existing'>('new');
+  const [selectedResidentId, setSelectedResidentId] = useState('');
   const [tenantName, setTenantName] = useState('');
   const [tenantIdCard, setTenantIdCard] = useState('');
   const [tenantPhone, setTenantPhone] = useState('');
@@ -49,7 +56,18 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
   useEffect(() => {
     buildingService.getAll().then((data: any) => setBuildings(Array.isArray(data) ? data : data?.data ?? [])).catch(() => {});
+    residentService.getAll().then((data: any) => setResidents(Array.isArray(data) ? data : data?.data ?? [])).catch(() => {});
+    serviceService.getActive().then((data: any) => setActivePricingCatalog(Array.isArray(data) ? data : data?.data ?? [])).catch(() => setActivePricingCatalog([]));
   }, []);
+
+  useEffect(() => {
+    if (tenantType !== 'existing') return;
+    const r = residents.find((x: any) => String(x.id) === selectedResidentId);
+    if (!r) return;
+    setTenantName(r.fullName || r.hoTen || '');
+    setTenantIdCard(r.idCardNumber || r.soCCCD || '');
+    setTenantPhone(r.phoneNumber || r.soDienThoai || '');
+  }, [tenantType, selectedResidentId, residents]);
 
   useEffect(() => {
     if (selectedBuildingId) {
@@ -75,19 +93,35 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   };
 
   const handleSubmit = async () => {
-    if (!selectedRoomId || !tenantName.trim() || !tenantIdCard.trim() || !tenantPhone.trim() || !startDate || !monthlyRent) {
+    if (!selectedRoomId || !startDate || !monthlyRent) {
+      setError('Vui lòng điền đầy đủ: Phòng, Ngày bắt đầu, Tiền thuê');
+      return;
+    }
+
+    if (tenantType === 'new' && (!tenantName.trim() || !tenantIdCard.trim() || !tenantPhone.trim())) {
       setError('Vui lòng điền đầy đủ: Phòng, Họ tên, CCCD, SĐT chủ hộ, Ngày bắt đầu, Tiền thuê');
       return;
     }
+
+    if (tenantType === 'existing' && !selectedResidentId) {
+      setError('Vui lòng chọn cư dân đã có làm chủ hộ');
+      return;
+    }
+
     setLoading(true); setError(null);
     try {
-      // Create head of household resident
-      const tenantRes: any = await residentService.create({
-        fullName: tenantName.trim(),
-        phoneNumber: tenantPhone.trim(),
-        idCardNumber: tenantIdCard.trim(),
-      } as any);
-      const tenantResidentId = tenantRes?.id ?? tenantRes?.residentId ?? tenantRes?.data?.id;
+      // Resolve head of household resident ID
+      let tenantResidentId: number | undefined;
+      if (tenantType === 'existing') {
+        tenantResidentId = parseInt(selectedResidentId, 10);
+      } else {
+        const tenantRes: any = await residentService.create({
+          fullName: tenantName.trim(),
+          phoneNumber: tenantPhone.trim(),
+          idCardNumber: tenantIdCard.trim(),
+        } as any);
+        tenantResidentId = tenantRes?.id ?? tenantRes?.residentId ?? tenantRes?.data?.id;
+      }
 
       // Create family member residents
       const memberResidentIds: number[] = [];
@@ -95,8 +129,13 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
         try {
           const mr: any = await residentService.create({ fullName: m.name, phoneNumber: m.phone, idCardNumber: m.idCard } as any);
           const mid = mr?.id ?? mr?.residentId ?? mr?.data?.id;
-          if (mid) memberResidentIds.push(mid);
-        } catch {}
+          if (!mid) {
+            throw new Error(`Không thể tạo cư dân thành viên: ${m.name}`);
+          }
+          memberResidentIds.push(mid);
+        } catch (memberErr: any) {
+          throw new Error(memberErr?.message || `Không thể tạo cư dân thành viên: ${m.name}`);
+        }
       }
 
       // Calculate expected end date
@@ -204,7 +243,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
-                <input type="radio" name="tenantType" id="newTenant" defaultChecked className="w-4 h-4" />
+                <input type="radio" name="tenantType" id="newTenant" checked={tenantType === 'new'} onChange={() => { setTenantType('new'); setSelectedResidentId(''); }} className="w-4 h-4" />
                 <label htmlFor="newTenant" className="text-sm text-gray-700 font-bold">Cư dân mới (Tự động tạo tài khoản)</label>
               </div>
 
@@ -216,6 +255,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     placeholder="VD: Nguyễn Văn A"
                     value={tenantName}
                     onChange={e => setTenantName(e.target.value)}
+                    disabled={tenantType !== 'new'}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
@@ -226,6 +266,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     placeholder="VD: 001234567890"
                     value={tenantIdCard}
                     onChange={e => setTenantIdCard(e.target.value)}
+                    disabled={tenantType !== 'new'}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
@@ -236,6 +277,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     placeholder="VD: 0912345678"
                     value={tenantPhone}
                     onChange={e => setTenantPhone(e.target.value)}
+                    disabled={tenantType !== 'new'}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
@@ -251,13 +293,16 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
               <div className="border-t border-gray-300 pt-3">
                 <div className="flex items-center space-x-3">
-                  <input type="radio" name="tenantType" id="existingTenant" className="w-4 h-4" />
+                  <input type="radio" name="tenantType" id="existingTenant" checked={tenantType === 'existing'} onChange={() => setTenantType('existing')} className="w-4 h-4" />
                   <label htmlFor="existingTenant" className="text-sm text-gray-700 font-bold">Chọn từ cư dân đã có</label>
                 </div>
-                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500 mt-2 ml-7" disabled>
+                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500 mt-2 ml-7" disabled={tenantType !== 'existing'} value={selectedResidentId} onChange={(e) => setSelectedResidentId(e.target.value)}>
                   <option value="">Chọn cư dân...</option>
-                  <option>Nguyễn Văn A - 0912345678 - A-101</option>
-                  <option>Trần Thị B - 0923456789 - B-205</option>
+                  {residents.map((r: any) => (
+                    <option key={r.id} value={r.id}>
+                      {r.fullName || r.hoTen} - {(r.phoneNumber || r.soDienThoai || '---')} - {(r.roomCode || r.soPhong || 'Chưa có phòng')}
+                    </option>
+                  ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1 ml-7">
                   🔗 Danh sách đồng bộ từ <strong>Cư dân & Hợp đồng → Danh sách Cư dân</strong>
@@ -419,57 +464,28 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center">
               <DollarSign size={16} className="mr-2" />
-              BƯỚC 4: Dịch vụ áp dụng
+              BƯỚC 4: Danh mục đơn giá áp dụng toàn bộ
             </h4>
 
             <div className="space-y-2">
-              <label className="flex items-center justify-between text-sm text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded">
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="w-4 h-4" />
-                  <span>Dịch vụ quản lý chung cư</span>
-                </div>
-                <span className="text-gray-800 font-bold">25.000 VNĐ/m²</span>
-              </label>
+              {activePricingCatalog.length > 0 ? (
+                activePricingCatalog.map((service: any) => (
+                  <div key={service.id || service.serviceId || service.name} className="flex items-center justify-between text-sm text-gray-700 p-2 rounded bg-white border border-gray-200">
+                    <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
+                    <span className="text-gray-800 font-bold">
+                      {Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">Chưa có dữ liệu danh mục đơn giá.</p>
+              )}
+            </div>
 
-              <label className="flex items-center justify-between text-sm text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded">
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="w-4 h-4" />
-                  <span>Tiền điện</span>
-                </div>
-                <span className="text-gray-800 font-bold">3.500 VNĐ/kWh</span>
-              </label>
-
-              <label className="flex items-center justify-between text-sm text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded">
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="w-4 h-4" />
-                  <span>Tiền nước</span>
-                </div>
-                <span className="text-gray-800 font-bold">25.000 VNĐ/m³</span>
-              </label>
-
-              <label className="flex items-center justify-between text-sm text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded">
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" className="w-4 h-4" />
-                  <span>Gửi xe máy</span>
-                </div>
-                <span className="text-gray-800 font-bold">100.000 VNĐ/tháng</span>
-              </label>
-
-              <label className="flex items-center justify-between text-sm text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded">
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" className="w-4 h-4" />
-                  <span>Gửi xe ô tô</span>
-                </div>
-                <span className="text-gray-800 font-bold">1.500.000 VNĐ/tháng</span>
-              </label>
-
-              <label className="flex items-center justify-between text-sm text-gray-700 cursor-pointer hover:bg-gray-100 p-2 rounded">
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" className="w-4 h-4" />
-                  <span>Internet</span>
-                </div>
-                <span className="text-gray-800 font-bold">200.000 VNĐ/tháng</span>
-              </label>
+            <div className="mt-3 bg-blue-50 border border-blue-300 rounded p-3">
+              <p className="text-xs text-blue-800">
+                <strong>Áp dụng tự động:</strong> Danh mục đơn giá được áp dụng toàn bộ theo cấu hình hệ thống, không chọn riêng theo hợp đồng.
+              </p>
             </div>
 
             <p className="text-xs text-gray-500 mt-3">
@@ -662,13 +678,117 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
 }
 
 export function ViewContractModal({ contract, onClose }: ContractModalProps) {
+  const [contractDetail, setContractDetail] = useState<any>(contract ?? null);
+  const [roomDetail, setRoomDetail] = useState<any>(null);
+  const [activeServices, setActiveServices] = useState<any[]>([]);
+  const [totalPaid, setTotalPaid] = useState(0);
+  const [currentDebt, setCurrentDebt] = useState(0);
+
+  useEffect(() => {
+    setContractDetail(contract ?? null);
+  }, [contract]);
+
+  useEffect(() => {
+    const loadDetailData = async () => {
+      if (!contract?.id) return;
+
+      try {
+        const detail = await contractService.getById(Number(contract.id));
+        setContractDetail((prev: any) => ({ ...prev, ...detail }));
+
+        const roomId = detail?.roomId ?? contract?.roomId;
+        if (roomId) {
+          try {
+            const room = await api.get<any>(API_ENDPOINTS.ROOMS.BY_ID(Number(roomId)));
+            setRoomDetail(room.data);
+          } catch {
+            setRoomDetail(null);
+          }
+        }
+
+        try {
+          const invoices = await invoiceService.getAll();
+          const relatedInvoices = (invoices || []).filter((inv: any) => {
+            const byContract = Number(inv.contractId ?? inv.hopDongId ?? 0) === Number(contract.id);
+            const byRoom = roomId ? Number(inv.roomId ?? inv.phongId ?? 0) === Number(roomId) : false;
+            return byContract || byRoom;
+          });
+
+          const paid = relatedInvoices.reduce((sum: number, inv: any) => {
+            const value = Number(inv.paidAmount ?? inv.daThanhToan ?? 0);
+            return sum + (Number.isFinite(value) ? value : 0);
+          }, 0);
+
+          const debt = relatedInvoices.reduce((sum: number, inv: any) => {
+            const value = Number(inv.remainingAmount ?? inv.conLai ?? (Number(inv.totalAmount ?? 0) - Number(inv.paidAmount ?? 0)));
+            return sum + (Number.isFinite(value) ? value : 0);
+          }, 0);
+
+          setTotalPaid(paid);
+          setCurrentDebt(debt);
+        } catch {
+          setTotalPaid(0);
+          setCurrentDebt(0);
+        }
+
+        try {
+          const servicesByContract = await serviceService.getByContract(Number(contract.id));
+          setActiveServices(servicesByContract || []);
+        } catch {
+          if (roomId) {
+            try {
+              const fromDate = detail?.startDate ? new Date(detail.startDate).toISOString() : undefined;
+              const toDate = detail?.expectedEndDate ? new Date(detail.expectedEndDate).toISOString() : undefined;
+              const servicesByRoom = await serviceService.getByRoom(Number(roomId), fromDate, toDate);
+              setActiveServices(servicesByRoom || []);
+            } catch {
+              setActiveServices([]);
+            }
+          } else {
+            setActiveServices([]);
+          }
+        }
+      } catch {
+        setContractDetail(contract ?? null);
+      }
+    };
+
+    loadDetailData();
+  }, [contract?.id, contract?.roomId]);
+
+  const fmtCurrency = (v: any) => Number(v ?? 0).toLocaleString('vi-VN');
+  const formatDateVi = (v: any) => {
+    if (!v) return '-';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return String(v);
+    return d.toLocaleDateString('vi-VN');
+  };
+
+  const displayCode = contractDetail?.code || contractDetail?.contractCode || contractDetail?.maHopDong || contract?.code || '-';
+  const displayRoom = contractDetail?.room || contractDetail?.roomNumber || contractDetail?.soPhong || contract?.room || '-';
+  const displayStartDate = contractDetail?.startDate ? formatDateVi(contractDetail.startDate) : contract?.startDate || '-';
+  const displayEndDate = contractDetail?.expectedEndDate
+    ? formatDateVi(contractDetail.expectedEndDate)
+    : (contractDetail?.endDate ? formatDateVi(contractDetail.endDate) : (contract?.endDate || '-'));
+  const displayRent = contractDetail?.monthlyRent ?? contractDetail?.actualRentPrice ?? contract?.monthlyRent ?? 0;
+  const displayDeposit = contractDetail?.deposit ?? contractDetail?.depositAmount ?? contract?.deposit ?? 0;
+
+  const residentList: any[] = Array.isArray(contractDetail?.residents)
+    ? contractDetail.residents
+    : (Array.isArray(contract?.residents) ? contract.residents : []);
+  const headOfHousehold = residentList.find((r: any) => r.residencyRole === 'Người thuê chính') || residentList[0];
+
+  const getResidentName = (r: any) => r?.fullName || r?.hoTen || 'Không rõ';
+  const getResidentPhone = (r: any) => r?.phoneNumber || r?.soDienThoai || '---';
+  const getResidentIdCard = (r: any) => r?.idCardNumber || r?.soCCCD || '---';
+
   return (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
             <Eye size={20} className="text-gray-800" />
-            <h3 className="text-lg text-gray-800">Chi tiết hợp đồng - {contract?.code}</h3>
+            <h3 className="text-lg text-gray-800">Chi tiết hợp đồng - {displayCode}</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X size={20} className="text-gray-600" />
@@ -705,19 +825,19 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Mã hợp đồng:</span>
-                    <span className="text-gray-800 font-bold">{contract?.code}</span>
+                    <span className="text-gray-800 font-bold">{displayCode}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Phòng:</span>
-                    <span className="text-gray-800 font-bold">{contract?.room}</span>
+                    <span className="text-gray-800 font-bold">{displayRoom}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ngày bắt đầu:</span>
-                    <span className="text-gray-800">{contract?.startDate}</span>
+                    <span className="text-gray-800">{displayStartDate}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ngày kết thúc:</span>
-                    <span className="text-gray-800">{contract?.endDate}</span>
+                    <span className="text-gray-800">{displayEndDate}</span>
                   </div>
                   <div className="flex justify-between border-t border-gray-300 pt-2">
                     <span className="text-gray-600">Trạng thái:</span>
@@ -736,71 +856,44 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm text-gray-600">Thành viên trong hộ</h4>
-                  <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">4 người</span>
+                  <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">{residentList.length} người</span>
                 </div>
                 
                 {/* Head of Household */}
                 <div className="space-y-2">
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👤
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-800 font-bold">{contract?.tenant}</p>
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-300">Chủ hộ</span>
+                  {headOfHousehold && (
+                    <div className="bg-white border border-gray-300 rounded p-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
+                          👤
                         </div>
-                        <p className="text-xs text-gray-600">0912345678 • 001234567890</p>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-800 font-bold">{getResidentName(headOfHousehold)}</p>
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-300">Chủ hộ</span>
+                          </div>
+                          <p className="text-xs text-gray-600">{getResidentPhone(headOfHousehold)} • {getResidentIdCard(headOfHousehold)}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Family Members */}
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👤
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-700">Trần Thị B</p>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Vợ/Chồng</span>
+                  {residentList.filter((r: any) => r !== headOfHousehold).map((member: any, idx: number) => (
+                    <div key={member.id || member.residentId || idx} className="bg-white border border-gray-300 rounded p-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
+                          👤
                         </div>
-                        <p className="text-xs text-gray-600">0923456789</p>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-700">{getResidentName(member)}</p>
+                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">{member.residencyRole || 'Thành viên'}</span>
+                          </div>
+                          <p className="text-xs text-gray-600">{getResidentPhone(member)}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👶
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-700">Nguyễn Văn C</p>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Con</span>
-                        </div>
-                        <p className="text-xs text-gray-600">0934567890</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👵
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-700">Nguyễn Thị D</p>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Mẹ/Bố</span>
-                        </div>
-                        <p className="text-xs text-gray-600">0945678901</p>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
@@ -815,11 +908,11 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tiền thuê/tháng:</span>
-                    <span className="text-gray-800 font-bold">{contract?.monthlyRent} VNĐ</span>
+                    <span className="text-gray-800 font-bold">{fmtCurrency(displayRent)} VNĐ</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tiền cọc:</span>
-                    <span className="text-gray-800 font-bold">{contract?.deposit} VNĐ</span>
+                    <span className="text-gray-800 font-bold">{fmtCurrency(displayDeposit)} VNĐ</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ngày thanh toán:</span>
@@ -831,22 +924,18 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <h4 className="text-sm text-gray-600 mb-3">Dịch vụ đang sử dụng</h4>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700">Quản lý chung cư</span>
-                    <span className="text-gray-800 font-bold">25.000 VNĐ/m²</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700">Tiền điện</span>
-                    <span className="text-gray-800 font-bold">3.500 VNĐ/kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700">Tiền nước</span>
-                    <span className="text-gray-800 font-bold">25.000 VNĐ/m³</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700">Gửi xe máy</span>
-                    <span className="text-gray-800 font-bold">100.000 VNĐ/tháng</span>
-                  </div>
+                  {activeServices.length > 0 ? (
+                    activeServices.map((service: any) => (
+                      <div key={service.serviceId || service.id || service.name} className="flex justify-between items-center">
+                        <span className="text-gray-700">{service.serviceName || service.name || 'Dịch vụ'}</span>
+                        <span className="text-gray-800 font-bold">
+                          {fmtCurrency(service.unitPrice ?? service.commonUnitPrice ?? service.price ?? 0)} VNĐ{service.unit ? `/${service.unit}` : ''}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500">Không có dữ liệu dịch vụ</p>
+                  )}
                   <p className="text-xs text-gray-500 pt-2 border-t border-gray-300">
                     🔗 Đơn giá từ <strong>Dịch vụ & Đơn giá</strong>
                   </p>
@@ -858,12 +947,12 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tổng đã thanh toán:</span>
-                    <span className="text-green-700 font-bold">95.500.000 VNĐ</span>
+                    <span className="text-green-700 font-bold">{fmtCurrency(totalPaid)} VNĐ</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Công nợ hiện tại:</span>
-                    <span className={contract?.room === 'C-312' ? 'text-red-700 font-bold' : 'text-gray-800'}>
-                      {contract?.room === 'C-312' ? '15.500.000 VNĐ' : '0 VNĐ'}
+                    <span className={currentDebt > 0 ? 'text-red-700 font-bold' : 'text-gray-800'}>
+                      {fmtCurrency(currentDebt)} VNĐ
                     </span>
                   </div>
                   <button className="w-full mt-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50">
@@ -880,29 +969,33 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
             <div className="grid grid-cols-4 gap-4 text-sm">
               <div>
                 <p className="text-gray-600">Diện tích:</p>
-                <p className="text-gray-800 font-bold">50m²</p>
+                <p className="text-gray-800 font-bold">{roomDetail?.area ? `${roomDetail.area}m²` : '-'}</p>
               </div>
               <div>
                 <p className="text-gray-600">Tầng:</p>
-                <p className="text-gray-800 font-bold">Tầng 1</p>
+                <p className="text-gray-800 font-bold">{roomDetail?.floorNumber ? `Tầng ${roomDetail.floorNumber}` : '-'}</p>
               </div>
               <div>
-                <p className="text-gray-600">Hướng:</p>
-                <p className="text-gray-800 font-bold">Đông Nam</p>
+                <p className="text-gray-600">Tòa nhà:</p>
+                <p className="text-gray-800 font-bold">{roomDetail?.buildingName || '-'}</p>
               </div>
               <div>
                 <p className="text-gray-600">Trạng thái:</p>
-                <p className="text-green-700 font-bold">Đang thuê</p>
+                <p className="text-green-700 font-bold">{roomDetail?.status || '-'}</p>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-300">
               <p className="text-gray-600 text-xs mb-2">Tiện nghi:</p>
               <div className="flex flex-wrap gap-2">
-                <span className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">Điều hòa (2)</span>
-                <span className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">Giường</span>
-                <span className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">Bàn ghế</span>
-                <span className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">Tủ quần áo</span>
-                <span className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">Bếp điện</span>
+                {Array.isArray(roomDetail?.assets) && roomDetail.assets.length > 0 ? (
+                  roomDetail.assets.map((asset: any, idx: number) => (
+                    <span key={asset.assetId || idx} className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">
+                      {asset.assetName || 'Tài sản'}{asset.quantity ? ` (${asset.quantity})` : ''}
+                    </span>
+                  ))
+                ) : (
+                  <span className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">Không có dữ liệu tài sản</span>
+                )}
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-3">
@@ -936,6 +1029,14 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
 }
 
 export function PrintContractModal({ contract, onClose }: ContractModalProps) {
+  const residentList: any[] = Array.isArray(contract?.residents) ? contract.residents : [];
+  const headOfHousehold = residentList.find((r: any) => r.residencyRole === 'Người thuê chính') || residentList[0];
+
+  const getResidentName = (r: any) => r?.fullName || r?.hoTen || 'Không rõ';
+  const getResidentPhone = (r: any) => r?.phoneNumber || r?.soDienThoai || '---';
+  const getResidentIdCard = (r: any) => r?.idCardNumber || r?.soCCCD || '---';
+  const getResidentEmail = (r: any) => r?.email || '---';
+
   return (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-[800px] max-h-[90vh] overflow-y-auto">
@@ -1007,15 +1108,16 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
 
               <div>
                 <p className="font-bold mb-2">BÊN THUÊ (Bên B):</p>
-                <p>Họ tên: {contract?.tenant}</p>
-                <p>CMND/CCCD: 001234567890</p>
-                <p>Điện thoại: 0912345678</p>
-                <p>Email: nguyenvana@email.com</p>
-                <p className="mt-2 font-bold">Số người cùng ở: 4 người (Bao gồm chủ hộ)</p>
-                <p className="ml-4">1. Nguyễn Văn A (Chủ hộ) - SĐT: 0912345678</p>
-                <p className="ml-4">2. Trần Thị B (Vợ/Chồng) - SĐT: 0923456789</p>
-                <p className="ml-4">3. Nguyễn Văn C (Con) - SĐT: 0934567890</p>
-                <p className="ml-4">4. Nguyễn Thị D (Mẹ/Bố) - SĐT: 0945678901</p>
+                <p>Họ tên: {headOfHousehold ? getResidentName(headOfHousehold) : contract?.tenant}</p>
+                <p>CMND/CCCD: {headOfHousehold ? getResidentIdCard(headOfHousehold) : '---'}</p>
+                <p>Điện thoại: {headOfHousehold ? getResidentPhone(headOfHousehold) : '---'}</p>
+                <p>Email: {headOfHousehold ? getResidentEmail(headOfHousehold) : '---'}</p>
+                <p className="mt-2 font-bold">Số người cùng ở: {residentList.length} người (Bao gồm chủ hộ)</p>
+                {residentList.map((member: any, idx: number) => (
+                  <p key={member.id || member.residentId || idx} className="ml-4">
+                    {idx + 1}. {getResidentName(member)} ({member.residencyRole || 'Thành viên'}) - SĐT: {getResidentPhone(member)}
+                  </p>
+                ))}
               </div>
 
               <div>
@@ -1065,7 +1167,7 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
               </label>
               <label className="flex items-center space-x-2 text-sm text-blue-800 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4" />
-                <span>Gửi email bản PDF cho tất cả 4 thành viên</span>
+                <span>Gửi email bản PDF cho tất cả {residentList.length} thành viên</span>
               </label>
             </div>
           </div>

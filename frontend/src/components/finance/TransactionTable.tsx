@@ -7,6 +7,7 @@ interface TransactionData {
   id: number;
   bankCode: string;
   time: string;
+  paidAt: string;
   amount: number;
   content: string;
   invoice: string;
@@ -22,6 +23,11 @@ export function TransactionTable() {
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [invoiceCode, setInvoiceCode] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'matched' | 'unmatched'>('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
 
   const fetchTransactions = async () => {
     try {
@@ -44,6 +50,7 @@ export function TransactionTable() {
           id: payment.id || 0,
           bankCode: payment.transactionCode || `GD-${payment.id}`,
           time,
+          paidAt: payment.paidAt || '',
           amount: payment.amount || 0,
           content: [
             payment.paymentType || 'Thanh toán',
@@ -97,8 +104,38 @@ export function TransactionTable() {
     }
   };
 
-  // Calculate total amount
-  const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+  const methodOptions = Array.from(new Set(transactions.map(t => t.paymentMethod || 'Khác')));
+
+  const filteredTransactions = transactions.filter((t) => {
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+
+    if (methodFilter !== 'all' && (t.paymentMethod || 'Khác') !== methodFilter) return false;
+
+    if (fromDate || toDate) {
+      const paidDate = t.paidAt ? new Date(t.paidAt) : null;
+      if (!paidDate || Number.isNaN(paidDate.getTime())) return false;
+
+      if (fromDate) {
+        const from = new Date(`${fromDate}T00:00:00`);
+        if (paidDate < from) return false;
+      }
+      if (toDate) {
+        const to = new Date(`${toDate}T23:59:59`);
+        if (paidDate > to) return false;
+      }
+    }
+
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      const haystack = `${t.bankCode} ${t.content} ${t.invoice} ${t.paymentMethod || ''}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+
+    return true;
+  });
+
+  // Calculate total amount on filtered result
+  const totalAmount = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
 
   // Loading state
   if (loading) {
@@ -130,57 +167,85 @@ export function TransactionTable() {
 
   return (
     <div className="space-y-4">
-      {/* Refresh Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={fetchTransactions}
-          disabled={loading}
-          className="px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2"
-        >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Filter size={16} />}
-          <span>Làm mới</span>
-        </button>
-      </div>
-
       {/* Filter Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter size={16} className="text-gray-500" />
           
-          <select className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-            <option>Tất cả trạng thái</option>
-            <option>Đã khớp dữ liệu</option>
-            <option>Chưa khớp</option>
+          <select
+            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'matched' | 'unmatched')}
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="matched">Đã khớp dữ liệu</option>
+            <option value="unmatched">Chưa khớp</option>
           </select>
+
+          <select
+            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value)}
+          >
+            <option value="all">Tất cả phương thức</option>
+            {methodOptions.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+
+          <input
+            type="text"
+            placeholder="Tìm mã GD / nội dung..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-52"
+          />
           
           <input 
             type="date"
-            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />
           
-          <span className="text-sm text-gray-600">đến</span>
+          <span className="text-xs text-gray-600">→</span>
           
           <input 
             type="date"
-            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />
+
+          <button
+            onClick={() => {
+              setStatusFilter('all');
+              setMethodFilter('all');
+              setSearchText('');
+              setFromDate('');
+              setToDate('');
+            }}
+            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white hover:bg-gray-50"
+          >
+            Xóa lọc
+          </button>
         </div>
         
-        <div className="text-sm text-gray-700">
-          Tổng tiền: <span className="text-lg text-gray-900">{totalAmount.toLocaleString('vi-VN')} VNĐ</span>
+        <div className="text-xs text-gray-700 whitespace-nowrap pt-1">
+          Tổng tiền: <span className="text-base text-gray-900">{totalAmount.toLocaleString('vi-VN')} VNĐ</span>
         </div>
       </div>
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Lịch sử giao dịch - {transactions.length} giao dịch</h2>
+          <h2 className="text-lg text-gray-800">Lịch sử giao dịch - {filteredTransactions.length} giao dịch</h2>
         </div>
         
-        {transactions.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
             <FileText size={48} className="text-gray-300" />
-            <p className="text-gray-500">Chưa có giao dịch nào</p>
+            <p className="text-gray-500">Không có giao dịch phù hợp bộ lọc</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -197,7 +262,7 @@ export function TransactionTable() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <tr key={transaction.id} className={`border-b border-gray-200 hover:bg-gray-50 ${transaction.status === 'matched' ? 'bg-green-50' : ''}`}>
                   <td className="px-6 py-4 text-sm text-gray-800">{transaction.bankCode}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{transaction.time}</td>

@@ -8,6 +8,9 @@ public class ResidentDto
     public int Id { get; set; }
     public string FullName { get; set; } = null!;
     public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
+    public string? RoomCode { get; set; }
+    public bool IsLocked { get; set; }
     public string? IdCardNumber { get; set; }
     public string? Hometown { get; set; }
     public string? IdCardFrontUrl { get; set; }

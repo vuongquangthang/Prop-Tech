@@ -104,6 +104,7 @@ public class ResidentService : IResidentService
         };
 
         await _residentRepository.AddAsync(resident);
+        await _residentRepository.SaveChangesAsync();
         return MapToDto(resident);
     }
 
@@ -170,11 +171,24 @@ public class ResidentService : IResidentService
 
     private ResidentDto MapToDto(Resident resident)
     {
+        var now = DateTime.UtcNow;
+        var residentUser = resident.Users
+            .OrderBy(u => u.Id)
+            .FirstOrDefault();
+
+        var activeResidency = resident.ChiTietOs
+            .Where(ct => ct.FromDate <= now && (ct.ToDate == null || ct.ToDate > now))
+            .OrderByDescending(ct => ct.FromDate)
+            .FirstOrDefault();
+
         return new ResidentDto
         {
             Id = resident.Id,
             FullName = resident.FullName,
             PhoneNumber = resident.PhoneNumber,
+            Email = residentUser?.Email,
+            RoomCode = activeResidency?.HopDong?.Room?.RoomCode,
+            IsLocked = residentUser?.IsLocked ?? false,
             IdCardNumber = resident.IdCardNumber,
             Hometown = resident.Hometown,
             IdCardFrontUrl = resident.IdCardFrontUrl,

@@ -251,11 +251,9 @@ export function DebtReportContent() {
               <tr>
                 <th className="px-6 py-3 text-left text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Mã phòng</th>
                 <th className="px-6 py-3 text-left text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Chủ hộ</th>
-                <th className="px-6 py-3 text-left text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Số điện thoại</th>
                 <th className="px-6 py-3 text-right text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Số tiền nợ (VNĐ)</th>
                 <th className="px-6 py-3 text-center text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Số ngày quá hạn</th>
                 <th className="px-6 py-3 text-center text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Số lần nhắc</th>
-                <th className="px-6 py-3 text-center text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Phân loại</th>
               </tr>
             </thead>
             <tbody>
@@ -263,39 +261,21 @@ export function DebtReportContent() {
                 <tr key={index} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysOverdue)}`}>
                   <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{debt.room}</td>
                   <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{debt.tenant}</td>
-                  <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{debt.phone}</td>
                   <td className="px-6 py-4 text-red-600 text-right" style={{ fontSize: 'var(--type-body)' }}>{formatCurrency(debt.amount)}</td>
                   <td className="px-6 py-4 text-gray-800 text-center" style={{ fontSize: 'var(--type-body)' }}>{debt.daysOverdue}</td>
                   <td className="px-6 py-4 text-gray-700 text-center" style={{ fontSize: 'var(--type-body)' }}>{debt.reminderCount} lần</td>
-                  <td className="px-6 py-4 text-center">
-                    {debt.category === 'under5' && (
-                      <span className="inline-block px-3 py-1 rounded border bg-yellow-100 text-yellow-800 border-yellow-300" style={{ fontSize: 'var(--type-caption)' }}>
-                        Mới phát sinh
-                      </span>
-                    )}
-                    {debt.category === 'mid' && (
-                      <span className="inline-block px-3 py-1 rounded border bg-orange-100 text-orange-800 border-orange-300" style={{ fontSize: 'var(--type-caption)' }}>
-                        Cần theo dõi
-                      </span>
-                    )}
-                    {debt.category === 'hard' && (
-                      <span className="inline-block px-3 py-1 rounded border bg-red-100 text-red-800 border-red-300" style={{ fontSize: 'var(--type-caption)' }}>
-                        Khó đòi
-                      </span>
-                    )}
-                  </td>
                 </tr>
               ))}
               {filteredData.length > 0 && (
                 <tr className="bg-gray-50 border-t-2 border-gray-300">
-                  <td colSpan={3} className="px-6 py-4 text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 700 }}>Tổng cộng</td>
+                  <td colSpan={2} className="px-6 py-4 text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 700 }}>Tổng cộng</td>
                   <td className="px-6 py-4 text-red-700 text-right" style={{ fontSize: 'var(--type-body)', fontWeight: 700 }}>{formatCurrency(totalDebt)}</td>
-                  <td colSpan={3}></td>
+                  <td colSpan={2}></td>
                 </tr>
               )}
               {filteredData.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500" style={{ fontSize: 'var(--type-body)' }}>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500" style={{ fontSize: 'var(--type-body)' }}>
                     Không có dữ liệu phù hợp với bộ lọc
                   </td>
                 </tr>

@@ -1,4 +1,4 @@
-import { Send, Ban, Eye, Filter, Loader2, AlertTriangle, FileText } from 'lucide-react';
+import { Send, Ban, Eye, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ViewDebtModal, SendReminderModal, BlockAccountModal, BatchSendReminderModal } from './DebtModals';
 import { invoiceService } from '../../services/api.service';
@@ -13,16 +13,6 @@ interface DebtData {
   reminderLevel: number;
   dueDate: Date | null;
 }
-
-const getReminderBadge = (level: number) => {
-  const configs = {
-    1: { label: 'Lần 1', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
-    2: { label: 'Lần 2', color: 'bg-orange-100 text-orange-800 border-orange-300' },
-    3: { label: 'Lần 3', color: 'bg-red-100 text-red-800 border-red-300' },
-  };
-  const config = configs[level as keyof typeof configs];
-  return <span className={`inline-block px-3 py-1 text-xs rounded border ${config.color}`}>{config.label}</span>;
-};
 
 const getRowColor = (daysLate: number) => {
   if (daysLate >= 30) return 'bg-red-50';
@@ -55,7 +45,6 @@ export function DebtTable() {
   const [isSendReminderModalOpen, setIsSendReminderModalOpen] = useState(false);
   const [isBlockAccountModalOpen, setIsBlockAccountModalOpen] = useState(false);
   const [isBatchSendReminderModalOpen, setIsBatchSendReminderModalOpen] = useState(false);
-  const [reminderLevelFilter, setReminderLevelFilter] = useState('all');
 
   useEffect(() => {
     fetchDebtData();
@@ -108,14 +97,7 @@ export function DebtTable() {
     setIsBlockAccountModalOpen(true);
   };
 
-  // Lọc dữ liệu theo mức độ nhắc
-  const filteredData = debtData.filter(debt => {
-    if (reminderLevelFilter !== 'all') {
-      const level = parseInt(reminderLevelFilter);
-      if (debt.reminderLevel !== level) return false;
-    }
-    return true;
-  });
+  const filteredData = debtData;
 
   // Tính toán số liệu thống kê dựa trên dữ liệu đã lọc
   const totalDebt = filteredData.reduce((sum, debt) => sum + debt.amount, 0);
@@ -152,17 +134,6 @@ export function DebtTable() {
 
   return (
     <div className="space-y-4">
-      {/* Refresh Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={fetchDebtData}
-          disabled={loading}
-          className="px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2"
-        >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Filter size={16} />}
-          <span>Làm mới</span>
-        </button>
-      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
@@ -185,20 +156,7 @@ export function DebtTable() {
       
       {/* Filter Bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Filter size={16} className="text-gray-500" />
-          
-          <select 
-            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
-            value={reminderLevelFilter}
-            onChange={(e) => setReminderLevelFilter(e.target.value)}
-          >
-            <option value="all">Tất cả mức độ</option>
-            <option value="1">Lần 1</option>
-            <option value="2">Lần 2</option>
-            <option value="3">Lần 3</option>
-          </select>
-        </div>
+        <div />
         
         <button 
           onClick={() => setIsBatchSendReminderModalOpen(true)}
@@ -227,10 +185,8 @@ export function DebtTable() {
                 <tr>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Số điện thoại</th>
                   <th className="px-6 py-3 text-right text-sm text-gray-600">Số tiền nợ (VNĐ)</th>
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Số ngày trễ</th>
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Cấp độ nhắc</th>
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
               </thead>
@@ -239,12 +195,8 @@ export function DebtTable() {
                   <tr key={debt.invoiceId} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysLate)}`}>
                     <td className="px-6 py-4 text-sm text-gray-800">{debt.room}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{debt.tenant}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{debt.phone || '-'}</td>
                     <td className="px-6 py-4 text-sm text-red-600 text-right">{debt.amount.toLocaleString('vi-VN')}</td>
                     <td className="px-6 py-4 text-sm text-gray-800 text-center">{debt.daysLate}</td>
-                    <td className="px-6 py-4 text-center">
-                      {getReminderBadge(debt.reminderLevel)}
-                    </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <button className="p-2 hover:bg-gray-100 rounded" title="Xem lịch sử nhắc nợ" onClick={() => openViewDebtModal(debt)}>

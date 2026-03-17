@@ -21,7 +21,6 @@ const routeTitles: Record<string, string> = {
   '/chat-history': 'Trợ lý ảo AI - Lịch sử hội thoại',
   '/revenue-report': 'Báo cáo & Thống kê - Báo cáo Doanh thu',
   '/occupancy-report': 'Báo cáo & Thống kê - Báo cáo Lấp đầy',
-  '/debt-report': 'Báo cáo & Thống kê - Báo cáo Công nợ',
   '/user-accounts': 'Quản lý Tài khoản - Danh sách Tài khoản',
   '/my-profile': 'Quản lý Tài khoản - Hồ sơ cá nhân',
   '/audit-logs': 'Quản lý Tài khoản - Nhật ký hoạt động',

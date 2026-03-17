@@ -225,16 +225,8 @@ export function ServiceTable() {
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+        <div className="border-b border-gray-300 px-6 py-4">
           <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá - {services.length} dịch vụ</h2>
-          <button 
-            onClick={fetchServices}
-            disabled={loading}
-            className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2"
-          >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <History size={14} />}
-            <span>Làm mới</span>
-          </button>
         </div>
         
         {services.length === 0 ? (

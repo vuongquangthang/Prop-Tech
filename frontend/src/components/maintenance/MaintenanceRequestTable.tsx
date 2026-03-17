@@ -1,4 +1,4 @@
-﻿import { ArrowRight, MessageSquare, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
+﻿import { ArrowRight, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { fileService } from '../../services/feature.service';
@@ -170,100 +170,6 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
   );
 }
 
-// Modal Liên lạc với chủ phòng
-function ContactOwnerModal({ request, onClose }: { request: any; onClose: () => void }) {
-  const [message, setMessage] = useState('');
-  const [isSent, setIsSent] = useState(false);
-
-  const handleSend = () => {
-    setIsSent(true);
-    setTimeout(() => {
-      onClose();
-    }, 2000);
-  };
-
-  if (isSent) {
-    return (
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-        <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare size={32} className="text-green-600" />
-            </div>
-            <h3 className="text-xl text-gray-900 mb-2">Đã gửi tin nhắn</h3>
-            <p className="text-sm text-gray-600">
-              Tin nhắn đã được gửi đến hộp thư của chủ phòng {request.room}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl text-gray-900">Liên lạc với chủ phòng</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-            <X size={20} className="text-gray-600" />
-          </button>
-        </div>
-
-        <div className="space-y-4 mb-6">
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-600">Mã yêu cầu:</p>
-                <p className="text-gray-900 font-semibold">{request.code}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Phòng:</p>
-                <p className="text-gray-900 font-semibold">{request.room}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-gray-600">Nội dung yêu cầu:</p>
-                <p className="text-gray-900">{request.description}</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-700 mb-2">Nội dung tin nhắn gửi cho chủ phòng:</label>
-            <textarea
-              className="w-full px-4 py-3 border border-gray-300 rounded resize-none focus:outline-none focus:border-gray-500"
-              rows={6}
-              placeholder="Nhập nội dung tin nhắn (vd: yêu cầu cung cấp thêm thông tin, thông báo tiến độ xử lý, hẹn lịch kiểm tra...)"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Tin nhắn sẽ được gửi đến hộp thư trong ứng dụng của cư dân
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleSend}
-            disabled={!message.trim()}
-            className="px-6 py-3 bg-gray-800 text-white rounded hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2"
-          >
-            <MessageSquare size={18} />
-            <span>Gửi tin nhắn</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const statusConfig = {
   new: { label: 'Chờ xử lý', color: 'bg-blue-100 text-blue-800 border-blue-300' },
   in_progress: { label: 'Đang xử lý', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
@@ -276,7 +182,8 @@ const getAvailableStatuses = (currentStatus: string) => {
   const statusFlow = {
     new: ['new', 'in_progress'],
     in_progress: ['in_progress', 'review'],
-    review: ['review', 'completed', 'new'],
+    // In review: wait for resident feedback or send back to pending.
+    review: ['review', 'new'],
     completed: ['completed'],
   };
   return statusFlow[currentStatus as keyof typeof statusFlow] || ['new'];
@@ -285,7 +192,6 @@ const getAvailableStatuses = (currentStatus: string) => {
 export function MaintenanceRequestTable() {
   const [activeTab, setActiveTab] = useState('new');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [contactModalRequest, setContactModalRequest] = useState<any>(null);
   const [completeModalRequest, setCompleteModalRequest] = useState<any>(null);
   const [filterType, setFilterType] = useState('all');
   
@@ -464,7 +370,6 @@ export function MaintenanceRequestTable() {
                     <th className="px-6 py-3 text-center text-sm text-gray-600">Thời gian chờ</th>
                   )}
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -497,17 +402,6 @@ export function MaintenanceRequestTable() {
                           <option key={status} value={status}>{statusConfig[status as keyof typeof statusConfig].label}</option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center">
-                        <button 
-                          className="p-2 hover:bg-gray-100 rounded" 
-                          title="Liên lạc với chủ phòng"
-                          onClick={() => setContactModalRequest(request)}
-                        >
-                          <MessageSquare size={16} className="text-gray-600" />
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -609,26 +503,8 @@ export function MaintenanceRequestTable() {
               </div>
             )}
             
-            {/* Actions */}
-            <div className="pt-4 space-y-2">
-              <button 
-                onClick={() => setContactModalRequest(selectedRequest)}
-                className="w-full px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center justify-center space-x-2"
-              >
-                <MessageSquare size={16} />
-                <span>Liên lạc với chủ phòng</span>
-              </button>
-            </div>
           </div>
         </div>
-      )}
-
-      {/* Contact Modal */}
-      {contactModalRequest && (
-        <ContactOwnerModal 
-          request={contactModalRequest} 
-          onClose={() => setContactModalRequest(null)} 
-        />
       )}
 
       {/* Complete Modal */}

@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { X, Send, CheckCircle, AlertTriangle, User, ArrowRight, ChevronRight, Clock } from 'lucide-react';
+import { X, Send, CheckCircle, AlertTriangle, User, ArrowRight, Clock } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 
@@ -276,27 +276,6 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                   {detail.rejectedReason && (
                     <InfoRow label="Lý do từ chối" value={<span style={{ color: '#dc2626' }}>{detail.rejectedReason}</span>} />
                   )}
-                </InfoCard>
-
-                {/* Phòng & Hợp đồng */}
-                <InfoCard title="Phòng & Hợp đồng">
-                  <InfoRow label="Phòng" value={detail.roomNumber || room?.roomCode || '—'} bold />
-                  {room?.area && <InfoRow label="Diện tích" value={`${room.area}m²`} />}
-                  {room?.floorNumber && <InfoRow label="Tầng" value={`Tầng ${room.floorNumber}`} />}
-                  {contract && (
-                    <InfoRow label="Hợp đồng" value={`HD-${String(contract.id).padStart(5,'0')}`} />
-                  )}
-                  {contract?.startDate && (
-                    <InfoRow label="Bắt đầu" value={fmtDate(contract.startDate)} />
-                  )}
-                  <div style={{ marginTop: '10px' }}>
-                    <button
-                      style={{ fontSize: '13px', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}
-                    >
-                      <ChevronRight size={14} />
-                      Xem chi tiết phòng &amp; hợp đồng
-                    </button>
-                  </div>
                 </InfoCard>
 
                 {/* Thành viên trong hộ */}

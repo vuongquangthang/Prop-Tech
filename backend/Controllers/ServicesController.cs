@@ -52,6 +52,47 @@ public class ServicesController : ControllerBase
     }
 
     /// <summary>
+    /// Lấy dịch vụ áp dụng theo hợp đồng
+    /// </summary>
+    [HttpGet("contract/{contractId}")]
+    public async Task<ActionResult<List<ServiceInContractDto>>> GetByContract(int contractId)
+    {
+        try
+        {
+            var services = await _serviceService.GetServicesByContractAsync(contractId);
+            return Ok(services);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lấy dịch vụ áp dụng theo phòng
+    /// </summary>
+    [HttpGet("room/{roomId}")]
+    public async Task<ActionResult<List<ServiceInContractDto>>> GetByRoom(
+        int roomId,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate)
+    {
+        try
+        {
+            var services = await _serviceService.GetServicesByRoomAsync(roomId, fromDate, toDate);
+            return Ok(services);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Lấy chi tiết dịch vụ theo ID
     /// </summary>
     [HttpGet("{id}")]
