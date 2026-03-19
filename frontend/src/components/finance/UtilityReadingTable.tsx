@@ -148,7 +148,14 @@ export function UtilityReadingTable() {
   const filledCount = rooms.filter(r => edits[r.roomId]?.newElec && edits[r.roomId]?.newWater).length;
 
   const yearOptions = [currentDate.getFullYear(), currentDate.getFullYear() - 1];
-  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  const maxMonthForSelectedYear = selectedYear === currentDate.getFullYear() ? currentDate.getMonth() + 1 : 12;
+  const monthOptions = Array.from({ length: maxMonthForSelectedYear }, (_, i) => i + 1);
+
+  useEffect(() => {
+    if (selectedMonth > maxMonthForSelectedYear) {
+      setSelectedMonth(maxMonthForSelectedYear);
+    }
+  }, [selectedMonth, maxMonthForSelectedYear]);
 
   return (
     <>
@@ -320,12 +327,6 @@ export function UtilityReadingTable() {
               </table>
             </div>
           )}
-        </div>
-
-        <div className="bg-blue-50 border border-blue-300 rounded p-4">
-          <p className="text-sm text-blue-800">
-            <strong>💡 Hướng dẫn:</strong> Nhập chỉ số mới → Bấm "Lưu chỉ số" → Sau khi lưu đủ, bấm "Tính hóa đơn nháp" để tạo hóa đơn ở trạng thái Nháp. Phê duyệt hóa đơn tại trang <strong>Quản lý Hóa đơn</strong>.
-          </p>
         </div>
       </div>
 

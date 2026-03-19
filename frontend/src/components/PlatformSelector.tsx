@@ -92,9 +92,6 @@ export function PlatformSelector() {
         {/* Demo Info */}
         <div className="mt-12 text-center">
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 inline-block">
-            <p style={{ fontSize: '15px', color: '#E8F0F8', marginBottom: '8px' }}>
-              💡 <strong>Admin:</strong> Truy cập web Ban quản lý tại nền tảng này
-            </p>
             <p style={{ fontSize: '13px', color: '#D1E7F8' }}>
               App cư dân đã được tách riêng tại thư mục mobile
             </p>

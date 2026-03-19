@@ -48,13 +48,6 @@ export function WireframeOverviewPage() {
               <p className="text-xl font-bold text-gray-900">1440×1024</p>
             </div>
           </div>
-          <div className="mt-4 bg-blue-50 border border-blue-300 rounded p-3">
-            <p className="text-xs text-blue-800">
-              💡 <strong>Hướng dẫn:</strong> Scroll xuống để xem tất cả wireframe. 
-              Click vào từng màn hình để xem chi tiết và tương tác. 
-              Sử dụng browser zoom để xem toàn cảnh hoặc chi tiết.
-            </p>
-          </div>
         </div>
 
         {/* Wireframe Grid */}

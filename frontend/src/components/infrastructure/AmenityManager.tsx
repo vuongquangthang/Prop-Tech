@@ -63,14 +63,6 @@ export function AmenityManager() {
 
   return (
     <div className="space-y-6">
-      {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-300 rounded p-4">
-        <p className="text-sm text-blue-800">
-          <strong>💡 Hướng dẫn:</strong> Danh mục tiện nghi này sẽ được sử dụng khi thêm/sửa phòng. 
-          Các tiện nghi được đánh dấu "Mặc định" sẽ tự động được chọn khi thêm phòng mới.
-        </p>
-      </div>
-
       {/* Action Bar */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg text-gray-800">

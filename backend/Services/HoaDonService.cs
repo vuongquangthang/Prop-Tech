@@ -7,6 +7,7 @@ using backend.Hubs;
 using backend.Data;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 
 namespace backend.Services;
 
@@ -180,22 +181,27 @@ public class HoaDonService : IHoaDonService
                 var activeUsages = GetActiveServiceUsagesForPeriod(room.ChiTietSuDungDichVus, year, month);
                 var lineItems = new List<ChiTietHoaDon>();
                 decimal total = 0;
+                var formulaItems = ParseBillingFormula(contract.BillingFormulaJson);
+                var hasFormula = formulaItems.Count > 0;
 
                 // 1. Tiền phòng
+                var rentFormula = formulaItems.FirstOrDefault(i => IsRentFormulaItem(i));
+                var rentUnitPrice = rentFormula?.UnitPrice ?? contract.ActualRentPrice;
                 var rentItem = new ChiTietHoaDon
                 {
                     ItemType = "TienPhong",
                     Description = $"Tiền thuê phòng tháng {month}/{year}",
                     Quantity = 1,
-                    UnitPrice = contract.ActualRentPrice
+                    UnitPrice = rentUnitPrice
                 };
-                total += contract.ActualRentPrice;
+                total += rentUnitPrice;
                 lineItems.Add(rentItem);
 
                 // 2. Tiền điện
                 var elecUsage = activeUsages
                     .FirstOrDefault(u => IsElectricityService(u.Service));
-                if (elecUsage != null)
+                var elecFormula = formulaItems.FirstOrDefault(i => IsElectricityFormulaItem(i));
+                if (elecUsage != null && (!hasFormula || elecFormula != null))
                 {
                     var prevElec = await _context.ChiSoDiens
                         .Where(c => c.ServiceUsageDetailId == elecUsage.Id
@@ -211,7 +217,10 @@ public class HoaDonService : IHoaDonService
                     {
                         var oldReading = prevElec?.NewReading ?? 0;
                         var consumption = currElec.NewReading - oldReading;
-                        var unitPrice = elecUsage.OverrideUnitPrice ?? elecUsage.Service.CommonUnitPrice ?? 0;
+                        var unitPrice = elecFormula?.UnitPrice
+                            ?? elecUsage.OverrideUnitPrice
+                            ?? elecUsage.Service.CommonUnitPrice
+                            ?? 0;
 
                         var elecItem = new ChiTietHoaDon
                         {
@@ -234,7 +243,8 @@ public class HoaDonService : IHoaDonService
                 // 3. Tiền nước
                 var waterUsage = activeUsages
                     .FirstOrDefault(u => IsWaterService(u.Service));
-                if (waterUsage != null)
+                var waterFormula = formulaItems.FirstOrDefault(i => IsWaterFormulaItem(i));
+                if (waterUsage != null && (!hasFormula || waterFormula != null))
                 {
                     var prevWater = await _context.ChiSoNuocs
                         .Where(c => c.ServiceUsageDetailId == waterUsage.Id
@@ -250,7 +260,10 @@ public class HoaDonService : IHoaDonService
                     {
                         var oldReading = prevWater?.NewReading ?? 0;
                         var consumption = currWater.NewReading - oldReading;
-                        var unitPrice = waterUsage.OverrideUnitPrice ?? waterUsage.Service.CommonUnitPrice ?? 0;
+                        var unitPrice = waterFormula?.UnitPrice
+                            ?? waterUsage.OverrideUnitPrice
+                            ?? waterUsage.Service.CommonUnitPrice
+                            ?? 0;
 
                         var waterItem = new ChiTietHoaDon
                         {
@@ -271,24 +284,53 @@ public class HoaDonService : IHoaDonService
                 }
 
                 // 4. Các dịch vụ khác (không phải điện/nước)
-                var otherServices = activeUsages
-                    .Where(u => !IsElectricityService(u.Service) && !IsWaterService(u.Service))
-                    .ToList();
-                foreach (var svc in otherServices)
+                if (hasFormula)
                 {
-                    var unitPrice = svc.OverrideUnitPrice ?? svc.Service.CommonUnitPrice ?? 0;
-                    var qty = svc.Quantity ?? 1;
-                    var svcItem = new ChiTietHoaDon
+                    var manualServiceItems = formulaItems
+                        .Where(i => IsGeneralServiceFormulaItem(i))
+                        .OrderBy(i => i.SortOrder)
+                        .ToList();
+
+                    foreach (var formula in manualServiceItems)
                     {
-                        ItemType = "DichVu",
-                        ServiceId = svc.ServiceId,
-                        ServiceUsageDetailId = svc.Id,
-                        Description = svc.Service.Name,
-                        Quantity = qty,
-                        UnitPrice = unitPrice
-                    };
-                    total += qty * unitPrice;
-                    lineItems.Add(svcItem);
+                        var usage = activeUsages.FirstOrDefault(u => u.ServiceId == formula.ServiceId);
+                        var serviceName = usage?.Service?.Name ?? formula.ServiceName;
+                        var qty = formula.Quantity ?? 1;
+
+                        var svcItem = new ChiTietHoaDon
+                        {
+                            ItemType = "DichVu",
+                            ServiceId = formula.ServiceId,
+                            ServiceUsageDetailId = usage?.Id,
+                            Description = serviceName,
+                            Quantity = qty,
+                            UnitPrice = formula.UnitPrice
+                        };
+                        total += qty * formula.UnitPrice;
+                        lineItems.Add(svcItem);
+                    }
+                }
+                else
+                {
+                    var otherServices = activeUsages
+                        .Where(u => !IsElectricityService(u.Service) && !IsWaterService(u.Service))
+                        .ToList();
+                    foreach (var svc in otherServices)
+                    {
+                        var unitPrice = svc.OverrideUnitPrice ?? svc.Service.CommonUnitPrice ?? 0;
+                        var qty = svc.Quantity ?? 1;
+                        var svcItem = new ChiTietHoaDon
+                        {
+                            ItemType = "DichVu",
+                            ServiceId = svc.ServiceId,
+                            ServiceUsageDetailId = svc.Id,
+                            Description = svc.Service.Name,
+                            Quantity = qty,
+                            UnitPrice = unitPrice
+                        };
+                        total += qty * unitPrice;
+                        lineItems.Add(svcItem);
+                    }
                 }
 
                 // Tạo hóa đơn nháp
@@ -299,7 +341,7 @@ public class HoaDonService : IHoaDonService
                     Year = year,
                     TotalAmount = total,
                     Status = "Nháp",
-                    DueDate = new DateTime(year, month, 15).AddMonths(1)
+                    DueDate = BuildDueDate(year, month, contract.PaymentDayOfMonth)
                 };
                 _context.HoaDons.Add(invoice);
                 await _context.SaveChangesAsync();
@@ -836,6 +878,62 @@ public class HoaDonService : IHoaDonService
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
+    private static DateTime BuildDueDate(short year, byte month, int? paymentDayOfMonth)
+    {
+        var day = paymentDayOfMonth.GetValueOrDefault(15);
+        if (day < 1) day = 1;
+        if (day > 28) day = 28;
+
+        return new DateTime(year, month, day).AddMonths(1);
+    }
+
+    private static List<ContractBillingFormulaItem> ParseBillingFormula(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new List<ContractBillingFormulaItem>();
+        }
+
+        try
+        {
+            var items = JsonSerializer.Deserialize<List<ContractBillingFormulaItem>>(json);
+            return items ?? new List<ContractBillingFormulaItem>();
+        }
+        catch
+        {
+            return new List<ContractBillingFormulaItem>();
+        }
+    }
+
+    private static bool IsRentFormulaItem(ContractBillingFormulaItem item)
+    {
+        var type = NormalizeKey(item.ItemType);
+        var name = NormalizeKey(item.ServiceName);
+        return type == "tienphong" || name == "tien phong";
+    }
+
+    private static bool IsElectricityFormulaItem(ContractBillingFormulaItem item)
+    {
+        var type = NormalizeKey(item.ItemType);
+        var name = NormalizeKey(item.ServiceName);
+        return type == "dien" || name.Contains("dien");
+    }
+
+    private static bool IsWaterFormulaItem(ContractBillingFormulaItem item)
+    {
+        var type = NormalizeKey(item.ItemType);
+        var name = NormalizeKey(item.ServiceName);
+        return type == "nuoc" || name.Contains("nuoc");
+    }
+
+    private static bool IsGeneralServiceFormulaItem(ContractBillingFormulaItem item)
+    {
+        return !IsRentFormulaItem(item)
+            && !IsElectricityFormulaItem(item)
+            && !IsWaterFormulaItem(item)
+            && (item.ServiceId ?? 0) > 0;
+    }
+
     private HoaDonDto MapToDto(HoaDon invoice)
     {
         // Calculate paid amount from SUCCESS ThanhToan only (exclude PENDING)
@@ -874,4 +972,15 @@ public class HoaDonService : IHoaDonService
             }).ToList() ?? new List<ChiTietHoaDonDto>()
         };
     }
+}
+
+internal class ContractBillingFormulaItem
+{
+    public int SortOrder { get; set; }
+    public string ItemType { get; set; } = string.Empty;
+    public int? ServiceId { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
+    public decimal UnitPrice { get; set; }
+    public decimal? Quantity { get; set; }
+    public string QuantityExpression { get; set; } = "1";
 }

@@ -13,6 +13,8 @@ public class HopDongDto
     public DateTime? ExpectedEndDate { get; set; }
     public decimal ActualRentPrice { get; set; }
     public decimal? DepositAmount { get; set; }
+    public int? PaymentDayOfMonth { get; set; }
+    public string? BillingFormulaJson { get; set; }
     public List<ResidentInContractDto> Residents { get; set; } = new();
 }
 
@@ -26,6 +28,9 @@ public class CreateHopDongDto
     public DateTime? ExpectedEndDate { get; set; }
     public decimal ActualRentPrice { get; set; }
     public decimal? DepositAmount { get; set; }
+    public int? PaymentDayOfMonth { get; set; }
+    public List<int> SelectedServiceIds { get; set; } = new();
+    public List<BillingFormulaItemDto> BillingFormulaItems { get; set; } = new();
     public List<CreateChiTietODto> Residents { get; set; } = new();
 }
 
@@ -37,6 +42,19 @@ public class UpdateHopDongDto
     public DateTime? ExpectedEndDate { get; set; }
     public decimal? ActualRentPrice { get; set; }
     public decimal? DepositAmount { get; set; }
+    public int? PaymentDayOfMonth { get; set; }
+    public string? BillingFormulaJson { get; set; }
+}
+
+public class BillingFormulaItemDto
+{
+    public int SortOrder { get; set; }
+    public string ItemType { get; set; } = null!;
+    public int? ServiceId { get; set; }
+    public string ServiceName { get; set; } = null!;
+    public decimal UnitPrice { get; set; }
+    public decimal? Quantity { get; set; }
+    public string QuantityExpression { get; set; } = "1";
 }
 
 /// <summary>

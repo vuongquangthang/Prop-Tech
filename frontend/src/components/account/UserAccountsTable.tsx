@@ -1,4 +1,4 @@
-﻿import { Filter, Key, Lock, Unlock, Eye, EyeOff, Loader2, AlertTriangle, UserX, Copy, Check } from 'lucide-react';
+﻿import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, Phone, UserRound, Shield, KeyRound } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
 
@@ -10,7 +10,10 @@ interface UserData {
   status: string;
   lastLogin: string;
   isLocked: boolean;
+  mustChangePassword: boolean;
 }
+
+const DEFAULT_RESIDENT_TEMP_PASSWORD = '123456';
 
 const roleColors = {
   Admin: 'bg-purple-100 text-purple-800 border-purple-300',
@@ -18,7 +21,7 @@ const roleColors = {
 };
 
 const roleLabels = {
-  Admin: 'Admin',
+  Admin: 'BQL',
   CuDan: 'Cư dân',
 };
 
@@ -44,15 +47,13 @@ export function UserAccountsTable() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showResetModal, setShowResetModal] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('MatKhau123@');
-  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewUser, setViewUser] = useState<UserData | null>(null);
   const [lockReason, setLockReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [copiedField, setCopiedField] = useState<'all' | null>(null);
   
   // Create user modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -103,6 +104,7 @@ export function UserAccountsTable() {
               })
             : 'Chưa đăng nhập',
           isLocked: user.isLocked || false,
+          mustChangePassword: !!(user.mustChangePassword || user.mustChangeMatKhau),
         };
       });
 
@@ -152,27 +154,16 @@ export function UserAccountsTable() {
     }
   };
 
-  const generatePassword = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let pwd = '';
-    for (let i = 0; i < 8; i++) {
-      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return `${pwd}@1`; // ensures complexity
-  };
-
-  const handleResetPassword = (user: any) => {
-    setSelectedUser(user);
-    setGeneratedPassword(generatePassword());
-    setShowCurrentPassword(false);
-    setCurrentPassword('MatKhau123@');
-    setShowResetModal(true);
-  };
-
   const handleToggleLock = (user: any) => {
     setSelectedUser(user);
     setLockReason('');
     setShowLockModal(true);
+  };
+
+  const handleViewUser = (user: UserData) => {
+    setViewUser(user);
+    setCopiedField(null);
+    setShowViewModal(true);
   };
 
   // Filter data based on selections
@@ -253,7 +244,7 @@ export function UserAccountsTable() {
             onChange={(e) => setRoleFilter(e.target.value)}
           >
             <option value="all">Tất cả vai trò</option>
-            <option value="Admin">Admin</option>
+            <option value="Admin">BQL</option>
             <option value="CuDan">Cư dân</option>
           </select>
           
@@ -281,7 +272,7 @@ export function UserAccountsTable() {
         
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+          className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-black font-medium"
           style={{ fontSize: 'var(--type-caption)' }}
         >
           + Thêm tài khoản
@@ -333,118 +324,122 @@ export function UserAccountsTable() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.lastLogin}</td>
-                  <td className="px-6 py-4 text-center">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={!user.isLocked}
-                        onChange={() => handleToggleLock(user)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-red-400 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                    </label>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button 
-                      onClick={() => handleResetPassword(user)}
-                      className="p-2 hover:bg-gray-100 rounded" 
-                      title="Reset mật khẩu"
-                    >
-                      <Key size={16} className="text-gray-600" />
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    <td className="px-6 py-4 text-center">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={!user.isLocked}
+                          onChange={() => handleToggleLock(user)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-red-400 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                      </label>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center p-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+                        title="Xem thông tin tài khoản"
+                        onClick={() => handleViewUser(user)}
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
-      
-      {/* Reset Password Modal */}
-      {showResetModal && selectedUser && (
+
+      {showViewModal && viewUser && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-[500px]">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Reset Mật khẩu</h3>
-              <button onClick={() => setShowResetModal(false)} className="p-1 hover:bg-gray-100 rounded">
-                <span style={{ color: '#6B7280', fontSize: '28px', lineHeight: 1 }}>×</span>
+          <div className="bg-white rounded-xl w-[980px] max-w-[96vw] max-h-[88vh] shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 flex items-center justify-between bg-gradient-to-r from-gray-900 to-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
+                  <Eye size={18} className="text-white" />
+                </div>
+                <div className="text-left leading-tight">
+                  <h3 className="text-white" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin tài khoản</h3>
+                  <p className="text-white/95 text-left mt-0.5" style={{ fontSize: '13px', fontWeight: 500 }}>Xem nhanh và sao chép thông tin đăng nhập</p>
+                </div>
+              </div>
+              <button onClick={() => setShowViewModal(false)} className="p-1 hover:bg-white/15 rounded">
+                <span className="text-white/90 text-xl">×</span>
               </button>
             </div>
-            
-            <div className="p-6 space-y-4">
-              <p className="text-gray-700" style={{ fontSize: 'var(--type-caption)' }}>
-                Bạn đang reset mật khẩu cho tài khoản:
-              </p>
-              <div className="bg-gray-50 p-4 rounded border border-gray-300">
-                <p className="text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Username</p>
-                <p className="text-gray-900" style={{ fontSize: 'var(--type-body)' }}>{selectedUser.username}</p>
-                <p className="text-gray-600 mt-2" style={{ fontSize: 'var(--type-caption)' }}>Họ và Tên</p>
-                <p className="text-gray-900" style={{ fontSize: 'var(--type-body)' }}>{selectedUser.fullName}</p>
+
+            <div className="p-6 space-y-5 overflow-y-auto">
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                <div>
+                  <p className="text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Trạng thái mật khẩu</p>
+                  <p className="text-gray-900" style={{ fontSize: 'var(--type-body)' }}>
+                    {viewUser.role === 'CuDan' && viewUser.mustChangePassword ? 'Mật khẩu tạm còn hiệu lực' : 'Người dùng đã tự đặt mật khẩu'}
+                  </p>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full border ${viewUser.role === 'CuDan' && viewUser.mustChangePassword ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-emerald-50 text-emerald-700 border-emerald-300'}`}
+                  style={{ fontSize: 'var(--type-caption)' }}
+                >
+                  {viewUser.role === 'CuDan' && viewUser.mustChangePassword ? 'Tạm thời' : 'Đã cập nhật'}
+                </span>
               </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu mới</label>
-                <div className="relative">
-                  <input 
-                    type={showCurrentPassword ? 'text' : 'password'}
-                    value={generatedPassword}
-                    onChange={(e) => setGeneratedPassword(e.target.value)}
-                    className="w-full px-3 py-2 pr-16 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                    style={{ fontSize: 'var(--type-caption)' }}
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex space-x-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                    >
-                      {showCurrentPassword ? <EyeOff size={16} className="text-gray-600" /> : <Eye size={16} className="text-gray-600" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedPassword);
-                        setCopiedPassword(true);
-                        setTimeout(() => setCopiedPassword(false), 2000);
-                      }}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      title="Sao chép"
-                    >
-                      {copiedPassword ? <Check size={16} className="text-green-600" /> : <Copy size={16} className="text-gray-600" />}
-                    </button>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ fontSize: 'var(--type-caption)' }}>
+                <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Phone size={16} className="text-gray-500 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-gray-500">Username/SĐT</p>
+                      <p className="text-gray-900 truncate" style={{ fontSize: 'var(--type-body)', fontWeight: 600 }}>{viewUser.username}</p>
+                    </div>
                   </div>
                 </div>
-                <p className="text-gray-500 mt-1" style={{ fontSize: 'var(--type-caption)' }}>Mật khẩu được tạo tự động. Bạn có thể chỉnh sửa hoặc sao chép trước khi xác nhận.</p>
+
+                <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <KeyRound size={16} className="text-gray-500 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-gray-500">Mật khẩu</p>
+                      <p className="text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 600 }}>
+                        {viewUser.role === 'CuDan' && viewUser.mustChangePassword ? DEFAULT_RESIDENT_TEMP_PASSWORD : '(cư dân đã đổi hoặc không áp dụng)'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <UserRound size={16} className="text-gray-500 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-gray-500">Họ và tên</p>
+                      <p className="text-gray-900 truncate" style={{ fontSize: 'var(--type-body)', fontWeight: 600 }}>{viewUser.fullName}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Shield size={16} className="text-gray-500 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-gray-500">Vai trò</p>
+                      <p className="text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 600 }}>{roleLabels[viewUser.role]}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
+
             </div>
-            
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
-              <button 
-                onClick={() => setShowResetModal(false)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+
+            <div className="border-t border-gray-300 px-6 py-4 flex justify-end bg-white shrink-0">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-black"
                 style={{ fontSize: 'var(--type-caption)' }}
               >
-                Hủy
-              </button>
-              <button 
-                onClick={async () => {
-                  if (!selectedUser) return;
-                  setActionLoading(true);
-                  try {
-                    await userService.resetPassword(Number(selectedUser.id), generatedPassword);
-                    setShowResetModal(false);
-                  } catch (err: any) {
-                    alert('Lỗi: ' + (err.message || 'Không thể reset mật khẩu'));
-                  } finally {
-                    setActionLoading(false);
-                  }
-                }}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 disabled:opacity-50"
-                style={{ fontSize: 'var(--type-caption)' }}
-              >
-                {actionLoading ? 'Đang xử lý...' : 'Xác nhận Reset'}
+                Đóng
               </button>
             </div>
           </div>
@@ -598,19 +593,11 @@ export function UserAccountsTable() {
                   style={{ fontSize: 'var(--type-body)' }}
                   disabled={createLoading}
                 >
+                  <option value="Admin">BQL</option>
                   <option value="CuDan">Cư dân</option>
-                  <option value="Admin">Admin</option>
-                  <option value="QuanLy">Quản lý (BQL)</option>
-                  <option value="KeToan">Kế toán</option>
-                  <option value="NhanVien">Nhân viên</option>
                 </select>
               </div>
 
-              <div>
-                <p className="text-gray-600 text-xs mb-2" style={{ fontSize: 'var(--type-caption)' }}>
-                  💡 Lưu ý: Nếu là "Cư dân", tài khoản sẽ chỉ được tạo khi lập hợp đồng (nếu cư dân chưa có tài khoản).
-                </p>
-              </div>
             </div>
 
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
@@ -625,7 +612,7 @@ export function UserAccountsTable() {
               <button
                 onClick={handleCreateUser}
                 disabled={createLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-black disabled:opacity-50"
                 style={{ fontSize: 'var(--type-caption)' }}
               >
                 {createLoading ? 'Đang tạo...' : 'Tạo tài khoản'}

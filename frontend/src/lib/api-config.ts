@@ -22,7 +22,6 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number) => `/api/users/${id}`,
     LOCK: (id: number) => `/api/users/${id}/lock`,
     UNLOCK: (id: number) => `/api/users/${id}/unlock`,
-    RESET_PASSWORD: (id: number) => `/api/users/${id}/reset-password`,
     CREATE: '/api/users',
   },
   

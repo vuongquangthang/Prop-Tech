@@ -578,6 +578,10 @@ namespace backend.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("GIA_THUE_THUC_TE");
 
+                    b.Property<string>("BillingFormulaJson")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("CONG_THUC_HOA_DON_JSON");
+
                     b.Property<decimal?>("DepositAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
@@ -586,6 +590,10 @@ namespace backend.Migrations
                     b.Property<DateTime?>("ExpectedEndDate")
                         .HasColumnType("datetime2")
                         .HasColumnName("NGAY_KET_THUC_DU_KIEN");
+
+                    b.Property<int?>("PaymentDayOfMonth")
+                        .HasColumnType("int")
+                        .HasColumnName("NGAY_THANH_TOAN_HANG_THANG");
 
                     b.Property<int>("RoomId")
                         .HasColumnType("int")

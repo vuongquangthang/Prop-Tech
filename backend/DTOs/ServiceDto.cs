@@ -20,9 +20,10 @@ public class ServiceDto
 public class CreateServiceDto
 {
     public string Name { get; set; } = null!;
-    public string ServiceType { get; set; } = null!; // Điện, Nước, Gửi xe, Internet, Vệ sinh, Bảo vệ, Khác
+    public string ServiceType { get; set; } = null!; // Cố định | Biến đổi
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
+    public DateTime? EffectiveDate { get; set; }
 }
 
 /// <summary>

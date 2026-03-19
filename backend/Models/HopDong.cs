@@ -38,6 +38,12 @@ public class HopDong
     [Precision(18, 2)]
     public decimal? DepositAmount { get; set; }
 
+    [Column("NGAY_THANH_TOAN_HANG_THANG")]
+    public int? PaymentDayOfMonth { get; set; }
+
+    [Column("CONG_THUC_HOA_DON_JSON")]
+    public string? BillingFormulaJson { get; set; }
+
     // Navigation properties
     [ForeignKey("RoomId")]
     public Room Room { get; set; } = null!;

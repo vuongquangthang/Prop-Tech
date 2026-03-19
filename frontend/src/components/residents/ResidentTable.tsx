@@ -1,6 +1,6 @@
-import { Plus, Search, Edit2, Key, Lock, UserCheck, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit2, Lock, UserCheck, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { AddResidentModal, EditResidentModal, ResetPasswordModal, LockAccountModal, UnlockAccountModal } from './ResidentTableModals';
+import { AddResidentModal, EditResidentModal, LockAccountModal, UnlockAccountModal } from './ResidentTableModals';
 import { residentService } from '../../services/api.service';
 
 interface ResidentData {
@@ -28,7 +28,6 @@ export function ResidentTable() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [selectedResident, setSelectedResident] = useState<any>(null);
@@ -73,11 +72,6 @@ export function ResidentTable() {
   const handleEditClick = (resident: any) => {
     setSelectedResident(resident);
     setShowEditModal(true);
-  };
-
-  const handleResetPasswordClick = (resident: any) => {
-    setSelectedResident(resident);
-    setShowResetPasswordModal(true);
   };
 
   const handleLockClick = (resident: any) => {
@@ -190,9 +184,6 @@ export function ResidentTable() {
                         <button className="p-2 hover:bg-gray-100 rounded" title="Sửa thông tin" onClick={() => handleEditClick(resident)}>
                           <Edit2 size={16} className="text-gray-600" />
                         </button>
-                        <button className="p-2 hover:bg-gray-100 rounded" title="Reset mật khẩu" onClick={() => handleResetPasswordClick(resident)}>
-                          <Key size={16} className="text-gray-600" />
-                        </button>
                         <button className="p-2 hover:bg-gray-100 rounded" title={resident.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'} onClick={() => handleLockClick(resident)}>
                           {resident.status === 'active' ? (
                             <Lock size={16} className="text-gray-600" />
@@ -210,13 +201,6 @@ export function ResidentTable() {
         </div>
       </div>
       
-      {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-300 rounded p-4">
-        <p className="text-sm text-blue-800">
-          <strong>💡 Hướng dẫn:</strong> Tài khoản cư dân sẽ tự động được tạo khi lập hợp đồng mới. Nếu cư dân quên mật khẩu, Admin có thể reset và gửi mật khẩu mới qua SMS.
-        </p>
-      </div>
-
       {/* Modals */}
       {showAddModal && (
         <AddResidentModal 
@@ -230,13 +214,6 @@ export function ResidentTable() {
           resident={selectedResident} 
           onClose={() => setShowEditModal(false)}
           onSuccess={fetchResidents}
-        />
-      )}
-
-      {showResetPasswordModal && selectedResident && (
-        <ResetPasswordModal 
-          resident={selectedResident} 
-          onClose={() => setShowResetPasswordModal(false)} 
         />
       )}
 

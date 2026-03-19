@@ -43,12 +43,6 @@ export function AddKnowledgeModal({ onClose }: KnowledgeModalProps) {
         </div>
         
         <div className="p-6 space-y-4">
-          <div className="bg-blue-50 border border-blue-300 rounded p-4">
-            <p className="text-sm text-blue-800">
-              💡 <strong>Hướng dẫn:</strong> Thêm câu hỏi-trả lời để Trợ lý AI có thể trả lời cư dân tự động. 
-              Nên nhập nhiều biến thể câu hỏi để AI hiểu tốt hơn.
-            </p>
-          </div>
 
           <div>
             <label className="block text-sm text-gray-700 mb-2 font-bold">Danh mục *</label>

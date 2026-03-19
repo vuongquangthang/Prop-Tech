@@ -221,13 +221,6 @@ export function KnowledgeBaseTable() {
         </div>
       </div>
       
-      {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-300 rounded p-4">
-        <p className="text-sm text-blue-800">
-          <strong>💡 Hướng dẫn:</strong> Danh mục được phân biệt bằng màu sắc để dễ nhận diện. Tắt "Hiệu lực" để tạm ngừng câu trả lời mà không cần xóa. Chức năng "Nhập file PDF/Doc" hỗ trợ RAG để AI tự phân tích nội quy.
-        </p>
-      </div>
-      
       {showModal && (
         <AddKnowledgeModal onClose={() => { setShowModal(false); fetchData(); }} />
       )}

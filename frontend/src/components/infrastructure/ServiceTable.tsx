@@ -13,6 +13,14 @@ interface ServiceData {
   mandatory: boolean;
 }
 
+const normalizeServiceType = (raw: string | undefined): 'Cố định' | 'Biến đổi' => {
+  const value = (raw || '').trim().toLowerCase();
+  if (value.includes('biến') || value.includes('bien') || value.includes('variable')) {
+    return 'Biến đổi';
+  }
+  return 'Cố định';
+};
+
 export function ServiceTable() {
   const [services, setServices] = useState<ServiceData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +36,7 @@ export function ServiceTable() {
   const [addName, setAddName] = useState('');
   const [addUnit, setAddUnit] = useState('');
   const [addPrice, setAddPrice] = useState('');
+  const [addEffectiveDate, setAddEffectiveDate] = useState(() => formatLocalDateInput());
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -59,7 +68,7 @@ export function ServiceTable() {
       const serviceData: ServiceData[] = data.map((service: any) => ({
         id: service.id || 0,
         name: service.name || service.serviceName || service.tenDichVu || '',
-        type: service.serviceType || service.loaiDichVu || 'Cố định',
+        type: normalizeServiceType(service.serviceType || service.loaiDichVu),
         unit: service.unit || service.donVi || '',
         price: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
         date: service.effectiveDate
@@ -104,7 +113,7 @@ export function ServiceTable() {
   };
 
   const openAddModal = () => {
-    setAddName(''); setAddUnit(''); setAddPrice(''); setAddError(null);
+    setAddName(''); setAddUnit(''); setAddPrice(''); setAddError(null); setAddEffectiveDate(formatLocalDateInput());
     setServiceType('fixed');
     setShowAddModal(true);
   };
@@ -121,6 +130,7 @@ export function ServiceTable() {
         serviceType: serviceType === 'fixed' ? 'Cố định' : 'Biến đổi',
         unit: addUnit.trim() || undefined,
         commonUnitPrice: parseFloat(addPrice),
+        effectiveDate: toLocalIsoString(addEffectiveDate),
       } as any);
       await fetchServices();
       setShowAddModal(false);
@@ -207,12 +217,7 @@ export function ServiceTable() {
     <div className="space-y-6">
       {/* Action Bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <label className="flex items-center space-x-2 text-sm text-gray-700">
-            <input type="checkbox" className="w-4 h-4 border-gray-300 rounded" />
-            <span>Áp dụng chung cho toàn bộ tòa nhà</span>
-          </label>
-        </div>
+        <div></div>
         
         <button 
           onClick={openAddModal}
@@ -253,9 +258,9 @@ export function ServiceTable() {
                     <td className="px-6 py-4 text-sm text-gray-800">{service.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       <span className={`inline-block px-3 py-1 text-xs rounded border ${
-                        service.type === 'Cố định' || service.type === 'Fixed'
-                          ? 'bg-blue-100 text-blue-800 border-blue-300'
-                          : 'bg-purple-100 text-purple-800 border-purple-300'
+                        service.type === 'Cố định'
+                          ? 'bg-gray-100 text-gray-800 border-gray-300'
+                          : 'bg-orange-100 text-orange-800 border-orange-300'
                       }`}>
                         {service.type}
                       </span>
@@ -361,7 +366,7 @@ export function ServiceTable() {
               </div>
 
               {/* Unit & Price */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Đơn vị tính *</label>
                   <input 
@@ -379,6 +384,15 @@ export function ServiceTable() {
                     placeholder="VD: 200000"
                     value={addPrice}
                     onChange={e => setAddPrice(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">Ngày áp dụng *</label>
+                  <input
+                    type="date"
+                    value={addEffectiveDate}
+                    onChange={e => setAddEffectiveDate(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>

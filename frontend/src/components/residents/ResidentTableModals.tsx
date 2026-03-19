@@ -1,4 +1,4 @@
-﻿import { X, AlertTriangle, Key, Lock, UserCheck, User, Phone } from 'lucide-react';
+﻿import { X, AlertTriangle, Lock, UserCheck, User, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { residentService, userService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
@@ -51,12 +51,6 @@ export function AddResidentModal({ onClose, onSuccess }: ModalProps) {
         </div>
         
         <div className="p-6 space-y-4">
-          <div className="bg-blue-50 border border-blue-300 rounded p-4">
-            <p className="text-sm text-blue-800">
-              💡 <strong>Lưu ý:</strong> Thông thường, cư dân sẽ được tạo tự động khi lập <strong>Hợp đồng mới</strong>. 
-              Chỉ dùng form này khi cần thêm cư dân thủ công.
-            </p>
-          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -229,46 +223,6 @@ export function EditResidentModal({ resident, onClose, onSuccess }: ModalProps) 
             {loading && <Loader2 size={14} className="animate-spin" />}
             <span>Lưu thay đổi</span>
           </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function ResetPasswordModal({ resident, onClose }: ModalProps) {
-  return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-[550px]">
-        <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Key size={20} className="text-gray-800" />
-            <h3 className="text-lg text-gray-800">Reset mật khẩu cư dân</h3>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-            <X size={20} className="text-gray-600" />
-          </button>
-        </div>
-        
-        <div className="p-6 space-y-4">
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <p className="text-sm text-gray-600 mb-3">Thông tin cư dân:</p>
-            <div className="space-y-1">
-              <p className="text-sm text-gray-800"><strong>Họ tên:</strong> {resident?.fullName || resident?.name}</p>
-              <p className="text-sm text-gray-800"><strong>SĐT:</strong> {resident?.phoneNumber || resident?.phone}</p>
-            </div>
-          </div>
-
-          <div className="bg-orange-50 border border-orange-300 rounded p-4">
-            <p className="text-sm text-orange-800">
-              <strong>⚠️ Lưu ý:</strong> Mật khẩu cũ sẽ bị vô hiệu hóa ngay lập tức. 
-              Cư dân cần sử dụng mật khẩu mới để đăng nhập.
-            </p>
-          </div>
-        </div>
-        
-        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
-          <button onClick={onClose} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">Hủy</button>
-          <button onClick={onClose} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">Xác nhận reset</button>
         </div>
       </div>
     </div>

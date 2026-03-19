@@ -251,6 +251,10 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE PHONG ADD SO_NGUOI_TOI_DA INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'MA_HOP_DONG')
                     ALTER TABLE HOP_DONG ADD MA_HOP_DONG NVARCHAR(50) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'NGAY_THANH_TOAN_HANG_THANG')
+                    ALTER TABLE HOP_DONG ADD NGAY_THANH_TOAN_HANG_THANG INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'CONG_THUC_HOA_DON_JSON')
+                    ALTER TABLE HOP_DONG ADD CONG_THUC_HOA_DON_JSON NVARCHAR(MAX) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'MUST_CHANGE_PASSWORD')
                     ALTER TABLE [USER] ADD MUST_CHANGE_PASSWORD BIT NOT NULL CONSTRAINT DF_USER_MUST_CHANGE_PASSWORD DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('LICH_SU_CHAT') AND name = 'IS_KNOWLEDGE_GAP')

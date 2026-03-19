@@ -30,6 +30,17 @@ public class ServiceService : IServiceService
         _context = context;
     }
 
+    private static string NormalizeServiceType(string? serviceType)
+    {
+        var value = (serviceType ?? string.Empty).Trim().ToLowerInvariant();
+        if (value.Contains("biến") || value.Contains("bien") || value.Contains("variable"))
+        {
+            return "Biến đổi";
+        }
+
+        return "Cố định";
+    }
+
     public async Task<List<ServiceDto>> GetAllAsync()
     {
         var services = await _serviceRepository.GetAllAsync();
@@ -112,10 +123,11 @@ public class ServiceService : IServiceService
         var service = new Service
         {
             Name = dto.Name,
-            ServiceType = dto.ServiceType,
+            ServiceType = NormalizeServiceType(dto.ServiceType),
             Unit = dto.Unit,
             CommonUnitPrice = dto.CommonUnitPrice,
-            IsActive = true
+            IsActive = true,
+            EffectiveDate = dto.EffectiveDate ?? DateTime.UtcNow
         };
 
         await _serviceRepository.AddAsync(service);
@@ -144,7 +156,7 @@ public class ServiceService : IServiceService
         }
 
         if (!string.IsNullOrWhiteSpace(dto.ServiceType))
-            service.ServiceType = dto.ServiceType;
+            service.ServiceType = NormalizeServiceType(dto.ServiceType);
 
         if (dto.Unit != null)
             service.Unit = dto.Unit;

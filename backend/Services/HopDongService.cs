@@ -2,6 +2,8 @@ using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace backend.Services;
 
@@ -111,17 +113,17 @@ public class HopDongService : IHopDongService
         var contract = new HopDong
         {
             RoomId = dto.RoomId,
+            ContractCode = await GenerateContractCodeAsync(dto.StartDate.Year),
             StartDate = dto.StartDate,
             ExpectedEndDate = dto.ExpectedEndDate,
             ActualRentPrice = dto.ActualRentPrice,
-            DepositAmount = dto.DepositAmount
+            DepositAmount = dto.DepositAmount,
+            PaymentDayOfMonth = dto.PaymentDayOfMonth,
+            BillingFormulaJson = SerializeBillingFormula(dto.BillingFormulaItems)
         };
 
         await _hopDongRepository.AddAsync(contract);
         await _hopDongRepository.SaveChangesAsync();
-
-        // Auto-generate contract code after ID is available.
-        contract.ContractCode = $"HD-{DateTime.UtcNow:yyyy}-{contract.Id:D5}";
 
         // Persist ChiTietO records explicitly to avoid missing residents in detail views.
         foreach (var residentDto in dto.Residents)
@@ -138,8 +140,14 @@ public class HopDongService : IHopDongService
         await _chiTietORepository.SaveChangesAsync();
 
         // Auto-create default service usages so monthly invoice calculation has baseline services.
+        var selectedServiceIds = dto.SelectedServiceIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToHashSet();
+
         var activeServices = (await _serviceRepository.GetActiveServicesAsync()).ToList();
         var defaultServices = activeServices
+            .Where(s => selectedServiceIds.Contains(s.Id))
             .Where(IsAutoAssignableDefaultService)
             .ToList();
 
@@ -208,6 +216,12 @@ public class HopDongService : IHopDongService
         if (dto.DepositAmount.HasValue)
             contract.DepositAmount = dto.DepositAmount;
 
+        if (dto.PaymentDayOfMonth.HasValue)
+            contract.PaymentDayOfMonth = dto.PaymentDayOfMonth;
+
+        if (!string.IsNullOrWhiteSpace(dto.BillingFormulaJson))
+            contract.BillingFormulaJson = dto.BillingFormulaJson;
+
         _hopDongRepository.Update(contract);
         await _hopDongRepository.SaveChangesAsync();
 
@@ -254,6 +268,8 @@ public class HopDongService : IHopDongService
             ExpectedEndDate = contract.ExpectedEndDate,
             ActualRentPrice = contract.ActualRentPrice,
             DepositAmount = contract.DepositAmount,
+            PaymentDayOfMonth = contract.PaymentDayOfMonth,
+            BillingFormulaJson = contract.BillingFormulaJson,
             Residents = contract.ChiTietOs.Select(ct => new ResidentInContractDto
             {
                 ResidentId = ct.ResidentId,
@@ -286,6 +302,47 @@ public class HopDongService : IHopDongService
         }
 
         return true;
+    }
+
+    private async Task<string> GenerateContractCodeAsync(int contractYear)
+    {
+        var allContracts = await _hopDongRepository.GetAllAsync();
+        var pattern = new Regex($"^HD-{contractYear}-(\\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        var maxSequence = allContracts
+            .Select(c => c.ContractCode)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => pattern.Match(code!))
+            .Where(match => match.Success)
+            .Select(match => int.TryParse(match.Groups[1].Value, out var value) ? value : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return $"HD-{contractYear}-{(maxSequence + 1):D5}";
+    }
+
+    private static string? SerializeBillingFormula(List<BillingFormulaItemDto>? items)
+    {
+        if (items == null || items.Count == 0)
+        {
+            return null;
+        }
+
+        var normalized = items
+            .OrderBy(i => i.SortOrder)
+            .Select(i => new BillingFormulaItemDto
+            {
+                SortOrder = i.SortOrder,
+                ItemType = i.ItemType,
+                ServiceId = i.ServiceId,
+                ServiceName = i.ServiceName,
+                UnitPrice = i.UnitPrice,
+                Quantity = i.Quantity,
+                QuantityExpression = string.IsNullOrWhiteSpace(i.QuantityExpression) ? "1" : i.QuantityExpression
+            })
+            .ToList();
+
+        return JsonSerializer.Serialize(normalized);
     }
 
     private async Task EnsureResidentAccountAsync(int residentId)

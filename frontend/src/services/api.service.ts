@@ -59,6 +59,8 @@ export interface Contract {
   actualRentPrice?: number;
   deposit?: number;
   depositAmount?: number;
+  paymentDayOfMonth?: number;
+  billingFormulaJson?: string;
   status?: string;
   terminatedDate?: string;
   notes?: string;
@@ -693,14 +695,6 @@ export const userService = {
     try {
       const response = await api.post<User>(API_ENDPOINTS.USERS.UNLOCK(id));
       return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
-  },
-
-  resetPassword: async (id: number, newPassword: string) => {
-    try {
-      await api.post(API_ENDPOINTS.USERS.RESET_PASSWORD(id), { newPassword });
     } catch (error) {
       throw new Error(handleApiError(error));
     }

@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { LoginResponse, RefreshTokenRequest } from '../types/dto';
 
 // Base URL - Change this to your actual backend URL
-export const API_BASE_URL = 'http://192.168.1.76:5052';
+export const API_BASE_URL = 'http://172.17.152.92:5052';
 const BASE_URL = API_BASE_URL;
 
 // Storage keys
