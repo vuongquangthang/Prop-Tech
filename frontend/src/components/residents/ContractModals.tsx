@@ -474,7 +474,14 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                   <input type="radio" name="tenantType" id="existingTenant" checked={tenantType === 'existing'} onChange={() => setTenantType('existing')} className="w-4 h-4" />
                   <label htmlFor="existingTenant" className="text-sm text-gray-700 font-bold">Chọn từ cư dân đã có</label>
                 </div>
-                <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500 mt-2 ml-7" disabled={tenantType !== 'existing'} value={selectedResidentId} onChange={(e) => setSelectedResidentId(e.target.value)}>
+                <select 
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500 mt-2" 
+                  disabled={tenantType !== 'existing'} 
+                  value={selectedResidentId} 
+                  onChange={(e) => setSelectedResidentId(e.target.value)}
+                  size={5}
+                  style={{ height: 'auto', maxHeight: '180px', overflow: 'auto', marginLeft: '28px', width: 'calc(100% - 28px)' }}
+                >
                   <option value="">Chọn cư dân...</option>
                   {residents.map((r: any) => (
                     <option key={r.id} value={r.id}>
@@ -482,7 +489,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1 ml-7">
+                <p className="text-xs text-gray-500 mt-1" style={{ marginLeft: '28px' }}>
                   🔗 Danh sách đồng bộ từ <strong>Cư dân & Hợp đồng → Danh sách Cư dân</strong>
                 </p>
               </div>
@@ -609,7 +616,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                   </button>
                 </div>
                 {showCustomDurationInput && (
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex items-center gap-2 justify-center">
                     <input
                       type="number"
                       min={1}
@@ -629,7 +636,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     <button
                       type="button"
                       onClick={addCustomDuration}
-                      className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                      className="px-5 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 flex items-center justify-center"
+                      style={{ whiteSpace: 'nowrap', minWidth: 80 }}
                     >
                       Áp dụng
                     </button>
@@ -1202,9 +1210,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                       {fmtCurrency(currentDebt)} VNĐ
                     </span>
                   </div>
-                  <button className="w-full mt-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50">
-                    → Xem lịch sử hóa đơn
-                  </button>
                 </div>
               </div>
             </div>

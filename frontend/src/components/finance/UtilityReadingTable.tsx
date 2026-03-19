@@ -25,9 +25,8 @@ interface RowEdit {
 }
 
 export function UtilityReadingTable() {
-  const currentDate = new Date();
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [rooms, setRooms] = useState<RoomUtilityReading[]>([]);
   const [edits, setEdits] = useState<Record<number, RowEdit>>({});
   const [loading, setLoading] = useState(false);
@@ -147,9 +146,17 @@ export function UtilityReadingTable() {
 
   const filledCount = rooms.filter(r => edits[r.roomId]?.newElec && edits[r.roomId]?.newWater).length;
 
-  const yearOptions = [currentDate.getFullYear(), currentDate.getFullYear() - 1];
-  const maxMonthForSelectedYear = selectedYear === currentDate.getFullYear() ? currentDate.getMonth() + 1 : 12;
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+  
+  const yearOptions = [currentYear, currentYear - 1];
+  // Only allow selecting current month and past months, not future months
+  const maxMonthForSelectedYear = selectedYear === currentYear ? currentMonth : 12;
   const monthOptions = Array.from({ length: maxMonthForSelectedYear }, (_, i) => i + 1);
+
+  // Only allow input for the current month
+  const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
 
   useEffect(() => {
     if (selectedMonth > maxMonthForSelectedYear) {
@@ -195,9 +202,10 @@ export function UtilityReadingTable() {
           <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
             <button
               onClick={handleSaveBatch}
-              disabled={saving || loading}
+              disabled={saving || loading || !isCurrentMonth}
               className="flex items-center rounded transition-colors hover:bg-[var(--brand-surface)]"
-              style={{ padding: '16px 24px', backgroundColor: 'var(--surface-card)', border: '2px solid var(--brand-primary)', color: 'var(--brand-primary)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: 'var(--button-height)', gap: '8px', opacity: saving ? 0.6 : 1 }}
+              style={{ padding: '16px 24px', backgroundColor: 'var(--surface-card)', border: '2px solid var(--brand-primary)', color: 'var(--brand-primary)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: 'var(--button-height)', gap: '8px', opacity: (saving || !isCurrentMonth) ? 0.6 : 1, cursor: !isCurrentMonth ? 'not-allowed' : 'pointer' }}
+              title={!isCurrentMonth ? 'Chỉ có thể nhập chỉ số cho tháng hiện tại' : ''}
             >
               <Save size={20} />
               <span>{saving ? 'Đang lưu...' : 'Lưu chỉ số'}</span>
@@ -277,15 +285,16 @@ export function UtilityReadingTable() {
                         </td>
                         {/* Điện mới */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          {room.elecUsageDetailId ? (
+                          {(isCurrentMonth || room.elecUsageDetailId) ? (
                             <input
                               type="number"
                               step={1}
                               placeholder="Nhập..."
                               value={edit.newElec}
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
+                              disabled={!isCurrentMonth}
                               className="focus:outline-none"
-                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)' }}
+                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: !isCurrentMonth ? 'var(--surface-bg)' : 'white', cursor: !isCurrentMonth ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
                         </td>
@@ -302,15 +311,16 @@ export function UtilityReadingTable() {
                         </td>
                         {/* Nước mới */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          {room.waterUsageDetailId ? (
+                          {(isCurrentMonth || room.waterUsageDetailId) ? (
                             <input
                               type="number"
                               step={1}
                               placeholder="Nhập..."
                               value={edit.newWater}
                               onChange={e => handleInputChange(room.roomId, 'newWater', e.target.value)}
+                              disabled={!isCurrentMonth}
                               className="focus:outline-none"
-                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)' }}
+                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: !isCurrentMonth ? 'var(--surface-bg)' : 'white', cursor: !isCurrentMonth ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
                         </td>

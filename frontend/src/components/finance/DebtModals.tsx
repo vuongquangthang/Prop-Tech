@@ -824,6 +824,7 @@ function InvoiceDetailModal({ debt, onClose }: DebtModalProps) {
                 <span className="text-purple-900 font-bold">{debt?.room} INV-2026-0189</span>
               </div>
             </div>
+            {/* Removed 'Xem lịch sử hóa đơn' button as requested */}
           </div>
 
           {/* QR Code */}
