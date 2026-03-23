@@ -24,6 +24,7 @@ public class CreateResidentDto
 {
     public string FullName { get; set; } = null!;
     public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
     public string? IdCardNumber { get; set; }
     public string? Hometown { get; set; }
     public string? IdCardFrontUrl { get; set; }
@@ -37,6 +38,7 @@ public class UpdateResidentDto
 {
     public string? FullName { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
     public string? IdCardNumber { get; set; }
     public string? Hometown { get; set; }
     public string? IdCardFrontUrl { get; set; }

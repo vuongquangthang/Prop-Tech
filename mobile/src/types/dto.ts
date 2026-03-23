@@ -23,6 +23,11 @@ export interface UserDto {
   residentName?: string;
   role: string;
   residentId?: number;
+  mustChangePassword?: boolean;
+  isLocked?: boolean;
+  email?: string;
+  address?: string;
+  avatarUrl?: string;
 }
 
 // ==================== NOTIFICATION DTOs ====================

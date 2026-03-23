@@ -166,9 +166,13 @@ public class AuthService : IAuthService
             throw new InvalidOperationException("Người dùng không tồn tại");
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+        // Nếu user phải đổi mật khẩu (lần đầu) thì không cần verify mật khẩu cũ
+        if (!user.MustChangePassword)
         {
-            throw new UnauthorizedAccessException("Mật khẩu cũ không đúng");
+            if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+            {
+                throw new UnauthorizedAccessException("Mật khẩu cũ không đúng");
+            }
         }
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);

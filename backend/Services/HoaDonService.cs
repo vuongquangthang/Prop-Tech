@@ -130,7 +130,7 @@ public class HoaDonService : IHoaDonService
     }
 
     /// <summary>
-    /// Tính toán hóa đơn nháp từ chỉ số điện/nước đã chốt
+    /// Tính toán hóa đơn nháp từ chỉ số điện/nước đã chốt và công thức tính hóa đơn của hợp đồng
     /// </summary>
     public async Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month)
     {
@@ -140,7 +140,7 @@ public class HoaDonService : IHoaDonService
         var contracts = await _context.HopDongs
             .Include(hd => hd.Room).ThenInclude(r => r.ChiTietSuDungDichVus).ThenInclude(u => u.Service)
             .Include(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
-            .Where(hd => hd.ChiTietOs.Any())
+            .Where(hd => hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= new DateTime(year, month, 1)))
             .ToListAsync();
 
         using var transaction = await _context.Database.BeginTransactionAsync();
@@ -150,25 +150,22 @@ public class HoaDonService : IHoaDonService
 
             foreach (var contract in contracts)
             {
-                // Kiểm tra hóa đơn đã tồn tại (bao gồm cả "Bị từ chối" để tránh vi phạm unique index)
+                // Kiểm tra hóa đơn đã tồn tại
                 var existingInvoice = await _context.HoaDons
                     .Include(hd => hd.ChiTietHoaDons)
                     .FirstOrDefaultAsync(hd => hd.ContractId == contract.Id && hd.Month == month && hd.Year == year);
 
                 if (existingInvoice != null)
                 {
-                    // Nếu đã approved/paid/unpaid → bỏ qua hoàn toàn
                     if (existingInvoice.Status != "Nháp" && existingInvoice.Status != "Bị từ chối")
                     {
                         result.Skipped++;
                         result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
                         continue;
                     }
-                    // Nếu là Nháp hoặc Bị từ chối → xóa để tạo lại với dữ liệu mới
                     _context.ChiTietHoaDons.RemoveRange(existingInvoice.ChiTietHoaDons);
                     _context.HoaDons.Remove(existingInvoice);
                     await _context.SaveChangesAsync();
-                    result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Tính lại hóa đơn tháng {month}/{year} (trạng thái cũ: {existingInvoice.Status})");
                 }
 
                 var room = contract.Room;
@@ -184,152 +181,152 @@ public class HoaDonService : IHoaDonService
                 var formulaItems = ParseBillingFormula(contract.BillingFormulaJson);
                 var hasFormula = formulaItems.Count > 0;
 
-                // 1. Tiền phòng
-                var rentFormula = formulaItems.FirstOrDefault(i => IsRentFormulaItem(i));
-                var rentUnitPrice = rentFormula?.UnitPrice ?? contract.ActualRentPrice;
-                var rentItem = new ChiTietHoaDon
-                {
-                    ItemType = "TienPhong",
-                    Description = $"Tiền thuê phòng tháng {month}/{year}",
-                    Quantity = 1,
-                    UnitPrice = rentUnitPrice
-                };
-                total += rentUnitPrice;
-                lineItems.Add(rentItem);
-
-                // 2. Tiền điện
-                var elecUsage = activeUsages
-                    .FirstOrDefault(u => IsElectricityService(u.Service));
-                var elecFormula = formulaItems.FirstOrDefault(i => IsElectricityFormulaItem(i));
-                if (elecUsage != null && (!hasFormula || elecFormula != null))
-                {
-                    var prevElec = await _context.ChiSoDiens
-                        .Where(c => c.ServiceUsageDetailId == elecUsage.Id
-                                    && (c.Year < year || (c.Year == year && c.Month < month)))
-                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
-                        .FirstOrDefaultAsync();
-
-                    var currElec = await _context.ChiSoDiens
-                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == elecUsage.Id
-                                                  && c.Month == month && c.Year == year);
-
-                    if (currElec != null)
-                    {
-                        var oldReading = prevElec?.NewReading ?? 0;
-                        var consumption = currElec.NewReading - oldReading;
-                        var unitPrice = elecFormula?.UnitPrice
-                            ?? elecUsage.OverrideUnitPrice
-                            ?? elecUsage.Service.CommonUnitPrice
-                            ?? 0;
-
-                        var elecItem = new ChiTietHoaDon
-                        {
-                            ItemType = "Dien",
-                            ServiceId = elecUsage.ServiceId,
-                            ServiceUsageDetailId = elecUsage.Id,
-                            Description = $"Điện tháng {month}/{year}: {oldReading} → {currElec.NewReading} = {consumption} kWh",
-                            Quantity = consumption,
-                            UnitPrice = unitPrice
-                        };
-                        total += consumption * unitPrice;
-                        lineItems.Add(elecItem);
-                    }
-                    else
-                    {
-                        result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số điện tháng {month}/{year}");
-                    }
-                }
-
-                // 3. Tiền nước
-                var waterUsage = activeUsages
-                    .FirstOrDefault(u => IsWaterService(u.Service));
-                var waterFormula = formulaItems.FirstOrDefault(i => IsWaterFormulaItem(i));
-                if (waterUsage != null && (!hasFormula || waterFormula != null))
-                {
-                    var prevWater = await _context.ChiSoNuocs
-                        .Where(c => c.ServiceUsageDetailId == waterUsage.Id
-                                    && (c.Year < year || (c.Year == year && c.Month < month)))
-                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
-                        .FirstOrDefaultAsync();
-
-                    var currWater = await _context.ChiSoNuocs
-                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == waterUsage.Id
-                                                  && c.Month == month && c.Year == year);
-
-                    if (currWater != null)
-                    {
-                        var oldReading = prevWater?.NewReading ?? 0;
-                        var consumption = currWater.NewReading - oldReading;
-                        var unitPrice = waterFormula?.UnitPrice
-                            ?? waterUsage.OverrideUnitPrice
-                            ?? waterUsage.Service.CommonUnitPrice
-                            ?? 0;
-
-                        var waterItem = new ChiTietHoaDon
-                        {
-                            ItemType = "Nuoc",
-                            ServiceId = waterUsage.ServiceId,
-                            ServiceUsageDetailId = waterUsage.Id,
-                            Description = $"Nước tháng {month}/{year}: {oldReading} → {currWater.NewReading} = {consumption} m³",
-                            Quantity = consumption,
-                            UnitPrice = unitPrice
-                        };
-                        total += consumption * unitPrice;
-                        lineItems.Add(waterItem);
-                    }
-                    else
-                    {
-                        result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số nước tháng {month}/{year}");
-                    }
-                }
-
-                // 4. Các dịch vụ khác (không phải điện/nước)
                 if (hasFormula)
                 {
-                    var manualServiceItems = formulaItems
-                        .Where(i => IsGeneralServiceFormulaItem(i))
-                        .OrderBy(i => i.SortOrder)
-                        .ToList();
-
-                    foreach (var formula in manualServiceItems)
+                    // LÀM THEO CÔNG THỨC (PHẢI CÓ ĐIỆN NƯỚC NẾU CÔNG THỨC CÓ n)
+                    foreach (var item in formulaItems.OrderBy(i => i.SortOrder))
                     {
-                        var usage = activeUsages.FirstOrDefault(u => u.ServiceId == formula.ServiceId);
-                        var serviceName = usage?.Service?.Name ?? formula.ServiceName;
-                        var qty = formula.Quantity ?? 1;
+                        ChiTietHoaDon? lineItem = null;
 
-                        var svcItem = new ChiTietHoaDon
+                        if (IsRentFormulaItem(item))
                         {
-                            ItemType = "DichVu",
-                            ServiceId = formula.ServiceId,
-                            ServiceUsageDetailId = usage?.Id,
-                            Description = serviceName,
-                            Quantity = qty,
-                            UnitPrice = formula.UnitPrice
-                        };
-                        total += qty * formula.UnitPrice;
-                        lineItems.Add(svcItem);
+                            lineItem = new ChiTietHoaDon
+                            {
+                                ItemType = "TienPhong",
+                                Description = $"Tiền thuê phòng tháng {month}/{year}",
+                                Quantity = 1,
+                                UnitPrice = item.UnitPrice
+                            };
+                        }
+                        else if (item.QuantityExpression == "n")
+                        {
+                            // Meter reading (Electricity or Water)
+                            if (IsElectricityFormulaItem(item))
+                            {
+                                var elecUsage = activeUsages.FirstOrDefault(u => IsElectricityService(u.Service));
+                                if (elecUsage != null)
+                                {
+                                    var prev = await _context.ChiSoDiens
+                                        .Where(c => c.ServiceUsageDetailId == elecUsage.Id && (c.Year < year || (c.Year == year && c.Month < month)))
+                                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
+                                    var curr = await _context.ChiSoDiens
+                                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == elecUsage.Id && c.Month == month && c.Year == year);
+
+                                    if (curr != null)
+                                    {
+                                        var oldReading = prev?.NewReading ?? 0;
+                                        var consumption = curr.NewReading - oldReading;
+                                        lineItem = new ChiTietHoaDon
+                                        {
+                                            ItemType = "Dien",
+                                            ServiceId = item.ServiceId,
+                                            ServiceUsageDetailId = elecUsage.Id,
+                                            Description = $"Điện tháng {month}/{year}: {oldReading} → {curr.NewReading} = {consumption} kWh",
+                                            Quantity = consumption,
+                                            UnitPrice = item.UnitPrice
+                                        };
+                                    }
+                                    else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số điện tháng {month}/{year}");
+                                }
+                                else result.Warnings.Add($"Phòng {room.RoomCode}: Có công thức tính điện nhưng không tìm thấy dịch vụ điện đang hoạt động");
+                            }
+                            else if (IsWaterFormulaItem(item))
+                            {
+                                var waterUsage = activeUsages.FirstOrDefault(u => IsWaterService(u.Service));
+                                if (waterUsage != null)
+                                {
+                                    var prev = await _context.ChiSoNuocs
+                                        .Where(c => c.ServiceUsageDetailId == waterUsage.Id && (c.Year < year || (c.Year == year && c.Month < month)))
+                                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
+                                    var curr = await _context.ChiSoNuocs
+                                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == waterUsage.Id && c.Month == month && c.Year == year);
+
+                                    if (curr != null)
+                                    {
+                                        var oldReading = prev?.NewReading ?? 0;
+                                        var consumption = curr.NewReading - oldReading;
+                                        lineItem = new ChiTietHoaDon
+                                        {
+                                            ItemType = "Nuoc",
+                                            ServiceId = item.ServiceId,
+                                            ServiceUsageDetailId = waterUsage.Id,
+                                            Description = $"Nước tháng {month}/{year}: {oldReading} → {curr.NewReading} = {consumption} m³",
+                                            Quantity = consumption,
+                                            UnitPrice = item.UnitPrice
+                                        };
+                                    }
+                                    else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số nước tháng {month}/{year}");
+                                }
+                                else result.Warnings.Add($"Phòng {room.RoomCode}: Có công thức tính nước nhưng không tìm thấy dịch vụ nước đang hoạt động");
+                            }
+                        }
+                        else
+                        {
+                            // Fixed quantity
+                            var usage = item.ServiceId.HasValue ? activeUsages.FirstOrDefault(u => u.ServiceId == item.ServiceId) : null;
+                            lineItem = new ChiTietHoaDon
+                            {
+                                ItemType = item.ItemType == "TienPhong" ? "TienPhong" : (item.ItemType == "Dien" || item.ItemType == "Nuoc" ? item.ItemType : "DichVu"),
+                                ServiceId = item.ServiceId,
+                                ServiceUsageDetailId = usage?.Id,
+                                Description = item.ServiceName,
+                                Quantity = item.Quantity ?? 1,
+                                UnitPrice = item.UnitPrice
+                            };
+                        }
+
+                        if (lineItem != null)
+                        {
+                            lineItems.Add(lineItem);
+                            total += (lineItem.Quantity ?? 0) * (lineItem.UnitPrice ?? 0);
+                        }
+                    }
+
+                    // Kiểm tra xem có dịch vụ nào đang dùng mà không có trong công thức không
+                    var formulaServiceIds = formulaItems.Where(i => i.ServiceId.HasValue).Select(i => i.ServiceId!.Value).ToHashSet();
+                    var missingServices = activeUsages.Where(u => !formulaServiceIds.Contains(u.ServiceId)).ToList();
+                    if (missingServices.Any())
+                    {
+                        var names = string.Join(", ", missingServices.Select(u => u.Service?.Name ?? "Dịch vụ"));
+                        result.Warnings.Add($"Phòng {room.RoomCode}: Các dịch vụ đang dùng nhưng thiếu trong công thức: {names}");
                     }
                 }
                 else
                 {
-                    var otherServices = activeUsages
-                        .Where(u => !IsElectricityService(u.Service) && !IsWaterService(u.Service))
-                        .ToList();
-                    foreach (var svc in otherServices)
+                    // FALLBACK: LÀM THEO CÁCH CŨ NẾU KHÔNG CÓ CÔNG THỨC
+                    // 1. Tiền phòng
+                    lineItems.Add(new ChiTietHoaDon { ItemType = "TienPhong", Description = $"Tiền thuê phòng tháng {month}/{year}", Quantity = 1, UnitPrice = contract.ActualRentPrice });
+                    total += contract.ActualRentPrice;
+
+                    // 2. Điện/Nước/Dịch vụ khác từ activeUsages
+                    foreach (var usage in activeUsages)
                     {
-                        var unitPrice = svc.OverrideUnitPrice ?? svc.Service.CommonUnitPrice ?? 0;
-                        var qty = svc.Quantity ?? 1;
-                        var svcItem = new ChiTietHoaDon
+                        var unitPrice = usage.OverrideUnitPrice ?? usage.Service.CommonUnitPrice ?? 0;
+                        if (IsElectricityService(usage.Service))
                         {
-                            ItemType = "DichVu",
-                            ServiceId = svc.ServiceId,
-                            ServiceUsageDetailId = svc.Id,
-                            Description = svc.Service.Name,
-                            Quantity = qty,
-                            UnitPrice = unitPrice
-                        };
-                        total += qty * unitPrice;
-                        lineItems.Add(svcItem);
+                            var prev = await _context.ChiSoDiens.Where(c => c.ServiceUsageDetailId == usage.Id && (c.Year < year || (c.Year == year && c.Month < month))).OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
+                            var curr = await _context.ChiSoDiens.FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usage.Id && c.Month == month && c.Year == year);
+                            if (curr != null) {
+                                var cons = curr.NewReading - (prev?.NewReading ?? 0);
+                                lineItems.Add(new ChiTietHoaDon { ItemType = "Dien", ServiceId = usage.ServiceId, ServiceUsageDetailId = usage.Id, Description = $"Điện tháng {month}/{year}: {prev?.NewReading ?? 0} → {curr.NewReading} = {cons} kWh", Quantity = cons, UnitPrice = unitPrice });
+                                total += cons * unitPrice;
+                            } else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số điện tháng {month}/{year}");
+                        }
+                        else if (IsWaterService(usage.Service))
+                        {
+                            var prev = await _context.ChiSoNuocs.Where(c => c.ServiceUsageDetailId == usage.Id && (c.Year < year || (c.Year == year && c.Month < month))).OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
+                            var curr = await _context.ChiSoNuocs.FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usage.Id && c.Month == month && c.Year == year);
+                            if (curr != null) {
+                                var cons = curr.NewReading - (prev?.NewReading ?? 0);
+                                lineItems.Add(new ChiTietHoaDon { ItemType = "Nuoc", ServiceId = usage.ServiceId, ServiceUsageDetailId = usage.Id, Description = $"Nước tháng {month}/{year}: {prev?.NewReading ?? 0} → {curr.NewReading} = {cons} m³", Quantity = cons, UnitPrice = unitPrice });
+                                total += cons * unitPrice;
+                            } else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số nước tháng {month}/{year}");
+                        }
+                        else {
+                            var qty = usage.Quantity ?? 1;
+                            lineItems.Add(new ChiTietHoaDon { ItemType = "DichVu", ServiceId = usage.ServiceId, ServiceUsageDetailId = usage.Id, Description = usage.Service.Name, Quantity = qty, UnitPrice = unitPrice });
+                            total += qty * unitPrice;
+                        }
                     }
                 }
 
@@ -896,7 +893,8 @@ public class HoaDonService : IHoaDonService
 
         try
         {
-            var items = JsonSerializer.Deserialize<List<ContractBillingFormulaItem>>(json);
+            var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+            var items = JsonSerializer.Deserialize<List<ContractBillingFormulaItem>>(json, options);
             return items ?? new List<ContractBillingFormulaItem>();
         }
         catch

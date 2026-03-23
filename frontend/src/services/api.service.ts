@@ -60,7 +60,8 @@ export interface Contract {
   deposit?: number;
   depositAmount?: number;
   paymentDayOfMonth?: number;
-  billingFormulaJson?: string;
+  billingFormulaJson?: string;  // camelCase from API (if properly serialized)
+  BillingFormulaJson?: string;  // PascalCase from API (fallback)
   status?: string;
   terminatedDate?: string;
   notes?: string;

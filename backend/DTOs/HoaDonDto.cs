@@ -86,6 +86,7 @@ public class CalculateInvoiceResultDto
     public int Skipped { get; set; }
     public List<string> SkippedReasons { get; set; } = new();
     public List<string> Errors { get; set; } = new();
+    public List<string> Warnings { get; set; } = new();
 }
 
 /// <summary>

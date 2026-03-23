@@ -65,6 +65,7 @@ public class CreateChiTietODto
     public int ResidentId { get; set; }
     public string ResidencyRole { get; set; } = "Người thuê"; // Người thuê chính, Người ở cùng, Khác
     public DateTime FromDate { get; set; }
+    public string? Email { get; set; } // Email của cư dân (sẽ được lưu trong User)
 }
 
 /// <summary>

@@ -136,6 +136,12 @@ public class HopDongService : IHopDongService
                 FromDate = residentDto.FromDate
             };
             await _chiTietORepository.AddAsync(chiTietO);
+
+            // Create or update user account with email if provided
+            if (!string.IsNullOrWhiteSpace(residentDto.Email))
+            {
+                await EnsureResidentAccountWithEmailAsync(residentDto.ResidentId, residentDto.Email);
+            }
         }
         await _chiTietORepository.SaveChangesAsync();
 
@@ -342,7 +348,8 @@ public class HopDongService : IHopDongService
             })
             .ToList();
 
-        return JsonSerializer.Serialize(normalized);
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        return JsonSerializer.Serialize(normalized, options);
     }
 
     private async Task EnsureResidentAccountAsync(int residentId)
@@ -390,6 +397,73 @@ public class HopDongService : IHopDongService
         var user = new User
         {
             PhoneNumber = phone,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
+            Role = "CuDan",
+            ResidentId = residentId,
+            IsLocked = false,
+            MustChangePassword = true
+        };
+
+        await _userRepository.AddAsync(user);
+        await _userRepository.SaveChangesAsync();
+    }
+
+    private async Task EnsureResidentAccountWithEmailAsync(int residentId, string email)
+    {
+        var resident = await _residentRepository.GetByIdAsync(residentId);
+        if (resident == null)
+        {
+            throw new InvalidOperationException($"Không tìm thấy cư dân ID {residentId}");
+        }
+
+        var phone = (resident.PhoneNumber ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            // If no phone, cannot create account - email alone is not sufficient for login
+            return;
+        }
+
+        var existingByResident = await _userRepository.FirstOrDefaultAsync(u => u.ResidentId == residentId);
+        if (existingByResident != null)
+        {
+            // Update email if user account already exists
+            if (string.IsNullOrWhiteSpace(existingByResident.Email))
+            {
+                existingByResident.Email = email.Trim();
+                _userRepository.Update(existingByResident);
+                await _userRepository.SaveChangesAsync();
+            }
+            return;
+        }
+
+        var existingByPhone = await _userRepository.GetByPhoneNumberAsync(phone);
+        if (existingByPhone != null)
+        {
+            if (!string.Equals(existingByPhone.Role, "CuDan", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Số điện thoại {phone} đang thuộc tài khoản hệ thống khác");
+            }
+
+            if (existingByPhone.ResidentId.HasValue && existingByPhone.ResidentId.Value != residentId)
+            {
+                throw new InvalidOperationException($"Số điện thoại {phone} đã được gắn với cư dân khác");
+            }
+
+            existingByPhone.ResidentId = residentId;
+            existingByPhone.Email = email.Trim();
+            existingByPhone.IsLocked = false;
+            existingByPhone.MustChangePassword = true;
+            _userRepository.Update(existingByPhone);
+            await _userRepository.SaveChangesAsync();
+            return;
+        }
+
+        // Create new user account with email
+        var defaultPassword = "123456";
+        var user = new User
+        {
+            PhoneNumber = phone,
+            Email = email.Trim(),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
             Role = "CuDan",
             ResidentId = residentId,

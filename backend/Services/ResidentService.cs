@@ -18,10 +18,12 @@ public interface IResidentService
 public class ResidentService : IResidentService
 {
     private readonly IResidentRepository _residentRepository;
+    private readonly IUserRepository _userRepository;
 
-    public ResidentService(IResidentRepository residentRepository)
+    public ResidentService(IResidentRepository residentRepository, IUserRepository userRepository)
     {
         _residentRepository = residentRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<List<ResidentDto>> GetAllAsync()
@@ -105,6 +107,13 @@ public class ResidentService : IResidentService
 
         await _residentRepository.AddAsync(resident);
         await _residentRepository.SaveChangesAsync();
+
+        // Handle Email (Store in User table)
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            await EnsureResidentAccountWithEmailAsync(resident.Id, dto.Email);
+        }
+
         return MapToDto(resident);
     }
 
@@ -145,7 +154,58 @@ public class ResidentService : IResidentService
 
         _residentRepository.Update(resident);
         await _residentRepository.SaveChangesAsync();
+
+        // Handle Email (Update in User table)
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            await EnsureResidentAccountWithEmailAsync(resident.Id, dto.Email);
+        }
+
         return MapToDto(resident);
+    }
+
+    private async Task EnsureResidentAccountWithEmailAsync(int residentId, string email)
+    {
+        var resident = await _residentRepository.GetByIdAsync(residentId);
+        if (resident == null) return;
+
+        var phone = (resident.PhoneNumber ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(phone)) return;
+
+        var existingByResident = await _userRepository.FirstOrDefaultAsync(u => u.ResidentId == residentId);
+        if (existingByResident != null)
+        {
+            existingByResident.Email = email.Trim();
+            _userRepository.Update(existingByResident);
+            await _userRepository.SaveChangesAsync();
+            return;
+        }
+
+        var existingByPhone = await _userRepository.GetByPhoneNumberAsync(phone);
+        if (existingByPhone != null)
+        {
+            existingByPhone.ResidentId = residentId;
+            existingByPhone.Email = email.Trim();
+            _userRepository.Update(existingByPhone);
+            await _userRepository.SaveChangesAsync();
+            return;
+        }
+
+        // Create new user account
+        var defaultPassword = "123456";
+        var user = new User
+        {
+            PhoneNumber = phone,
+            Email = email.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
+            Role = "CuDan",
+            ResidentId = residentId,
+            IsLocked = false,
+            MustChangePassword = true
+        };
+
+        await _userRepository.AddAsync(user);
+        await _userRepository.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(int id)

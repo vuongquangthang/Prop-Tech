@@ -39,6 +39,7 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       clearError();
       await login(phoneNumber.trim(), password);
+      // Navigation will be handled by RootNavigator based on user.mustChangePassword
     } catch (err: any) {
       const isNetworkError = !err.response;
       Alert.alert(

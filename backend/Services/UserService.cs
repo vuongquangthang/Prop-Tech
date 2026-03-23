@@ -77,7 +77,7 @@ namespace backend.Services
                 Role = dto.Role,
                 ResidentId = dto.ResidentId,
                 IsLocked = false,
-                MustChangePassword = string.Equals(dto.Role, "CuDan", StringComparison.OrdinalIgnoreCase)
+                MustChangePassword = true // Bắt buộc đổi mật khẩu khi đăng nhập lần đầu
             };
 
             await _userRepository.AddAsync(user);

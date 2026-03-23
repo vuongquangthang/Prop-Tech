@@ -2,6 +2,8 @@ using backend.Data;
 using backend.DTOs;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
 
 namespace backend.Services;
 
@@ -58,13 +60,17 @@ public class UtilityReadingService : IUtilityReadingService
 
             // Tìm usage detail cho điện có hiệu lực trong kỳ (ServiceId = 1)
             var elecUsage = room.ChiTietSuDungDichVus
-                .Where(u => u.ServiceId == 1 && u.ApplyFrom <= periodEnd && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+                .Where(u => IsElectricityService(u.Service)
+                            && u.ApplyFrom <= periodEnd
+                            && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                 .OrderByDescending(u => u.ApplyFrom)
                 .FirstOrDefault();
 
-            // Tìm usage detail cho nước có hiệu lực trong kỳ (ServiceId = 2)
+            // Tìm usage detail cho nước có hiệu lực trong kỳ
             var waterUsage = room.ChiTietSuDungDichVus
-                .Where(u => u.ServiceId == 2 && u.ApplyFrom <= periodEnd && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+                .Where(u => IsWaterService(u.Service)
+                            && u.ApplyFrom <= periodEnd
+                            && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                 .OrderByDescending(u => u.ApplyFrom)
                 .FirstOrDefault();
 
@@ -160,8 +166,15 @@ public class UtilityReadingService : IUtilityReadingService
                 // Ghi chỉ số điện
                 if (dto.NewElecReading.HasValue)
                 {
+                    // Use the same logic as invoice calculation: get service active during the period
+                    var periodStart = new DateTime(dto.Year, dto.Month, 1);
+                    var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
                     var elecUsage = room.ChiTietSuDungDichVus
-                        .FirstOrDefault(u => u.ServiceId == 1 && u.ApplyTo == null);
+                        .Where(u => IsElectricityService(u.Service)
+                                    && u.ApplyFrom <= periodEnd 
+                                    && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+                        .OrderByDescending(u => u.ApplyFrom)
+                        .FirstOrDefault();
 
                     if (elecUsage == null)
                     {
@@ -210,8 +223,15 @@ public class UtilityReadingService : IUtilityReadingService
                 // Ghi chỉ số nước
                 if (dto.NewWaterReading.HasValue)
                 {
+                    // Use the same logic as invoice calculation: get service active during the period
+                    var periodStart = new DateTime(dto.Year, dto.Month, 1);
+                    var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
                     var waterUsage = room.ChiTietSuDungDichVus
-                        .FirstOrDefault(u => u.ServiceId == 2 && u.ApplyTo == null);
+                        .Where(u => IsWaterService(u.Service)
+                                    && u.ApplyFrom <= periodEnd 
+                                    && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+                        .OrderByDescending(u => u.ApplyFrom)
+                        .FirstOrDefault();
 
                     if (waterUsage == null)
                     {
@@ -267,5 +287,46 @@ public class UtilityReadingService : IUtilityReadingService
 
         await _context.SaveChangesAsync();
         return result;
+    }
+
+    private static bool IsElectricityService(Service? service)
+    {
+        if (service == null) return false;
+
+        var type = NormalizeKey(service.ServiceType);
+        var name = NormalizeKey(service.Name);
+
+        return type is "dien" or "electricity" or "electric"
+            || name.Contains("dien")
+            || name.Contains("electric");
+    }
+
+    private static bool IsWaterService(Service? service)
+    {
+        if (service == null) return false;
+
+        var type = NormalizeKey(service.ServiceType);
+        var name = NormalizeKey(service.Name);
+
+        return type is "nuoc" or "water"
+            || name.Contains("nuoc")
+            || name.Contains("water");
+    }
+
+    private static string NormalizeKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(c == 'đ' ? 'd' : c);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }

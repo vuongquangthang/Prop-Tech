@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
@@ -32,12 +32,18 @@ const MainStack = () => {
 };
 
 export const RootNavigator = () => {
-  const { isAuthenticated, isLoading, loadUser } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const loadUserFromStore = useAuthStore((state) => state.loadUser);
+
+  // Memoize loadUser to prevent unnecessary re-renders
+  const loadUser = useCallback(() => {
+    loadUserFromStore();
+  }, [loadUserFromStore]);
 
   useEffect(() => {
     // Load user from storage on app start
     loadUser();
-  }, []);
+  }, [loadUser]);
 
   // SignalR connection management
   useEffect(() => {
@@ -67,7 +73,8 @@ export const RootNavigator = () => {
           };
         })
         .catch((error) => {
-          console.error('SignalR connection failed:', error);
+          console.error('SignalR connection failed, but continuing app:', error);
+          // Don't logout user if SignalR fails - app should still work
         });
     } else {
       console.log('User not authenticated, disconnecting from SignalR...');
@@ -91,7 +98,15 @@ export const RootNavigator = () => {
 
   return (
     <NavigationContainer>
-      {isAuthenticated ? <MainStack /> : <AuthStack />}
+      {isAuthenticated ? (
+        user?.mustChangePassword ? (
+          <AuthStack initialRouteName="ForceChangePassword" />
+        ) : (
+          <MainStack />
+        )
+      ) : (
+        <AuthStack initialRouteName="Login" />
+      )}
     </NavigationContainer>
   );
 };
