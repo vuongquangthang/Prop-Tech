@@ -31,8 +31,7 @@ public class YeuCauSuaChua
     public string? Description { get; set; }
 
     [Column("MEDIA_URL")]
-    [StringLength(500)]
-    public string? MediaUrl { get; set; }
+    public string? MediaUrls { get; set; } // JSON string array of image URLs
 
     [Required]
     [StringLength(50)]

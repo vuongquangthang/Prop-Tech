@@ -9,7 +9,8 @@ export interface MaintenanceRequest {
   userName?: string;
   issueType: string;
   description?: string;
-  mediaUrl?: string;
+  mediaUrls?: string; // JSON string array
+  imageUrls?: string[]; // Parsed array (helper)
   status: 'Chờ xử lý' | 'Đang xử lý' | 'Chờ nghiệm thu' | 'Hoàn thành' | 'Từ chối' | 'Yêu cầu sửa lại' | 'Đã đóng';
   adminNote?: string;
   completionImageUrl?: string;
@@ -22,7 +23,7 @@ export interface CreateMaintenanceRequest {
   roomId?: number; // Optional - backend will auto-detect from user's residency
   issueType: string;
   description?: string;
-  mediaUrl?: string;
+  mediaUrls?: string; // JSON string array of URLs
 }
 
 export interface UpdateMaintenanceRequest {

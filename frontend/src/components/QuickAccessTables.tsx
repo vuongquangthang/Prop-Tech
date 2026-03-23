@@ -1,11 +1,11 @@
-﻿import { Send, MessageSquare, AlertCircle, X, ChevronRight, CheckCircle } from 'lucide-react';
+﻿import { Send, AlertCircle, X, ChevronRight } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSignalRRefresh } from '../lib/useSignalRRefresh';
 import { useNavigate } from 'react-router';
 import { useSearch } from '../contexts/SearchContext';
 import { HighlightText } from './HighlightText';
 import { invoiceService, Invoice } from '../services/api.service';
-import { maintenanceService, MaintenanceRequest, knowledgeService, KnowledgeBase } from '../services/feature.service';
+import { maintenanceService, MaintenanceRequest } from '../services/feature.service';
 
 interface OverdueInvoice {
   id: string;
@@ -55,13 +55,10 @@ const mapMaintenance = (req: MaintenanceRequest): NewIssue => {
 export function QuickAccessTables() {
   const [overdueInvoices, setOverdueInvoices] = useState<OverdueInvoice[]>([]);
   const [newIssues, setNewIssues] = useState<NewIssue[]>([]);
-  const [pendingKBItems, setPendingKBItems] = useState<KnowledgeBase[]>([]);
   const [totalUnpaid, setTotalUnpaid] = useState(0);
   const [totalIssues, setTotalIssues] = useState(0);
   const [reminderModal, setReminderModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const [answerModal, setAnswerModal] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] = useState<any>(null);
   
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [reminderMessage, setReminderMessage] = useState('');
@@ -85,12 +82,6 @@ export function QuickAccessTables() {
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setTotalIssues(newOnes.length);
         setNewIssues(newOnes.map(mapMaintenance));
-      })
-      .catch(() => {});
-
-    knowledgeService.getAll()
-      .then(data => {
-        setPendingKBItems(data.filter(kb => !kb.isActive));
       })
       .catch(() => {});
   }, []);
@@ -130,15 +121,6 @@ export function QuickAccessTables() {
       issue.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [searchTerm, newIssues]);
-
-  const filteredUnansweredQuestions = useMemo(() => {
-    if (!searchTerm) return pendingKBItems;
-    const term = searchTerm.toLowerCase();
-    return pendingKBItems.filter(kb =>
-      (kb.category ?? '').toLowerCase().includes(term) ||
-      kb.title.toLowerCase().includes(term),
-    );
-  }, [searchTerm, pendingKBItems]);
 
   const getDefaultReminderMessage = (invoice: OverdueInvoice) =>
     `Kính gửi ${invoice.tenant},\n\nChúng tôi ghi nhận hóa đơn phòng ${invoice.room} còn nợ ${invoice.amount} VNĐ và đã quá hạn ${invoice.daysLate} ngày.\n\nVui lòng thanh toán trong thời gian sớm nhất để tránh ảnh hưởng các dịch vụ liên quan.\n\nTrân trọng,\nBan quản lý`;
@@ -327,8 +309,8 @@ export function QuickAccessTables() {
           </div>
         </div>
 
-        {/* Two Column Layout for Secondary Priorities */}
-        <div className="grid grid-cols-2" style={{ gap: 'var(--space-layout)' }}>
+        {/* Secondary Priority Layout */}
+        <div className="grid grid-cols-1" style={{ gap: 'var(--space-layout)' }}>
           {/* Priority 2: New Issues - MEDIUM PRIORITY (Orange, Lighter) */}
           <div className="bg-surface-card rounded" style={{ border: '1px solid #FED7AA', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             <div className="px-5 py-4" style={{ borderBottom: '1px solid #FED7AA', backgroundColor: '#FFF7ED' }}>
@@ -338,7 +320,7 @@ export function QuickAccessTables() {
                     <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
                   </div>
                   <div>
-                    <h2 style={{ fontSize: '22px', color: 'var(--text-primary)', fontWeight: 700 }}>Sự cố chờ xử lý</h2>
+                    <h2 style={{ fontSize: 'var(--type-section-title)', color: 'var(--text-primary)', fontWeight: 600 }}>Sự cố chờ xử lý</h2>
                     <p style={{ fontSize: 'var(--type-caption)', color: 'var(--warning)' }}>{newIssues.length} sự cố{totalIssues > newIssues.length ? ` (Còn ${totalIssues - newIssues.length} nữa)` : ''}</p>
                   </div>
                 </div>
@@ -389,83 +371,6 @@ export function QuickAccessTables() {
             </div>
           </div>
 
-          {/* Priority 3: Questions Need Approval - LOW PRIORITY (Gray/Blue accent) */}
-          <div className="bg-surface-card rounded" style={{ border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
-            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-border)', backgroundColor: 'var(--brand-surface)' }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center" style={{ gap: '12px' }}>
-                  <div className="w-10 h-10 rounded flex items-center justify-center" style={{ backgroundColor: '#BFDBFE' }}>
-                    <MessageSquare size={20} style={{ color: 'var(--brand-primary)' }} />
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: '22px', color: 'var(--text-primary)', fontWeight: 700 }}>Câu hỏi cần phê duyệt</h2>
-                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{pendingKBItems.length} câu</p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-end">
-                <button 
-                  onClick={() => navigate('/knowledge-base')}
-                  className="rounded transition-colors flex items-center" 
-                  style={{ 
-                    padding: '8px 16px',
-                    backgroundColor: 'var(--surface-card)',
-                    border: '2px solid var(--brand-primary)',
-                    color: 'var(--brand-primary)',
-                    fontSize: 'var(--type-caption)',
-                    fontWeight: 600,
-                    borderRadius: 'var(--radius-button)',
-                    gap: '4px'
-                  }}
-                >
-                  <span>Xem tất cả</span>
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-            <div style={{ padding: '20px' }}>
-              <table className="w-full" style={{ tableLayout: 'fixed' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
-                    <th style={{ textAlign: 'left', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, width: '100px' }}>Danh mục</th>
-                    <th style={{ textAlign: 'left', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, paddingLeft: '20px' }}>Tiêu đề</th>
-                    <th style={{ textAlign: 'center', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', paddingBottom: '12px', fontWeight: 700, width: '110px' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUnansweredQuestions.map((kb, index) => (
-                    <tr key={kb.id ?? index} style={{ borderBottom: '1px solid var(--surface-border)' }}>
-                      <td style={{ paddingTop: '16px', paddingBottom: '16px', fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 700, width: '100px' }}>
-                        <HighlightText text={kb.category ?? '—'} searchTerm={searchTerm} />
-                      </td>
-                      <td style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '20px', paddingRight: '12px', fontSize: 'var(--type-body)', color: 'var(--text-primary)' }}>
-                        <HighlightText text={kb.title} searchTerm={searchTerm} />
-                      </td>
-                      <td style={{ paddingTop: '16px', paddingBottom: '16px', textAlign: 'center', width: '110px' }}>
-                        <button 
-                          onClick={() => {
-                            setSelectedQuestion(kb);
-                            setAnswerModal(true);
-                          }}
-                          className="rounded transition-colors"
-                          style={{ 
-                            padding: '8px 16px',
-                            backgroundColor: 'var(--brand-primary)',
-                            color: 'var(--text-on-color)',
-                            fontSize: 'var(--type-caption)',
-                            fontWeight: 600,
-                            borderRadius: 'var(--radius-button)'
-                          }}
-                        >
-                          Phê duyệt
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -573,123 +478,6 @@ export function QuickAccessTables() {
                 >
                   <Send size={20} />
                   <span>{sendingReminder ? 'Đang gửi...' : 'Gửi tin nhắn'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Answer Question Modal */}
-      {answerModal && selectedQuestion && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-surface-card" style={{ 
-            borderRadius: 'var(--radius-large)', 
-            width: '700px',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <div className="flex items-center justify-between" style={{ 
-              borderBottom: '1px solid var(--surface-border)', 
-              padding: 'var(--space-card)'
-            }}>
-              <div className="flex items-center" style={{ gap: '12px' }}>
-                <MessageSquare size={24} style={{ color: 'var(--brand-primary)' }} />
-                <h3 style={{ fontSize: 'var(--type-section-title)', color: 'var(--text-primary)', fontWeight: 600 }}>Phê duyệt câu trả lời & Lưu vào kho tri thức</h3>
-              </div>
-              <button onClick={() => setAnswerModal(false)} className="p-2 hover:bg-[var(--brand-surface)] rounded transition-colors">
-                <X size={20} style={{ color: 'var(--text-secondary)' }} />
-              </button>
-            </div>
-            <div style={{ padding: 'var(--space-card)', display: 'flex', flexDirection: 'column', gap: 'var(--space-between)' }}>
-              <div className="bg-blue-50 border border-blue-300 rounded p-4">
-                <p style={{ fontSize: 'var(--type-caption)', color: '#1e40af', marginBottom: '4px' }}>Danh mục: {selectedQuestion.category ?? '—'}</p>
-                <p style={{ fontSize: 'var(--type-body)', color: '#1e3a8a', fontWeight: 600 }}>{selectedQuestion.title}</p>
-              </div>
-
-              <div>
-                <label className="block" style={{ fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '8px' }}>Danh mục *</label>
-                <select 
-                  className="w-full focus:outline-none" 
-                  style={{
-                    padding: '14px 16px',
-                    fontSize: 'var(--type-body)',
-                    border: '1px solid var(--surface-border)',
-                    borderRadius: 'var(--radius-button)',
-                    backgroundColor: 'var(--surface-card)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--input-height)'
-                  }}
-                  defaultValue={selectedQuestion.category ?? 'Khác'}
-                >
-                  <option>Nội quy</option>
-                  <option>Dịch vụ</option>
-                  <option>Phí dịch vụ</option>
-                  <option>Thủ tục</option>
-                  <option>Tiện ích</option>
-                  <option>Khác</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block" style={{ fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '8px' }}>Câu trả lời *</label>
-                <textarea 
-                  rows={6}
-                  placeholder="Nhập câu trả lời chi tiết. Câu trả lời này sẽ được lưu vào kho tri thức để AI chatbot tự động trả lời cho các câu hỏi tương tự trong tương lai..."
-                  className="w-full focus:outline-none"
-                  style={{
-                    padding: '12px 16px',
-                    fontSize: 'var(--type-body)',
-                    border: '1px solid var(--surface-border)',
-                    borderRadius: 'var(--radius-button)',
-                    backgroundColor: 'var(--surface-card)',
-                    color: 'var(--text-primary)',
-                    lineHeight: 1.5
-                  }}
-                />
-              </div>
-
-              <div className="bg-green-50 border border-green-300 rounded p-3">
-                <div className="flex items-start space-x-2">
-                  <input type="checkbox" id="autoReply" className="w-4 h-4 mt-0.5" defaultChecked />
-                  <label htmlFor="autoReply" style={{ fontSize: 'var(--type-caption)', color: '#15803d' }}>
-                    Tự động gửi câu trả lời này cho cư dân qua chatbot và train AI để tự trả lời các câu tương tự
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end" style={{ gap: 'var(--space-between)', paddingTop: 'var(--space-between)', borderTop: '1px solid var(--surface-border)' }}>
-                <button 
-                  onClick={() => setAnswerModal(false)}
-                  className="rounded transition-colors"
-                  style={{
-                    padding: '16px 24px',
-                    backgroundColor: 'var(--surface-card)',
-                    border: '2px solid var(--surface-border)',
-                    color: 'var(--text-primary)',
-                    fontSize: 'var(--type-body)',
-                    fontWeight: 600,
-                    borderRadius: 'var(--radius-button)',
-                    height: 'var(--button-height)',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
-                >
-                  Hủy
-                </button>
-                <button className="rounded transition-colors flex items-center" style={{
-                  padding: '16px 24px',
-                  backgroundColor: 'var(--brand-primary)',
-                  color: 'var(--text-on-color)',
-                  fontSize: 'var(--type-body)',
-                  fontWeight: 600,
-                  borderRadius: 'var(--radius-button)',
-                  height: 'var(--button-height)',
-                  gap: '8px',
-                  border: 'none'
-                }}>
-                  <CheckCircle size={20} />
-                  <span>Phê duyệt & Lưu</span>
                 </button>
               </div>
             </div>

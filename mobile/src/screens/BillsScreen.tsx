@@ -16,7 +16,7 @@ import invoiceService, { Invoice } from '../services/invoice.service';
 import signalRService from '../services/signalr.service';
 
 export default function BillsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -219,7 +219,7 @@ export default function BillsScreen() {
                   status={getStatusDisplay(invoice)}
                   amount={invoiceService.formatCurrency(invoice.totalAmount)}
                   isActive={invoice.status === 'Chưa thanh toán'}
-                  onPress={() => navigation.navigate('BillDetail' as never, { id: invoice.id } as never)}
+                  onPress={() => navigation.navigate('BillDetail', { id: invoice.id })}
                 />
               </View>
             );

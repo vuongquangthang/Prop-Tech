@@ -33,13 +33,38 @@ public class FileController : ControllerBase
                 return BadRequest(new { message = "Không có file được tải lên" });
             }
 
-            // Validate file type (images only)
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension))
+            // Validate file type (images only). Mobile uploads may use HEIC/HEIF or omit file extension.
+            var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                return BadRequest(new { message = "Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, webp)" });
+                ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"
+            };
+            var allowedMimeTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"
+            };
+
+            var extension = Path.GetExtension(file.FileName);
+            var mimeType = (file.ContentType ?? string.Empty).Split(';')[0].Trim();
+
+            if (string.IsNullOrWhiteSpace(extension) && allowedMimeTypes.Contains(mimeType))
+            {
+                extension = mimeType switch
+                {
+                    "image/png" => ".png",
+                    "image/gif" => ".gif",
+                    "image/webp" => ".webp",
+                    "image/heic" => ".heic",
+                    "image/heif" => ".heif",
+                    _ => ".jpg"
+                };
             }
+
+            if (!allowedExtensions.Contains(extension) && !allowedMimeTypes.Contains(mimeType))
+            {
+                return BadRequest(new { message = "Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, webp, heic, heif)" });
+            }
+
+            extension = string.IsNullOrWhiteSpace(extension) ? ".jpg" : extension.ToLowerInvariant();
 
             // Validate file size (max 5MB)
             if (file.Length > 5 * 1024 * 1024)

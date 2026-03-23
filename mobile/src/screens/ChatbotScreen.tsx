@@ -115,12 +115,33 @@ export default function ChatbotScreen() {
     setIsTyping(true);
 
     try {
-      const response = await apiService.post<any>('/api/Chat/send', { messageText: userMessageText });
+      // Call n8n RAG webhook directly
+      const response = await fetch('https://lhdpo.app.n8n.cloud/webhook/5e56a263-3a40-44bd-bc9d-1cfb3bc2a87d/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chatInput: userMessageText }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network error');
+      }
+
+      const data = await response.json();
+      
+      // Handle various response formats from n8n
+      const botResponseText = 
+        data?.text || 
+        data?.message || 
+        data?.response || 
+        data?.output || 
+        (typeof data === 'string' ? data : 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?');
 
       const botMessage: Message = {
-        id: String(response.id),
+        id: String(response.headers.get('date') || Date.now()),
         type: 'bot',
-        text: response.messageText || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?',
+        text: botResponseText,
       };
       setMessages(prev => [...prev, botMessage]);
     } catch (error: any) {

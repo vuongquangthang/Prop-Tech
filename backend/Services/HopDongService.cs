@@ -136,12 +136,6 @@ public class HopDongService : IHopDongService
                 FromDate = residentDto.FromDate
             };
             await _chiTietORepository.AddAsync(chiTietO);
-
-            // Create or update user account with email if provided
-            if (!string.IsNullOrWhiteSpace(residentDto.Email))
-            {
-                await EnsureResidentAccountWithEmailAsync(residentDto.ResidentId, residentDto.Email);
-            }
         }
         await _chiTietORepository.SaveChangesAsync();
 
@@ -157,12 +151,22 @@ public class HopDongService : IHopDongService
             .Where(IsAutoAssignableDefaultService)
             .ToList();
 
-        var primaryResidentId = dto.Residents
-            .FirstOrDefault(r => r.ResidencyRole == "Người thuê chính")?.ResidentId
-            ?? dto.Residents.FirstOrDefault(r => r.ResidencyRole == "Người thuê")?.ResidentId
-            ?? dto.Residents.First().ResidentId;
+        var primaryResident = dto.Residents
+            .FirstOrDefault(r => r.ResidencyRole == "Người thuê chính" || r.ResidencyRole == "Chủ hộ" || r.ResidencyRole == "Chủ phòng")
+            ?? dto.Residents.FirstOrDefault(r => r.ResidencyRole == "Người thuê")
+            ?? dto.Residents.First();
 
-        await EnsureResidentAccountAsync(primaryResidentId);
+        var primaryResidentId = primaryResident.ResidentId;
+
+        // Only auto-create account for the primary resident (room owner/household head).
+        if (!string.IsNullOrWhiteSpace(primaryResident.Email))
+        {
+            await EnsureResidentAccountWithEmailAsync(primaryResidentId, primaryResident.Email);
+        }
+        else
+        {
+            await EnsureResidentAccountAsync(primaryResidentId);
+        }
 
         if (defaultServices.Count > 0)
         {

@@ -1,6 +1,6 @@
 ﻿import { X, Plus, Upload, Edit, Trash2, FileText, AlertTriangle, Check, FolderPlus, Settings } from 'lucide-react';
 import { useState } from 'react';
-import { knowledgeService } from '../../services/feature.service';
+import { knowledgeService, n8nService } from '../../services/feature.service';
 
 interface KnowledgeModalProps {
   knowledge?: any;
@@ -375,10 +375,7 @@ export function DeleteKnowledgeModal({ knowledge, onClose }: KnowledgeModalProps
 export function UploadFileModal({ onClose }: { onClose: () => void }) {
   const [uploadStep, setUploadStep] = useState<'upload' | 'processing' | 'result' | 'error'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [category, setCategory] = useState('Nội quy');
-  const [autoActivate, setAutoActivate] = useState(true);
   const [dragOver, setDragOver] = useState(false);
-  const [result, setResult] = useState<{ fileName: string; totalExtracted: number; activated: number; entries: Array<{ id: number; title: string; content: string; category: string }> } | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = { current: null as HTMLInputElement | null };
 
@@ -410,8 +407,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
     if (!selectedFile) return;
     setUploadStep('processing');
     try {
-      const data = await knowledgeService.uploadDocument(selectedFile, category, autoActivate);
-      setResult(data);
+      await n8nService.uploadDocument(selectedFile);
       setUploadStep('result');
     } catch (err: any) {
       setErrorMsg(err?.message || 'Đã xảy ra lỗi khi xử lý file');
@@ -441,7 +437,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 space-y-4">
           <div className="bg-blue-50 border border-blue-300 rounded p-4">
             <p className="text-sm text-blue-800">
-              📄 <strong>Hỗ trợ:</strong> PDF, DOCX, DOC, TXT • <strong>Tối đa:</strong> 10MB • Hệ thống sẽ trích xuất từng đoạn văn bản thành mục tri thức riêng.
+              📄 <strong>Hỗ trợ:</strong> PDF, DOCX, DOC, TXT • <strong>Tối đa:</strong> 10MB • Tài liệu sẽ được đồng bộ với hệ thống RAG AI.
             </p>
           </div>
 
@@ -477,53 +473,25 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                   </>
                 )}
               </div>
-
-              {/* Settings */}
-              <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-3">
-                <h4 className="text-sm text-gray-700 font-bold">Cài đặt nhập tri thức:</h4>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Danh mục mặc định</label>
-                  <select
-                    value={category}
-                    onChange={e => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
-                  >
-                    <option value="Nội quy">🏢 Nội quy</option>
-                    <option value="Thủ tục hành chính">📋 Thủ tục hành chính</option>
-                    <option value="Giá dịch vụ">💰 Giá dịch vụ</option>
-                    <option value="Tài chính">💳 Tài chính</option>
-                    <option value="Kỹ thuật">🔧 Kỹ thuật</option>
-                    <option value="Tiện ích">🏊 Tiện ích</option>
-                    <option value="An ninh">🔐 An ninh</option>
-                    <option value="Khác">📌 Khác</option>
-                  </select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700 font-bold">Kích hoạt ngay sau khi xử lý</p>
-                    <p className="text-xs text-gray-500">AI sẽ sử dụng ngay, không cần duyệt thủ công</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoActivate}
-                      onChange={e => setAutoActivate(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
-                  </label>
-                </div>
-              </div>
             </>
           )}
 
-          {/* Processing step */}
+          {/* Processing step - syncing with AI */}
           {uploadStep === 'processing' && (
-            <div className="py-8 text-center">
-              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-lg text-gray-800 font-bold">Đang xử lý file...</p>
-              <p className="text-sm text-gray-600 mt-2">"{selectedFile?.name}"</p>
-              <p className="text-xs text-gray-500 mt-1">Vui lòng đợi trong giây lát</p>
+            <div className="py-8 text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="relative w-16 h-16">
+                  <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 border-r-blue-600 rounded-full animate-spin"></div>
+                </div>
+              </div>
+              <div>
+                <p className="text-lg text-gray-800 font-bold">Đang đồng bộ dữ liệu với AI...</p>
+                <p className="text-sm text-gray-600 mt-2">"{selectedFile?.name}"</p>
+                <p className="text-xs text-gray-500 mt-2 px-4">
+                  Hệ thống RAG đang xử lý tài liệu của bạn. Đây là quá trình tự động, không cần trích xuất thủ công.
+                </p>
+              </div>
             </div>
           )}
 
@@ -532,62 +500,31 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
             <div className="bg-red-50 border border-red-300 rounded p-4 flex items-start space-x-3">
               <AlertTriangle size={24} className="text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-red-800 font-bold mb-1">Xử lý thất bại</p>
+                <p className="text-sm text-red-800 font-bold mb-1">Đồng bộ thất bại</p>
                 <p className="text-sm text-red-700">{errorMsg}</p>
               </div>
             </div>
           )}
 
-          {/* Result step */}
-          {uploadStep === 'result' && result && (
-            <>
-              <div className="bg-green-50 border border-green-300 rounded p-4 flex items-start space-x-3">
-                <Check size={24} className="text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-green-800 font-bold mb-1">Xử lý thành công!</p>
-                  <p className="text-sm text-green-700">
-                    Đã trích xuất <strong>{result.totalExtracted} mục tri thức</strong> từ "{result.fileName}"
-                    {result.activated > 0 && <> • <strong>{result.activated} mục đã kích hoạt</strong></>}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white border border-gray-300 rounded p-3 text-center">
-                  <p className="text-2xl text-blue-600 font-bold">{result.totalExtracted}</p>
-                  <p className="text-xs text-gray-600">Mục tri thức mới</p>
-                </div>
-                <div className="bg-white border border-gray-300 rounded p-3 text-center">
-                  <p className="text-2xl text-green-600 font-bold">{result.activated}</p>
-                  <p className="text-xs text-gray-600">Đã kích hoạt</p>
-                </div>
-                <div className="bg-white border border-gray-300 rounded p-3 text-center">
-                  <p className="text-2xl text-yellow-600 font-bold">{result.totalExtracted - result.activated}</p>
-                  <p className="text-xs text-gray-600">Chờ duyệt</p>
-                </div>
-              </div>
-
-              {result.entries.length > 0 && (
-                <div className="bg-white border border-gray-300 rounded">
-                  <div className="border-b border-gray-300 px-4 py-3">
-                    <h4 className="text-sm text-gray-800 font-bold">
-                      Xem trước {Math.min(5, result.entries.length)} mục đầu:
-                    </h4>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto divide-y divide-gray-200">
-                    {result.entries.slice(0, 5).map((entry, idx) => (
-                      <div key={idx} className="p-3">
-                        <div className="flex items-start justify-between mb-1">
-                          <p className="text-sm text-gray-800 font-bold flex-1 line-clamp-2">{entry.title}</p>
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-300 ml-2 shrink-0">{entry.category}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 line-clamp-2">{entry.content}</p>
-                      </div>
-                    ))}
+          {/* Result step - upload successful */}
+          {uploadStep === 'result' && (
+            <div className="bg-green-50 border border-green-300 rounded p-6 flex items-start space-x-4 text-center">
+              <div className="flex-1">
+                <div className="flex justify-center mb-3">
+                  <div className="bg-green-600 rounded-full p-3">
+                    <Check size={32} className="text-white" />
                   </div>
                 </div>
-              )}
-            </>
+                <p className="text-lg text-green-800 font-bold mb-2">Đồng bộ thành công!</p>
+                <p className="text-sm text-green-700">
+                  Tài liệu <strong>"{selectedFile?.name}"</strong> đã được gửi tới hệ thống RAG AI. 
+                  Hệ thống sẽ xử lý và cập nhật database tri thức trong vài giây.
+                </p>
+                <p className="text-xs text-green-600 mt-3 px-4 py-2 bg-green-100 rounded">
+                  💡 Bạn có thể đóng cửa sổ này. Tài liệu sẽ được hệ thống xử lý ở phía sau.
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
@@ -610,13 +547,13 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2 disabled:opacity-40"
               >
                 <Upload size={16} />
-                <span>Bắt đầu xử lý</span>
+                <span>Bắt đầu đồng bộ</span>
               </button>
             </>
           )}
           {uploadStep === 'processing' && (
             <button disabled className="px-4 py-2 bg-gray-400 text-white text-sm rounded cursor-not-allowed">
-              Đang xử lý...
+              Đang đồng bộ...
             </button>
           )}
           {uploadStep === 'result' && (

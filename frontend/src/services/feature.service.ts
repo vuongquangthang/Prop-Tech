@@ -104,7 +104,8 @@ export interface MaintenanceRequest {
   userName?: string;
   issueType: string;
   description?: string;
-  mediaUrl?: string;
+  mediaUrls?: string; // JSON string array
+  imageUrls?: string[]; // Parsed array (helper)
   status: string;
   adminNote?: string;
   completionImageUrl?: string;
@@ -173,6 +174,71 @@ export const reportService = {
 };
 
 // Chat Services
+/**
+ * N8N Integration Service
+ * Direct communication with n8n RAG system
+ */
+export const n8nService = {
+  // Upload documents to n8n form endpoint for RAG processing
+  uploadDocument: async (file: File): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(
+        'https://lhdpo.app.n8n.cloud/form/00211f43-8279-4906-81f9-1b0b97d8646b',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+      
+      return { success: true, message: 'Tài liệu đã được đồng bộ với AI' };
+    } catch (error: any) {
+      console.error('N8N upload error:', error);
+      throw new Error(error?.message || 'Lỗi khi đồng bộ tài liệu với AI');
+    }
+  },
+
+  // Send chat message to n8n RAG webhook
+  sendChatMessage: async (message: string): Promise<{ text: string }> => {
+    try {
+      const response = await fetch(
+        'https://lhdpo.app.n8n.cloud/webhook/5e56a263-3a40-44bd-bc9d-1cfb3bc2a87d/chat',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ chatInput: message }),
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Chat request failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      // Handle various response formats from n8n
+      const text = 
+        data?.text || 
+        data?.message || 
+        data?.response || 
+        data?.output || 
+        (typeof data === 'string' ? data : 'Không có câu trả lời từ AI');
+      
+      return { text };
+    } catch (error: any) {
+      console.error('N8N chat error:', error);
+      throw new Error(error?.message || 'Lỗi khi gửi tin nhắn tới AI');
+    }
+  },
+};
+
 export const chatService = {
   getHistory: async (limit: number = 100) => {
     try {
@@ -219,13 +285,11 @@ export const chatService = {
     }
   },
 
-
+  // Send message to n8n RAG system
   sendMessage: async (messageText: string) => {
     try {
-      const response = await api.post<ChatMessage>(API_ENDPOINTS.CHAT.SEND, {
-        messageText,
-      });
-      return response.data;
+      const response = await n8nService.sendChatMessage(messageText);
+      return { messageText: response.text };
     } catch (error) {
       throw new Error(handleApiError(error));
     }

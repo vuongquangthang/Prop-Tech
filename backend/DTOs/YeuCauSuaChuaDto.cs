@@ -12,8 +12,17 @@ public class YeuCauSuaChuaDto
     public string? UserName { get; set; }
     public string IssueType { get; set; } = null!;
     public string? Description { get; set; }
-    public string? MediaUrl { get; set; }
-    public string Status { get; set; } = "Chờ xử lý"; // Chờ xử lý, Đang xử lý, Hoàn thành, Từ chối
+    public string? MediaUrls { get; set; } // JSON string array
+    public List<string> ImageUrls 
+    { 
+        get 
+        {
+            if (string.IsNullOrEmpty(MediaUrls)) return new List<string>();
+            try { return System.Text.Json.JsonSerializer.Deserialize<List<string>>(MediaUrls) ?? new List<string>(); }
+            catch { return new List<string>(); }
+        }
+    }
+    public string Status { get; set; } = "Chờ xử lý";
     public string? AdminNote { get; set; }
     public string? CompletionImageUrl { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -29,7 +38,7 @@ public class CreateYeuCauSuaChuaDto
     public int? RoomId { get; set; } // Optional - nếu null sẽ tự động lấy từ residency hiện tại
     public string IssueType { get; set; } = null!;
     public string? Description { get; set; }
-    public string? MediaUrl { get; set; }
+    public string? MediaUrls { get; set; } // JSON string array of image URLs
 }
 
 /// <summary>

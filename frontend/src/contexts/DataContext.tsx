@@ -12,6 +12,7 @@ export interface Incident {
   location: string;
   description: string;
   imageUrl?: string;
+  mediaUrls?: string;
   status: 'pending' | 'in-progress' | 'review' | 'resolved';
   priority: 'low' | 'medium' | 'high';
   reportedBy: string;
@@ -105,13 +106,29 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // Helper to convert backend maintenance to frontend incident
 function mapMaintenanceToIncident(maintenance: any): Incident {
+  let firstImageUrl: string | undefined;
+  const mediaUrlsRaw = maintenance.mediaUrls as string | undefined;
+
+  if (mediaUrlsRaw) {
+    try {
+      const parsed = JSON.parse(mediaUrlsRaw) as string[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        firstImageUrl = parsed[0];
+      }
+    } catch
+    {
+      // Ignore invalid JSON and fall back to legacy field
+    }
+  }
+
   return {
     id: maintenance.id?.toString() || '',
     title: maintenance.issueType || 'Không có tiêu đề',
     category: maintenance.issueType || 'other',
     location: maintenance.roomNumber || `Room ${maintenance.roomId}`,
     description: maintenance.description || '',
-    imageUrl: maintenance.mediaUrl,
+    imageUrl: firstImageUrl || maintenance.mediaUrl,
+    mediaUrls: mediaUrlsRaw,
     status: mapMaintenanceStatus(maintenance.status),
     priority: 'medium', // Backend doesn't have priority field
     reportedBy: maintenance.userName || `User ${maintenance.userId}`,
@@ -317,6 +334,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     fetchData();
 
+    // Fallback auto refresh every 60s even if realtime connection is unstable.
+    const refreshTimer = setInterval(() => {
+      fetchData().catch(() => {});
+    }, 60000);
+
     // Initialize SignalR for real-time updates
     initializeSignalR().then(() => {
       // Listen for new notifications
@@ -439,6 +461,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     // Cleanup on unmount
     return () => {
+      clearInterval(refreshTimer);
       disconnectSignalR();
     };
   }, [isAuthenticated, authLoading]);

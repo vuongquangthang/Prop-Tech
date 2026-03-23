@@ -9,11 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
 import { API_BASE_URL } from '../services/api.service';
+import signalRService from '../services/signalr.service';
 
 export default function IssueDetailScreen() {
   const navigation = useNavigation();
@@ -24,9 +27,34 @@ export default function IssueDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadRequestDetail();
+  }, [id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadRequestDetail();
+    }, [id])
+  );
+
+  useEffect(() => {
+    const unsubscribe = signalRService.onMaintenanceUpdate((update: any) => {
+      if (String(update?.id) === String(id)) {
+        loadRequestDetail();
+      }
+    });
+
+    return unsubscribe;
+  }, [id]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      loadRequestDetail();
+    }, 30000);
+
+    return () => clearInterval(timer);
   }, [id]);
 
   const loadRequestDetail = async () => {
@@ -118,6 +146,22 @@ export default function IssueDetailScreen() {
     return new Date(dateStr).toLocaleString('vi-VN');
   };
 
+  const resolveImageUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${API_BASE_URL}${url}`;
+  };
+
+  const beforeImages = (() => {
+    if (!request?.mediaUrls) return [] as string[];
+    try {
+      const urls = JSON.parse(request.mediaUrls) as string[];
+      return Array.isArray(urls) ? urls : [];
+    } catch {
+      return [] as string[];
+    }
+  })();
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -199,16 +243,24 @@ export default function IssueDetailScreen() {
           </>
         )}
 
-        {request.mediaUrl && (
+        {beforeImages.length > 0 && (
           <>
             <View style={styles.divider} />
             <Text style={styles.sectionTitle}>Ảnh trước khi sửa</Text>
             <View style={styles.imageContainer}>
-              <Image
-                source={{ uri: `${API_BASE_URL}${request.mediaUrl}` }}
-                style={styles.completionImage}
-                resizeMode="cover"
-              />
+              {beforeImages.map((url, index) => (
+                <TouchableOpacity
+                  key={`${url}-${index}`}
+                  activeOpacity={0.9}
+                  onPress={() => setPreviewImageUrl(resolveImageUrl(url))}
+                >
+                  <Image
+                    source={{ uri: resolveImageUrl(url) }}
+                    style={[styles.completionImage, index > 0 ? { marginTop: 8 } : null]}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
               <Text style={styles.imageNote}>Ảnh do cư dân gửi kèm khi báo sự cố</Text>
             </View>
           </>
@@ -272,11 +324,16 @@ export default function IssueDetailScreen() {
           <>
             <Text style={styles.sectionTitle}>Ảnh kết quả</Text>
             <View style={styles.imageContainer}>
-              <Image 
-                source={{ uri: `${API_BASE_URL}${request.completionImageUrl}` }}
-                style={styles.completionImage}
-                resizeMode="cover"
-              />
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setPreviewImageUrl(resolveImageUrl(request.completionImageUrl))}
+              >
+                <Image 
+                  source={{ uri: resolveImageUrl(request.completionImageUrl) }}
+                  style={styles.completionImage}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
               <Text style={styles.imageNote}>BQL đã gửi ảnh kết quả xử lý</Text>
             </View>
           </>
@@ -309,6 +366,19 @@ export default function IssueDetailScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={!!previewImageUrl} transparent animationType="fade" onRequestClose={() => setPreviewImageUrl(null)}>
+        <Pressable style={styles.previewOverlay} onPress={() => setPreviewImageUrl(null)}>
+          <View style={styles.previewHeader}>
+            <TouchableOpacity onPress={() => setPreviewImageUrl(null)}>
+              <Ionicons name="close" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          {previewImageUrl && (
+            <Image source={{ uri: previewImageUrl }} style={styles.previewImage} resizeMode="contain" />
+          )}
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -425,27 +495,27 @@ const styles = StyleSheet.create({
   activeDot: {
     backgroundColor: '#3B82F6',
   },
-  timelineContent: {
-    flex: 1,
-  },
-  timelineText: {
-    fontSize: 14,
-    color: '#4B5563',
-    lineHeight: 20,
   inactiveDot: {
     backgroundColor: '#D1D5DB',
   },
+  timelineContent: {
+    flex: 1,
   },
-  resultCard: {
-    backgroundColor: '#F9FAFB',
   timelineTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
     marginBottom: 2,
   },
+  timelineText: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
+  },
+  resultCard: {
+    backgroundColor: '#F9FAFB',
     borderWidth: 1,
-    fontSize: 13,
+    borderColor: '#E5E7EB',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -520,5 +590,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  previewHeader: {
+    position: 'absolute',
+    top: 44,
+    right: 20,
+    zIndex: 2,
+  },
+  previewImage: {
+    width: '100%',
+    height: '82%',
   },
 });

@@ -29,7 +29,7 @@ public class ChatService : IChatService
     private readonly IHttpClientFactory _httpClientFactory;
 
     private const string N8nWebhookUrl =
-        "https://lhdpo.app.n8n.cloud/webhook/4091fa09-fb9a-4039-9411-7104d213f601/chat";
+        "https://lhdpo.app.n8n.cloud/webhook/5e56a263-3a40-44bd-bc9d-1cfb3bc2a87d/chat";
 
     public ChatService(
         ILichSuChatRepository chatRepository,

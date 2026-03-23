@@ -1,6 +1,6 @@
-import { Plus, Search, Edit2, Lock, UserCheck, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit2, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { AddResidentModal, EditResidentModal, LockAccountModal, UnlockAccountModal } from './ResidentTableModals';
+import { AddResidentModal, EditResidentModal } from './ResidentTableModals';
 import { residentService } from '../../services/api.service';
 
 interface ResidentData {
@@ -28,8 +28,6 @@ export function ResidentTable() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showLockModal, setShowLockModal] = useState(false);
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [selectedResident, setSelectedResident] = useState<any>(null);
 
   useEffect(() => {
@@ -72,15 +70,6 @@ export function ResidentTable() {
   const handleEditClick = (resident: any) => {
     setSelectedResident(resident);
     setShowEditModal(true);
-  };
-
-  const handleLockClick = (resident: any) => {
-    setSelectedResident(resident);
-    if (resident.status === 'active') {
-      setShowLockModal(true);
-    } else {
-      setShowUnlockModal(true);
-    }
   };
 
   return (
@@ -180,16 +169,9 @@ export function ResidentTable() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center space-x-2">
+                      <div className="flex items-center justify-center">
                         <button className="p-2 hover:bg-gray-100 rounded" title="Sửa thông tin" onClick={() => handleEditClick(resident)}>
                           <Edit2 size={16} className="text-gray-600" />
-                        </button>
-                        <button className="p-2 hover:bg-gray-100 rounded" title={resident.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'} onClick={() => handleLockClick(resident)}>
-                          {resident.status === 'active' ? (
-                            <Lock size={16} className="text-gray-600" />
-                          ) : (
-                            <UserCheck size={16} className="text-gray-600" />
-                          )}
                         </button>
                       </div>
                     </td>
@@ -213,22 +195,6 @@ export function ResidentTable() {
         <EditResidentModal 
           resident={selectedResident} 
           onClose={() => setShowEditModal(false)}
-          onSuccess={fetchResidents}
-        />
-      )}
-
-      {showLockModal && selectedResident && (
-        <LockAccountModal 
-          resident={selectedResident} 
-          onClose={() => setShowLockModal(false)}
-          onSuccess={fetchResidents}
-        />
-      )}
-
-      {showUnlockModal && selectedResident && (
-        <UnlockAccountModal 
-          resident={selectedResident} 
-          onClose={() => setShowUnlockModal(false)}
           onSuccess={fetchResidents}
         />
       )}

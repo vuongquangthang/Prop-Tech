@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { IssueCard } from '../components/IssueCard';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
+import signalRService from '../services/signalr.service';
 
 export default function IssuesScreen() {
   const navigation = useNavigation();
@@ -50,6 +51,22 @@ export default function IssuesScreen() {
       loadRequests();
     }, [])
   );
+
+  useEffect(() => {
+    const unsubscribe = signalRService.onMaintenanceUpdate(() => {
+      loadRequests();
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      loadRequests();
+    }, 30000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const getFilteredRequests = () => {
     if (selectedTab === 'all') return requests;

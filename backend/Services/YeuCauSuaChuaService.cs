@@ -180,7 +180,7 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             UserId = userId,
             IssueType = dto.IssueType,
             Description = dto.Description,
-            MediaUrl = dto.MediaUrl,
+            MediaUrls = dto.MediaUrls,
             Status = "Chờ xử lý",
             UpdatedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
@@ -415,7 +415,7 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             UserName = user?.PhoneNumber,
             IssueType = request.IssueType,
             Description = request.Description,
-            MediaUrl = request.MediaUrl,
+            MediaUrls = request.MediaUrls,
             Status = request.Status,
             AdminNote = request.AdminNote,
             CompletionImageUrl = request.CompletionImageUrl,

@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { X, Send, CheckCircle, AlertTriangle, User, ArrowRight, Clock, ChevronRight } from 'lucide-react';
+import { X, Send, CheckCircle, AlertTriangle, User, Clock, ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 
@@ -142,7 +142,6 @@ function InfoRow({ label, value, bold }: { label: string; value: React.ReactNode
 function LineItemCard({ item }: { item: LineItem }) {
   const label = ITEM_LABELS[item.itemType] || item.itemType;
   const lines = item.description ? item.description.split('\n') : [];
-  const hasUtilityLink = item.itemType === 'Dien' || item.itemType === 'DienNang' || item.itemType === 'Nuoc';
 
   return (
     <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px 14px', marginBottom: '8px' }}>
@@ -157,14 +156,6 @@ function LineItemCard({ item }: { item: LineItem }) {
       ))}
       {item.unit && (
         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{item.unit}</div>
-      )}
-      {hasUtilityLink && (
-        <button
-          style={{ marginTop: '6px', fontSize: '12px', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '3px' }}
-        >
-          <ArrowRight size={11} />
-          {item.itemType === 'Nuoc' ? 'Xem lịch sử chốt nước' : 'Xem lịch sử chốt điện'}
-        </button>
       )}
     </div>
   );

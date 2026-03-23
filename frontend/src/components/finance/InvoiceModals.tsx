@@ -204,9 +204,6 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                       </div>
                       <p className="text-sm text-gray-800 font-bold">700.000</p>
                     </div>
-                    <button className="text-xs text-blue-700 hover:underline">
-                      → Xem lịch sử chốt điện
-                    </button>
                   </div>
 
                   {/* Water */}
@@ -221,9 +218,6 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                       </div>
                       <p className="text-sm text-gray-800 font-bold">275.000</p>
                     </div>
-                    <button className="text-xs text-blue-700 hover:underline">
-                      → Xem lịch sử chốt nước
-                    </button>
                   </div>
 
                   {/* Internet */}
@@ -273,7 +267,7 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                 </div>
 
                 <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 Đơn giá từ <strong>Dịch vụ & Đơn giá</strong>, Chỉ số từ <strong>Chốt chỉ số Điện/Nước</strong>
+                  🔗 Đơn giá và chỉ số được cập nhật tự động từ hệ thống vận hành.
                 </p>
               </div>
 

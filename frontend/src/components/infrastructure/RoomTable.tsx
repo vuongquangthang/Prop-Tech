@@ -63,6 +63,13 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [deleteRoom, setDeleteRoom] = useState<RoomData | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showCannotDeleteModal, setShowCannotDeleteModal] = useState(false);
+  const [blockedDeleteRoom, setBlockedDeleteRoom] = useState<RoomData | null>(null);
+
+  const isRentedRoomStatus = (status: string) => {
+    const s = (status || '').trim().toLowerCase();
+    return s === 'rented' || s === 'da thue' || s === 'đã thuê';
+  };
 
   useEffect(() => {
     fetchRooms();
@@ -203,6 +210,12 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   };
 
   const openDeleteModal = (room: RoomData) => {
+    if (isRentedRoomStatus(room.status)) {
+      setBlockedDeleteRoom(room);
+      setShowCannotDeleteModal(true);
+      return;
+    }
+
     setDeleteRoom(room); setDeleteError(null); setShowDeleteModal(true);
   };
 
@@ -446,6 +459,33 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
               <button onClick={handleDeleteSubmit} disabled={deleteLoading || deleteRoom.status === 'rented' || deleteRoom.status === 'Đã thuê'} className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2">
                 {deleteLoading && <Loader2 size={14} className="animate-spin" />}<span>Xác nhận xóa</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCannotDeleteModal && blockedDeleteRoom && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-[500px]">
+            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg text-gray-800">Không thể xóa phòng</h3>
+              <button onClick={() => setShowCannotDeleteModal(false)} className="p-1 hover:bg-gray-100 rounded"><X size={20} className="text-gray-600" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-start space-x-3 bg-orange-50 border border-orange-300 rounded p-4">
+                <AlertTriangle size={24} className="text-orange-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-orange-800 font-bold mb-1">Phòng đang ở trạng thái Đã thuê.</p>
+                  <p className="text-sm text-orange-700">Bạn không thể xóa phòng này. Vui lòng tất toán hợp đồng và chuyển phòng về trạng thái Trống trước.</p>
+                </div>
+              </div>
+              <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-1">
+                <p className="text-sm text-gray-800"><strong>Mã phòng:</strong> {blockedDeleteRoom.code}</p>
+                <p className="text-sm text-gray-800"><strong>Trạng thái:</strong> {blockedDeleteRoom.status}</p>
+              </div>
+            </div>
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end">
+              <button onClick={() => setShowCannotDeleteModal(false)} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">Đã hiểu</button>
             </div>
           </div>
         </div>

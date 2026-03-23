@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useNavigation } from '@react-navigation/native';
 import maintenanceService from '../services/maintenance.service';
 import apiService from '../services/api.service';
@@ -75,11 +76,20 @@ export default function ReportIssueScreen() {
     const urls: string[] = [];
     const axiosInst = apiService.getAxiosInstance();
 
-    for (const img of selectedImages) {
+    for (let index = 0; index < selectedImages.length; index++) {
+      const img = selectedImages[index];
       const formData = new FormData();
-      const filename = img.fileName || `photo_${Date.now()}.jpg`;
-      const mime = img.mimeType || 'image/jpeg';
-      formData.append('file', { uri: img.uri, name: filename, type: mime } as any);
+
+      // Convert to JPEG first so every uploaded image can be rendered consistently
+      // across Android/iOS/web (avoids HEIC/HEIF compatibility issues).
+      const converted = await manipulateAsync(
+        img.uri,
+        [],
+        { compress: 0.82, format: SaveFormat.JPEG }
+      );
+
+      const filename = `photo_${Date.now()}_${index + 1}.jpg`;
+      formData.append('file', { uri: converted.uri, name: filename, type: 'image/jpeg' } as any);
 
       const res = await axiosInst.post<{ url: string }>('/api/File/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -104,12 +114,13 @@ export default function ReportIssueScreen() {
       setIsSubmitting(true);
 
       // Upload images first if any selected
-      let mediaUrl: string | undefined;
+      let mediaUrls: string | undefined;
       if (selectedImages.length > 0) {
         setIsUploading(true);
         try {
           const urls = await uploadImages();
-          mediaUrl = urls[0]; // Backend stores single mediaUrl
+          // Store all URLs as JSON array
+          mediaUrls = JSON.stringify(urls);
         } finally {
           setIsUploading(false);
         }
@@ -118,7 +129,7 @@ export default function ReportIssueScreen() {
       await maintenanceService.create({
         issueType: selectedType,
         description: description.trim(),
-        mediaUrl,
+        mediaUrls,
       });
 
       Alert.alert(

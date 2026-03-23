@@ -1,5 +1,8 @@
 ﻿import { X, Eye, Send, Ban, User, Home, DollarSign, Calendar, AlertTriangle, Check, FileText, Users, Clock, Bell, Lock, Unlock } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../../lib/api-client';
+import { API_ENDPOINTS } from '../../lib/api-config';
+import { InvoiceDetailModal as InvoiceRealtimeDetailModal } from './InvoiceDetailModal';
 
 interface DebtModalProps {
   debt?: any;
@@ -7,16 +10,86 @@ interface DebtModalProps {
 }
 
 export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
-  const [showContractModal, setShowContractModal] = useState(false);
+  const [invoice, setInvoice] = useState<any>(null);
+  const [reminders, setReminders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [showTransactionHistoryModal, setShowTransactionHistoryModal] = useState(false);
   const [showSendReminderModal, setShowSendReminderModal] = useState(false);
   const [showBlockAccountModal, setShowBlockAccountModal] = useState(false);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const fetchDetail = async () => {
+      if (!debt?.invoiceId) {
+        setError('Không tìm thấy hóa đơn cho công nợ này.');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [invoiceRes, remindersRes] = await Promise.allSettled([
+          api.get(API_ENDPOINTS.INVOICES.BY_ID(debt.invoiceId)),
+          api.get(API_ENDPOINTS.DEBT_REMINDERS.BY_INVOICE(debt.invoiceId)),
+        ]);
+
+        if (disposed) return;
+
+        if (invoiceRes.status === 'fulfilled') {
+          setInvoice(invoiceRes.value.data);
+        } else {
+          setError('Không thể tải chi tiết hóa đơn từ hệ thống.');
+        }
+
+        if (remindersRes.status === 'fulfilled') {
+          const sorted = [...(remindersRes.value.data || [])].sort(
+            (a: any, b: any) => new Date(b.reminderTime).getTime() - new Date(a.reminderTime).getTime()
+          );
+          setReminders(sorted);
+        } else {
+          setReminders([]);
+        }
+      } catch {
+        if (!disposed) {
+          setError('Không thể tải dữ liệu chi tiết công nợ.');
+        }
+      } finally {
+        if (!disposed) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchDetail();
+    return () => {
+      disposed = true;
+    };
+  }, [debt?.invoiceId]);
+
+  const period = invoice?.month && invoice?.year
+    ? `${String(invoice.month).padStart(2, '0')}/${invoice.year}`
+    : '—';
+
+  const dueDateText = invoice?.dueDate
+    ? new Date(invoice.dueDate).toLocaleDateString('vi-VN')
+    : '—';
+
+  const statusText = invoice?.status || 'Chưa xác định';
+  const totalAmount = Number(invoice?.totalAmount ?? debt?.amount ?? 0);
+  const paidAmount = Number(invoice?.paidAmount ?? 0);
+  const remainingAmount = Number(invoice?.remainingAmount ?? (totalAmount - paidAmount));
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString('vi-VN') + ' VNĐ';
 
   return (
     <>
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-[1000px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg w-[920px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
             <Eye size={20} className="text-gray-800" />
@@ -27,432 +100,85 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
           </button>
         </div>
         
-        <div className="p-6 space-y-6">
-          {/* Status Alert */}
-          {debt?.daysLate >= 30 && (
-            <div className="bg-red-50 border-2 border-red-400 rounded p-4 flex items-start space-x-3">
-              <AlertTriangle size={28} className="text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm text-red-800 font-bold mb-2">🚨 CẢNH BÁO NGHIÊM TRỌNG - ĐÃ QUÁ 30 NGÀY!</p>
-                <p className="text-sm text-red-700 mb-2">
-                  Phòng này đã nợ <strong>{debt?.daysLate} ngày</strong> với tổng số tiền <strong>{debt?.amount} VNĐ</strong>. 
-                  Đã gửi <strong>{debt?.reminderLevel} lần nhắc nợ</strong> nhưng chưa thanh toán.
-                </p>
-                <div className="bg-red-100 border border-red-300 rounded p-3 mt-2">
-                  <p className="text-sm text-red-800 font-bold mb-1">⚡ Hành động khẩn cấp:</p>
-                  <ul className="text-sm text-red-700 space-y-1 ml-4">
-                    <li>• <strong>Khóa tài khoản App</strong> cho tất cả 4 người</li>
-                    <li>• <strong>Gửi thông báo cứng</strong> về khả năng chấm dứt hợp đồng</li>
-                    <li>• <strong>Cân nhắc buộc thôi thuê</strong> nếu không thanh toán trong 7 ngày</li>
-                  </ul>
+        <div className="p-6 space-y-5">
+          {loading && (
+            <div className="bg-gray-50 border border-gray-300 rounded p-8 text-center text-gray-600">
+              Đang tải dữ liệu từ hệ thống...
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="bg-red-50 border border-red-300 rounded p-4 text-sm text-red-800">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && (
+            <>
+              {debt?.daysLate >= 30 && (
+                <div className="bg-red-50 border border-red-300 rounded p-4 text-sm text-red-800">
+                  <strong>⚠️ Cảnh báo:</strong> Công nợ đã quá hạn {debt.daysLate} ngày. Nên xử lý ưu tiên.
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                  <h4 className="text-sm text-gray-700 font-bold mb-3">Thông tin công nợ</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-600">Phòng:</span><span className="text-gray-800 font-bold">{debt?.room || invoice?.roomNumber || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Chủ hộ:</span><span className="text-gray-800">{debt?.tenant || invoice?.residentName || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Kỳ thanh toán:</span><span className="text-gray-800">{period}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Hạn thanh toán:</span><span className="text-gray-800">{dueDateText}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Trạng thái:</span><span className="text-gray-800">{statusText}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-red-50 border border-red-300 rounded p-4">
+                  <h4 className="text-sm text-red-800 font-bold mb-3">Tổng hợp số tiền</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-red-700">Tổng hóa đơn:</span><span className="text-red-900 font-bold">{formatCurrency(totalAmount)}</span></div>
+                    <div className="flex justify-between"><span className="text-red-700">Đã thanh toán:</span><span className="text-red-900 font-bold">{formatCurrency(paidAmount)}</span></div>
+                    <div className="flex justify-between border-t border-red-300 pt-2"><span className="text-red-800 font-bold">Còn nợ:</span><span className="text-red-900 font-bold text-lg">{formatCurrency(remainingAmount)}</span></div>
+                    <div className="flex justify-between"><span className="text-red-700">Số ngày trễ:</span><span className="text-red-900 font-bold">{debt?.daysLate || 0} ngày</span></div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          {debt?.daysLate >= 15 && debt?.daysLate < 30 && (
-            <div className="bg-orange-50 border border-orange-300 rounded p-4 flex items-start space-x-3">
-              <AlertTriangle size={24} className="text-orange-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-orange-800 font-bold mb-1">⚠️ Cảnh báo mức độ 2 - Trễ {debt?.daysLate} ngày</p>
-                <p className="text-sm text-orange-700">
-                  Số tiền nợ: <strong>{debt?.amount} VNĐ</strong>. Đã nhắc {debt?.reminderLevel} lần. 
-                  Cần gửi nhắc nợ ngay cho các thành viên.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {debt?.daysLate < 15 && (
-            <div className="bg-yellow-50 border border-yellow-300 rounded p-4 flex items-start space-x-3">
-              <Clock size={24} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-yellow-800 font-bold mb-1">⏰ Nhắc nhở mức độ 1 - Trễ {debt?.daysLate} ngày</p>
-                <p className="text-sm text-yellow-700">
-                  Số tiền nợ: <strong>{debt?.amount} VNĐ</strong>. Đã nhắc {debt?.reminderLevel} lần qua App. 
-                  Có thể đợi thêm vài ngày trước khi leo thang.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-4">
-              {/* Room & Contract Info */}
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Thông tin phòng & hợp đồng</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Phòng:</span>
-                    <span className="text-gray-800 font-bold">{debt?.room}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Diện tích:</span>
-                    <span className="text-gray-800">50m²</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Hợp đồng:</span>
-                    <span className="text-gray-800 font-bold">HD-2025-067</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ngày bắt đầu:</span>
-                    <span className="text-gray-800">15/03/2025</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ngày kết thúc:</span>
-                    <span className="text-gray-800">14/03/2026</span>
-                  </div>
-                  <button 
-                    onClick={() => setShowContractModal(true)}
-                    className="w-full mt-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50"
-                  >
-                    → Xem chi tiết hợp đồng
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 Thông tin từ <strong>Quản lý Hợp đồng & Cơ cấu tòa nhà</strong>
-                </p>
-              </div>
-
-              {/* Family Members */}
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm text-gray-600">Thành viên trong hộ</h4>
-                  <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">4 người</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {/* Head of Household */}
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👤
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-800 font-bold">{debt?.tenant}</p>
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-300">Chủ hộ</span>
-                        </div>
-                        <p className="text-xs text-gray-600">{debt?.phone}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Family Members */}
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👤
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-700">Trần Thị B</p>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Vợ/Chồng</span>
-                        </div>
-                        <p className="text-xs text-gray-600">0923456789</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👶
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-700">Nguyễn Văn C</p>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Con</span>
-                        </div>
-                        <p className="text-xs text-gray-600">0934567890</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-gray-300 rounded p-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                        👵
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-700">Nguyễn Thị D</p>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Mẹ/Bố</span>
-                        </div>
-                        <p className="text-xs text-gray-600">0945678901</p>
-                      </div>
-                    </div>
-                  </div>
+                  <h4 className="text-sm text-gray-700 font-bold">Lịch sử nhắc nợ</h4>
+                  <span className="text-xs text-gray-600">{reminders.length} bản ghi</span>
                 </div>
 
-                <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 <strong>Tất cả 4 người</strong> đã nhận thông báo nhắc nợ. Có thể gọi điện cho bất kỳ ai.
-                </p>
+                {reminders.length === 0 ? (
+                  <p className="text-sm text-gray-500">Chưa có lịch sử nhắc nợ cho hóa đơn này.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {reminders.map((r) => (
+                      <div key={r.id} className="bg-white border border-gray-300 rounded p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-800 font-semibold">Lần nhắc #{r.reminderCount} - {r.reminderMethod}</p>
+                          <span className="text-xs text-gray-500">{new Date(r.reminderTime).toLocaleString('vi-VN')}</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">Trạng thái: <strong>{r.sendStatus}</strong>{r.sentToUserPhone ? ` • Gửi tới: ${r.sentToUserPhone}` : ''}</p>
+                        {r.content && <p className="text-xs text-gray-700 mt-1">{r.content}</p>}
+                        {r.errorMessage && <p className="text-xs text-red-700 mt-1">Lỗi: {r.errorMessage}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Account Status */}
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Trạng thái tài khoản</h4>
-                <div className="space-y-2">
-                  {debt?.daysLate >= 30 ? (
-                    <>
-                      <div className="flex items-center justify-between p-2 bg-red-50 border border-red-300 rounded">
-                        <div className="flex items-center space-x-2">
-                          <Lock size={16} className="text-red-600" />
-                          <span className="text-sm text-red-800 font-bold">Đang bị khóa</span>
-                        </div>
-                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">4/4 người</span>
-                      </div>
-                      <p className="text-xs text-red-700">
-                        🔒 Tất cả 4 tài khoản đã bị khóa không thể đăng nhập App cư dân. 
-                        Chỉ mở khóa khi thanh toán xong.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between p-2 bg-green-50 border border-green-300 rounded">
-                        <div className="flex items-center space-x-2">
-                          <Unlock size={16} className="text-green-600" />
-                          <span className="text-sm text-green-800 font-bold">Đang hoạt động</span>
-                        </div>
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">4/4 người</span>
-                      </div>
-                      <p className="text-xs text-green-700">
-                        ✅ Tất cả 4 tài khoản vẫn đăng nhập App bình thường. 
-                        Có thể khóa nếu quá 30 ngày.
-                      </p>
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 Trạng thái đồng bộ với <strong>Danh sách Cư dân</strong>
-                </p>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-4">
-              {/* Unpaid Invoices */}
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Danh sách hóa đơn nợ</h4>
-                <div className="space-y-2">
-                  {/* Invoice 1 */}
-                  <div className="bg-white border-2 border-red-300 rounded p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="text-sm text-gray-800 font-bold">INV-2026-003</p>
-                        <p className="text-xs text-gray-600">Kỳ: 02/2026</p>
-                      </div>
-                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded border border-red-300">Quá hạn 22 ngày</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-                      <div>
-                        <span className="text-gray-600">Hạn thanh toán:</span>
-                        <p className="text-gray-800 font-bold">15/02/2026</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Số tiền:</span>
-                        <p className="text-red-700 font-bold">14.500.000 VNĐ</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setShowInvoiceModal(true)}
-                      className="text-xs text-blue-700 hover:underline"
-                    >
-                      → Xem chi tiết hóa đơn
-                    </button>
-                  </div>
-
-                  {/* Invoice 2 (if multiple) */}
-                  {debt?.room === 'C-401' && (
-                    <>
-                      <div className="bg-white border-2 border-red-300 rounded p-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="text-sm text-gray-800 font-bold">INV-2025-089</p>
-                            <p className="text-xs text-gray-600">Kỳ: 01/2026</p>
-                          </div>
-                          <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded border border-red-300">Quá hạn 52 ngày</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-                          <div>
-                            <span className="text-gray-600">Hạn thanh toán:</span>
-                            <p className="text-gray-800 font-bold">15/01/2026</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Số tiền:</span>
-                            <p className="text-red-700 font-bold">10.500.000 VNĐ</p>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => setShowInvoiceModal(true)}
-                          className="text-xs text-blue-700 hover:underline"
-                        >
-                          → Xem chi tiết hóa đơn
-                        </button>
-                      </div>
-
-                      <div className="bg-red-100 border border-red-400 rounded p-3">
-                        <p className="text-sm text-red-800 font-bold">⚠️ Nợ liên tục 2 tháng!</p>
-                        <p className="text-xs text-red-700 mt-1">
-                          Tổng nợ: <strong>25.000.000 VNĐ</strong>. Cần xử lý nghiêm khắc ngay!
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 Chi tiết trong <strong>Quản lý Hóa đơn</strong>
-                </p>
-              </div>
-
-              {/* Debt Summary */}
-              <div className="bg-red-50 border-2 border-red-400 rounded p-4">
-                <h4 className="text-sm text-red-800 font-bold mb-3">💰 Tổng hợp công nợ</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-red-700">Tổng số tiền nợ:</span>
-                    <span className="text-red-900 font-bold text-lg">{debt?.amount} VNĐ</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-red-700">Số ngày trễ:</span>
-                    <span className="text-red-900 font-bold">{debt?.daysLate} ngày</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-red-700">Phí trễ hạn (1%):</span>
-                    <span className="text-red-900 font-bold">
-                      {debt?.room === 'C-401' ? '250.000' : '145.000'} VNĐ
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t-2 border-red-400 pt-2">
-                    <span className="text-red-800 font-bold">TỔNG PHẢI THU:</span>
-                    <span className="text-red-900 font-bold text-xl">
-                      {debt?.room === 'C-401' ? '25.250.000' : '14.645.000'} VNĐ
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment History */}
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">📊 Lịch sử thanh toán</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between p-2 bg-green-50 border border-green-300 rounded">
-                    <span className="text-gray-700">Tháng 01/2026</span>
-                    <span className="text-green-700 font-bold">✅ Đúng hạn</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 border border-green-300 rounded">
-                    <span className="text-gray-700">Tháng 12/2025</span>
-                    <span className="text-green-700 font-bold">✅ Đúng hạn</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-yellow-50 border border-yellow-300 rounded">
-                    <span className="text-gray-700">Tháng 11/2025</span>
-                    <span className="text-yellow-700 font-bold">⚠️ Trễ 5 ngày</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 border border-green-300 rounded">
-                    <span className="text-gray-700">Tháng 10/2025</span>
-                    <span className="text-green-700 font-bold">✅ Đúng hạn</span>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-600 mt-3">
-                  💡 Đã thanh toán đúng hạn <strong>8/10 tháng gần đây</strong>. Trước đây là cư dân tốt.
-                </p>
-                <button 
-                  onClick={() => setShowTransactionHistoryModal(true)}
-                  className="w-full mt-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50"
+              <div className="bg-blue-50 border border-blue-300 rounded p-4">
+                <button
+                  onClick={() => setShowInvoiceModal(true)}
+                  className="px-4 py-2 bg-white border border-blue-300 text-blue-700 text-sm rounded hover:bg-blue-100"
                 >
-                  → Xem toàn bộ lịch sử giao dịch
+                  Xem chi tiết hóa đơn
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* Reminder History */}
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <h4 className="text-sm text-gray-600 mb-3">📬 Lịch sử nhắc nợ</h4>
-            <div className="space-y-2">
-              <div className="flex items-start justify-between p-3 bg-white border border-gray-300 rounded text-sm">
-                <div className="flex items-start space-x-3 flex-1">
-                  <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5"></div>
-                  <div className="flex-1">
-                    <p className="text-gray-800 font-bold mb-1">Nhắc nợ lần {debt?.reminderLevel} (Nghiêm khắc)</p>
-                    <p className="text-gray-600 text-xs mb-2">
-                      Gửi {debt?.daysLate >= 30 ? '05/03/2026' : '25/02/2026'} 08:00
-                    </p>
-                    <p className="text-gray-700 text-xs">
-                      "Cảnh báo nghiêm trọng: Quý khách đã nợ quá lâu. Nếu không thanh toán trong 7 ngày, 
-                      chúng tôi buộc phải khóa tài khoản App và xem xét chấm dứt hợp đồng."
-                    </p>
-                    <div className="flex items-center space-x-4 mt-2 text-xs">
-                      <span className="text-green-700">✅ App: 4/4 đã đọc</span>
-                      <span className="text-green-700">✅ Email: Đã gửi chủ hộ</span>
-                      <span className="text-gray-600">📞 Gọi điện: Chưa</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start justify-between p-3 bg-white border border-gray-300 rounded text-sm">
-                <div className="flex items-start space-x-3 flex-1">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5"></div>
-                  <div className="flex-1">
-                    <p className="text-gray-800 font-bold mb-1">Nhắc nợ lần 2 (Cảnh báo)</p>
-                    <p className="text-gray-600 text-xs mb-2">Gửi 20/02/2026 08:00</p>
-                    <p className="text-gray-700 text-xs">
-                      "Quý khách đã quá hạn thanh toán. Vui lòng thanh toán sớm để tránh phát sinh phí trễ hạn 
-                      và ảnh hưởng đến dịch vụ."
-                    </p>
-                    <div className="flex items-center space-x-4 mt-2 text-xs">
-                      <span className="text-green-700">✅ App: 4/4 đã đọc</span>
-                      <span className="text-green-700">✅ Email: Đã gửi</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start justify-between p-3 bg-white border border-gray-300 rounded text-sm">
-                <div className="flex items-start space-x-3 flex-1">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full mt-1.5"></div>
-                  <div className="flex-1">
-                    <p className="text-gray-800 font-bold mb-1">Nhắc nợ lần 1 (Nhẹ nhàng)</p>
-                    <p className="text-gray-600 text-xs mb-2">Gửi 16/02/2026 08:00</p>
-                    <p className="text-gray-700 text-xs">
-                      "Xin chào! Hóa đơn tháng 02/2026 đã quá hạn thanh toán. 
-                      Vui lòng kiểm tra và thanh toán sớm nhất có thể."
-                    </p>
-                    <div className="flex items-center space-x-4 mt-2 text-xs">
-                      <span className="text-green-700">✅ App: 4/4 đã đọc</span>
-                      <span className="text-green-700">✅ Email: Đã gửi</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start justify-between p-3 bg-white border border-gray-300 rounded text-sm">
-                <div className="flex items-start space-x-3 flex-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5"></div>
-                  <div className="flex-1">
-                    <p className="text-gray-800 font-bold mb-1">Gửi hóa đơn lần đầu</p>
-                    <p className="text-gray-600 text-xs mb-2">Gửi 01/02/2026 08:00</p>
-                    <p className="text-gray-700 text-xs">
-                      "Hóa đơn tháng 02/2026 đã được tạo. Tổng tiền: 14.500.000 VNĐ. 
-                      Hạn thanh toán: 15/02/2026."
-                    </p>
-                    <div className="flex items-center space-x-4 mt-2 text-xs">
-                      <span className="text-green-700">✅ App: 4/4 đã đọc</span>
-                      <span className="text-green-700">✅ Email: Đã gửi</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-3">
-              💡 Tổng cộng đã gửi <strong>{debt?.reminderLevel + 1} lần</strong> thông báo cho 4 thành viên. 
-              Tất cả đều đã đọc nhưng chưa thanh toán.
-            </p>
-          </div>
+            </>
+          )}
 
         </div>
         
@@ -463,7 +189,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
               className="px-4 py-2 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 flex items-center space-x-2"
             >
               <Send size={16} />
-              <span>Gửi nhắc nợ cho 4 người</span>
+              <span>Gửi nhắc nợ</span>
             </button>
             {debt?.daysLate >= 30 && (
               <button 
@@ -471,7 +197,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
                 className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 flex items-center space-x-2"
               >
                 <Ban size={16} />
-                <span>Khóa tài khoản 4 người</span>
+                <span>Khóa tài khoản</span>
               </button>
             )}
           </div>
@@ -485,27 +211,15 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
       </div>
     </div>
 
-    {/* Contract Detail Modal */}
-    {showContractModal && (
-      <ContractDetailModal 
-        debt={debt} 
-        onClose={() => setShowContractModal(false)} 
-      />
-    )}
-
     {/* Invoice Detail Modal */}
-    {showInvoiceModal && (
-      <InvoiceDetailModal 
-        debt={debt} 
+    {showInvoiceModal && debt?.invoiceId && (
+      <InvoiceRealtimeDetailModal
+        invoiceId={debt?.invoiceId}
+        invoiceNumber={invoice?.invoiceNumber}
         onClose={() => setShowInvoiceModal(false)} 
-      />
-    )}
-
-    {/* Transaction History Modal */}
-    {showTransactionHistoryModal && (
-      <TransactionHistoryModal 
-        debt={debt} 
-        onClose={() => setShowTransactionHistoryModal(false)} 
+        onApprove={() => {}}
+        onReject={() => {}}
+        isDraft={false}
       />
     )}
 
@@ -1147,54 +861,154 @@ function TransactionHistoryModal({ debt, onClose }: DebtModalProps) {
 }
 
 export function SendReminderModal({ debt, onClose }: DebtModalProps) {
-  // Các mẫu tin nhắn
-  const templates = {
-    gentle: `Xin chào ${debt?.tenant},
-
-Hóa đơn tháng 02/2026 đã quá hạn thanh toán ${debt?.daysLate} ngày.
-Số tiền: ${debt?.amount} VNĐ
-
-Vui lòng thanh toán sớm nhất có thể để tránh phát sinh phí trễ hạn.
-
-Liên hệ: 0900123456
-Trân trọng!`,
-    strict: `⚠️ CẢNH BÁO NGHIÊM TRỌNG
-
-Kính gửi ${debt?.tenant},
-
-Quý khách đã nợ hóa đơn ${debt?.daysLate} ngày với số tiền ${debt?.amount} VNĐ.
-
-Nếu không thanh toán trong 7 ngày, chúng tôi buộc phải:
-• Khóa tài khoản App của 4 thành viên
-• Xem xét chấm dứt hợp đồng thuê
-• Thu phí trễ hạn theo quy định
-
-Vui lòng liên hệ ngay: 0900123456`,
-    custom: `Kính gửi ${debt?.tenant},
-
-[Nhập nội dung tin nhắc nợ tùy chỉnh của bạn tại đây]
-
-Trân trọng,
-Ban quản lý`
-  };
-
-  const [selectedTemplate, setSelectedTemplate] = useState(debt?.daysLate >= 30 ? 'strict' : 'gentle');
-  const [messageContent, setMessageContent] = useState(templates[debt?.daysLate >= 30 ? 'strict' : 'gentle']);
+  const [invoice, setInvoice] = useState<any>(null);
+  const [recipients, setRecipients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [lastSentCount, setLastSentCount] = useState(0);
 
-  // Xử lý khi thay đổi template
+  const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')} VNĐ`;
+
+  const buildTemplates = () => {
+    const tenantName = debt?.tenant || invoice?.residentName || 'Quý cư dân';
+    const period = invoice?.month && invoice?.year
+      ? `${String(invoice.month).padStart(2, '0')}/${invoice.year}`
+      : 'gần nhất';
+    const dueDateText = invoice?.dueDate
+      ? new Date(invoice.dueDate).toLocaleDateString('vi-VN')
+      : 'chưa xác định';
+    const remainAmount = Number(invoice?.remainingAmount ?? debt?.amount ?? 0);
+    const daysLate = Number(debt?.daysLate ?? 0);
+
+    return {
+      gentle: `Xin chào ${tenantName},
+
+Hóa đơn kỳ ${period} của quý cư dân đã quá hạn ${daysLate} ngày.
+Số tiền còn nợ: ${formatCurrency(remainAmount)}.
+Hạn thanh toán: ${dueDateText}.
+
+Vui lòng thanh toán sớm để tránh phát sinh thêm phí trễ hạn.
+
+Trân trọng,\nBan quản lý`,
+      strict: `⚠️ CẢNH BÁO THANH TOÁN CÔNG NỢ
+
+Kính gửi ${tenantName},
+
+Hóa đơn kỳ ${period} đã quá hạn ${daysLate} ngày.
+Số tiền còn nợ: ${formatCurrency(remainAmount)}.
+
+Nếu tiếp tục chậm thanh toán, Ban quản lý sẽ áp dụng biện pháp xử lý theo quy định hợp đồng.
+Vui lòng liên hệ ngay để được hỗ trợ.
+
+Trân trọng,\nBan quản lý`,
+      custom: `Kính gửi ${tenantName},
+
+[Nhập nội dung nhắc nợ tùy chỉnh tại đây]
+
+Trân trọng,\nBan quản lý`,
+    };
+  };
+
+  const defaultTemplateKey = debt?.daysLate >= 30 ? 'strict' : 'gentle';
+  const [selectedTemplate, setSelectedTemplate] = useState<'gentle' | 'strict' | 'custom'>(defaultTemplateKey);
+  const [messageContent, setMessageContent] = useState('');
+
+  useEffect(() => {
+    let disposed = false;
+
+    const fetchData = async () => {
+      if (!debt?.invoiceId) {
+        setError('Không tìm thấy mã hóa đơn để gửi nhắc nợ.');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const invoiceRes = await api.get(API_ENDPOINTS.INVOICES.BY_ID(debt.invoiceId));
+        if (disposed) return;
+        const invoiceData = invoiceRes.data;
+        setInvoice(invoiceData);
+
+        let mappedRecipients: any[] = [];
+        if (invoiceData?.roomId) {
+          const contractsRes = await api.get(API_ENDPOINTS.CONTRACTS.BY_ROOM(invoiceData.roomId));
+          if (!disposed) {
+            const contracts = contractsRes.data || [];
+            const now = new Date();
+            const activeContract = contracts.find((c: any) => !c.expectedEndDate || new Date(c.expectedEndDate) >= now)
+              ?? contracts[contracts.length - 1];
+
+            mappedRecipients = (activeContract?.residents || []).map((r: any) => ({
+              residentId: r.residentId,
+              fullName: r.fullName || `Cư dân ${r.residentId}`,
+              phoneNumber: r.phoneNumber || '',
+              email: r.email || '',
+              residencyRole: r.residencyRole || 'Thành viên',
+            }));
+          }
+        }
+
+        if (!mappedRecipients.length) {
+          mappedRecipients = [
+            {
+              residentId: -1,
+              fullName: debt?.tenant || invoiceData?.residentName || 'Chủ hộ',
+              phoneNumber: debt?.phone || '',
+              email: '',
+              residencyRole: 'Chủ hộ',
+            },
+          ];
+        }
+
+        if (!disposed) {
+          setRecipients(mappedRecipients);
+        }
+      } catch (err: any) {
+        if (!disposed) {
+          setError(err?.message || 'Không thể tải dữ liệu gửi nhắc nợ.');
+        }
+      } finally {
+        if (!disposed) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+    return () => {
+      disposed = true;
+    };
+  }, [debt?.invoiceId]);
+
+  useEffect(() => {
+    const templates = buildTemplates();
+    setMessageContent(templates[selectedTemplate]);
+  }, [selectedTemplate, invoice]);
+
   const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setSelectedTemplate(value);
-    setMessageContent(templates[value as keyof typeof templates]);
+    setSelectedTemplate(e.target.value as 'gentle' | 'strict' | 'custom');
   };
 
-  // Xử lý khi gửi nhắc nợ
-  const handleSendReminder = () => {
-    setShowSuccess(true);
+  const handleSendReminder = async () => {
+    if (!debt?.invoiceId || !messageContent.trim()) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await api.post(API_ENDPOINTS.INVOICES.SEND_REMINDER(debt.invoiceId), { content: messageContent.trim() });
+      setLastSentCount(Number(res.data?.sentCount || recipients.length || 0));
+      setShowSuccess(true);
+    } catch (err: any) {
+      setError(err?.message || 'Gửi nhắc nợ thất bại.');
+    } finally {
+      setSending(false);
+    }
   };
 
-  // Nếu đã gửi thành công, hiển thị thông báo
   if (showSuccess) {
     return (
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
@@ -1207,12 +1021,12 @@ Ban quản lý`
             </div>
             <h3 className="text-xl text-gray-800 font-bold mb-2">Gửi nhắc nợ thành công!</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Đã gửi tin nhắc nợ đến <strong>4 thành viên</strong> của phòng <strong>{debt?.room}</strong> qua App, Email và SMS.
+              Đã gửi tin nhắc nợ đến <strong>{lastSentCount || recipients.length} người nhận</strong> của phòng <strong>{debt?.room}</strong>.
             </p>
             <div className="bg-green-50 border border-green-300 rounded p-3 mb-4">
               <p className="text-sm text-green-800">
-                ✓ Gửi đến: {debt?.tenant} và 3 thành viên khác<br/>
-                ✓ Kênh: App thông báo + Email + SMS<br/>
+                ✓ Gửi đến: {lastSentCount || recipients.length} người<br/>
+                ✓ Kênh: App thông báo (theo cấu hình hệ thống)<br/>
                 ✓ Thời gian: {new Date().toLocaleString('vi-VN')}
               </p>
             </div>
@@ -1242,6 +1056,18 @@ Ban quản lý`
         </div>
         
         <div className="p-6 space-y-4">
+          {loading && (
+            <div className="bg-gray-50 border border-gray-300 rounded p-4 text-sm text-gray-600">
+              Đang tải dữ liệu người nhận từ hệ thống...
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="bg-red-50 border border-red-300 rounded p-4 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           <div className="bg-orange-50 border border-orange-300 rounded p-4">
             <p className="text-sm text-orange-800">
               Bạn đang gửi nhắc nợ <strong>lần {debt?.reminderLevel + 1}</strong> cho phòng <strong>{debt?.room}</strong>
@@ -1257,7 +1083,7 @@ Ban quản lý`
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Số tiền nợ:</span>
-                <span className="text-red-700 font-bold">{debt?.amount} VNĐ</span>
+                <span className="text-red-700 font-bold">{formatCurrency(Number(invoice?.remainingAmount ?? debt?.amount ?? 0))}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Số ngày trễ:</span>
@@ -1272,71 +1098,27 @@ Ban quản lý`
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3">Danh sách người nhận:</h4>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 bg-white border border-gray-300 rounded">
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-sm">
-                    👤
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-800 font-bold">{debt?.tenant}</p>
-                    <p className="text-xs text-gray-600">Chủ hộ • {debt?.phone}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="w-4 h-4" />
-                  <span className="text-xs text-gray-600">App + Email + SMS</span>
-                </div>
+            {recipients.length === 0 ? (
+              <p className="text-sm text-gray-500">Không có dữ liệu người nhận.</p>
+            ) : (
+              <div className="space-y-2">
+                {recipients.map((recipient, index) => {
+                  const channelText = recipient.email && recipient.phoneNumber ? 'App + Email + SMS' : recipient.phoneNumber ? 'App + SMS' : 'App';
+                  return (
+                    <div key={recipient.residentId || index} className="flex items-center justify-between p-2 bg-white border border-gray-300 rounded">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-sm">👤</div>
+                        <div>
+                          <p className="text-sm text-gray-800 font-bold">{recipient.fullName}</p>
+                          <p className="text-xs text-gray-600">{recipient.residencyRole || 'Thành viên'}{recipient.phoneNumber ? ` • ${recipient.phoneNumber}` : ''}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-600">{channelText}</span>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="flex items-center justify-between p-2 bg-white border border-gray-300 rounded">
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-sm">
-                    👤
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-700">Trần Thị B</p>
-                    <p className="text-xs text-gray-600">Vợ/Chồng • 0923456789</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="w-4 h-4" />
-                  <span className="text-xs text-gray-600">App</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-2 bg-white border border-gray-300 rounded">
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-sm">
-                    👶
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-700">Nguyễn Văn C</p>
-                    <p className="text-xs text-gray-600">Con • 0934567890</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="w-4 h-4" />
-                  <span className="text-xs text-gray-600">App</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-2 bg-white border border-gray-300 rounded">
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-sm">
-                    👵
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-700">Nguyễn Thị D</p>
-                    <p className="text-xs text-gray-600">Mẹ/Bố • 0945678901</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="w-4 h-4" />
-                  <span className="text-xs text-gray-600">App</span>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
@@ -1367,10 +1149,11 @@ Ban quản lý`
           </button>
           <button 
             onClick={handleSendReminder}
-            className="px-4 py-2 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 flex items-center space-x-2"
+            disabled={sending || loading || !debt?.invoiceId || !messageContent.trim()}
+            className="px-4 py-2 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 flex items-center space-x-2 disabled:opacity-50"
           >
             <Send size={16} />
-            <span>Gửi cho 4 người ngay</span>
+            <span>{sending ? 'Đang gửi...' : `Gửi cho ${recipients.length} người ngay`}</span>
           </button>
         </div>
       </div>

@@ -177,6 +177,12 @@ const statusConfig = {
   completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-800 border-green-300' },
 };
 
+const resolveImageUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${import.meta.env.VITE_API_BASE_URL}${url}`;
+};
+
 // Logic chuyển trạng thái tuần tự
 const getAvailableStatuses = (currentStatus: string) => {
   const statusFlow = {
@@ -193,6 +199,7 @@ export function MaintenanceRequestTable() {
   const [activeTab, setActiveTab] = useState('new');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [completeModalRequest, setCompleteModalRequest] = useState<any>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [filterType, setFilterType] = useState('all');
   
   // Get data from context
@@ -252,7 +259,7 @@ export function MaintenanceRequestTable() {
         waitingHours,
         status: statusMap[incident.status] || 'new',
         description: incident.description,
-        imageUrl: incident.imageUrl || '🖼️',
+        imageUrl: incident.imageUrl || '',
         assignee: incident.assignedTo,
         fullIncident: incident, // Keep original incident data
       };
@@ -457,32 +464,64 @@ export function MaintenanceRequestTable() {
             {/* Before & After Images */}
             <div>
               <p className="text-xs text-gray-600 mb-2">Ảnh bằng chứng</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Trước khi sửa</p>
-                  {selectedRequest.imageUrl ? (
-                    <img 
-                      src={`${import.meta.env.VITE_API_BASE_URL}${selectedRequest.imageUrl}`}
-                      alt="Trước khi sửa"
-                      className="w-full h-32 object-cover rounded border border-gray-300"
-                    />
-                  ) : (
-                    <div className="w-full h-32 bg-gray-200 border border-gray-300 rounded flex items-center justify-center">
+              
+              {/* Before images (multiple) */}
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Trước khi sửa</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedRequest.fullIncident?.mediaUrls ? (() => {
+                    try {
+                      const urls = JSON.parse(selectedRequest.fullIncident.mediaUrls) as string[];
+                      if (Array.isArray(urls) && urls.length > 0) {
+                        return urls.map((url: string, idx: number) => (
+                          <button key={idx} type="button" onClick={() => setPreviewImageUrl(resolveImageUrl(url))} className="block w-full text-left">
+                            <img
+                              src={resolveImageUrl(url)}
+                              alt={`Ảnh trước khi sửa ${idx + 1}`}
+                              className="w-full h-24 object-cover rounded border border-gray-300 hover:opacity-90"
+                            />
+                          </button>
+                        ));
+                      }
+                    } catch {
+                      // Fall back to single image URL
+                    }
+                    return null;
+                  })() : null}
+                  {!selectedRequest.fullIncident?.mediaUrls && selectedRequest.imageUrl && (
+                    <button type="button" onClick={() => setPreviewImageUrl(resolveImageUrl(selectedRequest.imageUrl))} className="block w-full text-left">
+                      <img 
+                        src={resolveImageUrl(selectedRequest.imageUrl)}
+                        alt="Trước khi sửa"
+                        className="w-full h-24 object-cover rounded border border-gray-300 hover:opacity-90"
+                      />
+                    </button>
+                  )}
+                  {!selectedRequest.fullIncident?.mediaUrls && !selectedRequest.imageUrl && (
+                    <div className="col-span-3 h-24 bg-gray-200 border border-gray-300 rounded flex items-center justify-center">
                       <span className="text-xs text-gray-500">Không có ảnh</span>
                     </div>
                   )}
                 </div>
-                {selectedRequest.status === 'completed' && selectedRequest.fullIncident?.completionImageUrl && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Sau khi sửa</p>
-                    <img 
-                      src={`${import.meta.env.VITE_API_BASE_URL}${selectedRequest.fullIncident.completionImageUrl}`}
-                      alt="Sau khi sửa"
-                      className="w-full h-32 object-cover rounded border border-gray-300"
-                    />
-                  </div>
-                )}
               </div>
+              
+              {/* After image (single) */}
+              {selectedRequest.status === 'completed' && selectedRequest.fullIncident?.completionImageUrl && (
+                <div className="mt-4">
+                  <p className="text-xs text-gray-500 mb-2">Sau khi sửa</p>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImageUrl(resolveImageUrl(selectedRequest.fullIncident.completionImageUrl))}
+                    className="block w-full text-left"
+                  >
+                    <img 
+                      src={resolveImageUrl(selectedRequest.fullIncident.completionImageUrl)}
+                      alt="Sau khi sửa"
+                      className="w-full h-32 object-cover rounded border border-gray-300 hover:opacity-90"
+                    />
+                  </button>
+                </div>
+              )}
             </div>
             
             {/* Assignee */}
@@ -514,6 +553,27 @@ export function MaintenanceRequestTable() {
           onClose={() => setCompleteModalRequest(null)}
           onComplete={handleComplete}
         />
+      )}
+
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewImageUrl(null)}
+            className="fixed top-4 right-4 z-[70] p-2 rounded bg-white/10 text-white hover:bg-white/20"
+          >
+            <X size={18} />
+          </button>
+          <img
+            src={previewImageUrl}
+            alt="Xem chi tiết"
+            className="max-w-[92vw] max-h-[88vh] object-contain rounded"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );
