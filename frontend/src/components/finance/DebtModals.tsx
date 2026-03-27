@@ -1321,10 +1321,24 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
     setShowSuccess(true);
   };
 
+  const parseAmount = (value: unknown): number => {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.replace(/\./g, '').replace(/,/g, '.').trim();
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    return 0;
+  };
+
   // Tính tổng tiền nợ của các phòng đã chọn
   const totalAmount = debts
     ?.filter(d => selectedDebts.includes(d.room))
-    .reduce((sum, d) => sum + parseFloat(d.amount.replace(/\./g, '')), 0) || 0;
+    .reduce((sum, d) => sum + parseAmount(d.amount), 0) || 0;
 
   const totalRecipients = selectedDebts.length * 4; // Mỗi phòng 4 người
 

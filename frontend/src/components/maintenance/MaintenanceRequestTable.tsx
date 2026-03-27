@@ -11,6 +11,14 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
 
+  const roomDisplay =
+    request?.room ||
+    request?.location ||
+    request?.fullIncident?.location ||
+    request?.fullIncident?.roomNumber ||
+    request?.roomNumber ||
+    (request?.fullIncident?.roomId ? `Phòng ${request.fullIncident.roomId}` : '—');
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -80,7 +88,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
               </div>
               <div>
                 <p className="text-gray-600">Phòng:</p>
-                <p className="text-gray-900 font-semibold">{request.room}</p>
+                <p className="text-gray-900 font-semibold">{roomDisplay}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-gray-600">Nội dung yêu cầu:</p>

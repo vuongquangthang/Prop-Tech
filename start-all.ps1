@@ -68,7 +68,7 @@ while ($attempt -lt $maxAttempts -and -not $backendReady) {
         $response = Invoke-WebRequest -Uri "http://localhost:5052/swagger/index.html" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
             $backendReady = $true
-            Write-Host "   ✅ Backend is ready!" -ForegroundColor Green
+            Write-Host "Backend is ready!" -ForegroundColor Green
         }
     } catch {
         # Backend not ready yet
@@ -76,7 +76,7 @@ while ($attempt -lt $maxAttempts -and -not $backendReady) {
 }
 
 if (-not $backendReady) {
-    Write-Host "   ⚠️ Backend timed out, but continuing..." -ForegroundColor Yellow
+    Write-Host "  Backend timed out, but continuing..." -ForegroundColor Yellow
 }
 
 # Wait a bit to let backend stabilize

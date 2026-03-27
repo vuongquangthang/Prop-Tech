@@ -3,6 +3,8 @@ using System.Text.Json;
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace backend.Services;
 
@@ -27,18 +29,24 @@ public class ChatService : IChatService
     private readonly ILichSuChatRepository _chatRepository;
     private readonly IKnowledgeBaseRepository _knowledgeBaseRepository;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<ChatService> _logger;
+    private readonly string _n8nWebhookUrl;
 
-    private const string N8nWebhookUrl =
+    private const string DefaultN8nWebhookUrl =
         "https://lhdpo.app.n8n.cloud/webhook/5e56a263-3a40-44bd-bc9d-1cfb3bc2a87d/chat";
 
     public ChatService(
         ILichSuChatRepository chatRepository,
         IKnowledgeBaseRepository knowledgeBaseRepository,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
+        ILogger<ChatService> logger)
     {
         _chatRepository = chatRepository;
         _knowledgeBaseRepository = knowledgeBaseRepository;
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
+        _n8nWebhookUrl = configuration["N8n:ChatWebhookUrl"] ?? DefaultN8nWebhookUrl;
     }
 
     public async Task<List<ChatMessageDto>> GetChatHistoryAsync(int userId, int limit = 100)
@@ -201,7 +209,7 @@ public class ChatService : IChatService
                 userMessage
             });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            var res = await client.PostAsync(N8nWebhookUrl, content);
+            var res = await client.PostAsync(_n8nWebhookUrl, content);
             if (res.IsSuccessStatusCode)
             {
                 var json = await res.Content.ReadAsStringAsync();
@@ -214,11 +222,18 @@ public class ChatService : IChatService
                         IsKnowledgeGap = false
                     };
                 }
+
+                _logger.LogWarning("n8n responded OK but no parsable text. url={Url}, body={Body}", _n8nWebhookUrl, json);
+            }
+            else
+            {
+                var errorBody = await res.Content.ReadAsStringAsync();
+                _logger.LogWarning("n8n webhook returned non-success status. url={Url}, status={StatusCode}, body={Body}", _n8nWebhookUrl, (int)res.StatusCode, errorBody);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // n8n unavailable — return unresolved response below
+            _logger.LogWarning(ex, "n8n webhook call failed. url={Url}", _n8nWebhookUrl);
         }
 
         return new ChatResponseResult
