@@ -11,6 +11,7 @@ const routeTitles: Record<string, string> = {
   '/asset-inventory': 'Quản lý Hạ tầng - Quản lý Kho tài sản',
   '/resident-management': 'Cư dân & Hợp đồng - Danh sách Cư dân',
   '/contract-management': 'Cư dân & Hợp đồng - Quản lý Hợp đồng',
+  '/contract-change-tracking': 'Cư dân & Hợp đồng - Đề xuất chờ cư dân xác nhận',
   '/settlement': 'Cư dân & Hợp đồng - Tất toán & Thanh lý',
   '/utility-reading': 'Hóa đơn & Tài chính - Chốt chỉ số Điện/Nước',
   '/invoice-management': 'Hóa đơn & Tài chính - Quản lý Hóa đơn',

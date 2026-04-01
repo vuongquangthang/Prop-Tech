@@ -1,7 +1,7 @@
-import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX } from 'lucide-react';
+import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX, Pencil, DollarSign, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { CreateContractModal, ViewContractModal, PrintContractModal } from './ContractModals';
-import { contractService } from '../../services/api.service';
+import { contractService, serviceService } from '../../services/api.service';
 
 interface ContractData {
   id: number;
@@ -119,6 +119,26 @@ export function ContractList() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+  const [proposalTarget, setProposalTarget] = useState<ContractData | null>(null);
+  const [services, setServices] = useState<any[]>([]);
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [effectiveDate, setEffectiveDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [newRentPrice, setNewRentPrice] = useState('');
+  const [proposalNote, setProposalNote] = useState('');
+  const [selectedAddServiceIds, setSelectedAddServiceIds] = useState<number[]>([]);
+  const [servicePriceRows, setServicePriceRows] = useState<Array<{ serviceId: number; newPrice: string }>>([]);
+  const [currentServiceIds, setCurrentServiceIds] = useState<number[]>([]);
+  const [currentServiceDetails, setCurrentServiceDetails] = useState<Map<number, any>>(new Map());
+  const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
+
+  useEffect(() => {
+    serviceService.getAll().then((rows: any) => {
+      const list = Array.isArray(rows) ? rows : rows?.data ?? [];
+      setServices(list.filter((x: any) => x.isActive !== false));
+    }).catch(() => setServices([]));
+  }, []);
 
   const openCreateModal = () => {
     setIsCreateModalOpen(true);
@@ -132,6 +152,124 @@ export function ContractList() {
   const openPrintModal = (contract: any) => {
     setSelectedContract(contract);
     setIsPrintModalOpen(true);
+  };
+
+  const openProposalModal = async (contract: ContractData) => {
+    setProposalTarget(contract);
+    setProposalError(null);
+    setEffectiveDate(new Date().toISOString().slice(0, 10));
+    setNewRentPrice(contract.monthlyRent ? String(contract.monthlyRent) : '');
+    setProposalNote('');
+    setSelectedAddServiceIds([]);
+    setServicePriceRows([]);
+    setCurrentServiceIds([]);
+    
+    // Load current services for this contract from billing formula (ground truth)
+    try {
+      const detail = await contractService.getById(Number(contract.id));
+      
+      // Extract services from billing formula for consistency with contract detail view
+      if (detail?.billingFormulaJson) {
+        const formula = typeof detail.billingFormulaJson === 'string' 
+          ? JSON.parse(detail.billingFormulaJson)
+          : detail.billingFormulaJson;
+        
+        if (Array.isArray(formula)) {
+          // Extract all service items (DichVu, Dien, Nuoc) - exclude TienPhong (room rent)
+          const serviceItems = formula.filter((item: any) => 
+            item.itemType !== 'TienPhong' && (item.serviceId || item.serviceName)
+          );
+          const svcIds = serviceItems.map((item: any) => 
+            item.serviceId ? Number(item.serviceId) : `${item.itemType}-${item.serviceName}`
+          );
+          
+          setCurrentServiceIds(svcIds);
+          
+          // Store current service details for price update reference
+          const detailsMap = new Map();
+          serviceItems.forEach((item: any) => {
+            const key = item.serviceId ? Number(item.serviceId) : `${item.itemType}-${item.serviceName}`;
+            detailsMap.set(key, {
+              name: item.serviceName,
+              currentPrice: item.unitPrice,
+              itemType: item.itemType
+            });
+          });
+          setCurrentServiceDetails(detailsMap);
+        }
+      }
+    } catch (e) {
+      console.error('Error loading contract services:', e);
+      setProposalError('Lỗi khi tải danh sách dịch vụ');
+    }
+    
+    setIsProposalModalOpen(true);
+  };
+
+  const submitProposal = async () => {
+    if (!proposalTarget) return;
+    try {
+      setProposalLoading(true);
+      setProposalError(null);
+      await contractService.proposeChange(proposalTarget.id, {
+        effectiveDate,
+        newRentPrice: newRentPrice ? Number(newRentPrice) : undefined,
+        addedServiceIds: selectedAddServiceIds,
+        servicePriceChanges: servicePriceRows
+          .filter(r => r.serviceId > 0 && Number(r.newPrice) > 0)
+          .map(r => ({ serviceId: r.serviceId, newPrice: Number(r.newPrice) })),
+        note: proposalNote || undefined,
+      });
+      setIsProposalModalOpen(false);
+      alert('Đã gửi thông báo chấp nhận thay đổi hợp đồng đến cư dân.');
+    } catch (err: any) {
+      setProposalError(err.message || 'Không thể gửi đề xuất thay đổi hợp đồng');
+    } finally {
+      setProposalLoading(false);
+    }
+  };
+
+  const updateLatestPrices = async () => {
+    try {
+      setIsUpdatingPrices(true);
+      setProposalError(null);
+      
+      const allServiceIds = Array.from(
+        new Set([...currentServiceIds, ...selectedAddServiceIds])
+      );
+      
+      const priceUpdates: Array<{ serviceId: number; newPrice: number }> = [];
+      
+      // Get latest prices from service catalog for all selected services
+      for (const svcId of allServiceIds) {
+        const service = services.find((s: any) => Number(s.id) === svcId);
+        if (service) {
+          const latestPrice = service.commonUnitPrice ?? service.unitPrice ?? 0;
+          const currentPrice = currentServiceDetails.get(svcId)?.currentPrice ?? 0;
+          
+          // Only add to updates if price has changed
+          if (latestPrice !== currentPrice && latestPrice > 0) {
+            priceUpdates.push({ serviceId: svcId, newPrice: latestPrice });
+          }
+        }
+      }
+      
+      // Update service price rows
+      setServicePriceRows(priceUpdates.map(pu => ({ 
+        serviceId: pu.serviceId, 
+        newPrice: String(pu.newPrice) 
+      })));
+      
+      if (priceUpdates.length > 0) {
+        alert(`Đã cập nhật ${priceUpdates.length} dịch vụ với giá mới nhất từ danh mục.`);
+      } else {
+        alert('Tất cả các dịch vụ đều có giá mới nhất.');
+      }
+    } catch (err: any) {
+      setProposalError('Lỗi khi cập nhật giá: ' + (err.message || 'Vui lòng thử lại'));
+    } finally {
+      setIsUpdatingPrices(false);
+    }
   };
 
   // Loading state
@@ -240,6 +378,9 @@ export function ContractList() {
                         <button className="p-2 hover:bg-gray-100 rounded" title="In hợp đồng" onClick={() => openPrintModal(contract)}>
                           <FileText size={16} className="text-gray-600" />
                         </button>
+                        <button className="p-2 hover:bg-blue-50 rounded" title="Sửa hợp đồng & gửi cư dân xác nhận" onClick={() => openProposalModal(contract)}>
+                          <Pencil size={16} className="text-blue-600" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -277,6 +418,203 @@ export function ContractList() {
       
       {isPrintModalOpen && selectedContract && (
         <PrintContractModal contract={selectedContract} onClose={() => setIsPrintModalOpen(false)} />
+      )}
+
+      {isProposalModalOpen && proposalTarget && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-[800px] max-h-[90vh] overflow-y-auto">
+            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="text-lg text-gray-800">Sửa hợp đồng & gửi cư dân xác nhận</h3>
+              <button onClick={() => setIsProposalModalOpen(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                Hợp đồng {proposalTarget.code} - Phòng {proposalTarget.room}. Sau khi gửi, cư dân phải bấm "Xác nhận thay đổi hợp đồng" thì hệ thống mới áp dụng.
+              </div>
+
+              {/* Effective Date & Room Price */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Ngày áp dụng *</label>
+                  <input 
+                    type="date" 
+                    value={effectiveDate} 
+                    onChange={e => setEffectiveDate(e.target.value)} 
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Cập nhật giá Phòng (VNĐ)</label>
+                  <input 
+                    type="number" 
+                    min={0} 
+                    value={newRentPrice} 
+                    onChange={e => setNewRentPrice(e.target.value)} 
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                    placeholder="Để trống nếu không thay đổi"
+                  />
+                </div>
+              </div>
+
+              {/* Current Services Section */}
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                  <FileText size={16} className="mr-2" />
+                  Dịch vụ hiện tại trong hợp đồng
+                </h4>
+                
+                {currentServiceIds.length > 0 ? (
+                  <div className="space-y-2">
+                    {currentServiceIds.map(serviceId => {
+                      const service = services.find((s: any) => Number(s.id) === serviceId);
+                      const serviceDetail = currentServiceDetails.get(serviceId);
+                      const serviceName = service?.name || service?.serviceName || serviceDetail?.name || 'Dịch vụ';
+                      const currentPrice = serviceDetail?.currentPrice ?? service?.commonUnitPrice ?? service?.unitPrice ?? 0;
+                      
+                      return (
+                        <div key={serviceId} className="flex items-center justify-between bg-white p-3 rounded border border-gray-200">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{serviceName}</p>
+                            <p className="text-xs text-gray-600">Giá hiện tại: {currentPrice.toLocaleString('vi-VN')} VNĐ</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCurrentServiceIds(prev => prev.filter(x => x !== serviceId))}
+                            className="px-3 py-1 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100 border border-red-200"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 text-center py-3">Không có dịch vụ nào trong hợp đồng</p>
+                )}
+              </div>
+
+              {/* Add New Services Section */}
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                  <Plus size={16} className="mr-2" />
+                  Thêm dịch vụ mới
+                </h4>
+                
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3 bg-white">
+                  {services
+                    .filter((s: any) => !currentServiceIds.includes(Number(s.id)))
+                    .map((s: any) => {
+                      const id = Number(s.id);
+                      const checked = selectedAddServiceIds.includes(id);
+                      return (
+                        <label key={id} className="flex items-center text-sm text-gray-700 gap-2 p-2 hover:bg-blue-50 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setSelectedAddServiceIds(prev => checked ? prev.filter(x => x !== id) : [...prev, id])}
+                            className="cursor-pointer"
+                          />
+                          <span>{s.name || s.serviceName}</span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Service Price Updates Section */}
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-bold text-gray-800 flex items-center">
+                    <DollarSign size={16} className="mr-2" />
+                    Cập nhật giá dịch vụ
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={updateLatestPrices}
+                    disabled={isUpdatingPrices || services.length === 0}
+                    className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded transition"
+                  >
+                    {isUpdatingPrices ? 'Đang cập nhật...' : '✓ Cập nhật giá mới nhất'}
+                  </button>
+                </div>
+
+                {servicePriceRows.length > 0 ? (
+                  <div className="space-y-2">
+                    {servicePriceRows.map((row, idx) => {
+                      const service = services.find((s: any) => Number(s.id) === row.serviceId);
+                      const serviceName = service?.name || service?.serviceName || 'Dịch vụ';
+                      
+                      return (
+                        <div key={idx} className="flex items-center gap-2 bg-white p-3 rounded border border-gray-200">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-800">{serviceName}</p>
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            placeholder="Giá mới"
+                            className="w-32 px-2 py-2 text-sm border border-gray-300 rounded"
+                            value={row.newPrice}
+                            onChange={e => setServicePriceRows(prev => 
+                              prev.map((r, i) => i === idx ? { ...r, newPrice: e.target.value } : r)
+                            )}
+                          />
+                          <span className="text-sm text-gray-600">VNĐ</span>
+                          <button
+                            type="button"
+                            onClick={() => setServicePriceRows(prev => prev.filter((_, i) => i !== idx))}
+                            className="px-2 py-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 text-center py-3">Chưa có cập nhật giá nào. Bấm nút trên để cập nhật giá mới nhất từ danh mục dịch vụ.</p>
+                )}
+              </div>
+
+              {/* Note Section */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Ghi chú gửi cư dân</label>
+                <textarea 
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded h-20 focus:outline-none focus:border-blue-500" 
+                  value={proposalNote} 
+                  onChange={e => setProposalNote(e.target.value)}
+                  placeholder="Thêm ghi chú để giải thích lý do thay đổi (tùy chọn)"
+                />
+              </div>
+
+              {proposalError && (
+                <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+                  {proposalError}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3 sticky bottom-0 bg-white">
+              <button 
+                className="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50" 
+                onClick={() => setIsProposalModalOpen(false)} 
+                disabled={proposalLoading}
+              >
+                Hủy
+              </button>
+              <button 
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded text-sm transition" 
+                onClick={submitProposal} 
+                disabled={proposalLoading || !effectiveDate}
+              >
+                {proposalLoading ? 'Đang gửi...' : 'Gửi thông báo chấp nhận đến cư dân'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

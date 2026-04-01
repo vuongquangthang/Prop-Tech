@@ -4,6 +4,7 @@ using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text;
 
 namespace backend.Services;
 
@@ -16,6 +17,11 @@ public interface IHopDongService
     Task<HopDongDto> CreateAsync(CreateHopDongDto dto);
     Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto);
     Task DeleteAsync(int id);
+    Task SendContractChangeProposalAsync(int contractId, SendContractChangeProposalDto dto, int senderUserId);
+    Task<ContractChangeDetailDto> GetContractChangeDetailAsync(int notificationId, int userId);
+    Task<List<ContractChangeTrackingItemDto>> GetContractChangeTrackingAsync(string? status, int limit = 200);
+    Task ConfirmContractChangeAsync(int notificationId, int userId);
+    Task RequestContractChangeDiscussionAsync(int notificationId, int userId, string? message);
 }
 
 public class HopDongService : IHopDongService
@@ -27,6 +33,8 @@ public class HopDongService : IHopDongService
     private readonly IChiTietSuDungDichVuRepository _chiTietSuDungDichVuRepository;
     private readonly IChiTietORepository _chiTietORepository;
     private readonly IUserRepository _userRepository;
+    private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationService _notificationService;
 
     public HopDongService(
         IHopDongRepository hopDongRepository,
@@ -35,7 +43,9 @@ public class HopDongService : IHopDongService
         IServiceRepository serviceRepository,
         IChiTietSuDungDichVuRepository chiTietSuDungDichVuRepository,
         IChiTietORepository chiTietORepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        INotificationRepository notificationRepository,
+        INotificationService notificationService)
     {
         _hopDongRepository = hopDongRepository;
         _roomRepository = roomRepository;
@@ -44,6 +54,28 @@ public class HopDongService : IHopDongService
         _chiTietSuDungDichVuRepository = chiTietSuDungDichVuRepository;
         _chiTietORepository = chiTietORepository;
         _userRepository = userRepository;
+        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
+    }
+
+    private sealed class ContractChangeEnvelope
+    {
+        public string Status { get; set; } = "PENDING";
+        public DateTime CreatedAt { get; set; }
+        public DateTime? ConfirmedAt { get; set; }
+        public DateTime? DiscussedAt { get; set; }
+        public int ContractId { get; set; }
+        public string? ContractCode { get; set; }
+        public int RoomId { get; set; }
+        public string? RoomNumber { get; set; }
+        public decimal CurrentRentPrice { get; set; }
+        public DateTime EffectiveDate { get; set; }
+        public decimal? ProposedRentPrice { get; set; }
+        public List<ServicePriceChangeDto> ServicePriceChanges { get; set; } = new();
+        public List<int> AddedServiceIds { get; set; } = new();
+        public string? Note { get; set; }
+        public string? ResidentMessage { get; set; }
+        public int SenderUserId { get; set; }
     }
 
     public async Task<List<HopDongDto>> GetAllAsync()
@@ -264,6 +296,434 @@ public class HopDongService : IHopDongService
 
         _hopDongRepository.Remove(contract);
         await _hopDongRepository.SaveChangesAsync();
+    }
+
+    public async Task SendContractChangeProposalAsync(int contractId, SendContractChangeProposalDto dto, int senderUserId)
+    {
+        var contract = await _hopDongRepository.GetWithDetailsAsync(contractId)
+            ?? throw new InvalidOperationException("Hợp đồng không tồn tại");
+
+        if (dto.EffectiveDate == default)
+        {
+            throw new InvalidOperationException("Ngày áp dụng không hợp lệ");
+        }
+
+        var serviceIds = dto.ServicePriceChanges.Select(x => x.ServiceId)
+            .Concat(dto.AddedServiceIds)
+            .Where(x => x > 0)
+            .Distinct()
+            .ToList();
+        var serviceMap = (await _serviceRepository.GetAllAsync())
+            .Where(s => serviceIds.Contains(s.Id))
+            .ToDictionary(s => s.Id, s => s);
+
+        foreach (var p in dto.ServicePriceChanges)
+        {
+            if (!serviceMap.ContainsKey(p.ServiceId))
+            {
+                throw new InvalidOperationException($"Dịch vụ ID {p.ServiceId} không tồn tại");
+            }
+
+            if (p.NewPrice <= 0)
+            {
+                throw new InvalidOperationException("Giá dịch vụ mới phải lớn hơn 0");
+            }
+        }
+
+        var envelope = new ContractChangeEnvelope
+        {
+            CreatedAt = DateTime.UtcNow,
+            ContractId = contract.Id,
+            ContractCode = contract.ContractCode,
+            RoomId = contract.RoomId,
+            RoomNumber = contract.Room?.RoomCode,
+            CurrentRentPrice = contract.ActualRentPrice,
+            EffectiveDate = dto.EffectiveDate,
+            ProposedRentPrice = dto.NewRentPrice,
+            ServicePriceChanges = dto.ServicePriceChanges,
+            AddedServiceIds = dto.AddedServiceIds.Where(x => x > 0).Distinct().ToList(),
+            Note = dto.Note,
+            SenderUserId = senderUserId,
+        };
+
+        var json = JsonSerializer.Serialize(envelope);
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+        var linkPayload = $"contract-change:{encoded}";
+
+        var recipientUserIds = contract.ChiTietOs
+            .SelectMany(ct => ct.Resident?.Users ?? Enumerable.Empty<User>())
+            .Select(u => u.Id)
+            .Distinct()
+            .ToList();
+
+        if (recipientUserIds.Count == 0)
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản cư dân để gửi thông báo");
+        }
+
+        var summary = BuildProposalSummary(contract, dto, serviceMap);
+        foreach (var recipientUserId in recipientUserIds)
+        {
+            await _notificationRepository.AddAsync(new Notification
+            {
+                UserId = senderUserId,
+                RecipientId = recipientUserId,
+                ScopeType = "USER",
+                NotificationType = "CONTRACT_CHANGE",
+                Title = $"Đề xuất thay đổi hợp đồng {contract.ContractCode}",
+                Content = summary,
+                RelatedId = contract.Id,
+                LinkUrl = linkPayload,
+                Priority = "NORMAL",
+                IsRead = false,
+                SentAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+            });
+        }
+
+        await _notificationRepository.SaveChangesAsync();
+    }
+
+    public async Task<ContractChangeDetailDto> GetContractChangeDetailAsync(int notificationId, int userId)
+    {
+        var notification = await _notificationRepository.GetByIdWithUserAsync(notificationId)
+            ?? throw new InvalidOperationException("Không tìm thấy thông báo");
+
+        if (notification.RecipientId != userId && notification.ScopeType != "ALL")
+        {
+            throw new InvalidOperationException("Bạn không có quyền xem thông báo này");
+        }
+
+        if (!string.Equals(notification.NotificationType, "CONTRACT_CHANGE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Thông báo không phải thay đổi hợp đồng");
+        }
+
+        var envelope = DecodeEnvelope(notification.LinkUrl);
+
+        var serviceIds = envelope.ServicePriceChanges.Select(x => x.ServiceId)
+            .Concat(envelope.AddedServiceIds)
+            .Where(x => x > 0)
+            .Distinct()
+            .ToList();
+        var serviceMap = (await _serviceRepository.GetAllAsync())
+            .Where(s => serviceIds.Contains(s.Id))
+            .ToDictionary(s => s.Id, s => s);
+
+        return new ContractChangeDetailDto
+        {
+            NotificationId = notification.Id,
+            Status = envelope.Status,
+            CreatedAt = envelope.CreatedAt,
+            EffectiveDate = envelope.EffectiveDate,
+            ContractId = envelope.ContractId,
+            ContractCode = envelope.ContractCode,
+            RoomId = envelope.RoomId,
+            RoomNumber = envelope.RoomNumber,
+            CurrentRentPrice = envelope.CurrentRentPrice,
+            ProposedRentPrice = envelope.ProposedRentPrice,
+            Note = envelope.Note,
+            ResidentMessage = envelope.ResidentMessage,
+            ServicePriceChanges = envelope.ServicePriceChanges.Select(x => new ServicePriceChangeDetailDto
+            {
+                ServiceId = x.ServiceId,
+                ServiceName = serviceMap.TryGetValue(x.ServiceId, out var s) ? s.Name : $"Dịch vụ #{x.ServiceId}",
+                CurrentPrice = serviceMap.TryGetValue(x.ServiceId, out var s2) ? (s2.CommonUnitPrice ?? 0) : 0,
+                NewPrice = x.NewPrice,
+            }).ToList(),
+            AddedServices = envelope.AddedServiceIds.Select(id =>
+            {
+                serviceMap.TryGetValue(id, out var s);
+                return new AddedServiceDetailDto
+                {
+                    ServiceId = id,
+                    ServiceName = s?.Name ?? $"Dịch vụ #{id}",
+                    UnitPrice = s?.CommonUnitPrice ?? 0,
+                    Unit = s?.Unit,
+                };
+            }).ToList(),
+        };
+    }
+
+    public async Task<List<ContractChangeTrackingItemDto>> GetContractChangeTrackingAsync(string? status, int limit = 200)
+    {
+        var normalizedStatus = string.IsNullOrWhiteSpace(status)
+            ? null
+            : status.Trim().ToUpperInvariant();
+
+        var allowedStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "PENDING",
+            "DISCUSSING",
+            "CONFIRMED"
+        };
+
+        if (normalizedStatus != null && !allowedStatuses.Contains(normalizedStatus))
+        {
+            throw new InvalidOperationException("Trạng thái không hợp lệ. Chỉ hỗ trợ: PENDING, DISCUSSING, CONFIRMED");
+        }
+
+        var safeLimit = Math.Clamp(limit, 1, 500);
+        var fetchLimit = Math.Clamp(safeLimit * 4, 200, 2000);
+
+        var notifications = await _notificationRepository.GetAllRecentAsync(fetchLimit);
+        var trackingItems = new List<ContractChangeTrackingItemDto>();
+
+        foreach (var notification in notifications)
+        {
+            if (!string.Equals(notification.NotificationType, "CONTRACT_CHANGE", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(notification.LinkUrl) || !notification.LinkUrl.StartsWith("contract-change:"))
+            {
+                continue;
+            }
+
+            ContractChangeEnvelope envelope;
+            try
+            {
+                envelope = DecodeEnvelope(notification.LinkUrl);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var itemStatus = string.IsNullOrWhiteSpace(envelope.Status)
+                ? "PENDING"
+                : envelope.Status.Trim().ToUpperInvariant();
+
+            if (normalizedStatus != null && !string.Equals(itemStatus, normalizedStatus, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            trackingItems.Add(new ContractChangeTrackingItemDto
+            {
+                NotificationId = notification.Id,
+                ContractId = envelope.ContractId,
+                ContractCode = envelope.ContractCode,
+                RoomId = envelope.RoomId,
+                RoomNumber = envelope.RoomNumber,
+                Status = itemStatus,
+                CreatedAt = envelope.CreatedAt,
+                EffectiveDate = envelope.EffectiveDate,
+                CurrentRentPrice = envelope.CurrentRentPrice,
+                ProposedRentPrice = envelope.ProposedRentPrice,
+                Note = envelope.Note,
+                ResidentMessage = envelope.ResidentMessage,
+                ServicePriceChangeCount = envelope.ServicePriceChanges?.Count ?? 0,
+                AddedServiceCount = envelope.AddedServiceIds?.Distinct().Count() ?? 0,
+            });
+        }
+
+        return trackingItems
+            .GroupBy(x => x.ContractId)
+            .Select(g => g.OrderByDescending(x => x.CreatedAt).First())
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(safeLimit)
+            .ToList();
+    }
+
+    public async Task ConfirmContractChangeAsync(int notificationId, int userId)
+    {
+        var notification = await _notificationRepository.GetByIdWithUserAsync(notificationId)
+            ?? throw new InvalidOperationException("Không tìm thấy thông báo");
+
+        if (notification.RecipientId != userId)
+        {
+            throw new InvalidOperationException("Bạn không có quyền xác nhận thông báo này");
+        }
+
+        if (!string.Equals(notification.NotificationType, "CONTRACT_CHANGE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Thông báo không phải thay đổi hợp đồng");
+        }
+
+        var envelope = DecodeEnvelope(notification.LinkUrl);
+        if (!string.Equals(envelope.Status, "PENDING", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(envelope.Status, "DISCUSSING", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        await ApplyProposalToContractAsync(envelope);
+
+        envelope.Status = "CONFIRMED";
+        envelope.ConfirmedAt = DateTime.UtcNow;
+        notification.LinkUrl = EncodeEnvelope(envelope);
+        notification.IsRead = true;
+        notification.ReadAt = DateTime.UtcNow;
+
+        await _notificationRepository.SaveChangesAsync();
+
+        var roomText = string.IsNullOrWhiteSpace(envelope.RoomNumber) ? "không xác định" : envelope.RoomNumber;
+        await _notificationService.CreateAdminNotificationAsync(
+            "Cư dân đã xác nhận thay đổi hợp đồng",
+            $"Thay đổi hợp đồng {envelope.ContractCode ?? ("#" + envelope.ContractId)} - phòng {roomText} đã được cư dân xác nhận và áp dụng.",
+            "CONTRACT_CHANGE");
+    }
+
+    public async Task RequestContractChangeDiscussionAsync(int notificationId, int userId, string? message)
+    {
+        var notification = await _notificationRepository.GetByIdWithUserAsync(notificationId)
+            ?? throw new InvalidOperationException("Không tìm thấy thông báo");
+
+        if (notification.RecipientId != userId)
+        {
+            throw new InvalidOperationException("Bạn không có quyền thao tác thông báo này");
+        }
+
+        if (!string.Equals(notification.NotificationType, "CONTRACT_CHANGE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Thông báo không phải thay đổi hợp đồng");
+        }
+
+        var envelope = DecodeEnvelope(notification.LinkUrl);
+        if (string.Equals(envelope.Status, "CONFIRMED", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        envelope.Status = "DISCUSSING";
+        envelope.DiscussedAt = DateTime.UtcNow;
+        envelope.ResidentMessage = string.IsNullOrWhiteSpace(message)
+            ? "Cư dân muốn thảo luận lại với Ban quản lý"
+            : message.Trim();
+
+        notification.LinkUrl = EncodeEnvelope(envelope);
+        // Keep notification unread so resident can confirm later.
+        notification.IsRead = false;
+        notification.ReadAt = null;
+        await _notificationRepository.SaveChangesAsync();
+
+        await _notificationService.CreateAdminNotificationAsync(
+            "Cư dân yêu cầu thảo luận lại hợp đồng",
+            $"Hợp đồng {envelope.ContractCode ?? ("#" + envelope.ContractId)} có phản hồi từ cư dân: {envelope.ResidentMessage}",
+            "CONTRACT_CHANGE");
+    }
+
+    private static string BuildProposalSummary(HopDong contract, SendContractChangeProposalDto dto, Dictionary<int, Service> serviceMap)
+    {
+        var parts = new List<string>
+        {
+            $"Ngày áp dụng: {dto.EffectiveDate:dd/MM/yyyy}"
+        };
+
+        if (dto.NewRentPrice.HasValue)
+        {
+            parts.Add($"Giá phòng mới: {dto.NewRentPrice.Value:N0} VNĐ");
+        }
+
+        if (dto.ServicePriceChanges.Any())
+        {
+            var serviceText = string.Join(", ", dto.ServicePriceChanges.Select(x =>
+            {
+                var name = serviceMap.TryGetValue(x.ServiceId, out var s) ? s.Name : $"DV#{x.ServiceId}";
+                return $"{name}: {x.NewPrice:N0} VNĐ";
+            }));
+            parts.Add($"Điều chỉnh giá dịch vụ: {serviceText}");
+        }
+
+        if (dto.AddedServiceIds.Any())
+        {
+            var added = string.Join(", ", dto.AddedServiceIds.Select(id =>
+                serviceMap.TryGetValue(id, out var s) ? s.Name : $"DV#{id}"));
+            parts.Add($"Thêm dịch vụ: {added}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Note))
+        {
+            parts.Add($"Ghi chú: {dto.Note}");
+        }
+
+        return string.Join(" | ", parts);
+    }
+
+    private async Task ApplyProposalToContractAsync(ContractChangeEnvelope envelope)
+    {
+        var contract = await _hopDongRepository.GetWithDetailsAsync(envelope.ContractId)
+            ?? throw new InvalidOperationException("Hợp đồng không tồn tại để áp dụng thay đổi");
+
+        if (envelope.ProposedRentPrice.HasValue)
+        {
+            contract.ActualRentPrice = envelope.ProposedRentPrice.Value;
+        }
+
+        var services = (await _serviceRepository.GetAllAsync())
+            .Where(s => envelope.ServicePriceChanges.Select(x => x.ServiceId).Contains(s.Id)
+                || envelope.AddedServiceIds.Contains(s.Id))
+            .ToDictionary(s => s.Id, s => s);
+
+        foreach (var change in envelope.ServicePriceChanges)
+        {
+            if (!services.TryGetValue(change.ServiceId, out var service))
+            {
+                continue;
+            }
+
+            service.CommonUnitPrice = change.NewPrice;
+            service.EffectiveDate = envelope.EffectiveDate;
+            _serviceRepository.Update(service);
+        }
+
+        var primaryResidentId = contract.ChiTietOs
+            .OrderBy(ct => ct.ResidencyRole == "Người thuê chính" ? 0 : 1)
+            .Select(ct => ct.ResidentId)
+            .FirstOrDefault();
+
+        if (primaryResidentId > 0 && envelope.AddedServiceIds.Any())
+        {
+            var existing = (await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(contract.RoomId)).ToList();
+            foreach (var serviceId in envelope.AddedServiceIds.Distinct())
+            {
+                var overlapping = existing.Any(u =>
+                    u.ServiceId == serviceId
+                    && u.ApplyFrom <= (contract.ExpectedEndDate ?? DateTime.MaxValue)
+                    && (u.ApplyTo == null || u.ApplyTo >= envelope.EffectiveDate));
+
+                if (overlapping)
+                {
+                    continue;
+                }
+
+                await _chiTietSuDungDichVuRepository.AddAsync(new ChiTietSuDungDichVu
+                {
+                    ServiceId = serviceId,
+                    ResidentId = primaryResidentId,
+                    RoomId = contract.RoomId,
+                    ApplyFrom = envelope.EffectiveDate,
+                    ApplyTo = contract.ExpectedEndDate,
+                    Quantity = 1,
+                    CreatedAt = DateTime.UtcNow,
+                    Note = $"Thêm theo xác nhận thay đổi hợp đồng {contract.ContractCode}"
+                });
+            }
+        }
+
+        _hopDongRepository.Update(contract);
+        await _hopDongRepository.SaveChangesAsync();
+    }
+
+    private static ContractChangeEnvelope DecodeEnvelope(string? linkUrl)
+    {
+        if (string.IsNullOrWhiteSpace(linkUrl) || !linkUrl.StartsWith("contract-change:"))
+        {
+            throw new InvalidOperationException("Dữ liệu thay đổi hợp đồng không hợp lệ");
+        }
+
+        var encoded = linkUrl["contract-change:".Length..];
+        var json = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+        return JsonSerializer.Deserialize<ContractChangeEnvelope>(json)
+            ?? throw new InvalidOperationException("Không đọc được nội dung thay đổi hợp đồng");
+    }
+
+    private static string EncodeEnvelope(ContractChangeEnvelope envelope)
+    {
+        var json = JsonSerializer.Serialize(envelope);
+        return "contract-change:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
     }
 
     private static HopDongDto MapToDto(HopDong contract)

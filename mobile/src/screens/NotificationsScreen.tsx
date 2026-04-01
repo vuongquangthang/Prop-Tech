@@ -45,6 +45,12 @@ export default function NotificationsScreen() {
   const navigateByNotification = (notification: Notification) => {
     const type = (notification.notificationType || '').toUpperCase();
 
+    if (type === 'CONTRACT_CHANGE') {
+      // @ts-ignore
+      navigation.navigate('ContractChangeApproval', { notificationId: notification.id });
+      return;
+    }
+
     if (type === 'INVOICE' || type === 'PAYMENT') {
       if (notification.relatedId) {
         // @ts-ignore
@@ -72,7 +78,10 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = async (notification: Notification) => {
-    await handleMarkAsRead(notification.id);
+    const type = (notification.notificationType || '').toUpperCase();
+    if (type !== 'CONTRACT_CHANGE') {
+      await handleMarkAsRead(notification.id);
+    }
     navigateByNotification(notification);
   };
 

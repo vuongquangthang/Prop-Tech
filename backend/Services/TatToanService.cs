@@ -21,15 +21,24 @@ namespace backend.Services
         private readonly ITatToanRepository _tatToanRepository;
         private readonly IChiTietPhieuTatToanRepository _detailRepository;
         private readonly IHopDongRepository _hopDongRepository;
+        private readonly IRoomRepository _roomRepository;
+        private readonly IChiTietORepository _chiTietORepository;
+        private readonly IChiTietSuDungDichVuRepository _chiTietSuDungDichVuRepository;
 
         public TatToanService(
             ITatToanRepository tatToanRepository,
             IChiTietPhieuTatToanRepository detailRepository,
-            IHopDongRepository hopDongRepository)
+            IHopDongRepository hopDongRepository,
+            IRoomRepository roomRepository,
+            IChiTietORepository chiTietORepository,
+            IChiTietSuDungDichVuRepository chiTietSuDungDichVuRepository)
         {
             _tatToanRepository = tatToanRepository;
             _detailRepository = detailRepository;
             _hopDongRepository = hopDongRepository;
+            _roomRepository = roomRepository;
+            _chiTietORepository = chiTietORepository;
+            _chiTietSuDungDichVuRepository = chiTietSuDungDichVuRepository;
         }
 
         public async Task<IEnumerable<TatToanDto>> GetAllAsync()
@@ -104,6 +113,11 @@ namespace backend.Services
                 await _detailRepository.CreateAsync(detail);
             }
 
+            if (IsSettlementCompleted(created.Status))
+            {
+                await FinalizeContractAfterSettlementAsync(created.ResidencyId, created.SettlementDate);
+            }
+
             // Reload to get details
             var result = await _tatToanRepository.GetByIdAsync(created.Id);
             return MapToDto(result!);
@@ -165,6 +179,11 @@ namespace backend.Services
             }
 
             var updated = await _tatToanRepository.UpdateAsync(tatToan);
+
+            if (IsSettlementCompleted(updated.Status))
+            {
+                await FinalizeContractAfterSettlementAsync(updated.ResidencyId, updated.SettlementDate);
+            }
             
             // Reload to get details
             var result = await _tatToanRepository.GetByIdAsync(updated.Id);
@@ -182,8 +201,63 @@ namespace backend.Services
             decimal compensation,
             decimal deductions)
         {
-            // TotalSettlement = DepositRefund - OutstandingDebt + Compensation - Deductions
+            // Công thức tất toán: tiền cọc +- tiền phòng +- tiền dịch vụ (+ bồi thường) - khấu trừ.
+            // Ở đây OutstandingDebt là tổng nợ phòng + nợ dịch vụ.
             return depositRefund - outstandingDebt + compensation - deductions;
+        }
+
+        private static bool IsSettlementCompleted(string? status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                return false;
+            }
+
+            var normalized = status.Trim().ToLowerInvariant();
+            return normalized is "completed" or "hoàn thành" or "hoan thanh" or "da hoan tien";
+        }
+
+        private async Task FinalizeContractAfterSettlementAsync(int contractId, DateTime settlementDate)
+        {
+            var contract = await _hopDongRepository.GetWithDetailsAsync(contractId);
+            if (contract == null)
+            {
+                return;
+            }
+
+            var endDate = settlementDate.Date.AddDays(-1);
+
+            contract.ExpectedEndDate = endDate;
+            _hopDongRepository.Update(contract);
+
+            var room = await _roomRepository.GetByIdAsync(contract.RoomId);
+            if (room != null)
+            {
+                room.Status = "Trống";
+                _roomRepository.Update(room);
+            }
+
+            var occupancies = await _chiTietORepository.GetByContractIdAsync(contract.Id);
+            foreach (var occupancy in occupancies)
+            {
+                if (!occupancy.ToDate.HasValue || occupancy.ToDate.Value > endDate)
+                {
+                    occupancy.ToDate = endDate;
+                    _chiTietORepository.Update(occupancy);
+                }
+            }
+
+            var serviceUsages = await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(contract.RoomId);
+            foreach (var usage in serviceUsages)
+            {
+                if (!usage.ApplyTo.HasValue || usage.ApplyTo.Value > endDate)
+                {
+                    usage.ApplyTo = endDate;
+                    _chiTietSuDungDichVuRepository.Update(usage);
+                }
+            }
+
+            await _hopDongRepository.SaveChangesAsync();
         }
 
         private TatToanDto MapToDto(TatToan tatToan)

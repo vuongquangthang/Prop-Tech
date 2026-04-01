@@ -345,7 +345,8 @@ function CreateSettlementTab() {
   const [selectedContractId, setSelectedContractId] = useState('');
   const [settlementDate, setSettlementDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [depositRefundInput, setDepositRefundInput] = useState('0');
-  const [outstandingDebtInput, setOutstandingDebtInput] = useState('0');
+  const [roomDebtInput, setRoomDebtInput] = useState('0');
+  const [serviceDebtInput, setServiceDebtInput] = useState('0');
   const [compensationInput, setCompensationInput] = useState('0');
   const [deductionsInput, setDeductionsInput] = useState('0');
   const [notes, setNotes] = useState('');
@@ -399,7 +400,9 @@ function CreateSettlementTab() {
   }, [selectedContractId]);
 
   const depositRefund = parseAmount(depositRefundInput);
-  const outstandingDebt = parseAmount(outstandingDebtInput);
+  const roomDebt = parseAmount(roomDebtInput);
+  const serviceDebt = parseAmount(serviceDebtInput);
+  const outstandingDebt = roomDebt + serviceDebt;
   const compensation = parseAmount(compensationInput);
   const deductions = parseAmount(deductionsInput);
   const totalSettlement = depositRefund - outstandingDebt + compensation - deductions;
@@ -417,7 +420,8 @@ function CreateSettlementTab() {
 
       const details: any[] = [];
       if (depositRefund > 0) details.push({ description: 'Hoàn tiền cọc', amount: depositRefund, type: 'DepositRefund' });
-      if (outstandingDebt > 0) details.push({ description: 'Công nợ chưa thanh toán', amount: outstandingDebt, type: 'Debt' });
+      if (roomDebt > 0) details.push({ description: 'Công nợ tiền phòng', amount: roomDebt, type: 'RoomDebt' });
+      if (serviceDebt > 0) details.push({ description: 'Công nợ tiền dịch vụ', amount: serviceDebt, type: 'ServiceDebt' });
       if (compensation > 0) details.push({ description: 'Bồi thường', amount: compensation, type: 'Compensation' });
       if (deductions > 0) details.push({ description: notes || 'Khấu trừ khác', amount: deductions, type: 'Deduction' });
 
@@ -428,7 +432,7 @@ function CreateSettlementTab() {
         outstandingDebt,
         compensation,
         deductions,
-        status: 'Pending',
+        status: 'Completed',
         details,
       });
 
@@ -436,7 +440,8 @@ function CreateSettlementTab() {
       setSelectedContractId('');
       setContractQuery('');
       setDepositRefundInput('0');
-      setOutstandingDebtInput('0');
+      setRoomDebtInput('0');
+      setServiceDebtInput('0');
       setCompensationInput('0');
       setDeductionsInput('0');
       setNotes('');
@@ -547,11 +552,23 @@ function CreateSettlementTab() {
             <div className="p-4 space-y-3 text-xs">
               <div>
                 <div className="flex items-center justify-between">
-                  <p className="text-gray-700">Công nợ chưa thanh toán</p>
+                  <p className="text-gray-700">Công nợ tiền phòng</p>
                   <input
                     type="text"
-                    value={formatAmount(outstandingDebtInput)}
-                    onChange={(e) => setOutstandingDebtInput(e.target.value)}
+                    value={formatAmount(roomDebtInput)}
+                    onChange={(e) => setRoomDebtInput(e.target.value)}
+                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-700">Công nợ tiền dịch vụ</p>
+                  <input
+                    type="text"
+                    value={formatAmount(serviceDebtInput)}
+                    onChange={(e) => setServiceDebtInput(e.target.value)}
                     className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
                   />
                 </div>

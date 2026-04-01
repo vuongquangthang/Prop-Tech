@@ -5,7 +5,7 @@ export interface Notification {
   id: number;
   title: string;
   content: string;
-  notificationType: 'INVOICE' | 'PAYMENT' | 'COMPLAINT' | 'SYSTEM' | 'ANNOUNCEMENT';
+  notificationType: 'INVOICE' | 'PAYMENT' | 'COMPLAINT' | 'SYSTEM' | 'ANNOUNCEMENT' | 'CONTRACT_CHANGE';
   relatedId?: number;
   linkUrl?: string;
   isRead: boolean;
@@ -90,6 +90,7 @@ class NotificationService {
       'COMPLAINT': 'construct',
       'SYSTEM': 'information-circle',
       'ANNOUNCEMENT': 'megaphone',
+      'CONTRACT_CHANGE': 'document-text',
     };
     return icons[type] || 'notifications';
   }
@@ -104,6 +105,7 @@ class NotificationService {
       'COMPLAINT': { color: '#DC2626', bgColor: '#FEE2E2' },
       'SYSTEM': { color: '#1A4B84', bgColor: '#E8F0FB' },
       'ANNOUNCEMENT': { color: '#7C3AED', bgColor: '#EDE9FE' },
+      'CONTRACT_CHANGE': { color: '#1D4ED8', bgColor: '#DBEAFE' },
     };
     return colors[type] || { color: '#6B7280', bgColor: '#F3F4F6' };
   }

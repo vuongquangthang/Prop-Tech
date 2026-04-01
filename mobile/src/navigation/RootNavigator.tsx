@@ -11,6 +11,7 @@ import ReportIssueScreen from '../screens/ReportIssueScreen';
 import ChatbotScreen from '../screens/ChatbotScreen';
 import RoomDetailScreen from '../screens/RoomDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import ContractChangeApprovalScreen from '../screens/ContractChangeApprovalScreen';
 import { useAuthStore } from '../store/authStore';
 import signalrService from '../services/signalr.service';
 
@@ -27,6 +28,7 @@ const MainStack = () => {
       <Stack.Screen name="Chatbot" component={ChatbotScreen} />
       <Stack.Screen name="RoomDetail" component={RoomDetailScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="ContractChangeApproval" component={ContractChangeApprovalScreen} />
     </Stack.Navigator>
   );
 };

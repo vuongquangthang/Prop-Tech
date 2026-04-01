@@ -33,7 +33,7 @@ public class ChatService : IChatService
     private readonly string _n8nWebhookUrl;
 
     private const string DefaultN8nWebhookUrl =
-        "https://lhdpo.app.n8n.cloud/webhook/5e56a263-3a40-44bd-bc9d-1cfb3bc2a87d/chat";
+        "https://lhdpo.app.n8n.cloud/webhook/00d5ccca-9e10-4b8c-9796-0c20f6277750";
 
     public ChatService(
         ILichSuChatRepository chatRepository,
@@ -201,7 +201,7 @@ public class ChatService : IChatService
         try
         {
             var client = _httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(15);
+            client.Timeout = TimeSpan.FromSeconds(60);
             var payload = JsonSerializer.Serialize(new
             {
                 chatInput = userMessage,
@@ -210,10 +210,15 @@ public class ChatService : IChatService
             });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             var res = await client.PostAsync(_n8nWebhookUrl, content);
+            var json = await res.Content.ReadAsStringAsync();
+            
+            _logger.LogInformation("n8n webhook response: status={StatusCode}, body={Body}", (int)res.StatusCode, json);
+            
             if (res.IsSuccessStatusCode)
             {
-                var json = await res.Content.ReadAsStringAsync();
                 var text = ExtractN8nText(json);
+                _logger.LogInformation("Extracted text from n8n: '{Text}'", text);
+                
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     return new ChatResponseResult
@@ -227,8 +232,7 @@ public class ChatService : IChatService
             }
             else
             {
-                var errorBody = await res.Content.ReadAsStringAsync();
-                _logger.LogWarning("n8n webhook returned non-success status. url={Url}, status={StatusCode}, body={Body}", _n8nWebhookUrl, (int)res.StatusCode, errorBody);
+                _logger.LogWarning("n8n webhook returned non-success status. url={Url}, status={StatusCode}, body={Body}", _n8nWebhookUrl, (int)res.StatusCode, json);
             }
         }
         catch (Exception ex)

@@ -204,37 +204,17 @@ export const n8nService = {
     }
   },
 
-  // Send chat message to n8n RAG webhook
+  // Send chat message via backend API (which calls n8n RAG webhook)
   sendChatMessage: async (message: string): Promise<{ text: string }> => {
     try {
-      const response = await fetch(
-        'https://lhdpo.app.n8n.cloud/webhook/5e56a263-3a40-44bd-bc9d-1cfb3bc2a87d/chat',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ chatInput: message }),
-        }
+      const response = await api.post<ChatMessage>(
+        API_ENDPOINTS.CHAT.SEND,
+        { messageText: message }
       );
-      
-      if (!response.ok) {
-        throw new Error(`Chat request failed: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      // Handle various response formats from n8n
-      const text = 
-        data?.text || 
-        data?.message || 
-        data?.response || 
-        data?.output || 
-        (typeof data === 'string' ? data : 'Không có câu trả lời từ AI');
-      
-      return { text };
+      return { text: response.data.messageText };
     } catch (error: any) {
-      console.error('N8N chat error:', error);
-      throw new Error(error?.message || 'Lỗi khi gửi tin nhắn tới AI');
+      console.error('Chat error:', error);
+      throw new Error(error?.message || 'Lỗi khi gửi tin nhắn');
     }
   },
 };
@@ -285,11 +265,14 @@ export const chatService = {
     }
   },
 
-  // Send message to n8n RAG system
+  // Send message via backend API
   sendMessage: async (messageText: string) => {
     try {
-      const response = await n8nService.sendChatMessage(messageText);
-      return { messageText: response.text };
+      const response = await api.post<ChatMessage>(
+        API_ENDPOINTS.CHAT.SEND,
+        { messageText }
+      );
+      return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
     }

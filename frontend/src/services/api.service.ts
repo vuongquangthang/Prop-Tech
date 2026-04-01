@@ -67,6 +67,23 @@ export interface Contract {
   notes?: string;
 }
 
+export interface ContractChangeTrackingItem {
+  notificationId: number;
+  contractId: number;
+  contractCode?: string;
+  roomId: number;
+  roomNumber?: string;
+  status: 'PENDING' | 'DISCUSSING' | 'CONFIRMED' | string;
+  createdAt: string;
+  effectiveDate: string;
+  currentRentPrice: number;
+  proposedRentPrice?: number;
+  note?: string;
+  residentMessage?: string;
+  servicePriceChangeCount: number;
+  addedServiceCount: number;
+}
+
 export interface Invoice {
   id: number;
   contractId?: number;
@@ -425,6 +442,63 @@ export const contractService = {
   create: async (data: Omit<Contract, 'id' | 'contractCode'>) => {
     try {
       const response = await api.post<Contract>(API_ENDPOINTS.CONTRACTS.BASE, data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  proposeChange: async (id: number, data: {
+    effectiveDate: string;
+    newRentPrice?: number;
+    servicePriceChanges: Array<{ serviceId: number; newPrice: number }>;
+    addedServiceIds: number[];
+    note?: string;
+  }) => {
+    try {
+      const response = await api.post(API_ENDPOINTS.CONTRACTS.PROPOSE_CHANGE(id), data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getChangeRequestDetail: async (notificationId: number) => {
+    try {
+      const response = await api.get(API_ENDPOINTS.CONTRACTS.CHANGE_REQUEST_DETAIL(notificationId));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getChangeRequestTracking: async (status?: 'PENDING' | 'DISCUSSING' | 'CONFIRMED', limit: number = 200) => {
+    try {
+      const query = new URLSearchParams();
+      if (status) query.set('status', status);
+      query.set('limit', String(limit));
+
+      const response = await api.get<ContractChangeTrackingItem[]>(
+        `${API_ENDPOINTS.CONTRACTS.CHANGE_REQUEST_TRACKING}?${query.toString()}`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  confirmChangeRequest: async (notificationId: number) => {
+    try {
+      const response = await api.post(API_ENDPOINTS.CONTRACTS.CHANGE_REQUEST_CONFIRM(notificationId));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  discussChangeRequest: async (notificationId: number, message?: string) => {
+    try {
+      const response = await api.post(API_ENDPOINTS.CONTRACTS.CHANGE_REQUEST_DISCUSS(notificationId), { message });
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

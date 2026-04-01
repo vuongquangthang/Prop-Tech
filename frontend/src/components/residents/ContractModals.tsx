@@ -1076,11 +1076,43 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
           console.error('Error calculating financial data:', e);
         }
 
-        try {
-          const services = await serviceService.getByContract(Number(contract.id));
-          setActiveServices(services || []);
-        } catch (e) {
-          console.error('Error fetching services:', e);
+        // Extract services from billing formula (ground truth) instead of ChiTietSuDungDichVu
+        // This ensures consistency with the monthly billing formula display
+        if (detail?.billingFormulaJson) {
+          try {
+            const formula = typeof detail.billingFormulaJson === 'string' 
+              ? JSON.parse(detail.billingFormulaJson)
+              : detail.billingFormulaJson;
+            
+            if (Array.isArray(formula)) {
+              // Extract all service items (DichVu, Dien, Nuoc) - exclude TienPhong (room rent)
+              const serviceItems = formula.filter((item: any) => 
+                item.itemType !== 'TienPhong' && (item.serviceId || item.serviceName)
+              );
+              const uniqueServices = Array.from(
+                new Map(serviceItems.map((item: any) => [
+                  item.serviceId || `${item.itemType}-${item.serviceName}`,
+                  {
+                    serviceId: item.serviceId || 0,
+                    serviceName: item.serviceName || item.itemType,
+                    commonUnitPrice: item.unitPrice,
+                    unitPrice: item.unitPrice,
+                    itemType: item.itemType,
+                  }
+                ])).values()
+              );
+              setActiveServices(uniqueServices);
+            }
+          } catch (e) {
+            console.error('Error parsing billing formula for services:', e);
+            // Fallback to GetServicesByContract if formula parsing fails
+            try {
+              const services = await serviceService.getByContract(Number(contract.id));
+              setActiveServices(services || []);
+            } catch (fallbackError) {
+              console.error('Fallback error fetching services:', fallbackError);
+            }
+          }
         }
       } catch (e) {
         console.error('Error loading contract details:', e);
@@ -1366,6 +1398,52 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Electricity Pricing */}
+              {roomDetail?.electricityTiers && roomDetail.electricityTiers.length > 0 && (
+                <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                  <h4 className="text-sm text-gray-600 mb-3">⚡ Bảng giá điện</h4>
+                  {roomDetail.electricityBasePrice && (
+                    <div className="mb-3 pb-3 border-b border-gray-300">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Giá cơ bản:</span>
+                        <span className="text-gray-800 font-bold">{fmtCurrency(roomDetail.electricityBasePrice)}/kWh</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-white">
+                          <th className="px-2 py-2 text-left text-gray-600 border-b border-gray-300">Bậc</th>
+                          <th className="px-2 py-2 text-left text-gray-600 border-b border-gray-300">Khoảng (kWh)</th>
+                          <th className="px-2 py-2 text-right text-gray-600 border-b border-gray-300">Đơn giá</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {roomDetail.electricityTiers.map((tier: any) => (
+                          <tr key={tier.tierNumber} className="border-b border-gray-200">
+                            <td className="px-2 py-2 text-gray-700">{tier.tierNumber}</td>
+                            <td className="px-2 py-2 text-gray-700">{tier.fromKwh} - {tier.toKwh || '∞'}</td>
+                            <td className="px-2 py-2 text-right text-gray-800 font-bold">{fmtCurrency(tier.pricePerKwh)}/kWh</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Water Pricing */}
+              {roomDetail?.waterPricePerCubicMeter && (
+                <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                  <h4 className="text-sm text-gray-600 mb-3">💧 Giá nước</h4>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Đơn giá:</span>
+                    <span className="text-gray-800 font-bold">{fmtCurrency(roomDetail.waterPricePerCubicMeter)}/m³</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

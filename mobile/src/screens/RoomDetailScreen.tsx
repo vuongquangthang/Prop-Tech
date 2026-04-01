@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 // @ts-ignore - TypeScript cache issue, restart TS server if error persists
 import { roomService, MyRoom, ServiceInfo, ElectricityTier } from '../services/room.service';
+import { contractService, ContractDetail } from '../services/contract.service';
 
 export default function RoomDetailScreen() {
   const navigation = useNavigation();
@@ -20,6 +21,10 @@ export default function RoomDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contractDetail, setContractDetail] = useState<ContractDetail | null>(null);
+  const [isContractLoading, setIsContractLoading] = useState(false);
+  const [contractError, setContractError] = useState<string | null>(null);
+  const [showContractDetail, setShowContractDetail] = useState(false);
 
   useEffect(() => {
     loadRoomData();
@@ -39,8 +44,31 @@ export default function RoomDetailScreen() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    setContractDetail(null);
+    setContractError(null);
+    setShowContractDetail(false);
     await loadRoomData();
     setIsRefreshing(false);
+  };
+
+  const loadContractDetail = async () => {
+    if (!room?.contractId) {
+      setContractError('Không tìm thấy mã hợp đồng');
+      return;
+    }
+
+    try {
+      setIsContractLoading(true);
+      setContractError(null);
+      const data = await contractService.getById(room.contractId);
+      setContractDetail(data);
+      setShowContractDetail(true);
+    } catch (err: any) {
+      setContractError(err?.message || 'Không thể tải chi tiết hợp đồng');
+      setShowContractDetail(true);
+    } finally {
+      setIsContractLoading(false);
+    }
   };
 
   const formatCurrency = (amount: number): string => {
@@ -52,6 +80,64 @@ export default function RoomDetailScreen() {
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('vi-VN');
+  };
+
+  const getContractStatus = (): { status: string; label: string; color: string } => {
+    if (!contractDetail) return { status: 'unknown', label: 'Không xác định', color: '#6B7280' };
+    
+    const today = new Date();
+    const startDate = new Date(contractDetail.startDate);
+    const endDate = contractDetail.expectedEndDate 
+      ? new Date(contractDetail.expectedEndDate) 
+      : null;
+
+    if (endDate && today > endDate) {
+      const daysOver = Math.floor((today.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
+      return { status: 'expired', label: `Quá hạn ${daysOver} ngày`, color: '#DC2626' };
+    }
+
+    if (endDate) {
+      const daysLeft = Math.floor((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLeft <= 0) {
+        return { status: 'expired', label: `Quá hạn ${Math.abs(daysLeft)} ngày`, color: '#DC2626' };
+      } else if (daysLeft <= 7) {
+        return { status: 'danger', label: `Còn ${daysLeft} ngày`, color: '#EAB308' };
+      } else if (daysLeft <= 30) {
+        return { status: 'warning', label: `Còn ${daysLeft} ngày`, color: '#F97316' };
+      }
+    }
+
+    if (today < startDate) {
+      return { status: 'upcoming', label: 'Sắp bắt đầu', color: '#3B82F6' };
+    }
+
+    return { status: 'active', label: 'Đang hoạt động', color: '#22C55E' };
+  };
+
+  const parseBillingFormula = (): Array<{ name: string; unitPrice: number; quantity: string }> => {
+    if (!contractDetail) return [];
+    
+    try {
+      const formulaJson = contractDetail.billingFormulaJson || contractDetail.BillingFormulaJson;
+      if (!formulaJson) return [];
+      
+      const formula = typeof formulaJson === 'string' 
+        ? JSON.parse(formulaJson)
+        : formulaJson;
+      
+      if (!Array.isArray(formula)) return [];
+      
+      return formula
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        .map((item: any) => ({
+          name: item.serviceName || item.itemType || 'Dịch vụ',
+          unitPrice: item.unitPrice || 0,
+          quantity: item.quantityExpression === 'n' || !item.quantity ? 'n' : String(item.quantity),
+        }));
+    } catch (error) {
+      console.error('Error parsing billing formula:', error);
+      return [];
+    }
   };
 
   if (isLoading) {
@@ -151,6 +237,11 @@ export default function RoomDetailScreen() {
           </View>
 
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Mã hợp đồng:</Text>
+            <Text style={styles.infoValue}>#{room.contractId}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Ngày bắt đầu:</Text>
             <Text style={styles.infoValue}>{formatDate(room.contractStartDate)}</Text>
           </View>
@@ -171,6 +262,198 @@ export default function RoomDetailScreen() {
             <Text style={styles.infoLabel}>Tiền cọc:</Text>
             <Text style={[styles.infoValue, styles.priceValue]}>{formatCurrency(room.deposit)}</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.contractDetailButton}
+            onPress={() => {
+              if (showContractDetail) {
+                setShowContractDetail(false);
+                return;
+              }
+
+              if (contractDetail) {
+                setShowContractDetail(true);
+                return;
+              }
+
+              loadContractDetail();
+            }}
+            disabled={isContractLoading}
+          >
+            {isContractLoading ? (
+              <ActivityIndicator size="small" color="#1A4B84" />
+            ) : (
+              <>
+                <Text style={styles.contractDetailButtonText}>
+                  {showContractDetail ? 'Ẩn chi tiết hợp đồng' : 'Xem chi tiết hợp đồng'}
+                </Text>
+                <Ionicons
+                  name={showContractDetail ? 'chevron-up' : 'chevron-forward'}
+                  size={18}
+                  color="#1A4B84"
+                />
+              </>
+            )}
+          </TouchableOpacity>
+
+          {showContractDetail && (
+            <View style={styles.contractDetailBox}>
+              {contractError ? (
+                <Text style={styles.contractErrorText}>{contractError}</Text>
+              ) : contractDetail ? (
+                <>
+                  {/* Status Badge */}
+                  {(() => {
+                    const statusInfo = getContractStatus();
+                    return (
+                      <View style={[styles.infoRowCompact, { marginBottom: 12 }]}>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            { backgroundColor: statusInfo.color + '20', borderColor: statusInfo.color },
+                          ]}
+                        >
+                          <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>
+                            {statusInfo.label}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })()}
+
+                  {/* Basic Contract Info */}
+                  <View style={styles.sectionDivider}>
+                    <Text style={styles.sectionSubtitle}>Thông tin hợp đồng</Text>
+                  </View>
+
+                  <View style={styles.infoRowCompact}>
+                    <Text style={styles.infoLabel}>Mã HD:</Text>
+                    <Text style={styles.infoValue}>{contractDetail.contractCode || `#${contractDetail.id}`}</Text>
+                  </View>
+                  <View style={styles.infoRowCompact}>
+                    <Text style={styles.infoLabel}>Phòng:</Text>
+                    <Text style={styles.infoValue}>{contractDetail.roomNumber || room.roomCode}</Text>
+                  </View>
+                  <View style={styles.infoRowCompact}>
+                    <Text style={styles.infoLabel}>Ngày bắt đầu:</Text>
+                    <Text style={styles.infoValue}>{formatDate(contractDetail.startDate)}</Text>
+                  </View>
+                  {contractDetail.expectedEndDate && (
+                    <View style={styles.infoRowCompact}>
+                      <Text style={styles.infoLabel}>Ngày kết thúc:</Text>
+                      <Text style={styles.infoValue}>{formatDate(contractDetail.expectedEndDate)}</Text>
+                    </View>
+                  )}
+
+                  {/* Cost Information */}
+                  <View style={[styles.sectionDivider, { marginTop: 12 }]}>
+                    <Text style={styles.sectionSubtitle}>Chi phí</Text>
+                  </View>
+
+                  <View style={styles.infoRowCompact}>
+                    <Text style={styles.infoLabel}>Tiền thuê/tháng:</Text>
+                    <Text style={[styles.infoValue, styles.priceValue]}>
+                      {formatCurrency(contractDetail.actualRentPrice)}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRowCompact}>
+                    <Text style={styles.infoLabel}>Tiền cọc:</Text>
+                    <Text style={[styles.infoValue, styles.priceValue]}>
+                      {formatCurrency(contractDetail.depositAmount ?? 0)}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRowCompact}>
+                    <Text style={styles.infoLabel}>Ngày thanh toán:</Text>
+                    <Text style={styles.infoValue}>
+                      {contractDetail.paymentDayOfMonth
+                        ? `Ngày ${contractDetail.paymentDayOfMonth} hàng tháng`
+                        : 'Không cố định'}
+                    </Text>
+                  </View>
+
+                  {/* Billing Formula */}
+                  {(() => {
+                    const formulaItems = parseBillingFormula();
+                    return formulaItems.length > 0 ? (
+                      <>
+                        <View style={[styles.sectionDivider, { marginTop: 12 }]}>
+                          <Text style={styles.sectionSubtitle}>Công thức tính hóa đơn hàng tháng</Text>
+                        </View>
+                        {formulaItems.map((item, index) => {
+                          const formulaText =
+                            item.quantity === 'n'
+                              ? `${formatCurrency(item.unitPrice)} × n`
+                              : `${formatCurrency(item.unitPrice)} × ${item.quantity} = ${formatCurrency(
+                                  item.unitPrice * parseInt(item.quantity, 10)
+                                )}`;
+
+                          return (
+                            <View key={index} style={styles.infoRowCompact}>
+                              <Text style={styles.infoLabel}>{item.name}:</Text>
+                              <Text style={styles.infoValue}>{formulaText}</Text>
+                            </View>
+                          );
+                        })}
+                      </>
+                    ) : null;
+                  })()}
+
+                  {/* Residents Information */}
+                  {contractDetail.residents.length > 0 && (
+                    <>
+                      <View style={[styles.sectionDivider, { marginTop: 12 }]}>
+                        <Text style={styles.sectionSubtitle}>
+                          Thành viên trong hộ ({contractDetail.residents.length} người)
+                        </Text>
+                      </View>
+                      {contractDetail.residents.map((resident) => {
+                        const isHeadOfHousehold =
+                          resident.residencyRole === 'Người thuê chính';
+                        return (
+                          <View
+                            key={resident.residentId}
+                            style={[
+                              styles.residentItem,
+                              isHeadOfHousehold && styles.residentItemHead,
+                            ]}
+                          >
+                            <View style={styles.residentHeader}>
+                              <Text style={styles.residentName}>
+                                {resident.fullName || 'Không có tên'}
+                              </Text>
+                              {isHeadOfHousehold && (
+                                <View style={styles.roleTag}>
+                                  <Text style={styles.roleTagText}>Chủ hộ</Text>
+                                </View>
+                              )}
+                            </View>
+                            <View style={styles.residentMeta}>
+                              <Text style={styles.residentMetaText}>
+                                {resident.residencyRole}
+                              </Text>
+                            </View>
+                            {resident.phoneNumber && (
+                              <Text style={styles.residentMetaText}>
+                                SĐT: {resident.phoneNumber}
+                              </Text>
+                            )}
+                            {resident.idCardNumber && (
+                              <Text style={styles.residentMetaText}>
+                                CCCD: {resident.idCardNumber}
+                              </Text>
+                            )}
+                            {resident.email && (
+                              <Text style={styles.residentEmail}>{resident.email}</Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              ) : null}
+            </View>
+          )}
         </View>
 
         {/* Services Card */}
@@ -374,6 +657,67 @@ const styles = StyleSheet.create({
     color: '#1A4B84',
     fontWeight: '600',
   },
+  contractDetailButton: {
+    marginTop: 14,
+    backgroundColor: '#EEF4FB',
+    borderWidth: 1,
+    borderColor: '#D0E0F3',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  contractDetailButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A4B84',
+  },
+  contractDetailBox: {
+    marginTop: 12,
+    backgroundColor: '#F9FBFD',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    padding: 12,
+  },
+  infoRowCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  contractResidentsSection: {
+    marginTop: 12,
+  },
+  contractResidentsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  residentItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  residentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  residentMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  contractErrorText: {
+    color: '#DC2626',
+    fontSize: 13,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -449,5 +793,63 @@ const styles = StyleSheet.create({
   tierPrice: {
     fontWeight: '600',
     color: '#F59E0B',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sectionDivider: {
+    marginTop: 12,
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  residentItemHead: {
+    backgroundColor: '#EEF4FB',
+    borderLeftWidth: 3,
+    borderLeftColor: '#1A4B84',
+    paddingLeft: 10,
+  },
+  residentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  roleTag: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+  },
+  roleTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E40AF',
+  },
+  residentMetaText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  residentEmail: {
+    fontSize: 12,
+    color: '#3B82F6',
+    marginTop: 4,
   },
 });
