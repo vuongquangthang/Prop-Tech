@@ -52,7 +52,7 @@ export default function IssueDetailScreen() {
   useEffect(() => {
     const timer = setInterval(() => {
       loadRequestDetail();
-    }, 30000);
+    }, 1000);
 
     return () => clearInterval(timer);
   }, [id]);

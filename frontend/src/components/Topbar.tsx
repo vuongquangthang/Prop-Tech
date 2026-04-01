@@ -21,7 +21,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
   useEffect(() => {
     const load = () => notificationService.getUnreadCount().then(setUnreadCount);
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 1000);
     return () => clearInterval(interval);
   }, []);
 

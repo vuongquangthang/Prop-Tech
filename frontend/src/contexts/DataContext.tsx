@@ -334,10 +334,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     fetchData();
 
-    // Fallback auto refresh every 60s even if realtime connection is unstable.
+    // Fallback auto refresh every 1s even if realtime connection is unstable.
     const refreshTimer = setInterval(() => {
       fetchData().catch(() => {});
-    }, 60000);
+    }, 1000);
 
     // Initialize SignalR for real-time updates
     initializeSignalR().then(() => {

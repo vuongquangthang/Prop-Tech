@@ -63,7 +63,7 @@ export default function IssuesScreen() {
   useEffect(() => {
     const timer = setInterval(() => {
       loadRequests();
-    }, 30000);
+    }, 1000);
 
     return () => clearInterval(timer);
   }, []);
