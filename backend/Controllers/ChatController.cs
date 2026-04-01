@@ -141,18 +141,23 @@ public class ChatController : ControllerBase
     {
         try
         {
+            var normalizedMessage = dto.MessageText ?? dto.Message;
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
             {
                 return Unauthorized(new { message = "Không xác định được người dùng" });
             }
 
-            if (string.IsNullOrWhiteSpace(dto.MessageText))
+            if (string.IsNullOrWhiteSpace(normalizedMessage))
             {
                 return BadRequest(new { message = "Nội dung tin nhắn không được để trống" });
             }
 
-            var response = await _chatService.SendMessageAsync(userId, dto);
+            var response = await _chatService.SendMessageAsync(userId, new SendChatMessageDto
+            {
+                MessageText = normalizedMessage,
+                SessionId = dto.SessionId
+            });
             return Ok(response);
         }
         catch (Exception ex)

@@ -24,7 +24,6 @@ const menuItems = [
     subItems: [
       { label: 'Danh sách Cư dân', path: '/resident-management' },
       { label: 'Quản lý Hợp đồng', path: '/contract-management' },
-      { label: 'Đề xuất chờ cư dân xác nhận', path: '/contract-change-tracking' },
       { label: 'Tất toán & Thanh lý', path: '/settlement' },
     ]
   },

@@ -1,4 +1,416 @@
-﻿import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Mail, Plus, Users } from 'lucide-react';
+﻿
+export function EditContractModal({ contract, onClose, onSuccess }: ContractModalProps) {
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [activePricingCatalog, setActivePricingCatalog] = useState<any[]>([]);
+  const [tenantList, setTenantList] = useState<any[]>([]);
+  const [startDate, setStartDate] = useState('');
+  const [durationMonths, setDurationMonths] = useState('12');
+  const [durationOptions, setDurationOptions] = useState<number[]>([6, 12, 24]);
+  const [appliedCustomDurationMonths, setAppliedCustomDurationMonths] = useState<string>('');
+  const [showCustomDurationInput, setShowCustomDurationInput] = useState(false);
+  const [customDurationValue, setCustomDurationValue] = useState('');
+  const [customDurationUnit, setCustomDurationUnit] = useState<'months' | 'years'>('months');
+  const [monthlyRent, setMonthlyRent] = useState('');
+  const [deposit, setDeposit] = useState('');
+  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
+  const [formulaQuantities, setFormulaQuantities] = useState<Record<string, string>>({});
+  const [vehicleCount, setVehicleCount] = useState('0');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initializeData = async () => {
+      if (!contract?.id) { setLoading(false); return; }
+      try {
+        setLoading(true); setError(null);
+        const detail = await contractService.getById(Number(contract.id));
+        const services = await serviceService.getAll();
+        const active = Array.isArray(services) ? services : [];
+        setActivePricingCatalog(active.filter((s: any) => s.isActive !== false));
+        setStartDate(detail?.startDate ? formatLocalDateInput(new Date(detail.startDate)) : '');
+        setMonthlyRent(detail?.actualRentPrice ? String(detail.actualRentPrice) : '');
+        setDeposit(detail?.depositAmount ? String(detail.depositAmount) : '');
+        if (detail?.billingFormulaJson) {
+          try {
+            const formula = typeof detail.billingFormulaJson === 'string' ? JSON.parse(detail.billingFormulaJson) : detail.billingFormulaJson;
+            if (Array.isArray(formula)) {
+              const serviceItems = formula.filter((item: any) => item.itemType !== 'TienPhong' && (item.serviceId || item.serviceName));
+              const svcIds = serviceItems.filter((item: any) => item.serviceId).map((item: any) => Number(item.serviceId));
+              setSelectedServiceIds(svcIds);
+            }
+          } catch (e) { console.error('Error parsing billing formula:', e); }
+        }
+        const residents = (detail as any)?.residents || (contract as any)?.residents || [];
+        const members = residents.filter((r: any) => r.residencyRole !== 'Người thuê chính').map((r: any) => ({
+          id: String(r.residentId || r.id || Date.now()), name: r.fullName || r.hoTen || '', relationship: r.residencyRole || 'Thành viên',
+          phone: r.phoneNumber || r.soDienThoai || '', idCard: r.idCardNumber || r.soCCCD || '', email: r.email || '', avatar: '👤'
+        }));
+        setFamilyMembers(members); setTenantList(residents);
+        if (detail?.startDate && detail?.expectedEndDate) {
+          const start = new Date(detail.startDate); const end = new Date(detail.expectedEndDate);
+          const months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+          setDurationMonths(String(months));
+        }
+      } catch (err: any) {
+        setError(err.message || 'Lỗi khi tải thông tin hợp đồng'); console.error('Error loading contract:', err);
+      } finally { setLoading(false); }
+    };
+    initializeData();
+  }, [contract?.id]);
+
+  const selectedServices = useMemo(() => {
+    const selected = new Set(selectedServiceIds);
+    return activePricingCatalog.filter((s: any) => selected.has(Number(s.id ?? s.serviceId ?? 0)));
+  }, [activePricingCatalog, selectedServiceIds]);
+
+  const householdMemberCount = useMemo(() => 1 + familyMembers.length, [familyMembers.length]);
+  const hasVehicleServiceSelected = useMemo(() => selectedServices.some((s: any) => isVehicleService(s) && !isMeterService(s)), [selectedServices]);
+
+  const formulaRows = useMemo<BillingFormulaRow[]>(() => {
+    const rows: BillingFormulaRow[] = [{ key: 'rent', sortOrder: 1, itemType: 'TienPhong', serviceName: 'Tiền phòng', unitPrice: toNumber(monthlyRent), quantityExpression: 'fixed', quantityMode: 'fixed' }];
+    selectedServices.forEach((service: any, index: number) => {
+      const id = Number(service.id ?? service.serviceId ?? 0), name = service.name || service.serviceName || 'Dịch vụ', price = toNumber(service.commonUnitPrice ?? service.unitPrice);
+      const meter = isMeterService(service), vehicleBased = !meter && isVehicleService(service), personBased = !meter && !vehicleBased && isPerPersonService(service);
+      rows.push({ key: `svc-${id}`, sortOrder: index + 2, itemType: meter ? (normalizeText(name).includes('nuoc') || normalizeText(name).includes('water') ? 'Nuoc' : 'Dien') : 'DichVu',
+        serviceId: id, serviceName: name, unitPrice: price, quantityExpression: meter ? 'n' : 'fixed', quantityMode: vehicleBased ? 'vehicle' : (personBased ? 'person' : 'fixed')
+      });
+    });
+    return rows;
+  }, [selectedServices, monthlyRent]);
+
+  const updateFormulaQuantity = (key: string, value: string) => {
+    const digitsOnly = value.replace(/\D/g, '');
+    setFormulaQuantities(prev => ({ ...prev, [key]: digitsOnly }));
+  };
+
+  const getNaturalQuantity = (key: string) => {
+    const raw = formulaQuantities[key] || '1';
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  };
+
+  const getVehicleQuantity = () => {
+    const digitsOnly = vehicleCount.replace(/\D/g, '');
+    const parsed = parseInt(digitsOnly, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  };
+
+  const getPersonQuantity = () => {
+    return householdMemberCount;
+  };
+
+  const getRowQuantity = (row: BillingFormulaRow) => {
+    if (row.quantityExpression === 'n') {
+      return null;
+    }
+
+    if (row.quantityMode === 'vehicle') {
+      return getVehicleQuantity();
+    }
+
+    if (row.quantityMode === 'person') {
+      return getPersonQuantity();
+    }
+
+    return getNaturalQuantity(row.key);
+  };
+
+  const getFormulaTotalText = (row: BillingFormulaRow) => {
+    if (row.quantityExpression === 'n') {
+      return `${row.unitPrice.toLocaleString('vi-VN')} x n`;
+    }
+
+    const quantity = getRowQuantity(row) ?? 0;
+    return (row.unitPrice * quantity).toLocaleString('vi-VN');
+  };
+
+  const getRowFormulaText = (row: BillingFormulaRow) => {
+    const unitPrice = row.unitPrice.toLocaleString('vi-VN');
+    if (row.quantityExpression === 'n') {
+      return `${unitPrice} x n`;
+    }
+
+    const quantity = getRowQuantity(row) ?? 0;
+    return `${unitPrice} x ${quantity}`;
+  };
+
+  const monthlyFormulaExpression = useMemo(() => {
+    if (!formulaRows.length) return '';
+
+    const parts = formulaRows.map((row) => {
+      return `${row.serviceName}(${getRowFormulaText(row)})`;
+    });
+
+    return parts.join(' + ');
+  }, [formulaRows, formulaQuantities, vehicleCount, householdMemberCount]);
+
+  const toggleServiceSelection = (serviceId: number) => {
+    setSelectedServiceIds(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
+  };
+
+  const handleRemoveMember = (id: string) => {
+    setFamilyMembers(familyMembers.filter(member => member.id !== id));
+  };
+
+  const handleAddMember = (newMember: Omit<FamilyMember, 'id'>) => {
+    const member: FamilyMember = { ...newMember, id: Date.now().toString() };
+    setFamilyMembers([...familyMembers, member]); setShowAddMemberModal(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!startDate || !monthlyRent) { setError('Vui lòng điền đầy đủ: Ngày bắt đầu, Tiền thuê'); return; }
+    setLoading(true); setError(null);
+    try {
+      const end = new Date(startDate); end.setMonth(end.getMonth() + parseInt(durationMonths));
+      const currentResidents = tenantList || contract?.residents || [];
+      const mainResident = currentResidents.find((r: any) => r.residencyRole === 'Người thuê chính');
+      const existingResidentIds = new Set(
+        currentResidents
+          .map((r: any) => Number(r.residentId || r.id || 0))
+          .filter((id: number) => id > 0)
+      );
+      const residentsPayload: any[] = [];
+      if (mainResident) {
+        residentsPayload.push({ residentId: mainResident.residentId || mainResident.id, residencyRole: 'Người thuê chính', fromDate: startDate, email: mainResident.email || undefined });
+      }
+
+      for (const member of familyMembers) {
+        let residentId = Number(member.id);
+        const isExistingResident = Number.isFinite(residentId) && residentId > 0 && existingResidentIds.has(residentId);
+
+        if (!isExistingResident) {
+          const created: any = await residentService.create({
+            fullName: member.name,
+            phoneNumber: member.phone,
+            idCardNumber: member.idCard,
+            email: member.email || undefined,
+          } as any);
+
+          residentId = Number(created?.id ?? created?.residentId ?? created?.data?.id ?? 0);
+          if (!Number.isFinite(residentId) || residentId <= 0) {
+            throw new Error(`Không thể tạo cư dân thành viên: ${member.name}`);
+          }
+        }
+
+        residentsPayload.push({ residentId, residencyRole: 'Thành viên', fromDate: startDate, email: member.email || undefined });
+      }
+
+      await contractService.update(Number(contract.id), {
+        startDate, expectedEndDate: formatLocalDateInput(end), actualRentPrice: parseFloat(monthlyRent.replace(/[^0-9.]/g, '')),
+        depositAmount: deposit ? parseFloat(deposit.replace(/[^0-9.]/g, '')) : undefined, selectedServiceIds,
+        billingFormulaItems: formulaRows.map((row) => ({ sortOrder: row.sortOrder, itemType: row.itemType, serviceId: row.serviceId, serviceName: row.serviceName,
+          unitPrice: row.unitPrice,
+          quantity: row.quantityExpression === 'n' ? null : getRowQuantity(row),
+          quantityExpression: row.quantityExpression === 'n' ? 'n' : String(getRowQuantity(row) ?? 0)
+        })), residents: residentsPayload,
+      } as any);
+      onSuccess?.(); onClose();
+    } catch (err: any) {
+      setError(err.message || 'Có lỗi xảy ra khi cập nhật hợp đồng');
+    } finally { setLoading(false); }
+  };
+
+  if (loading) {
+    return (<div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg w-[400px] p-10 flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
+        <p className="text-gray-600">Đang tải thông tin hợp đồng...</p>
+      </div>
+    </div>);
+  }
+
+  const mainResident = tenantList?.find((r: any) => r.residencyRole === 'Người thuê chính');
+
+  return (
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
+        <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
+          <div className="flex items-center space-x-2">
+            <FileText size={20} className="text-gray-800" />
+            <h3 className="text-lg text-gray-800">Sửa hợp đồng: {contract?.code}</h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={20} className="text-gray-600" /></button>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          <div className="bg-blue-50 border border-blue-300 rounded p-4">
+            <p className="text-sm text-blue-900"><strong>ℹ️ Phòng {contract?.room}</strong> được cố định. Nếu cần chuyển phòng, vui lòng tạo hợp đồng mới.</p>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+            <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><User size={16} className="mr-2" />BƯỚC 1: Thông tin chủ hộ</h4>
+            <div className="grid grid-cols-2 gap-4">
+              {mainResident && (<>
+                <div><label className="block text-sm text-gray-700 mb-2">Họ và tên</label>
+                  <input type="text" value={mainResident?.fullName || mainResident?.hoTen || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                <div><label className="block text-sm text-gray-700 mb-2">CMND/CCCD</label>
+                  <input type="text" value={mainResident?.idCardNumber || mainResident?.soCCCD || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                <div><label className="block text-sm text-gray-700 mb-2">Số điện thoại</label>
+                  <input type="text" value={mainResident?.phoneNumber || mainResident?.soDienThoai || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                <div><label className="block text-sm text-gray-700 mb-2">Email</label>
+                  <input type="email" value={mainResident?.email || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+              </>)}
+            </div>
+            <p className="text-xs text-gray-500 mt-3">ℹ️ Thông tin chủ hộ được cố định.</p>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm text-gray-800 font-bold flex items-center"><Users size={16} className="mr-2" />BƯỚC 2: Thành viên cùng ở</h4>
+              <button className="px-3 py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 flex items-center space-x-1" onClick={() => setShowAddMemberModal(true)}>
+                <Plus size={14} />Thêm</button>
+            </div>
+            {familyMembers.length > 0 ? (
+              <div className="space-y-2">{familyMembers.map(member => (
+                <div key={member.id} className="bg-white border border-gray-300 rounded p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-10 h-10 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center">{member.avatar}</div>
+                      <div><p className="text-sm text-gray-800 font-bold">{member.name}</p>
+                        <p className="text-xs text-gray-600">{member.relationship}</p></div>
+                    </div>
+                    <button className="p-1 hover:bg-gray-100 rounded" onClick={() => handleRemoveMember(member.id)}>
+                      <X size={16} className="text-red-600" /></button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-gray-600">SĐT:</span> <span className="text-gray-800 ml-1 font-bold">{member.phone}</span></div>
+                    <div><span className="text-gray-600">CMND:</span> <span className="text-gray-800 ml-1 font-bold">{member.idCard}</span></div>
+                    {member.email && <div className="col-span-2"><span className="text-gray-600">Email:</span> <span className="text-gray-800 ml-1">{member.email}</span></div>}
+                  </div>
+                </div>
+              ))}</div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded p-6 text-center text-gray-500">
+                <Users size={32} className="mx-auto mb-2 text-gray-400" />
+                <p className="text-sm">Chưa có thành viên nào</p>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+            <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><Calendar size={16} className="mr-2" />BƯỚC 3: Điều khoản hợp đồng</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div><label className="block text-sm text-gray-700 mb-2">Mã hợp đồng</label>
+                <input type="text" value={contract?.code || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+              <div><label className="block text-sm text-gray-700 mb-2">Ngày bắt đầu *</label>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500" /></div>
+              <div><label className="block text-sm text-gray-700 mb-2">Thời hạn *</label>
+                <select value={durationMonths} onChange={e => setDurationMonths(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500">
+                  {durationOptions.map((m) => (<option key={m} value={String(m)}>{m % 12 === 0 ? `${m / 12} năm` : `${m} tháng`}</option>))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-3">
+              <div><label className="block text-sm text-gray-700 mb-2">Tiền thuê/tháng (VNĐ) *</label>
+                <input type="text" value={monthlyRent} onChange={e => setMonthlyRent(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500" /></div>
+              <div><label className="block text-sm text-gray-700 mb-2">Tiền cọc (VNĐ)</label>
+                <input type="text" value={deposit} onChange={e => setDeposit(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500" /></div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+            <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><DollarSign size={16} className="mr-2" />BƯỚC 4: Danh mục đơn giá</h4>
+            <div className="space-y-2">
+              {activePricingCatalog.map((service: any) => (
+                <button key={service.id || service.serviceId} type="button" onClick={() => toggleServiceSelection(Number(service.id ?? service.serviceId ?? 0))}
+                  className="w-full flex items-center justify-between text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50">
+                  <span className="flex items-center gap-2"><input type="checkbox" checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))} readOnly className="pointer-events-none" />
+                    <span>{service.name || service.serviceName}</span></span>
+                  <span className="text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục</p>
+            {hasVehicleServiceSelected && (
+              <div className="mt-3 p-3 bg-white border border-gray-200 rounded">
+                <label className="block text-sm text-gray-700 mb-2 font-medium">Số lượng xe (áp dụng cho dịch vụ trông xe)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={vehicleCount}
+                  onChange={(e) => setVehicleCount(e.target.value.replace(/\D/g, ''))}
+                  className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Số lượng này sẽ tự động dùng cho tất cả dòng dịch vụ tính theo đầu xe.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+            <h4 className="text-sm text-gray-800 font-bold mb-3">BƯỚC 5: Công thức hóa đơn cuối tháng</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-200">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left border-b border-gray-200">Dịch vụ</th>
+                    <th className="px-3 py-2 text-right border-b border-gray-200">Đơn giá</th>
+                    <th className="px-3 py-2 text-center border-b border-gray-200">Số lượng</th>
+                    <th className="px-3 py-2 text-left border-b border-gray-200">Công thức</th>
+                    <th className="px-3 py-2 text-right border-b border-gray-200">Tổng tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formulaRows.map((row) => (
+                    <tr key={row.key} className="bg-white">
+                      <td className="px-3 py-2 border-b border-gray-100">{row.serviceName}</td>
+                      <td className="px-3 py-2 text-right border-b border-gray-100">{row.unitPrice.toLocaleString('vi-VN')}</td>
+                      <td className="px-3 py-2 text-center border-b border-gray-100">
+                        {row.quantityExpression === 'n' ? (
+                          <span className="font-bold">n</span>
+                        ) : row.quantityMode === 'vehicle' ? (
+                          <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
+                        ) : row.quantityMode === 'person' ? (
+                          <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
+                        ) : (
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={formulaQuantities[row.key] || '1'}
+                            onChange={(e) => updateFormulaQuantity(row.key, e.target.value)}
+                            onBlur={(e) => {
+                              if (!e.target.value || parseInt(e.target.value, 10) <= 0) {
+                                updateFormulaQuantity(row.key, '1');
+                              }
+                            }}
+                            className="w-20 px-2 py-1 text-center border border-gray-300 rounded"
+                          />
+                        )}
+                      </td>
+                      <td className="px-3 py-2 border-b border-gray-100 text-gray-700">{getRowFormulaText(row)}</td>
+                      <td className="px-3 py-2 text-right border-b border-gray-100">{getFormulaTotalText(row)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 bg-white border border-gray-200 rounded p-3">
+              <p className="text-xs text-gray-600 mb-1">Công thức hóa đơn tháng (để kiểm tra):</p>
+              <p className="text-sm text-gray-800 font-medium break-words">
+                {monthlyFormulaExpression || '(chưa có công thức)'}
+              </p>
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{error}</p>}
+        </div>
+        
+        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
+          <button onClick={onClose} disabled={loading} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">Hủy</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2">
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            <Check size={16} />
+            <span>Lưu thay đổi ({1 + familyMembers.length} người)</span>
+          </button>
+        </div>
+      </div>
+      {showAddMemberModal && <AddFamilyMemberModal onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMember} />}
+    </div>
+  );
+}
+import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Plus, Users } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
@@ -1187,6 +1599,16 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
             </div>
           )}
 
+          {contract?.status === 'ended' && (
+            <div className="bg-gray-50 border border-gray-300 rounded p-4 flex items-start space-x-3">
+              <Check size={24} className="text-gray-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-gray-800 font-bold mb-1">Hợp đồng đã tất toán/thanh lý</p>
+                <p className="text-sm text-gray-700">Trạng thái hợp đồng đã kết thúc.</p>
+              </div>
+            </div>
+          )}
+
           {contract?.status === 'danger' && (
             <div className="bg-yellow-50 border border-yellow-300 rounded p-4 flex items-start space-x-3">
               <AlertTriangle size={24} className="text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -1223,9 +1645,11 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                     <span className="text-gray-600">Trạng thái:</span>
                     <span className={`font-bold ${
                       contract?.status === 'active' ? 'text-green-700' : 
+                      contract?.status === 'ended' ? 'text-gray-700' :
                       contract?.status === 'expired' ? 'text-red-700' : 'text-yellow-700'
                     }`}>
                       {contract?.status === 'active' ? 'Đang hoạt động' :
+                       contract?.status === 'ended' ? 'Đã hết' :
                        contract?.status === 'expired' ? `Quá hạn ${Math.abs(contract.daysLeft)} ngày` :
                        `Còn ${contract?.daysLeft} ngày`}
                     </span>
@@ -1494,10 +1918,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
             <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-2">
               <Printer size={16} />
               <span>In hợp đồng</span>
-            </button>
-            <button className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-2">
-              <Mail size={16} />
-              <span>Gửi Email cho 4 người</span>
             </button>
           </div>
           <button 

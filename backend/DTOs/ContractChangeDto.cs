@@ -12,6 +12,7 @@ public class SendContractChangeProposalDto
     public decimal? NewRentPrice { get; set; }
     public List<ServicePriceChangeDto> ServicePriceChanges { get; set; } = new();
     public List<int> AddedServiceIds { get; set; } = new();
+    public List<int> RemovedServiceIds { get; set; } = new();
     public string? Note { get; set; }
 }
 

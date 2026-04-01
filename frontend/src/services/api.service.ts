@@ -453,6 +453,7 @@ export const contractService = {
     newRentPrice?: number;
     servicePriceChanges: Array<{ serviceId: number; newPrice: number }>;
     addedServiceIds: number[];
+    removedServiceIds: number[];
     note?: string;
   }) => {
     try {
@@ -520,6 +521,15 @@ export const contractService = {
         terminatedDate, 
         notes 
       });
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  update: async (id: number, data: any) => {
+    try {
+      const response = await api.put<Contract>(API_ENDPOINTS.CONTRACTS.BY_ID(id), data);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

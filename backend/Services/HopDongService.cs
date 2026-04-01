@@ -73,6 +73,7 @@ public class HopDongService : IHopDongService
         public decimal? ProposedRentPrice { get; set; }
         public List<ServicePriceChangeDto> ServicePriceChanges { get; set; } = new();
         public List<int> AddedServiceIds { get; set; } = new();
+        public List<int> RemovedServiceIds { get; set; } = new();
         public string? Note { get; set; }
         public string? ResidentMessage { get; set; }
         public int SenderUserId { get; set; }
@@ -243,11 +244,14 @@ public class HopDongService : IHopDongService
 
     public async Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto)
     {
-        var contract = await _hopDongRepository.GetByIdAsync(id);
+        var contract = await _hopDongRepository.GetWithDetailsAsync(id);
         if (contract == null)
         {
             throw new InvalidOperationException("Hợp đồng không tồn tại");
         }
+
+        if (dto.StartDate.HasValue)
+            contract.StartDate = dto.StartDate.Value;
 
         if (dto.ExpectedEndDate.HasValue)
             contract.ExpectedEndDate = dto.ExpectedEndDate;
@@ -261,8 +265,153 @@ public class HopDongService : IHopDongService
         if (dto.PaymentDayOfMonth.HasValue)
             contract.PaymentDayOfMonth = dto.PaymentDayOfMonth;
 
-        if (!string.IsNullOrWhiteSpace(dto.BillingFormulaJson))
+        if (dto.BillingFormulaItems != null && dto.BillingFormulaItems.Count > 0)
+        {
+            contract.BillingFormulaJson = SerializeBillingFormula(dto.BillingFormulaItems);
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.BillingFormulaJson))
+        {
             contract.BillingFormulaJson = dto.BillingFormulaJson;
+        }
+
+        // Sync selected services to ChiTietSuDungDichVu so contract detail and billing stay consistent.
+        var selectedServiceIds = (dto.SelectedServiceIds ?? new List<int>())
+            .Where(x => x > 0)
+            .Distinct()
+            .ToHashSet();
+
+        if (selectedServiceIds.Count == 0 && dto.BillingFormulaItems != null)
+        {
+            foreach (var sid in dto.BillingFormulaItems
+                .Where(x => x.ServiceId.HasValue && x.ServiceId.Value > 0)
+                .Select(x => x.ServiceId!.Value)
+                .Distinct())
+            {
+                selectedServiceIds.Add(sid);
+            }
+        }
+
+        if (selectedServiceIds.Count > 0)
+        {
+            var effectiveDate = (dto.StartDate ?? contract.StartDate).Date;
+            var primaryResidentId = contract.ChiTietOs
+                .OrderBy(ct => ct.ResidencyRole == "Người thuê chính" ? 0 : 1)
+                .Select(ct => ct.ResidentId)
+                .FirstOrDefault();
+
+            var allUsages = (await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(contract.RoomId)).ToList();
+            var activeUsagesAtEffectiveDate = allUsages
+                .Where(u => u.ApplyFrom.Date <= effectiveDate && (u.ApplyTo == null || u.ApplyTo.Value.Date >= effectiveDate))
+                .ToList();
+
+            var activeServiceIds = activeUsagesAtEffectiveDate
+                .Select(u => u.ServiceId)
+                .Distinct()
+                .ToHashSet();
+
+            var formulaQtyMap = (dto.BillingFormulaItems ?? new List<BillingFormulaItemDto>())
+                .Where(x => x.ServiceId.HasValue && x.ServiceId.Value > 0)
+                .GroupBy(x => x.ServiceId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().Quantity ?? 1m);
+
+            var addServiceIds = selectedServiceIds.Except(activeServiceIds).ToList();
+            var removeServiceIds = activeServiceIds.Except(selectedServiceIds).ToList();
+
+            foreach (var serviceId in addServiceIds)
+            {
+                if (primaryResidentId <= 0)
+                {
+                    continue;
+                }
+
+                var quantity = formulaQtyMap.TryGetValue(serviceId, out var q) ? q : 1m;
+                await _chiTietSuDungDichVuRepository.AddAsync(new ChiTietSuDungDichVu
+                {
+                    ServiceId = serviceId,
+                    ResidentId = primaryResidentId,
+                    RoomId = contract.RoomId,
+                    ApplyFrom = effectiveDate,
+                    ApplyTo = contract.ExpectedEndDate,
+                    Quantity = quantity <= 0 ? 1m : quantity,
+                    CreatedAt = DateTime.UtcNow,
+                    Note = $"Cập nhật theo sửa hợp đồng {contract.ContractCode}"
+                });
+            }
+
+            if (removeServiceIds.Count > 0)
+            {
+                var removalBoundary = effectiveDate.AddDays(-1);
+                foreach (var usage in activeUsagesAtEffectiveDate.Where(u => removeServiceIds.Contains(u.ServiceId)))
+                {
+                    usage.ApplyTo = removalBoundary;
+                    _chiTietSuDungDichVuRepository.Update(usage);
+                }
+            }
+
+            foreach (var usage in activeUsagesAtEffectiveDate.Where(u => selectedServiceIds.Contains(u.ServiceId)))
+            {
+                if (formulaQtyMap.TryGetValue(usage.ServiceId, out var q))
+                {
+                    usage.Quantity = q <= 0 ? 1m : q;
+                    _chiTietSuDungDichVuRepository.Update(usage);
+                }
+            }
+        }
+
+        // Sync residents for edit-contract flow (add/remove members in contract detail).
+        if (dto.Residents != null && dto.Residents.Count > 0)
+        {
+            var residentDtos = dto.Residents
+                .Where(r => r.ResidentId > 0)
+                .GroupBy(r => r.ResidentId)
+                .Select(g => g.First())
+                .ToList();
+
+            foreach (var residentDto in residentDtos)
+            {
+                var resident = await _residentRepository.GetByIdAsync(residentDto.ResidentId);
+                if (resident == null)
+                {
+                    throw new InvalidOperationException($"Cư dân ID {residentDto.ResidentId} không tồn tại");
+                }
+            }
+
+            var existingResidents = await _chiTietORepository.GetByContractIdAsync(contract.Id);
+            var activeResidents = existingResidents.Where(x => x.ToDate == null).ToList();
+            var desiredResidentIds = residentDtos.Select(x => x.ResidentId).ToHashSet();
+            var syncDate = (dto.StartDate ?? contract.StartDate).Date;
+
+            foreach (var active in activeResidents)
+            {
+                if (desiredResidentIds.Contains(active.ResidentId))
+                {
+                    continue;
+                }
+
+                active.ToDate = syncDate.AddDays(-1);
+                _chiTietORepository.Update(active);
+            }
+
+            foreach (var residentDto in residentDtos)
+            {
+                var existingActive = activeResidents.FirstOrDefault(x => x.ResidentId == residentDto.ResidentId);
+                if (existingActive != null)
+                {
+                    existingActive.ResidencyRole = residentDto.ResidencyRole;
+                    _chiTietORepository.Update(existingActive);
+                    continue;
+                }
+
+                await _chiTietORepository.AddAsync(new ChiTietO
+                {
+                    ContractId = contract.Id,
+                    ResidentId = residentDto.ResidentId,
+                    ResidencyRole = residentDto.ResidencyRole,
+                    FromDate = residentDto.FromDate == default ? syncDate : residentDto.FromDate,
+                    ToDate = null
+                });
+            }
+        }
 
         _hopDongRepository.Update(contract);
         await _hopDongRepository.SaveChangesAsync();
@@ -310,6 +459,7 @@ public class HopDongService : IHopDongService
 
         var serviceIds = dto.ServicePriceChanges.Select(x => x.ServiceId)
             .Concat(dto.AddedServiceIds)
+            .Concat(dto.RemovedServiceIds)
             .Where(x => x > 0)
             .Distinct()
             .ToList();
@@ -332,7 +482,9 @@ public class HopDongService : IHopDongService
 
         var envelope = new ContractChangeEnvelope
         {
+            Status = "CONFIRMED",
             CreatedAt = DateTime.UtcNow,
+            ConfirmedAt = DateTime.UtcNow,
             ContractId = contract.Id,
             ContractCode = contract.ContractCode,
             RoomId = contract.RoomId,
@@ -342,46 +494,17 @@ public class HopDongService : IHopDongService
             ProposedRentPrice = dto.NewRentPrice,
             ServicePriceChanges = dto.ServicePriceChanges,
             AddedServiceIds = dto.AddedServiceIds.Where(x => x > 0).Distinct().ToList(),
+                        RemovedServiceIds = dto.RemovedServiceIds.Where(x => x > 0).Distinct().ToList(),
             Note = dto.Note,
             SenderUserId = senderUserId,
         };
 
-        var json = JsonSerializer.Serialize(envelope);
-        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
-        var linkPayload = $"contract-change:{encoded}";
+        await ApplyProposalToContractAsync(envelope);
 
-        var recipientUserIds = contract.ChiTietOs
-            .SelectMany(ct => ct.Resident?.Users ?? Enumerable.Empty<User>())
-            .Select(u => u.Id)
-            .Distinct()
-            .ToList();
-
-        if (recipientUserIds.Count == 0)
-        {
-            throw new InvalidOperationException("Không tìm thấy tài khoản cư dân để gửi thông báo");
-        }
-
-        var summary = BuildProposalSummary(contract, dto, serviceMap);
-        foreach (var recipientUserId in recipientUserIds)
-        {
-            await _notificationRepository.AddAsync(new Notification
-            {
-                UserId = senderUserId,
-                RecipientId = recipientUserId,
-                ScopeType = "USER",
-                NotificationType = "CONTRACT_CHANGE",
-                Title = $"Đề xuất thay đổi hợp đồng {contract.ContractCode}",
-                Content = summary,
-                RelatedId = contract.Id,
-                LinkUrl = linkPayload,
-                Priority = "NORMAL",
-                IsRead = false,
-                SentAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-            });
-        }
-
-        await _notificationRepository.SaveChangesAsync();
+        await _notificationService.CreateAdminNotificationAsync(
+            "Hợp đồng đã được cập nhật",
+            $"Đã áp dụng ngay thay đổi cho hợp đồng {contract.ContractCode} (phòng {contract.Room?.RoomCode ?? "không xác định"}).",
+            "CONTRACT_CHANGE");
     }
 
     public async Task<ContractChangeDetailDto> GetContractChangeDetailAsync(int notificationId, int userId)
@@ -403,6 +526,7 @@ public class HopDongService : IHopDongService
 
         var serviceIds = envelope.ServicePriceChanges.Select(x => x.ServiceId)
             .Concat(envelope.AddedServiceIds)
+            .Concat(envelope.RemovedServiceIds)
             .Where(x => x > 0)
             .Distinct()
             .ToList();
@@ -634,6 +758,13 @@ public class HopDongService : IHopDongService
             parts.Add($"Thêm dịch vụ: {added}");
         }
 
+        if (dto.RemovedServiceIds.Any())
+        {
+            var removed = string.Join(", ", dto.RemovedServiceIds.Select(id =>
+                serviceMap.TryGetValue(id, out var s) ? s.Name : $"DV#{id}"));
+            parts.Add($"Hủy dịch vụ: {removed}");
+        }
+
         if (!string.IsNullOrWhiteSpace(dto.Note))
         {
             parts.Add($"Ghi chú: {dto.Note}");
@@ -681,14 +812,16 @@ public class HopDongService : IHopDongService
             {
                 var overlapping = existing.Any(u =>
                     u.ServiceId == serviceId
-                    && u.ApplyFrom <= (contract.ExpectedEndDate ?? DateTime.MaxValue)
-                    && (u.ApplyTo == null || u.ApplyTo >= envelope.EffectiveDate));
+                    && u.ApplyFrom.Date <= (contract.ExpectedEndDate?.Date ?? DateTime.MaxValue.Date)
+                    && (u.ApplyTo == null || u.ApplyTo.Value.Date >= envelope.EffectiveDate.Date));
 
                 if (overlapping)
                 {
+                    Console.WriteLine($"[CONTRACT] Service {serviceId} SKIPPED - overlapping exists");
                     continue;
                 }
 
+                Console.WriteLine($"[CONTRACT] ADDING service {serviceId} for resident {primaryResidentId} from {envelope.EffectiveDate}");
                 await _chiTietSuDungDichVuRepository.AddAsync(new ChiTietSuDungDichVu
                 {
                     ServiceId = serviceId,
@@ -698,8 +831,89 @@ public class HopDongService : IHopDongService
                     ApplyTo = contract.ExpectedEndDate,
                     Quantity = 1,
                     CreatedAt = DateTime.UtcNow,
-                    Note = $"Thêm theo xác nhận thay đổi hợp đồng {contract.ContractCode}"
+                    Note = $"Thêm theo cập nhật hợp đồng {contract.ContractCode}"
                 });
+            }
+        }
+        else
+        {
+            Console.WriteLine($"[CONTRACT] NO ADD - primaryResidentId={primaryResidentId}, AddedServiceIds.Count={envelope.AddedServiceIds.Count}");
+        }
+
+        if (envelope.RemovedServiceIds.Any())
+        {
+            var existing = (await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(contract.RoomId)).ToList();
+            var removalBoundary = envelope.EffectiveDate.Date.AddDays(-1);
+
+            foreach (var usage in existing.Where(u =>
+                         envelope.RemovedServiceIds.Contains(u.ServiceId)
+                         && (u.ApplyTo == null || u.ApplyTo.Value.Date >= envelope.EffectiveDate.Date)
+                         && u.ApplyFrom.Date <= envelope.EffectiveDate.Date))
+            {
+                usage.ApplyTo = removalBoundary;
+                _chiTietSuDungDichVuRepository.Update(usage);
+            }
+        }
+
+        // Save changes to ChiTietSuDungDichVu trước khi rebuild formula
+        await _hopDongRepository.SaveChangesAsync();
+        Console.WriteLine($"[CONTRACT] SaveChangesAsync completed");
+
+        // Rebuild billing formula khi có thay đổi service
+        if (envelope.AddedServiceIds.Any() || envelope.RemovedServiceIds.Any() || envelope.ServicePriceChanges.Any())
+        {
+            try
+            {
+                var allServices = await _serviceRepository.GetAllAsync();
+                var allUsages = (await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(contract.RoomId)).ToList();
+                Console.WriteLine($"[FORMULA] Total usages in DB for room {contract.RoomId}: {allUsages.Count}");
+                
+                var currentUsages = allUsages
+                    .Where(u => u.ApplyFrom.Date <= envelope.EffectiveDate.Date && (u.ApplyTo == null || u.ApplyTo.Value.Date >= envelope.EffectiveDate.Date))
+                    .ToList();
+                Console.WriteLine($"[FORMULA] Active usages at {envelope.EffectiveDate.Date}: {currentUsages.Count}");
+
+                var billingFormula = new List<BillingFormulaItemDto>();
+                
+                // Thêm tiền phòng
+                billingFormula.Add(new BillingFormulaItemDto
+                {
+                    SortOrder = 1,
+                    ItemType = "TienPhong",
+                    ServiceName = "Tiền thuê phòng",
+                    UnitPrice = contract.ActualRentPrice,
+                    Quantity = 1,
+                    QuantityExpression = "1"
+                });
+
+                // Thêm các dịch vụ hiện tại
+                var sortOrder = 2;
+                foreach (var usage in currentUsages)
+                {
+                    var service = allServices.FirstOrDefault(s => s.Id == usage.ServiceId);
+                    if (service != null)
+                    {
+                        Console.WriteLine($"[FORMULA] Adding {service.Name} (ID {service.Id}) @{service.CommonUnitPrice}");
+                        billingFormula.Add(new BillingFormulaItemDto
+                        {
+                            SortOrder = sortOrder++,
+                            ItemType = "DichVu",
+                            ServiceId = service.Id,
+                            ServiceName = service.Name,
+                            UnitPrice = service.CommonUnitPrice ?? 0,
+                            Quantity = usage.Quantity ?? 1,
+                            QuantityExpression = "1"
+                        });
+                    }
+                }
+
+                contract.BillingFormulaJson = JsonSerializer.Serialize(billingFormula, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                Console.WriteLine($"[FORMULA] Serialized {billingFormula.Count} items");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FORMULA] ERROR: {ex.Message} {ex.StackTrace}");
+                // Tiếp tục không dừng lại nếu rebuild thất bại, vì những thay đổi chính đã được áp dụng
             }
         }
 

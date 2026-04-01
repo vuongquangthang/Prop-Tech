@@ -19,7 +19,9 @@ public class ChatMessageDto
 /// </summary>
 public class SendChatMessageDto
 {
-    public string MessageText { get; set; } = null!;
+    public string? MessageText { get; set; }
+    public string? Message { get; set; }
+    public string? SessionId { get; set; }
 }
 
 /// <summary>

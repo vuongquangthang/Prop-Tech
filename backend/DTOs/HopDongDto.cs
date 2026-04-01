@@ -39,10 +39,14 @@ public class CreateHopDongDto
 /// </summary>
 public class UpdateHopDongDto
 {
+    public DateTime? StartDate { get; set; }
     public DateTime? ExpectedEndDate { get; set; }
     public decimal? ActualRentPrice { get; set; }
     public decimal? DepositAmount { get; set; }
     public int? PaymentDayOfMonth { get; set; }
+    public List<int> SelectedServiceIds { get; set; } = new();
+    public List<BillingFormulaItemDto> BillingFormulaItems { get; set; } = new();
+    public List<CreateChiTietODto> Residents { get; set; } = new();
     public string? BillingFormulaJson { get; set; }
 }
 

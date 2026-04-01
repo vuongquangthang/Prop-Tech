@@ -33,7 +33,7 @@ public class ChatService : IChatService
     private readonly string _n8nWebhookUrl;
 
     private const string DefaultN8nWebhookUrl =
-        "https://lhdpo.app.n8n.cloud/webhook/00d5ccca-9e10-4b8c-9796-0c20f6277750";
+        "https://lhdpo.app.n8n.cloud/webhook-test/39b7f4bc-52bd-4102-8e90-7749e54659f4";
 
     public ChatService(
         ILichSuChatRepository chatRepository,
@@ -150,12 +150,14 @@ public class ChatService : IChatService
 
     public async Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto)
     {
+        var effectiveMessage = dto.MessageText ?? dto.Message ?? string.Empty;
+
         // Save user message
         var userMessage = new LichSuChat
         {
             UserId = userId,
             MessageRole = "user",
-            MessageText = dto.MessageText,
+            MessageText = effectiveMessage,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -163,7 +165,7 @@ public class ChatService : IChatService
         await _chatRepository.SaveChangesAsync();
 
         // Generate simple AI response (search knowledge base)
-        var response = await GenerateResponseAsync(dto.MessageText);
+        var response = await GenerateResponseAsync(effectiveMessage, userId, dto.SessionId);
 
         // Save assistant message
         var assistantMessage = new LichSuChat
@@ -195,7 +197,7 @@ public class ChatService : IChatService
         };
     }
 
-    private async Task<ChatResponseResult> GenerateResponseAsync(string userMessage)
+    private async Task<ChatResponseResult> GenerateResponseAsync(string userMessage, int userId, string? sessionId)
     {
         // Always use n8n AI webhook for answer generation.
         try
@@ -204,21 +206,20 @@ public class ChatService : IChatService
             client.Timeout = TimeSpan.FromSeconds(60);
             var payload = JsonSerializer.Serialize(new
             {
-                chatInput = userMessage,
                 message = userMessage,
-                userMessage
+                sessionId = string.IsNullOrWhiteSpace(sessionId) ? userId.ToString() : sessionId
             });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             var res = await client.PostAsync(_n8nWebhookUrl, content);
             var json = await res.Content.ReadAsStringAsync();
-            
+
             _logger.LogInformation("n8n webhook response: status={StatusCode}, body={Body}", (int)res.StatusCode, json);
-            
+
             if (res.IsSuccessStatusCode)
             {
                 var text = ExtractN8nText(json);
                 _logger.LogInformation("Extracted text from n8n: '{Text}'", text);
-                
+
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     return new ChatResponseResult
@@ -247,44 +248,101 @@ public class ChatService : IChatService
         };
     }
 
-    private static string? ExtractN8nText(string json)
+    private static string? ExtractN8nText(string body)
     {
-        if (string.IsNullOrWhiteSpace(json))
+        if (string.IsNullOrWhiteSpace(body))
         {
             return null;
         }
 
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
+        var trimmed = body.Trim();
 
-        if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+        // Some webhooks return plain text instead of JSON.
+        if (!(trimmed.StartsWith("{") || trimmed.StartsWith("[")))
         {
-            root = root[0];
+            return trimmed;
         }
 
-        var candidates = new[] { "output", "answer", "response", "message", "text" };
-        foreach (var key in candidates)
+        try
         {
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String)
+            using var doc = JsonDocument.Parse(trimmed);
+            var extracted = TryExtractTextFromElement(doc.RootElement, 0);
+            if (!string.IsNullOrWhiteSpace(extracted))
             {
-                var text = value.GetString();
-                if (!string.IsNullOrWhiteSpace(text))
-                {
-                    return text;
-                }
+                return extracted;
             }
         }
-
-        if (root.ValueKind == JsonValueKind.String)
+        catch
         {
-            var text = root.GetString();
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                return text;
-            }
+            // If JSON parsing fails, fallback to raw text.
+            return trimmed;
         }
 
         return null;
+    }
+
+    private static string? TryExtractTextFromElement(JsonElement element, int depth)
+    {
+        if (depth > 6)
+        {
+            return null;
+        }
+
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.String:
+            {
+                var text = element.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text;
+            }
+            case JsonValueKind.Array:
+            {
+                foreach (var item in element.EnumerateArray())
+                {
+                    var fromItem = TryExtractTextFromElement(item, depth + 1);
+                    if (!string.IsNullOrWhiteSpace(fromItem))
+                    {
+                        return fromItem;
+                    }
+                }
+
+                return null;
+            }
+            case JsonValueKind.Object:
+            {
+                var preferredKeys = new[]
+                {
+                    "reply", "output", "answer", "response", "message", "text", "content", "result", "data"
+                };
+
+                foreach (var key in preferredKeys)
+                {
+                    if (!element.TryGetProperty(key, out var value))
+                    {
+                        continue;
+                    }
+
+                    var fromPreferred = TryExtractTextFromElement(value, depth + 1);
+                    if (!string.IsNullOrWhiteSpace(fromPreferred))
+                    {
+                        return fromPreferred;
+                    }
+                }
+
+                foreach (var property in element.EnumerateObject())
+                {
+                    var fromAny = TryExtractTextFromElement(property.Value, depth + 1);
+                    if (!string.IsNullOrWhiteSpace(fromAny))
+                    {
+                        return fromAny;
+                    }
+                }
+
+                return null;
+            }
+            default:
+                return null;
+        }
     }
 
     private static string BuildTagsFromQuestion(string question)

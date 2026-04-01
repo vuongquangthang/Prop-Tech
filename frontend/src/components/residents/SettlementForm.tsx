@@ -1,6 +1,7 @@
 import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle, X, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { tatToanService, contractService } from '../../services/api.service';
+import { formatLocalDateInput } from '../../lib/date-utils';
 
 function parseAmount(input: string): number {
   const normalized = input.replace(/[^0-9.-]/g, '');
@@ -343,7 +344,7 @@ function CreateSettlementTab() {
 
   const [contractQuery, setContractQuery] = useState('');
   const [selectedContractId, setSelectedContractId] = useState('');
-  const [settlementDate, setSettlementDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [settlementDate, setSettlementDate] = useState(() => formatLocalDateInput());
   const [depositRefundInput, setDepositRefundInput] = useState('0');
   const [roomDebtInput, setRoomDebtInput] = useState('0');
   const [serviceDebtInput, setServiceDebtInput] = useState('0');

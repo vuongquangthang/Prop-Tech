@@ -13,7 +13,6 @@ import { ServicePricingPage } from "./pages/ServicePricingPage";
 import { AssetInventoryPage } from "./pages/AssetInventoryPage";
 import { ResidentManagementPage } from "./pages/ResidentManagementPage";
 import { ContractManagementPage } from "./pages/ContractManagementPage";
-import { ContractChangeTrackingPage } from "./pages/ContractChangeTrackingPage";
 import { SettlementPage } from "./pages/SettlementPage";
 import { UtilityReadingPage } from "./pages/UtilityReadingPage";
 import { InvoiceManagementPage } from "./pages/InvoiceManagementPage";
@@ -95,10 +94,6 @@ export const router = createBrowserRouter([
       {
         path: "contract-management",
         element: <AdminRoute><ContractManagementPage /></AdminRoute>,
-      },
-      {
-        path: "contract-change-tracking",
-        element: <AdminRoute><ContractChangeTrackingPage /></AdminRoute>,
       },
       {
         path: "settlement",

@@ -55,6 +55,7 @@ const MessageItem = memo(({ item }: { item: Message }) => {
 export default function ChatbotScreen() {
   const navigation = useNavigation();
   const listRef = useRef<FlatList<Message>>(null);
+  const sessionIdRef = useRef(`mobile-${Date.now()}`);
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -117,7 +118,8 @@ export default function ChatbotScreen() {
     try {
       // Send via backend so mobile only needs connectivity to project API.
       const data = await apiService.post<any>('/api/Chat/send', {
-        messageText: userMessageText,
+        message: userMessageText,
+        sessionId: sessionIdRef.current,
       });
 
       const botResponseText =

@@ -147,7 +147,7 @@ public class HopDongController : ControllerBase
     }
 
     /// <summary>
-    /// BQL gửi đề xuất thay đổi hợp đồng cho cư dân xác nhận
+    /// BQL cập nhật thay đổi hợp đồng và áp dụng ngay
     /// </summary>
     [HttpPost("{id}/propose-change")]
     [Authorize(Roles = "Admin,QuanLy")]
@@ -156,7 +156,7 @@ public class HopDongController : ControllerBase
         try
         {
             await _hopDongService.SendContractChangeProposalAsync(id, dto, GetUserId());
-            return Ok(new { message = "Đã gửi đề xuất thay đổi hợp đồng đến cư dân" });
+            return Ok(new { message = "Đã cập nhật và áp dụng thay đổi hợp đồng" });
         }
         catch (InvalidOperationException ex)
         {
@@ -172,21 +172,9 @@ public class HopDongController : ControllerBase
     /// Cư dân xem chi tiết đề xuất thay đổi hợp đồng từ thông báo
     /// </summary>
     [HttpGet("change-request/{notificationId:int}")]
-    public async Task<ActionResult<ContractChangeDetailDto>> GetChangeRequestDetail(int notificationId)
+    public ActionResult<ContractChangeDetailDto> GetChangeRequestDetail(int notificationId)
     {
-        try
-        {
-            var detail = await _hopDongService.GetContractChangeDetailAsync(notificationId, GetUserId());
-            return Ok(detail);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
-        }
+        return BadRequest(new { message = "Quy trình cư dân xác nhận thay đổi hợp đồng đã ngừng sử dụng." });
     }
 
     /// <summary>
@@ -194,63 +182,27 @@ public class HopDongController : ControllerBase
     /// </summary>
     [HttpGet("change-requests/tracking")]
     [Authorize(Roles = "Admin,QuanLy")]
-    public async Task<ActionResult<List<ContractChangeTrackingItemDto>>> GetChangeRequestTracking([FromQuery] string? status = null, [FromQuery] int limit = 200)
+    public ActionResult<List<ContractChangeTrackingItemDto>> GetChangeRequestTracking([FromQuery] string? status = null, [FromQuery] int limit = 200)
     {
-        try
-        {
-            var data = await _hopDongService.GetContractChangeTrackingAsync(status, limit);
-            return Ok(data);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
-        }
+        return BadRequest(new { message = "Quy trình theo dõi đề xuất chờ cư dân xác nhận đã ngừng sử dụng." });
     }
 
     /// <summary>
     /// Cư dân xác nhận thay đổi hợp đồng (chỉ lúc này mới áp dụng vào hợp đồng hiện tại)
     /// </summary>
     [HttpPost("change-request/{notificationId:int}/confirm")]
-    public async Task<IActionResult> ConfirmChangeRequest(int notificationId)
+    public IActionResult ConfirmChangeRequest(int notificationId)
     {
-        try
-        {
-            await _hopDongService.ConfirmContractChangeAsync(notificationId, GetUserId());
-            return Ok(new { message = "Đã xác nhận thay đổi hợp đồng" });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
-        }
+        return BadRequest(new { message = "Quy trình cư dân xác nhận thay đổi hợp đồng đã ngừng sử dụng." });
     }
 
     /// <summary>
     /// Cư dân yêu cầu thảo luận lại với BQL (không áp dụng thay đổi)
     /// </summary>
     [HttpPost("change-request/{notificationId:int}/discuss")]
-    public async Task<IActionResult> DiscussChangeRequest(int notificationId, [FromBody] RespondContractChangeDto dto)
+    public IActionResult DiscussChangeRequest(int notificationId, [FromBody] RespondContractChangeDto dto)
     {
-        try
-        {
-            await _hopDongService.RequestContractChangeDiscussionAsync(notificationId, GetUserId(), dto?.Message);
-            return Ok(new { message = "Đã gửi yêu cầu thảo luận lại" });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
-        }
+        return BadRequest(new { message = "Quy trình cư dân thảo luận thay đổi hợp đồng đã ngừng sử dụng." });
     }
 
     /// <summary>
