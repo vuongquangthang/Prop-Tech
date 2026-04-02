@@ -34,6 +34,14 @@ public class ChiSoNuoc
     [Precision(18, 2)]
     public decimal NewReading { get; set; }
 
+    [Required]
+    [Column("IS_ANOMALY")]
+    public bool IsAnomaly { get; set; }
+
+    [Column("ANOMALY_NOTE")]
+    [StringLength(500)]
+    public string? AnomalyNote { get; set; }
+
     [Column("ANH_DONG_HO_URL")]
     [StringLength(500)]
     public string? MeterImageUrl { get; set; }

@@ -176,6 +176,15 @@ public class HoaDonService : IHoaDonService
                 }
 
                 var activeUsages = GetActiveServiceUsagesForPeriod(room.ChiTietSuDungDichVus, year, month);
+
+                var anomalyReasons = await GetUtilityReadingAnomalyReasonsAsync(activeUsages, year, month);
+                if (anomalyReasons.Any())
+                {
+                    result.Skipped++;
+                    result.SkippedReasons.Add($"Phòng {room.RoomCode}: {string.Join(" | ", anomalyReasons)}");
+                    continue;
+                }
+
                 var lineItems = new List<ChiTietHoaDon>();
                 decimal total = 0;
                 var formulaItems = ParseBillingFormula(contract.BillingFormulaJson);
@@ -838,6 +847,104 @@ public class HoaDonService : IHoaDonService
         return usages
             .Where(u => u.ApplyFrom <= periodEnd && (u.ApplyTo == null || u.ApplyTo >= periodStart))
             .ToList();
+    }
+
+    private async Task<List<string>> GetUtilityReadingAnomalyReasonsAsync(IEnumerable<ChiTietSuDungDichVu> activeUsages, short year, byte month)
+    {
+        var reasons = new List<string>();
+
+        foreach (var usage in activeUsages)
+        {
+            if (IsElectricityService(usage.Service))
+            {
+                var current = await _context.ChiSoDiens.FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usage.Id && c.Month == month && c.Year == year);
+                if (current != null)
+                {
+                    var previous = await _context.ChiSoDiens
+                        .Where(c => c.ServiceUsageDetailId == usage.Id && (c.Year < year || (c.Year == year && c.Month < month)))
+                        .OrderByDescending(c => c.Year)
+                        .ThenByDescending(c => c.Month)
+                        .FirstOrDefaultAsync();
+
+                    var previousConsumption = await GetElectricityConsumptionAsync(usage.Id, previous?.Month, previous?.Year);
+                    var currentConsumption = previous != null ? current.NewReading - previous.NewReading : current.NewReading;
+                    if (previousConsumption.HasValue && previousConsumption.Value > 0 && currentConsumption > previousConsumption.Value * 2m)
+                    {
+                        reasons.Add($"Phòng có chỉ số điện tăng bất thường: {currentConsumption:N0} kWh so với tháng trước {previousConsumption.Value:N0} kWh");
+                    }
+                }
+            }
+
+            if (IsWaterService(usage.Service))
+            {
+                var current = await _context.ChiSoNuocs.FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usage.Id && c.Month == month && c.Year == year);
+                if (current != null)
+                {
+                    var previous = await _context.ChiSoNuocs
+                        .Where(c => c.ServiceUsageDetailId == usage.Id && (c.Year < year || (c.Year == year && c.Month < month)))
+                        .OrderByDescending(c => c.Year)
+                        .ThenByDescending(c => c.Month)
+                        .FirstOrDefaultAsync();
+
+                    var previousConsumption = await GetWaterConsumptionAsync(usage.Id, previous?.Month, previous?.Year);
+                    var currentConsumption = previous != null ? current.NewReading - previous.NewReading : current.NewReading;
+                    if (previousConsumption.HasValue && previousConsumption.Value > 0 && currentConsumption > previousConsumption.Value * 2m)
+                    {
+                        reasons.Add($"Phòng có chỉ số nước tăng bất thường: {currentConsumption:N0} m³ so với tháng trước {previousConsumption.Value:N0} m³");
+                    }
+                }
+            }
+        }
+
+        return reasons;
+    }
+
+    private async Task<decimal?> GetElectricityConsumptionAsync(long usageDetailId, byte? month, short? year)
+    {
+        if (!month.HasValue || !year.HasValue)
+        {
+            return null;
+        }
+
+        var previousReading = await _context.ChiSoDiens
+            .Where(c => c.ServiceUsageDetailId == usageDetailId && (c.Year < year.Value || (c.Year == year.Value && c.Month < month.Value)))
+            .OrderByDescending(c => c.Year)
+            .ThenByDescending(c => c.Month)
+            .FirstOrDefaultAsync();
+
+        var monthReading = await _context.ChiSoDiens
+            .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usageDetailId && c.Month == month.Value && c.Year == year.Value);
+
+        if (monthReading == null)
+        {
+            return null;
+        }
+
+        return monthReading.NewReading - (previousReading?.NewReading ?? 0);
+    }
+
+    private async Task<decimal?> GetWaterConsumptionAsync(long usageDetailId, byte? month, short? year)
+    {
+        if (!month.HasValue || !year.HasValue)
+        {
+            return null;
+        }
+
+        var previousReading = await _context.ChiSoNuocs
+            .Where(c => c.ServiceUsageDetailId == usageDetailId && (c.Year < year.Value || (c.Year == year.Value && c.Month < month.Value)))
+            .OrderByDescending(c => c.Year)
+            .ThenByDescending(c => c.Month)
+            .FirstOrDefaultAsync();
+
+        var monthReading = await _context.ChiSoNuocs
+            .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usageDetailId && c.Month == month.Value && c.Year == year.Value);
+
+        if (monthReading == null)
+        {
+            return null;
+        }
+
+        return monthReading.NewReading - (previousReading?.NewReading ?? 0);
     }
 
     private static bool IsElectricityService(Service? service)

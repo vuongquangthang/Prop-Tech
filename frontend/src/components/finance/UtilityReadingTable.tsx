@@ -13,10 +13,14 @@ interface RoomUtilityReading {
   oldElecReading?: number;
   newElecReading?: number;
   elecRecorded: boolean;
+  elecIsAnomaly?: boolean;
+  elecAnomalyNote?: string;
   waterUsageDetailId?: number;
   oldWaterReading?: number;
   newWaterReading?: number;
   waterRecorded: boolean;
+  waterIsAnomaly?: boolean;
+  waterAnomalyNote?: string;
 }
 
 interface RowEdit {
@@ -33,6 +37,7 @@ export function UtilityReadingTable() {
   const [saving, setSaving] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [successMsg, setSuccessMsg] = useState('');
   const [calculateModal, setCalculateModal] = useState(false);
   const [calcResult, setCalcResult] = useState<{
@@ -42,11 +47,13 @@ export function UtilityReadingTable() {
     skipped: number;
     skippedReasons: string[];
     errors: string[];
+    warnings: string[];
   } | null>(null);
 
   const loadReadings = useCallback(async () => {
     setLoading(true);
     setErrors([]);
+    setWarnings([]);
     try {
       const res = await api.get<RoomUtilityReading[]>(API_ENDPOINTS.UTILITY_READINGS.MONTH(selectedYear, selectedMonth));
       setRooms(res.data);
@@ -79,7 +86,8 @@ export function UtilityReadingTable() {
     const newVal = parseFloat(field === 'elec' ? edit.newElec : edit.newWater);
     const oldVal = (field === 'elec' ? room.oldElecReading : room.oldWaterReading) ?? 0;
     if (isNaN(newVal)) return false;
-    return newVal < oldVal;
+    if (newVal < oldVal) return true;
+    return field === 'elec' ? !!room.elecIsAnomaly : !!room.waterIsAnomaly;
   };
 
   const calcUsage = (room: RoomUtilityReading, field: 'elec' | 'water') => {
@@ -95,6 +103,7 @@ export function UtilityReadingTable() {
   const handleSaveBatch = async () => {
     setSaving(true);
     setErrors([]);
+    setWarnings([]);
     setSuccessMsg('');
     try {
       const payload = rooms
@@ -107,11 +116,12 @@ export function UtilityReadingTable() {
           newWaterReading: edits[r.roomId]?.newWater ? parseInt(edits[r.roomId].newWater, 10) : undefined,
         }));
 
-      const res = await api.post<{ success: number; failed: number; errors: string[] }>(
+      const res = await api.post<{ success: number; failed: number; errors: string[]; warnings: string[] }>(
         API_ENDPOINTS.UTILITY_READINGS.RECORD_BATCH, payload
       );
       const data = res.data;
       if (data.errors.length > 0) setErrors(data.errors);
+      if (data.warnings?.length > 0) setWarnings(data.warnings);
       setSuccessMsg(`✅ Đã lưu ${data.success} phòng thành công${data.failed > 0 ? `, ${data.failed} lỗi` : ''}.`);
       await loadReadings();
     } catch (err: any) {
@@ -124,6 +134,7 @@ export function UtilityReadingTable() {
   const handleCalculate = async () => {
     setCalculating(true);
     setErrors([]);
+    setWarnings([]);
     try {
       const res = await api.post<{
         totalContracts: number;
@@ -132,6 +143,7 @@ export function UtilityReadingTable() {
         skipped: number;
         skippedReasons: string[];
         errors: string[];
+        warnings: string[];
       }>(
         API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth)
       );
@@ -235,6 +247,11 @@ export function UtilityReadingTable() {
             {errors.map((e, i) => <p key={i} className="text-sm text-red-800">⚠️ {e}</p>)}
           </div>
         )}
+        {warnings.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
+            {warnings.map((w, i) => <p key={i} className="text-sm text-yellow-800">⚠️ {w}</p>)}
+          </div>
+        )}
 
         {/* Table */}
         <div className="rounded" style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)' }}>
@@ -294,6 +311,7 @@ export function UtilityReadingTable() {
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
                               disabled={!isCurrentMonth}
                               className="focus:outline-none"
+                              title={room.elecAnomalyNote || undefined}
                               style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: !isCurrentMonth ? 'var(--surface-bg)' : 'white', cursor: !isCurrentMonth ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
@@ -320,6 +338,7 @@ export function UtilityReadingTable() {
                               onChange={e => handleInputChange(room.roomId, 'newWater', e.target.value)}
                               disabled={!isCurrentMonth}
                               className="focus:outline-none"
+                              title={room.waterAnomalyNote || undefined}
                               style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: !isCurrentMonth ? 'var(--surface-bg)' : 'white', cursor: !isCurrentMonth ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
@@ -409,6 +428,15 @@ export function UtilityReadingTable() {
                   <p className="text-xs font-semibold text-yellow-700 mb-1">⚠️ Một số phòng chưa chốt chỉ số (hóa đơn vẫn được tạo không có khoản điện/nước):</p>
                   <div className="space-y-0.5 max-h-28 overflow-y-auto">
                     {calcResult.errors.map((e, i) => <p key={i} className="text-xs text-yellow-600">• {e}</p>)}
+                  </div>
+                </div>
+              )}
+
+              {calcResult.warnings.length > 0 && (
+                <div className="bg-red-50 border border-red-300 rounded p-3">
+                  <p className="text-xs font-semibold text-red-700 mb-1">⚠️ Cảnh báo bất thường:</p>
+                  <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                    {calcResult.warnings.map((w, i) => <p key={i} className="text-xs text-red-600">• {w}</p>)}
                   </div>
                 </div>
               )}

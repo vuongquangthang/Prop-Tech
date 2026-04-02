@@ -20,6 +20,7 @@ public class BatchReadingResultDto
     public int Success { get; set; }
     public int Failed { get; set; }
     public List<string> Errors { get; set; } = new();
+    public List<string> Warnings { get; set; } = new();
 }
 
 /// <summary>
@@ -38,10 +39,14 @@ public class RoomUtilityReadingDto
     public decimal? OldElecReading { get; set; }
     public decimal? NewElecReading { get; set; }
     public bool ElecRecorded { get; set; }
+    public bool ElecIsAnomaly { get; set; }
+    public string? ElecAnomalyNote { get; set; }
 
     // Chỉ số nước
     public long? WaterUsageDetailId { get; set; }
     public decimal? OldWaterReading { get; set; }
     public decimal? NewWaterReading { get; set; }
     public bool WaterRecorded { get; set; }
+    public bool WaterIsAnomaly { get; set; }
+    public string? WaterAnomalyNote { get; set; }
 }

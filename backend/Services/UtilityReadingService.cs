@@ -16,6 +16,7 @@ public interface IUtilityReadingService
 public class UtilityReadingService : IUtilityReadingService
 {
     private readonly ApplicationDbContext _context;
+    private const decimal AnomalyIncreaseFactor = 2m;
 
     public UtilityReadingService(ApplicationDbContext context)
     {
@@ -81,6 +82,10 @@ public class UtilityReadingService : IUtilityReadingService
             decimal? newWater = null;
             bool elecRecorded = false;
             bool waterRecorded = false;
+            bool elecIsAnomaly = false;
+            string? elecAnomalyNote = null;
+            bool waterIsAnomaly = false;
+            string? waterAnomalyNote = null;
 
             if (elecUsage != null)
             {
@@ -98,6 +103,9 @@ public class UtilityReadingService : IUtilityReadingService
                 {
                     newElec = currentElec.NewReading;
                     elecRecorded = true;
+                    var anomaly = await EvaluateElectricityAnomalyAsync(elecUsage.Id, month, year, currentElec.NewReading);
+                    elecIsAnomaly = anomaly.IsAnomaly;
+                    elecAnomalyNote = anomaly.Note;
                 }
             }
 
@@ -117,6 +125,9 @@ public class UtilityReadingService : IUtilityReadingService
                 {
                     newWater = currentWater.NewReading;
                     waterRecorded = true;
+                    var anomaly = await EvaluateWaterAnomalyAsync(waterUsage.Id, month, year, currentWater.NewReading);
+                    waterIsAnomaly = anomaly.IsAnomaly;
+                    waterAnomalyNote = anomaly.Note;
                 }
             }
 
@@ -131,10 +142,14 @@ public class UtilityReadingService : IUtilityReadingService
                 OldElecReading = oldElec,
                 NewElecReading = newElec,
                 ElecRecorded = elecRecorded,
+                ElecIsAnomaly = elecIsAnomaly,
+                ElecAnomalyNote = elecAnomalyNote,
                 WaterUsageDetailId = waterUsage?.Id,
                 OldWaterReading = oldWater,
                 NewWaterReading = newWater,
-                WaterRecorded = waterRecorded
+                WaterRecorded = waterRecorded,
+                WaterIsAnomaly = waterIsAnomaly,
+                WaterAnomalyNote = waterAnomalyNote
             });
         }
 
@@ -201,20 +216,36 @@ public class UtilityReadingService : IUtilityReadingService
                             if (existing != null)
                             {
                                 existing.NewReading = dto.NewElecReading.Value;
+                                var anomaly = await EvaluateElectricityAnomalyAsync(elecUsage.Id, dto.Month, dto.Year, dto.NewElecReading.Value);
+                                existing.IsAnomaly = anomaly.IsAnomaly;
+                                existing.AnomalyNote = anomaly.Note;
                                 existing.CreatedAt = DateTime.UtcNow;
                                 existing.CreatedBy = recordedByUserId;
+
+                                if (existing.IsAnomaly)
+                                {
+                                    result.Warnings.Add($"Phòng {room.RoomCode}: {existing.AnomalyNote}");
+                                }
                             }
                             else
                             {
+                                var anomaly = await EvaluateElectricityAnomalyAsync(elecUsage.Id, dto.Month, dto.Year, dto.NewElecReading.Value);
                                 _context.ChiSoDiens.Add(new ChiSoDien
                                 {
                                     ServiceUsageDetailId = elecUsage.Id,
                                     Month = dto.Month,
                                     Year = dto.Year,
                                     NewReading = dto.NewElecReading.Value,
+                                    IsAnomaly = anomaly.IsAnomaly,
+                                    AnomalyNote = anomaly.Note,
                                     CreatedAt = DateTime.UtcNow,
                                     CreatedBy = recordedByUserId
                                 });
+
+                                if (anomaly.IsAnomaly)
+                                {
+                                    result.Warnings.Add($"Phòng {room.RoomCode}: {anomaly.Note}");
+                                }
                             }
                         }
                     }
@@ -257,20 +288,36 @@ public class UtilityReadingService : IUtilityReadingService
                             if (existing != null)
                             {
                                 existing.NewReading = dto.NewWaterReading.Value;
+                                var anomaly = await EvaluateWaterAnomalyAsync(waterUsage.Id, dto.Month, dto.Year, dto.NewWaterReading.Value);
+                                existing.IsAnomaly = anomaly.IsAnomaly;
+                                existing.AnomalyNote = anomaly.Note;
                                 existing.CreatedAt = DateTime.UtcNow;
                                 existing.CreatedBy = recordedByUserId;
+
+                                if (existing.IsAnomaly)
+                                {
+                                    result.Warnings.Add($"Phòng {room.RoomCode}: {existing.AnomalyNote}");
+                                }
                             }
                             else
                             {
+                                var anomaly = await EvaluateWaterAnomalyAsync(waterUsage.Id, dto.Month, dto.Year, dto.NewWaterReading.Value);
                                 _context.ChiSoNuocs.Add(new ChiSoNuoc
                                 {
                                     ServiceUsageDetailId = waterUsage.Id,
                                     Month = dto.Month,
                                     Year = dto.Year,
                                     NewReading = dto.NewWaterReading.Value,
+                                    IsAnomaly = anomaly.IsAnomaly,
+                                    AnomalyNote = anomaly.Note,
                                     CreatedAt = DateTime.UtcNow,
                                     CreatedBy = recordedByUserId
                                 });
+
+                                if (anomaly.IsAnomaly)
+                                {
+                                    result.Warnings.Add($"Phòng {room.RoomCode}: {anomaly.Note}");
+                                }
                             }
                         }
                     }
@@ -287,6 +334,92 @@ public class UtilityReadingService : IUtilityReadingService
 
         await _context.SaveChangesAsync();
         return result;
+    }
+
+    private async Task<(bool IsAnomaly, string? Note)> EvaluateElectricityAnomalyAsync(long usageDetailId, byte month, short year, decimal currentReading)
+    {
+        var previousReading = await _context.ChiSoDiens
+            .Where(c => c.ServiceUsageDetailId == usageDetailId && (c.Year < year || (c.Year == year && c.Month < month)))
+            .OrderByDescending(c => c.Year)
+            .ThenByDescending(c => c.Month)
+            .FirstOrDefaultAsync();
+
+        var previousConsumption = await GetElectricityConsumptionAsync(usageDetailId, previousReading?.Month, previousReading?.Year);
+        var currentConsumption = previousReading != null ? currentReading - previousReading.NewReading : currentReading;
+
+        if (previousConsumption.HasValue && previousConsumption.Value > 0 && currentConsumption > previousConsumption.Value * AnomalyIncreaseFactor)
+        {
+            return (true, $"Chỉ số điện tăng bất thường: kỳ này {currentConsumption:N0} kWh, tháng trước {previousConsumption.Value:N0} kWh");
+        }
+
+        return (false, null);
+    }
+
+    private async Task<(bool IsAnomaly, string? Note)> EvaluateWaterAnomalyAsync(long usageDetailId, byte month, short year, decimal currentReading)
+    {
+        var previousReading = await _context.ChiSoNuocs
+            .Where(c => c.ServiceUsageDetailId == usageDetailId && (c.Year < year || (c.Year == year && c.Month < month)))
+            .OrderByDescending(c => c.Year)
+            .ThenByDescending(c => c.Month)
+            .FirstOrDefaultAsync();
+
+        var previousConsumption = await GetWaterConsumptionAsync(usageDetailId, previousReading?.Month, previousReading?.Year);
+        var currentConsumption = previousReading != null ? currentReading - previousReading.NewReading : currentReading;
+
+        if (previousConsumption.HasValue && previousConsumption.Value > 0 && currentConsumption > previousConsumption.Value * AnomalyIncreaseFactor)
+        {
+            return (true, $"Chỉ số nước tăng bất thường: kỳ này {currentConsumption:N0} m³, tháng trước {previousConsumption.Value:N0} m³");
+        }
+
+        return (false, null);
+    }
+
+    private async Task<decimal?> GetElectricityConsumptionAsync(long usageDetailId, byte? month, short? year)
+    {
+        if (!month.HasValue || !year.HasValue)
+        {
+            return null;
+        }
+
+        var previousReading = await _context.ChiSoDiens
+            .Where(c => c.ServiceUsageDetailId == usageDetailId && (c.Year < year.Value || (c.Year == year.Value && c.Month < month.Value)))
+            .OrderByDescending(c => c.Year)
+            .ThenByDescending(c => c.Month)
+            .FirstOrDefaultAsync();
+
+        var monthReading = await _context.ChiSoDiens
+            .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usageDetailId && c.Month == month.Value && c.Year == year.Value);
+
+        if (monthReading == null)
+        {
+            return null;
+        }
+
+        return monthReading.NewReading - (previousReading?.NewReading ?? 0);
+    }
+
+    private async Task<decimal?> GetWaterConsumptionAsync(long usageDetailId, byte? month, short? year)
+    {
+        if (!month.HasValue || !year.HasValue)
+        {
+            return null;
+        }
+
+        var previousReading = await _context.ChiSoNuocs
+            .Where(c => c.ServiceUsageDetailId == usageDetailId && (c.Year < year.Value || (c.Year == year.Value && c.Month < month.Value)))
+            .OrderByDescending(c => c.Year)
+            .ThenByDescending(c => c.Month)
+            .FirstOrDefaultAsync();
+
+        var monthReading = await _context.ChiSoNuocs
+            .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usageDetailId && c.Month == month.Value && c.Year == year.Value);
+
+        if (monthReading == null)
+        {
+            return null;
+        }
+
+        return monthReading.NewReading - (previousReading?.NewReading ?? 0);
     }
 
     private static bool IsElectricityService(Service? service)
