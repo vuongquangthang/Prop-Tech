@@ -50,7 +50,7 @@ Write-Host "   Cleanup completed" -ForegroundColor Green
 
 # 2. Start Backend
 Write-Host "`n2. Starting Backend..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'd:\Prop_Tech\Prop-Tech\backend'; dotnet run"
+Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\backend" -ArgumentList "-NoExit", "-Command", "dotnet run"
 Write-Host "   Backend starting..." -ForegroundColor Green
 
 # 3. Wait for backend to be ready
@@ -90,7 +90,7 @@ Write-Host "   Ngrok tunnel starting on praiseworthy-katlyn-discountable.ngrok-f
 # 5. Start Frontend
 Write-Host "`n5. Starting Frontend..." -ForegroundColor Yellow
 Write-Host "   Note: If Frontend fails with thread error, close some programs and try again" -ForegroundColor DarkGray
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'd:\Prop_Tech\Prop-Tech\frontend'; npm run dev"
+Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\frontend" -ArgumentList "-NoExit", "-Command", "pnpm run dev"
 Write-Host "   Frontend starting..." -ForegroundColor Green
 
 # Wait for frontend to initialize
@@ -98,7 +98,7 @@ Start-Sleep -Seconds 3
 
 # 6. Start Mobile App
 Write-Host "`n6. Starting Mobile App (Expo)..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'd:\Prop_Tech\Prop-Tech\mobile'; npm start"
+Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\mobile" -ArgumentList "-NoExit", "-Command", "pnpm start"
 Write-Host "   Mobile starting..." -ForegroundColor Green
 
 # 7. Summary

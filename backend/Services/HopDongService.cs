@@ -1,6 +1,7 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using backend.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -35,6 +36,7 @@ public class HopDongService : IHopDongService
     private readonly IUserRepository _userRepository;
     private readonly INotificationRepository _notificationRepository;
     private readonly INotificationService _notificationService;
+    private readonly ApplicationDbContext _context;
 
     public HopDongService(
         IHopDongRepository hopDongRepository,
@@ -45,7 +47,8 @@ public class HopDongService : IHopDongService
         IChiTietORepository chiTietORepository,
         IUserRepository userRepository,
         INotificationRepository notificationRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        ApplicationDbContext context)
     {
         _hopDongRepository = hopDongRepository;
         _roomRepository = roomRepository;
@@ -56,6 +59,7 @@ public class HopDongService : IHopDongService
         _userRepository = userRepository;
         _notificationRepository = notificationRepository;
         _notificationService = notificationService;
+        _context = context;
     }
 
     private sealed class ContractChangeEnvelope
@@ -125,6 +129,12 @@ public class HopDongService : IHopDongService
             throw new InvalidOperationException("Phòng không tồn tại");
         }
 
+        // FIX #2: Check room status is "Trống" (empty) BEFORE creating contract
+        if (room.Status != "Trống")
+        {
+            throw new InvalidOperationException($"Phòng hiện tại ở trạng thái '{room.Status}' (cần phải 'Trống')");
+        }
+
         // Check if room already has an active contract
         var activeContract = await _hopDongRepository.GetActiveByRoomIdAsync(dto.RoomId);
         if (activeContract != null)
@@ -142,104 +152,120 @@ public class HopDongService : IHopDongService
             }
         }
 
-        // Create contract
-        var contract = new HopDong
+        // FIX #1: Use database transaction for atomic operation (ALL-or-NOTHING)
+        using (var transaction = await _context.Database.BeginTransactionAsync())
         {
-            RoomId = dto.RoomId,
-            ContractCode = await GenerateContractCodeAsync(dto.StartDate.Year),
-            StartDate = dto.StartDate,
-            ExpectedEndDate = dto.ExpectedEndDate,
-            ActualRentPrice = dto.ActualRentPrice,
-            DepositAmount = dto.DepositAmount,
-            PaymentDayOfMonth = dto.PaymentDayOfMonth,
-            BillingFormulaJson = SerializeBillingFormula(dto.BillingFormulaItems)
-        };
-
-        await _hopDongRepository.AddAsync(contract);
-        await _hopDongRepository.SaveChangesAsync();
-
-        // Persist ChiTietO records explicitly to avoid missing residents in detail views.
-        foreach (var residentDto in dto.Residents)
-        {
-            var chiTietO = new ChiTietO
+            try
             {
-                ContractId = contract.Id,
-                ResidentId = residentDto.ResidentId,
-                ResidencyRole = residentDto.ResidencyRole,
-                FromDate = residentDto.FromDate
-            };
-            await _chiTietORepository.AddAsync(chiTietO);
-        }
-        await _chiTietORepository.SaveChangesAsync();
-
-        // Auto-create default service usages so monthly invoice calculation has baseline services.
-        var selectedServiceIds = dto.SelectedServiceIds
-            .Where(id => id > 0)
-            .Distinct()
-            .ToHashSet();
-
-        var activeServices = (await _serviceRepository.GetActiveServicesAsync()).ToList();
-        var defaultServices = activeServices
-            .Where(s => selectedServiceIds.Contains(s.Id))
-            .Where(IsAutoAssignableDefaultService)
-            .ToList();
-
-        var primaryResident = dto.Residents
-            .FirstOrDefault(r => r.ResidencyRole == "Người thuê chính" || r.ResidencyRole == "Chủ hộ" || r.ResidencyRole == "Chủ phòng")
-            ?? dto.Residents.FirstOrDefault(r => r.ResidencyRole == "Người thuê")
-            ?? dto.Residents.First();
-
-        var primaryResidentId = primaryResident.ResidentId;
-
-        // Only auto-create account for the primary resident (room owner/household head).
-        if (!string.IsNullOrWhiteSpace(primaryResident.Email))
-        {
-            await EnsureResidentAccountWithEmailAsync(primaryResidentId, primaryResident.Email);
-        }
-        else
-        {
-            await EnsureResidentAccountAsync(primaryResidentId);
-        }
-
-        if (defaultServices.Count > 0)
-        {
-            var existingUsages = (await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(dto.RoomId)).ToList();
-
-            foreach (var service in defaultServices)
-            {
-                var hasOverlap = existingUsages.Any(u =>
-                    u.ServiceId == service.Id
-                    && u.ApplyFrom <= (dto.ExpectedEndDate ?? DateTime.MaxValue)
-                    && (u.ApplyTo == null || u.ApplyTo >= dto.StartDate));
-
-                if (hasOverlap)
+                // Create contract
+                var contract = new HopDong
                 {
-                    continue;
+                    RoomId = dto.RoomId,
+                    ContractCode = await GenerateContractCodeAsync(dto.StartDate.Year),
+                    StartDate = dto.StartDate,
+                    ExpectedEndDate = dto.ExpectedEndDate,
+                    ActualRentPrice = dto.ActualRentPrice,
+                    DepositAmount = dto.DepositAmount,
+                    PaymentDayOfMonth = dto.PaymentDayOfMonth,
+                    BillingFormulaJson = SerializeBillingFormula(dto.BillingFormulaItems)
+                };
+
+                await _hopDongRepository.AddAsync(contract);
+                // DO NOT SaveChanges here - add to transaction context
+
+                // Persist ChiTietO records explicitly to avoid missing residents in detail views.
+                foreach (var residentDto in dto.Residents)
+                {
+                    var chiTietO = new ChiTietO
+                    {
+                        ContractId = contract.Id,
+                        ResidentId = residentDto.ResidentId,
+                        ResidencyRole = residentDto.ResidencyRole,
+                        FromDate = residentDto.FromDate
+                    };
+                    await _chiTietORepository.AddAsync(chiTietO);
                 }
 
-                await _chiTietSuDungDichVuRepository.AddAsync(new ChiTietSuDungDichVu
+                // Auto-create default service usages so monthly invoice calculation has baseline services.
+                var selectedServiceIds = dto.SelectedServiceIds
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToHashSet();
+
+                var activeServices = (await _serviceRepository.GetActiveServicesAsync()).ToList();
+                var defaultServices = activeServices
+                    .Where(s => selectedServiceIds.Contains(s.Id))
+                    .Where(IsAutoAssignableDefaultService)
+                    .ToList();
+
+                var primaryResident = dto.Residents
+                    .FirstOrDefault(r => r.ResidencyRole == "Người thuê chính" || r.ResidencyRole == "Chủ hộ" || r.ResidencyRole == "Chủ phòng")
+                    ?? dto.Residents.FirstOrDefault(r => r.ResidencyRole == "Người thuê")
+                    ?? dto.Residents.First();
+
+                var primaryResidentId = primaryResident.ResidentId;
+
+                // Only auto-create account for the primary resident (room owner/household head).
+                if (!string.IsNullOrWhiteSpace(primaryResident.Email))
                 {
-                    ServiceId = service.Id,
-                    ResidentId = primaryResidentId,
-                    RoomId = dto.RoomId,
-                    ApplyFrom = dto.StartDate,
-                    ApplyTo = dto.ExpectedEndDate,
-                    Quantity = 1,
-                    CreatedAt = DateTime.UtcNow,
-                    Note = $"Tự động tạo khi phát sinh hợp đồng {contract.ContractCode}"
-                });
+                    await EnsureResidentAccountWithEmailAsync(primaryResidentId, primaryResident.Email);
+                }
+                else
+                {
+                    await EnsureResidentAccountAsync(primaryResidentId);
+                }
+
+                if (defaultServices.Count > 0)
+                {
+                    var existingUsages = (await _chiTietSuDungDichVuRepository.GetByRoomIdAsync(dto.RoomId)).ToList();
+
+                    foreach (var service in defaultServices)
+                    {
+                        var hasOverlap = existingUsages.Any(u =>
+                            u.ServiceId == service.Id
+                            && u.ApplyFrom <= (dto.ExpectedEndDate ?? DateTime.MaxValue)
+                            && (u.ApplyTo == null || u.ApplyTo >= dto.StartDate));
+
+                        if (hasOverlap)
+                        {
+                            continue;
+                        }
+
+                        await _chiTietSuDungDichVuRepository.AddAsync(new ChiTietSuDungDichVu
+                        {
+                            ServiceId = service.Id,
+                            ResidentId = primaryResidentId,
+                            RoomId = dto.RoomId,
+                            ApplyFrom = dto.StartDate,
+                            ApplyTo = dto.ExpectedEndDate,
+                            Quantity = 1,
+                            CreatedAt = DateTime.UtcNow,
+                            Note = $"Tự động tạo khi phát sinh hợp đồng {contract.ContractCode}"
+                        });
+                    }
+                }
+
+                // Update room status to "Đã thuê" - THIS IS NOW ATOMIC WITH CONTRACT CREATION
+                room.Status = "Đã thuê";
+                _roomRepository.Update(room);
+
+                // SINGLE SaveChangesAsync at the end - either all succeed or all rollback
+                await _hopDongRepository.SaveChangesAsync();
+
+                // Commit transaction
+                await transaction.CommitAsync();
+
+                // Reload to get navigation properties
+                var createdContract = await _hopDongRepository.GetWithDetailsAsync(contract.Id);
+                return MapToDto(createdContract!);
+            }
+            catch
+            {
+                // Transaction will auto-rollback on exception
+                await transaction.RollbackAsync();
+                throw;
             }
         }
-
-        // Update room status to "Đã thuê"
-        room.Status = "Đã thuê";
-        _roomRepository.Update(room);
-
-        await _hopDongRepository.SaveChangesAsync();
-
-        // Reload to get navigation properties
-        var createdContract = await _hopDongRepository.GetWithDetailsAsync(contract.Id);
-        return MapToDto(createdContract!);
     }
 
     public async Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto)

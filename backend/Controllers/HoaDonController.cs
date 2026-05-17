@@ -52,6 +52,29 @@ public class HoaDonController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 
+    [HttpGet("contract/{contractId}/outstanding")]
+    [Authorize(Roles = "Admin,QuanLy,KeToan")]
+    public async Task<ActionResult<object>> GetOutstandingDebtByContract(int contractId)
+    {
+        try
+        {
+            var invoices = await _hoaDonService.GetByContractIdAsync(contractId);
+            var unpaidInvoices = invoices
+                .Where(i => i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần")
+                .ToList();
+
+            var outstandingDebt = unpaidInvoices.Sum(i => i.RemainingAmount);
+
+            return Ok(new
+            {
+                contractId,
+                outstandingDebt,
+                invoiceCount = unpaidInvoices.Count
+            });
+        }
+        catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
+    }
+
     [HttpGet("drafts")]
     [Authorize(Roles = "Admin,QuanLy,KeToan")]
     public async Task<ActionResult<List<HoaDonDto>>> GetDrafts()

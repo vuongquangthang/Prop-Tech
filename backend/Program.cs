@@ -1,9 +1,10 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Services;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using backend.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -149,6 +150,7 @@ builder.Services.AddScoped<backend.Services.IThanhToanService, backend.Services.
 builder.Services.AddScoped<backend.Services.IXeService, backend.Services.XeService>();
 builder.Services.AddScoped<backend.Services.IYeuCauSuaChuaService, backend.Services.YeuCauSuaChuaService>();
 builder.Services.AddScoped<backend.Services.IChiTietSuDungDichVuService, backend.Services.ChiTietSuDungDichVuService>();
+builder.Services.AddScoped<backend.Services.IPostService, backend.Services.PostService>();
 
 // Phase 4: Meter Readings & Settlement Services
 builder.Services.AddScoped<backend.Services.IChiSoDienService, backend.Services.ChiSoDienService>();
@@ -237,10 +239,57 @@ using (var scope = app.Services.CreateScope())
         // Ensure database is created
         Console.WriteLine("🔨 Creating new database...");
         context.Database.EnsureCreated();
+
+        // Ensure posts table exists before any later seed/query touches it.
+        // Some existing databases may have the rest of the schema but be missing this table.
+        try
+        {
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('dbo.BAI_DANG_TIM_PHONG', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.BAI_DANG_TIM_PHONG (
+                        BAI_DANG_ID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                        PHONG_ID INT NOT NULL,
+                        MA_PHONG NVARCHAR(50) NOT NULL,
+                        TEN_TOA_NHA NVARCHAR(200) NOT NULL,
+                        SO_TANG INT NOT NULL,
+                        DIEN_TICH DECIMAL(10,2) NULL,
+                        SO_NGUOI_TOI_DA INT NULL,
+                        TIEU_DE NVARCHAR(300) NOT NULL,
+                        GIA_THUE DECIMAL(18,2) NOT NULL,
+                        NGAY_DANG DATETIME2 NOT NULL,
+                        NGAY_TAO DATETIME2 NOT NULL,
+                        LUOT_XEM INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_LUOT_XEM DEFAULT(0),
+                        TIN_NHAN INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_TIN_NHAN DEFAULT(0),
+                        IS_LOCKED BIT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_IS_LOCKED DEFAULT(0),
+                        TRANG_THAI_BAI_DANG NVARCHAR(50) NOT NULL,
+                        TRANG_THAI_PHONG NVARCHAR(50) NOT NULL,
+                        KIEU_VAO_O NVARCHAR(20) NOT NULL,
+                        NGAY_CO_THE_VAO_O DATETIME2 NULL,
+                        CO_VUNG_NGAP_LUT BIT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_CO_VUNG_NGAP_LUT DEFAULT(0),
+                        YEU_CAU_CHU_NHA NVARCHAR(MAX) NULL,
+                        KIEU_LIEN_HE NVARCHAR(20) NOT NULL,
+                        TEN_LIEN_HE NVARCHAR(200) NOT NULL,
+                        SO_DIEN_THOAI NVARCHAR(20) NOT NULL,
+                        DICH_VU_JSON NVARCHAR(MAX) NOT NULL,
+                        ANH_JSON NVARCHAR(MAX) NOT NULL,
+                        ANH_BIA_URL NVARCHAR(1000) NULL,
+                        TAO_BOI_ID INT NULL,
+                        CONSTRAINT FK_BAI_DANG_TIM_PHONG_PHONG FOREIGN KEY (PHONG_ID) REFERENCES PHONG(PHONG_ID) ON DELETE CASCADE,
+                        CONSTRAINT FK_BAI_DANG_TIM_PHONG_USER FOREIGN KEY (TAO_BOI_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL
+                    );
+                END;
+            """);
+            Console.WriteLine("✅ Posts table ensured early");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Posts table ensure failed: {ex.Message}");
+        }
         
         // Apply column additions for existing databases
         try {
-            context.Database.ExecuteSqlRaw(@"
+            context.Database.ExecuteSqlRaw("""
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOA_DON') AND name = 'APPROVED_BY')
                     ALTER TABLE HOA_DON ADD APPROVED_BY INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOA_DON') AND name = 'APPROVED_AT')
@@ -271,14 +320,14 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE CHI_SO_NUOC ADD IS_ANOMALY BIT NOT NULL CONSTRAINT DF_CHI_SO_NUOC_IS_ANOMALY DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CHI_SO_NUOC') AND name = 'ANOMALY_NOTE')
                     ALTER TABLE CHI_SO_NUOC ADD ANOMALY_NOTE NVARCHAR(500) NULL;
-            ");
+            """);
             Console.WriteLine("✅ HOA_DON columns ensured");
 
-            context.Database.ExecuteSqlRaw(@"
+            context.Database.ExecuteSqlRaw("""
                 UPDATE HOP_DONG
                 SET MA_HOP_DONG = CONCAT('HD-', YEAR(GETDATE()), '-', RIGHT(CONCAT('00000', CAST(HOP_DONG_ID AS VARCHAR(10))), 5))
                 WHERE MA_HOP_DONG IS NULL OR LTRIM(RTRIM(MA_HOP_DONG)) = '';
-            ");
+            """);
             Console.WriteLine("✅ Contract codes ensured");
 
             context.Database.ExecuteSqlRaw(@"
@@ -346,6 +395,108 @@ using (var scope = app.Services.CreateScope())
                 IF @Room301Id IS NOT NULL AND @AssetGiuong IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room301Id AND TAI_SAN_ID = @AssetGiuong)
                     INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room301Id, @AssetGiuong, 1, N'Tốt', N'Giường đôi');
             ");
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('BAI_DANG_TIM_PHONG', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE BAI_DANG_TIM_PHONG (
+                        BAI_DANG_ID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                        PHONG_ID INT NOT NULL,
+                        MA_PHONG NVARCHAR(50) NOT NULL,
+                        TEN_TOA_NHA NVARCHAR(200) NOT NULL,
+                        SO_TANG INT NOT NULL,
+                        DIEN_TICH DECIMAL(10,2) NULL,
+                        SO_NGUOI_TOI_DA INT NULL,
+                        TIEU_DE NVARCHAR(300) NOT NULL,
+                        GIA_THUE DECIMAL(18,2) NOT NULL,
+                        NGAY_DANG DATETIME2 NOT NULL,
+                        NGAY_TAO DATETIME2 NOT NULL,
+                        LUOT_XEM INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_LUOT_XEM DEFAULT(0),
+                        TIN_NHAN INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_TIN_NHAN DEFAULT(0),
+                        IS_LOCKED BIT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_IS_LOCKED DEFAULT(0),
+                        TRANG_THAI_BAI_DANG NVARCHAR(50) NOT NULL,
+                        TRANG_THAI_PHONG NVARCHAR(50) NOT NULL,
+                        KIEU_VAO_O NVARCHAR(20) NOT NULL,
+                        NGAY_CO_THE_VAO_O DATETIME2 NULL,
+                        CO_VUNG_NGAP_LUT BIT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_CO_VUNG_NGAP_LUT DEFAULT(0),
+                        YEU_CAU_CHU_NHA NVARCHAR(MAX) NULL,
+                        KIEU_LIEN_HE NVARCHAR(20) NOT NULL,
+                        TEN_LIEN_HE NVARCHAR(200) NOT NULL,
+                        SO_DIEN_THOAI NVARCHAR(20) NOT NULL,
+                        DICH_VU_JSON NVARCHAR(MAX) NOT NULL,
+                        ANH_JSON NVARCHAR(MAX) NOT NULL,
+                        ANH_BIA_URL NVARCHAR(1000) NULL,
+                        TAO_BOI_ID INT NULL,
+                        CONSTRAINT FK_BAI_DANG_TIM_PHONG_PHONG FOREIGN KEY (PHONG_ID) REFERENCES PHONG(PHONG_ID) ON DELETE CASCADE,
+                        CONSTRAINT FK_BAI_DANG_TIM_PHONG_USER FOREIGN KEY (TAO_BOI_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL
+                    );
+                END;
+
+                IF NOT EXISTS (SELECT 1 FROM BAI_DANG_TIM_PHONG)
+                BEGIN
+                    DECLARE @Room101Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '101');
+                    DECLARE @Room201Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '201');
+                    DECLARE @Room301Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '301');
+                    DECLARE @AdminUserId INT = (SELECT TOP 1 USER_ID FROM [USER] WHERE VAI_TRO = N'Admin');
+
+                    IF @Room101Id IS NOT NULL
+                    BEGIN
+                        INSERT INTO BAI_DANG_TIM_PHONG (
+                            PHONG_ID, MA_PHONG, TEN_TOA_NHA, SO_TANG, DIEN_TICH, SO_NGUOI_TOI_DA,
+                            TIEU_DE, GIA_THUE, NGAY_DANG, NGAY_TAO, LUOT_XEM, TIN_NHAN, IS_LOCKED,
+                            TRANG_THAI_BAI_DANG, TRANG_THAI_PHONG, KIEU_VAO_O, NGAY_CO_THE_VAO_O,
+                            CO_VUNG_NGAP_LUT, YEU_CAU_CHU_NHA, KIEU_LIEN_HE, TEN_LIEN_HE, SO_DIEN_THOAI,
+                            DICH_VU_JSON, ANH_JSON, ANH_BIA_URL, TAO_BOI_ID
+                        ) VALUES (
+                            @Room101Id, '101', N'Tòa A', 1, 75.50, 4,
+                            N'Phòng đẹp thoáng mát giá rẻ gần trường ĐH', 8000000,
+                            DATEADD(MINUTE, -30, GETUTCDATE()), DATEADD(MINUTE, -30, GETUTCDATE()), 234, 12, 0,
+                            N'active', N'Trống', N'immediate', NULL,
+                            0, N'Không nuôi thú cưng, không hút thuốc trong phòng', N'current', N'Nguyễn Văn A', N'0912345678',
+                            N'[{"key":"electricity","name":"Tiền điện","unit":"kWh","price":3500},{"key":"water","name":"Tiền nước","unit":"m³","price":25000},{"key":"management","name":"Phí quản lý","unit":"Tháng","price":500000},{"key":"cleaning","name":"Phí dọn rác","unit":"Tháng","price":50000}]',
+                            N'[]', NULL, @AdminUserId
+                        );
+                    END;
+
+                    IF @Room301Id IS NOT NULL
+                    BEGIN
+                        INSERT INTO BAI_DANG_TIM_PHONG (
+                            PHONG_ID, MA_PHONG, TEN_TOA_NHA, SO_TANG, DIEN_TICH, SO_NGUOI_TOI_DA,
+                            TIEU_DE, GIA_THUE, NGAY_DANG, NGAY_TAO, LUOT_XEM, TIN_NHAN, IS_LOCKED,
+                            TRANG_THAI_BAI_DANG, TRANG_THAI_PHONG, KIEU_VAO_O, NGAY_CO_THE_VAO_O,
+                            CO_VUNG_NGAP_LUT, YEU_CAU_CHU_NHA, KIEU_LIEN_HE, TEN_LIEN_HE, SO_DIEN_THOAI,
+                            DICH_VU_JSON, ANH_JSON, ANH_BIA_URL, TAO_BOI_ID
+                        ) VALUES (
+                            @Room301Id, '301', N'Tòa C', 3, 60.00, 6,
+                            N'Căn hộ 2PN full nội thất sang trọng', 12000000,
+                            DATEADD(MINUTE, -120, GETUTCDATE()), DATEADD(MINUTE, -120, GETUTCDATE()), 189, 8, 1,
+                            N'paused', N'Trống', N'from-date', CONVERT(date, DATEADD(DAY, 14, GETUTCDATE())),
+                            0, N'Ưu tiên gia đình trẻ, giữ gìn nội thất', N'other', N'Trần Thị B', N'0987654321',
+                            N'[{"key":"electricity","name":"Tiền điện","unit":"kWh","price":3500},{"key":"water","name":"Tiền nước","unit":"m³","price":25000},{"key":"management","name":"Phí quản lý","unit":"Tháng","price":500000},{"key":"internet","name":"Internet","unit":"Tháng","price":200000}]',
+                            N'[]', NULL, @AdminUserId
+                        );
+                    END;
+
+                    IF @Room201Id IS NOT NULL
+                    BEGIN
+                        INSERT INTO BAI_DANG_TIM_PHONG (
+                            PHONG_ID, MA_PHONG, TEN_TOA_NHA, SO_TANG, DIEN_TICH, SO_NGUOI_TOI_DA,
+                            TIEU_DE, GIA_THUE, NGAY_DANG, NGAY_TAO, LUOT_XEM, TIN_NHAN, IS_LOCKED,
+                            TRANG_THAI_BAI_DANG, TRANG_THAI_PHONG, KIEU_VAO_O, NGAY_CO_THE_VAO_O,
+                            CO_VUNG_NGAP_LUT, YEU_CAU_CHU_NHA, KIEU_LIEN_HE, TEN_LIEN_HE, SO_DIEN_THOAI,
+                            DICH_VU_JSON, ANH_JSON, ANH_BIA_URL, TAO_BOI_ID
+                        ) VALUES (
+                            @Room201Id, '201', N'Tòa B', 2, 42.00, 3,
+                            N'Phòng trọ giá sinh viên gần siêu thị', 7800000,
+                            DATEADD(MINUTE, -180, GETUTCDATE()), DATEADD(MINUTE, -180, GETUTCDATE()), 312, 15, 0,
+                            N'active', N'Trống', N'immediate', NULL,
+                            0, N'Không nuôi thú cưng', N'current', N'Nguyễn Văn C', N'0900000001',
+                            N'[{"key":"electricity","name":"Tiền điện","unit":"kWh","price":3500},{"key":"water","name":"Tiền nước","unit":"m³","price":25000},{"key":"management","name":"Phí quản lý","unit":"Tháng","price":500000}]',
+                            N'[]', NULL, @AdminUserId
+                        );
+                    END;
+                END;
+            """);
+
             Console.WriteLine("✅ Room assets sample data ensured");
 
             // Fix seeded invoices: move from current month to 2 months ago so draft workflow is available

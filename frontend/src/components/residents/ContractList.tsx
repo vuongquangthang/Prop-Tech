@@ -1,5 +1,6 @@
 import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX, Pencil } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal } from './ContractModals';
 import { contractService, tatToanService } from '../../services/api.service';
 
@@ -20,6 +21,7 @@ interface ContractData {
 }
 
 export function ContractList() {
+  const navigate = useNavigate();
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +166,14 @@ export function ContractList() {
     setIsEditModalOpen(true);
   };
 
+  // FIX: Handle contract creation success - reload list and navigate
+  const handleContractCreateSuccess = async () => {
+    setIsCreateModalOpen(false);
+    await fetchContracts();
+    // Redirect to contracts page after successful creation
+    navigate('/contract-management', { replace: true });
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -301,7 +311,7 @@ export function ContractList() {
 
       {/* Modals */}
       {isCreateModalOpen && (
-        <CreateContractModal onClose={() => setIsCreateModalOpen(false)} onSuccess={fetchContracts} />
+        <CreateContractModal onClose={() => setIsCreateModalOpen(false)} onSuccess={handleContractCreateSuccess} />
       )}
       
       {isViewModalOpen && selectedContract && (

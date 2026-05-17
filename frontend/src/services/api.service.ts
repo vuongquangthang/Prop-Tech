@@ -102,6 +102,12 @@ export interface Invoice {
   finalizedDate?: string;
 }
 
+export interface ContractOutstandingDebt {
+  contractId: number;
+  outstandingDebt: number;
+  invoiceCount: number;
+}
+
 export interface Payment {
   id: number;
   invoiceId?: number;
@@ -560,6 +566,15 @@ export const invoiceService = {
   getById: async (id: number) => {
     try {
       const response = await api.get<Invoice>(API_ENDPOINTS.INVOICES.BY_ID(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getOutstandingDebtByContract: async (contractId: number) => {
+    try {
+      const response = await api.get<ContractOutstandingDebt>(API_ENDPOINTS.INVOICES.CONTRACT_OUTSTANDING(contractId));
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

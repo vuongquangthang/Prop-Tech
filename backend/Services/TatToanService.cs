@@ -1,4 +1,5 @@
 using backend.DTOs;
+using backend.Data;
 using backend.Repositories;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,7 @@ namespace backend.Services
         private readonly IRoomRepository _roomRepository;
         private readonly IChiTietORepository _chiTietORepository;
         private readonly IChiTietSuDungDichVuRepository _chiTietSuDungDichVuRepository;
+        private readonly ApplicationDbContext _context;
 
         public TatToanService(
             ITatToanRepository tatToanRepository,
@@ -31,7 +33,8 @@ namespace backend.Services
             IHopDongRepository hopDongRepository,
             IRoomRepository roomRepository,
             IChiTietORepository chiTietORepository,
-            IChiTietSuDungDichVuRepository chiTietSuDungDichVuRepository)
+            IChiTietSuDungDichVuRepository chiTietSuDungDichVuRepository,
+            ApplicationDbContext context)
         {
             _tatToanRepository = tatToanRepository;
             _detailRepository = detailRepository;
@@ -39,6 +42,7 @@ namespace backend.Services
             _roomRepository = roomRepository;
             _chiTietORepository = chiTietORepository;
             _chiTietSuDungDichVuRepository = chiTietSuDungDichVuRepository;
+            _context = context;
         }
 
         public async Task<IEnumerable<TatToanDto>> GetAllAsync()
@@ -74,10 +78,12 @@ namespace backend.Services
                 throw new Exception("Hợp đồng không tồn tại");
             }
 
+            var currentOutstandingDebt = await CalculateCurrentOutstandingDebtAsync(dto.ResidencyId);
+
             // Calculate total settlement
             var totalSettlement = CalculateTotalSettlement(
                 dto.DepositRefund ?? 0,
-                dto.OutstandingDebt ?? 0,
+                currentOutstandingDebt,
                 dto.Compensation ?? 0,
                 dto.Deductions ?? 0
             );
@@ -87,7 +93,7 @@ namespace backend.Services
                 ResidencyId = dto.ResidencyId,
                 SettlementDate = dto.SettlementDate,
                 DepositRefund = dto.DepositRefund,
-                OutstandingDebt = dto.OutstandingDebt,
+                OutstandingDebt = currentOutstandingDebt,
                 Compensation = dto.Compensation,
                 Deductions = dto.Deductions,
                 TotalSettlement = totalSettlement,
@@ -136,8 +142,6 @@ namespace backend.Services
                 tatToan.SettlementDate = dto.SettlementDate.Value;
             if (dto.DepositRefund.HasValue)
                 tatToan.DepositRefund = dto.DepositRefund;
-            if (dto.OutstandingDebt.HasValue)
-                tatToan.OutstandingDebt = dto.OutstandingDebt;
             if (dto.Compensation.HasValue)
                 tatToan.Compensation = dto.Compensation;
             if (dto.Deductions.HasValue)
@@ -148,6 +152,8 @@ namespace backend.Services
                 tatToan.ManagerSignature = dto.ManagerSignature;
             if (!string.IsNullOrEmpty(dto.Status))
                 tatToan.Status = dto.Status;
+
+            tatToan.OutstandingDebt = await CalculateCurrentOutstandingDebtAsync(tatToan.ResidencyId);
 
             // Recalculate total
             tatToan.TotalSettlement = CalculateTotalSettlement(
@@ -204,6 +210,27 @@ namespace backend.Services
             // Công thức tất toán: tiền cọc +- tiền phòng +- tiền dịch vụ (+ bồi thường) - khấu trừ.
             // Ở đây OutstandingDebt là tổng nợ phòng + nợ dịch vụ.
             return depositRefund - outstandingDebt + compensation - deductions;
+        }
+
+        private async Task<decimal> CalculateCurrentOutstandingDebtAsync(int contractId)
+        {
+            var invoices = await _context.HoaDons
+                .Include(hd => hd.ThanhToans)
+                .Where(hd => hd.ContractId == contractId &&
+                    (hd.Status == "Chưa thanh toán" || hd.Status == "Đã thanh toán một phần"))
+                .ToListAsync();
+
+            var totalOutstanding = invoices.Sum(invoice =>
+            {
+                var paidAmount = invoice.ThanhToans
+                    .Where(payment => payment.Status == "SUCCESS")
+                    .Sum(payment => payment.Amount);
+
+                var remaining = invoice.TotalAmount - paidAmount;
+                return remaining > 0 ? remaining : 0;
+            });
+
+            return totalOutstanding;
         }
 
         private static bool IsSettlementCompleted(string? status)

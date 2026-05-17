@@ -5,6 +5,10 @@
 
   export default defineConfig({
     plugins: [react()],
+    test: {
+      environment: 'node',
+      globals: true,
+    },
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {

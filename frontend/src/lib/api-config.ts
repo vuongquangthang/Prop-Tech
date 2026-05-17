@@ -45,6 +45,13 @@ export const API_ENDPOINTS = {
     BY_FLOOR: (floorId: number) => `/api/Rooms/floor/${floorId}`,
     SEARCH: '/api/Rooms/search',
   },
+
+  // Posts
+  POSTS: {
+    BASE: '/api/posts',
+    BY_ID: (id: number) => `/api/posts/${id}`,
+    LOCK: (id: number) => `/api/posts/${id}/lock`,
+  },
   
   // Residents
   RESIDENTS: {
@@ -82,6 +89,7 @@ export const API_ENDPOINTS = {
   INVOICES: {
     BASE: '/api/HoaDon',
     BY_ID: (id: number) => `/api/HoaDon/${id}`,
+    CONTRACT_OUTSTANDING: (contractId: number) => `/api/HoaDon/contract/${contractId}/outstanding`,
     UNPAID: '/api/HoaDon/unpaid',
     DRAFTS: '/api/HoaDon/drafts',
     CALCULATE: (year: number, month: number) => `/api/HoaDon/calculate/${year}/${month}`,

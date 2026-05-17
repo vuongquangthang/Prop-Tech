@@ -1,6 +1,6 @@
 import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle, X, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { tatToanService, contractService } from '../../services/api.service';
+import { tatToanService, contractService, invoiceService } from '../../services/api.service';
 import { formatLocalDateInput } from '../../lib/date-utils';
 
 function parseAmount(input: string): number {
@@ -346,8 +346,8 @@ function CreateSettlementTab() {
   const [selectedContractId, setSelectedContractId] = useState('');
   const [settlementDate, setSettlementDate] = useState(() => formatLocalDateInput());
   const [depositRefundInput, setDepositRefundInput] = useState('0');
-  const [roomDebtInput, setRoomDebtInput] = useState('0');
-  const [serviceDebtInput, setServiceDebtInput] = useState('0');
+  const [currentDebt, setCurrentDebt] = useState(0);
+  const [loadingDebt, setLoadingDebt] = useState(false);
   const [compensationInput, setCompensationInput] = useState('0');
   const [deductionsInput, setDeductionsInput] = useState('0');
   const [notes, setNotes] = useState('');
@@ -395,15 +395,33 @@ function CreateSettlementTab() {
     || null;
 
   useEffect(() => {
-    if (!selectedContract) return;
+    if (!selectedContract) {
+      setDepositRefundInput('0');
+      setCurrentDebt(0);
+      return;
+    }
+
     const defaultDeposit = Number(selectedContract.depositAmount ?? selectedContract.deposit ?? 0);
     setDepositRefundInput(String(defaultDeposit));
+    setCurrentDebt(0);
+
+    const loadCurrentDebt = async () => {
+      try {
+        setLoadingDebt(true);
+        const debtSummary = await invoiceService.getOutstandingDebtByContract(Number(selectedContract.id));
+        setCurrentDebt(Number(debtSummary.outstandingDebt ?? 0));
+      } catch {
+        setCurrentDebt(0);
+      } finally {
+        setLoadingDebt(false);
+      }
+    };
+
+    loadCurrentDebt();
   }, [selectedContractId]);
 
   const depositRefund = parseAmount(depositRefundInput);
-  const roomDebt = parseAmount(roomDebtInput);
-  const serviceDebt = parseAmount(serviceDebtInput);
-  const outstandingDebt = roomDebt + serviceDebt;
+  const outstandingDebt = currentDebt;
   const compensation = parseAmount(compensationInput);
   const deductions = parseAmount(deductionsInput);
   const totalSettlement = depositRefund - outstandingDebt + compensation - deductions;
@@ -421,8 +439,7 @@ function CreateSettlementTab() {
 
       const details: any[] = [];
       if (depositRefund > 0) details.push({ description: 'Hoàn tiền cọc', amount: depositRefund, type: 'DepositRefund' });
-      if (roomDebt > 0) details.push({ description: 'Công nợ tiền phòng', amount: roomDebt, type: 'RoomDebt' });
-      if (serviceDebt > 0) details.push({ description: 'Công nợ tiền dịch vụ', amount: serviceDebt, type: 'ServiceDebt' });
+      if (outstandingDebt > 0) details.push({ description: 'Công nợ hiện tại', amount: outstandingDebt, type: 'OutstandingDebt' });
       if (compensation > 0) details.push({ description: 'Bồi thường', amount: compensation, type: 'Compensation' });
       if (deductions > 0) details.push({ description: notes || 'Khấu trừ khác', amount: deductions, type: 'Deduction' });
 
@@ -441,8 +458,7 @@ function CreateSettlementTab() {
       setSelectedContractId('');
       setContractQuery('');
       setDepositRefundInput('0');
-      setRoomDebtInput('0');
-      setServiceDebtInput('0');
+      setCurrentDebt(0);
       setCompensationInput('0');
       setDeductionsInput('0');
       setNotes('');
@@ -552,26 +568,17 @@ function CreateSettlementTab() {
             </div>
             <div className="p-4 space-y-3 text-xs">
               <div>
-                <div className="flex items-center justify-between">
-                  <p className="text-gray-700">Công nợ tiền phòng</p>
-                  <input
-                    type="text"
-                    value={formatAmount(roomDebtInput)}
-                    onChange={(e) => setRoomDebtInput(e.target.value)}
-                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <p className="text-gray-700">Công nợ tiền dịch vụ</p>
-                  <input
-                    type="text"
-                    value={formatAmount(serviceDebtInput)}
-                    onChange={(e) => setServiceDebtInput(e.target.value)}
-                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
-                  />
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-gray-700">Công nợ hiện tại</p>
+                    <p className="text-[11px] text-gray-500">Lấy tự động từ hóa đơn chưa thanh toán và thanh toán một phần.</p>
+                  </div>
+                  <div className="min-w-40 text-right">
+                    <p className="text-sm font-medium text-red-700">
+                      {loadingDebt ? 'Đang tải...' : formatAmount(String(outstandingDebt))}
+                    </p>
+                    <p className="text-[11px] text-gray-500">VNĐ</p>
+                  </div>
                 </div>
               </div>
 

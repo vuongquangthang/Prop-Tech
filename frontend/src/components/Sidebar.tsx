@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, FileText, Wrench, Bot, BarChart3, ChevronDown, UserCog, Home, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, FileText, Wrench, Bot, BarChart3, ChevronDown, UserCog, Home, LogOut, Megaphone } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 
@@ -42,6 +42,14 @@ const menuItems = [
     label: 'Vận hành & Sự cố',
     subItems: [
       { label: 'Quản lý Yêu cầu sửa chữa', path: '/maintenance-request' },
+    ]
+  },
+  { 
+    icon: Megaphone, 
+    label: 'Đăng bài tìm phòng',
+    subItems: [
+      { label: 'Quản lý bài đăng', path: '/post-management' },
+      { label: 'Tin nhắn', path: '/messages' },
     ]
   },
   { 

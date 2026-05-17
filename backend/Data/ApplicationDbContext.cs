@@ -26,6 +26,9 @@ public class ApplicationDbContext : DbContext
     // Xe
     public DbSet<Xe> Xes { get; set; } = null!;
 
+    // Bài đăng tìm phòng
+    public DbSet<BaiDangTimPhong> BaiDangTimPhongs { get; set; } = null!;
+
     // Dịch vụ
     public DbSet<Service> Services { get; set; } = null!;
     public DbSet<ServicePriceHistory> ServicePriceHistories { get; set; } = null!;
@@ -144,6 +147,21 @@ public class ApplicationDbContext : DbContext
                 .WithMany(e => e.Xes)
                 .HasForeignKey(e => e.ResidentId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BaiDangTimPhong>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.RoomId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasOne(e => e.Room)
+                .WithMany()
+                .HasForeignKey(e => e.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // ========== DỊCH VỤ ==========

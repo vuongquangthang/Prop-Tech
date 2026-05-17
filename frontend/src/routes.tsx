@@ -28,6 +28,9 @@ import { MyProfilePage } from "./pages/MyProfilePage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { ProtectedRoute, PublicRoute, AdminRoute, AccountantRoute, StaffRoute } from "./components/ProtectedRoute";
 import { UserRole } from "./lib/roles";
+import { PostManagementPage } from "./pages/PostManagementPage";
+import { CreatePostPage } from "./pages/CreatePostPage";
+import { MessagesPage } from "./pages/MessagesPage";
 
 export const router = createBrowserRouter([
   {
@@ -118,6 +121,18 @@ export const router = createBrowserRouter([
       {
         path: "maintenance-request",
         element: <StaffRoute><MaintenanceRequestPage /></StaffRoute>,
+      },
+      {
+        path: "post-management",
+        element: <AdminRoute><PostManagementPage /></AdminRoute>,
+      },
+      {
+        path: "post-management/create",
+        element: <AdminRoute><CreatePostPage /></AdminRoute>,
+      },
+      {
+        path: "messages",
+        element: <AdminRoute><MessagesPage /></AdminRoute>,
       },
       {
         path: "knowledge-base",
