@@ -2,7 +2,16 @@ import { ArrowLeft, Check, Edit2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
-import { postService, type RoomOption, type PostRecord } from '../services/postService';
+import { postService, type RoomOption, type PostRecord, type PostServiceLineItem } from '../services/postService';
+import { serviceService } from '../services/api.service';
+import { api } from '../lib/api-client';
+import { API_ENDPOINTS } from '../lib/api-config';
+
+interface AssetOption {
+  id: number;
+  assetName: string;
+  assetCode: string;
+}
 
 export function CreatePostPage() {
   const navigate = useNavigate();
@@ -12,6 +21,7 @@ export function CreatePostPage() {
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const location = useLocation();
   const [moveInType, setMoveInType] = useState<'immediate' | 'from-date'>('immediate');
+  const [moveInDateInput, setMoveInDateInput] = useState<string>('');
   const [floodProne, setFloodProne] = useState<'yes' | 'no'>('no');
   const [contactType, setContactType] = useState<'current' | 'other'>('current');
   const [title, setTitle] = useState<string>('');
@@ -21,31 +31,32 @@ export function CreatePostPage() {
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
   const [servicePrices, setServicePrices] = useState<{ [key: string]: string }>({});
   const [localServices, setLocalServices] = useState<any[]>([]);
+  const [serviceCatalog, setServiceCatalog] = useState<PostServiceLineItem[]>([]);
+  const [assetCatalog, setAssetCatalog] = useState<AssetOption[]>([]);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
   const isEditing = editingPostId !== null;
+  const availableCatalogServices = serviceCatalog.filter((catalogItem) =>
+    !localServices.some((service) => String(service.key ?? '').toLowerCase() === String(catalogItem.key).toLowerCase())
+  );
+  const availableAssetAmenities = assetCatalog.filter((asset) => !selectedAmenities.includes(asset.assetName));
 
   // Normalize services for the selected room and initialize servicePrices so prices show immediately
   useEffect(() => {
     if (!selectedRoom) return;
-    // build a normalized services list and keep a local copy so users can edit/add
-    let svcList = (selectedRoom as any).services ?? (selectedRoom as any).servicePrices ?? (selectedRoom as any).lineItems ?? [];
-    const defaultServices = [
-      { key: 'electricity', name: 'Tiền điện', unit: 'kWh', price: 3500 },
-      { key: 'water', name: 'Tiền nước', unit: 'm³', price: 25000 },
-      { key: 'management', name: 'Phí quản lý', unit: 'Tháng', price: 500000 },
-    ];
-    if ((!Array.isArray(svcList) || svcList.length === 0) && selectedRoomId) {
+    // use normalized services from room as the standard source
+    let svcList = Array.isArray(selectedRoom.services) ? selectedRoom.services : [];
+    if (svcList.length === 0 && selectedRoomId) {
       const existing = existingPosts.find((p) => Number(p.roomId) === Number(selectedRoomId));
       if (existing && Array.isArray(existing.servicePrices) && existing.servicePrices.length > 0) {
         svcList = existing.servicePrices;
-      } else if ((!Array.isArray(svcList) || svcList.length === 0)) {
-        svcList = defaultServices;
       }
     }
 
-    setLocalServices(Array.isArray(svcList) ? svcList.map((s: any) => ({ ...s })) : []);
+    setLocalServices((Array.isArray(svcList) ? svcList : []).map((s: any) => ({ ...s })));
 
     setServicePrices((prev) => {
       const next = { ...prev };
@@ -60,16 +71,79 @@ export function CreatePostPage() {
   }, [selectedRoom]);
 
   useEffect(() => {
+    if (!selectedRoom || isEditing) return;
+    setSelectedAmenities(Array.isArray(selectedRoom.amenities) ? selectedRoom.amenities : []);
+  }, [selectedRoomId, isEditing]);
+
+  useEffect(() => {
     void (async () => {
       try {
-        const [list, posts] = await Promise.all([postService.getRooms(), postService.getPosts()]);
+        const [list, posts, catalog, assetsResp] = await Promise.all([
+          postService.getRooms(),
+          postService.getPosts(),
+          serviceService.getAll().catch(() => []),
+          api.get<any[]>(API_ENDPOINTS.ASSETS.BASE).catch(() => ({ data: [] })),
+        ]);
         setRooms(list);
         setExistingPosts(posts);
+
+        const normalizedCatalog: PostServiceLineItem[] = (Array.isArray(catalog) ? catalog : []).map((service: any, index: number) => ({
+          key: String(service.id ?? service.serviceId ?? `catalog-${index}`),
+          name: service.name ?? service.serviceName ?? service.tenDichVu ?? 'Dịch vụ',
+          unit: service.unit ?? service.donVi ?? '',
+          price: Number(service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0),
+        }));
+        setServiceCatalog(normalizedCatalog);
+
+        const normalizedAssets: AssetOption[] = (Array.isArray(assetsResp.data) ? assetsResp.data : []).map((asset: any) => ({
+          id: Number(asset.id ?? 0),
+          assetName: String(asset.assetName ?? asset.name ?? 'Tài sản'),
+          assetCode: String(asset.assetCode ?? ''),
+        }));
+        setAssetCatalog(normalizedAssets);
       } catch {
         // keep fallback empty
       }
     })();
   }, []);
+
+  const handleAddServiceFromCatalog = (serviceKey: string) => {
+    const selectedService = serviceCatalog.find((item) => item.key === serviceKey);
+    if (!selectedService) return;
+    if (localServices.some((service) => String(service.key ?? '').toLowerCase() === String(selectedService.key).toLowerCase())) {
+      toast.error('Dịch vụ này đã có trong danh sách');
+      return;
+    }
+
+    setLocalServices((prev) => [...prev, { ...selectedService }]);
+  };
+
+  const handleAddAmenityFromAssets = (assetId: number) => {
+    const asset = assetCatalog.find((item) => item.id === assetId);
+    if (!asset) return;
+    if (selectedAmenities.includes(asset.assetName)) {
+      toast.error('Tiện ích này đã có trong danh sách');
+      return;
+    }
+
+    setSelectedAmenities((prev) => [...prev, asset.assetName]);
+  };
+
+  const handleRemoveAmenity = (name: string) => {
+    setSelectedAmenities((prev) => prev.filter((item) => item !== name));
+  };
+
+  const handleRemoveService = (index: number) => {
+    setLocalServices((prev) => prev.filter((_, i) => i !== index));
+    setServicePrices((prev) => {
+      const next = { ...prev };
+      delete next[`${selectedRoomId}-${index}`];
+      return next;
+    });
+    if (editingServiceIndex === index) {
+      setEditingServiceIndex(null);
+    }
+  };
 
   // If URL has ?edit=ID then prefill form for editing
   useEffect(() => {
@@ -91,10 +165,13 @@ export function CreatePostPage() {
         setSelectedRoomId(post.roomId);
         setTitle(post.title ?? '');
         setMoveInType(post.moveInType ?? 'immediate');
+        setMoveInDateInput(post.moveInDate ?? '');
         setFloodProne(post.floodProne ? 'yes' : 'no');
         setContactType(post.contactType ?? 'current');
+        setLandlordRequirementsInput(post.landlordRequirements ?? '');
         setContactNameInput(post.contactName ?? '');
         setContactPhoneInput(post.contactPhone ?? '');
+        setSelectedAmenities(Array.isArray(post.amenities) ? post.amenities : []);
         // initialize services and prices
         const svc = Array.isArray(post.servicePrices) ? post.servicePrices : [];
         setLocalServices(svc.map((s) => ({ ...s })));
@@ -107,7 +184,9 @@ export function CreatePostPage() {
         });
         // initialize image previews
         if (Array.isArray(post.imageUrls) && post.imageUrls.length) {
-          setImagePreviews(post.imageUrls.slice(0, 6));
+          const previews = post.imageUrls.slice(0, 6);
+          setImagePreviews(previews);
+          setImageFiles(previews.map(() => null));
         }
       } catch {
         // ignore
@@ -134,8 +213,21 @@ export function CreatePostPage() {
       toast.error('Bạn chỉ được tải tối đa 6 ảnh');
       return;
     }
+    const MAX_BYTES = 5 * 1024 * 1024; // 5MB client-side limit
     const arr = Array.from(files).slice(0, remaining);
-    const readers = arr.map((f) => new Promise<string>((res) => {
+    const allowed: File[] = [];
+    const rejected: string[] = [];
+    for (const f of arr) {
+      if (f.size > MAX_BYTES) {
+        rejected.push(`${f.name} (${(f.size / 1024 / 1024).toFixed(2)} MB)`);
+      } else {
+        allowed.push(f);
+      }
+    }
+    if (rejected.length) {
+      toast.error(`Một số file bị bỏ: ${rejected.join(', ')} — kích thước vượt 5MB`);
+    }
+    const readers = allowed.map((f) => new Promise<string>((res) => {
       const r = new FileReader();
       r.onload = () => res(String(r.result));
       r.onerror = () => res('');
@@ -143,7 +235,14 @@ export function CreatePostPage() {
     }));
     void Promise.all(readers).then((results) => {
       const good = results.filter(Boolean);
-      setImagePreviews((prev) => [...prev, ...good].slice(0, 6));
+      setImagePreviews((prev) => {
+        const next = [...prev, ...good].slice(0, 6);
+        return next;
+      });
+      setImageFiles((prev) => {
+        const next = [...prev, ...allowed].slice(0, 6);
+        return next;
+      });
     });
   };
 
@@ -158,6 +257,7 @@ export function CreatePostPage() {
 
   const removeImage = (index: number) => {
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleServicePriceSave = () => {
@@ -191,27 +291,105 @@ export function CreatePostPage() {
       title: title.trim(),
       baseRentPrice: Number(selectedRoom.defaultRentPrice ?? 0),
       moveInType,
+      moveInDate: moveInType === 'from-date' ? moveInDateInput : undefined,
       floodProne: floodProne === 'yes',
       landlordRequirements: landlordRequirementsInput,
       contactType,
       contactName,
       contactPhone,
       servicePrices: servicePricesPayload,
+      amenities: selectedAmenities,
       imageUrls: imagePreviews,
     };
 
+    // Upload any new files to server (api/file/upload) and replace previews with returned URLs
     void (async () => {
       try {
+        const finalUrls: string[] = [];
+
+        // helper to upload a single File with retries and server error parsing
+        async function uploadFile(f: File) {
+          const MAX_BYTES = 5 * 1024 * 1024; // client-side safeguard
+          if (f.size > MAX_BYTES) throw new Error(`Kích thước file ${f.name} vượt quá giới hạn 5MB`);
+
+          const form = new FormData();
+          form.append('file', f);
+          const token = localStorage.getItem('token');
+
+          const maxAttempts = 3;
+          let attempt = 0;
+          let lastErr: any = null;
+          while (attempt < maxAttempts) {
+            attempt++;
+            try {
+              const res = await fetch('/api/file/upload', {
+                method: 'POST',
+                body: form,
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              });
+              if (!res.ok) {
+                // try parse server message
+                let bodyText = '';
+                try { const json = await res.json(); bodyText = json?.message || JSON.stringify(json); } catch(e) { bodyText = await res.text().catch(()=>res.statusText); }
+                if (res.status === 413) throw new Error(`File quá lớn (server): ${bodyText}`);
+                throw new Error(`Upload failed: ${bodyText || res.statusText} (status ${res.status})`);
+              }
+              const data = await res.json();
+              return data.url as string;
+            } catch (err) {
+              lastErr = err;
+              // exponential backoff before retrying
+              if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+            }
+          }
+          throw lastErr ?? new Error('Upload failed after retries');
+        }
+
+        // Convert dataURL preview to File if no File exists for that preview
+        function dataUrlToFile(dataurl: string, filename = 'upload.png') {
+          const arr = dataurl.split(',');
+          const mimeMatch = arr[0].match(/:(.*?);/);
+          const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          return new File([u8arr], filename, { type: mime });
+        }
+
+        for (let i = 0; i < imagePreviews.length; i++) {
+          const file = imageFiles[i];
+          const preview = imagePreviews[i];
+          if (file) {
+            const url = await uploadFile(file);
+            finalUrls.push(url);
+          } else if (preview && preview.startsWith('data:')) {
+            // convert data URL to file and upload
+            const f = dataUrlToFile(preview, `img-${Date.now()}.png`);
+            const url = await uploadFile(f);
+            finalUrls.push(url);
+          } else if (preview) {
+            // already a URL (server-side or external)
+            finalUrls.push(preview);
+          }
+        }
+
+        const finalPayload = { ...payload, imageUrls: finalUrls };
+
         if (isEditing && editingPostId) {
-          await postService.updatePost(editingPostId, payload as any);
+          await postService.updatePost(editingPostId, finalPayload as any);
           toast.success('Đã lưu thay đổi');
         } else {
-          await postService.createPost(payload as any);
+          await postService.createPost(finalPayload as any);
           toast.success('Đã đăng bài');
         }
         navigate('/post-management', { state: { refresh: Date.now() } });
       } catch (err) {
-        toast.error(isEditing ? 'Không thể lưu thay đổi' : 'Không thể đăng bài');
+        console.error(err);
+        const message = err instanceof Error ? err.message : String(err);
+        toast.error(message || (isEditing ? 'Không thể lưu thay đổi' : 'Không thể đăng bài'));
       }
     })();
   };
@@ -324,7 +502,7 @@ export function CreatePostPage() {
 
                   {((selectedRoom as any).type ?? 'single') === 'single' ? (
                       <div className="mt-4 border-t border-gray-300 pt-4">
-                        <p className="text-sm text-gray-600">{(selectedRoom as any).privateBathroom ? '✓ Có vệ sinh khép kín' : '✗ Không có vệ sinh khép kín'}</p>
+                        <p className="text-sm text-gray-600">✓ Có vệ sinh khép kín</p>
                       </div>
                   ) : (
                     <div className="mt-4 border-t border-gray-300 pt-4">
@@ -340,53 +518,89 @@ export function CreatePostPage() {
 
                   <div className="mt-4 border-t border-gray-300 pt-4">
                     <p className="mb-2 text-sm text-gray-600">Tiện nghi:</p>
+                    <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
+                      {availableAssetAmenities.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {availableAssetAmenities.map((asset) => (
+                            <button
+                              key={asset.id}
+                              type="button"
+                              onClick={() => handleAddAmenityFromAssets(asset.id)}
+                              className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                            >
+                              {asset.assetName}{asset.assetCode ? ` (${asset.assetCode})` : ''}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-500">Không còn tiện ích nào để thêm</span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-2">
-                      {(selectedRoom as any).amenities?.map ? (selectedRoom as any).amenities.map((amenity: any, idx: number) => (
-                        <span key={idx} className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700">
-                          {amenity}
+                      {selectedAmenities.length > 0 ? selectedAmenities.map((amenity, idx) => (
+                        <span key={`${amenity}-${idx}`} className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700">
+                          <span>{amenity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAmenity(amenity)}
+                            className="text-red-600 hover:text-red-700"
+                            title="Bỏ tiện nghi"
+                          >
+                            ×
+                          </button>
                         </span>
-                      )) : null}
+                      )) : <span className="text-xs text-gray-500">Chưa có tiện nghi</span>}
                     </div>
                   </div>
 
                   <div className="mt-4 border-t border-gray-300 pt-4">
                     <p className="mb-3 text-sm text-gray-600">Dịch vụ đi kèm:</p>
+                    <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
+                      {availableCatalogServices.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {availableCatalogServices.map((service) => (
+                            <button
+                              key={service.key}
+                              type="button"
+                              onClick={() => handleAddServiceFromCatalog(service.key)}
+                              className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                            >
+                              {service.name} {service.unit ? `(${service.unit})` : ''} - {Number(service.price ?? 0).toLocaleString('vi-VN')} VNĐ
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-500">Không còn dịch vụ nào để thêm</span>
+                      )}
+                    </div>
                     <div className="overflow-hidden rounded border border-gray-300">
                       <table className="w-full">
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="border-b border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-600">Tên dịch vụ</th>
-                            <th className="border-b border-gray-300 px-4 py-2 text-right text-sm font-semibold text-gray-600">Giá tiền</th>
+                            <th className="border-b border-gray-300 px-4 py-2 text-center text-sm font-semibold text-gray-600">Giá tiền</th>
+                            <th className="border-b border-gray-300 px-4 py-2 text-center text-sm font-semibold text-gray-600">Thao tác</th>
                           </tr>
                         </thead>
                         <tbody>
                           {localServices.length === 0 ? (
                             <tr className="border-b border-gray-200 last:border-b-0">
-                              <td className="px-4 py-3 text-sm text-gray-700" colSpan={2}>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm text-gray-600">Chưa có dịch vụ định nghĩa cho phòng này.</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setLocalServices([{ key: 'custom-0', name: 'Dịch vụ mới', unit: '', price: '' }])}
-                                    className="rounded bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200"
-                                  >
-                                    Thêm dịch vụ
-                                  </button>
-                                </div>
+                              <td className="px-4 py-3 text-sm text-gray-700" colSpan={3}>
+                                <span className="text-sm text-gray-600">Chưa chọn dịch vụ nào từ danh mục đơn giá.</span>
                               </td>
                             </tr>
                           ) : (
                             localServices.map((service: any, idx: number) => (
                             <tr key={idx} className="border-b border-gray-200 last:border-b-0">
                               <td className="px-4 py-3 text-sm text-gray-700">{service.name}</td>
-                              <td className="px-4 py-3 text-right">
-                                <div className="flex items-center justify-end space-x-2">
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex items-center justify-center space-x-2">
                                   {editingServiceIndex === idx ? (
                                     <input
                                       type="text"
                                       value={getServicePrice(idx, service.price ?? service.unitPrice ?? service.amount ?? '')}
                                       onChange={(e) => handleServicePriceChange(idx, e.target.value)}
-                                      className="w-32 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-blue-500 focus:outline-none"
+                                      className="w-32 rounded border border-gray-300 px-2 py-1 text-center text-sm focus:border-blue-500 focus:outline-none"
                                     />
                                   ) : (
                                     <span className="text-sm text-gray-800">
@@ -413,6 +627,16 @@ export function CreatePostPage() {
                                   </button>
                                 </div>
                               </td>
+                              <td className="px-4 py-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveService(idx)}
+                                  className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                                  title="Bỏ dịch vụ"
+                                >
+                                  Xóa
+                                </button>
+                              </td>
                             </tr>
                             ))
                           )}
@@ -436,7 +660,10 @@ export function CreatePostPage() {
                         name="movein"
                         value="immediate"
                         checked={moveInType === 'immediate'}
-                        onChange={(e) => setMoveInType(e.target.value as 'immediate' | 'from-date')}
+                        onChange={(e) => {
+                          setMoveInType(e.target.value as 'immediate' | 'from-date');
+                          setMoveInDateInput('');
+                        }}
                         className="h-4 w-4"
                       />
                       <label htmlFor="movein-immediate" className="text-sm text-gray-700">Ở luôn</label>
@@ -455,6 +682,8 @@ export function CreatePostPage() {
                       {moveInType === 'from-date' && (
                         <input
                           type="date"
+                          value={moveInDateInput}
+                          onChange={(e) => setMoveInDateInput(e.target.value)}
                           className="rounded border border-gray-300 px-3 py-1 text-sm focus:border-gray-500 focus:outline-none"
                         />
                       )}

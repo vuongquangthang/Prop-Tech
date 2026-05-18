@@ -242,8 +242,10 @@ export function ChatHistoryView() {
               <div 
                 key={session.id}
                 onClick={() => setSelectedChat(session.id)}
-                className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 ${selectedChat === session.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
+                className={`relative p-4 pl-8 border-b border-gray-200 cursor-pointer hover:bg-gray-50 ${selectedChat === session.id ? 'bg-blue-50' : ''}`}
               >
+                {/* left accent bar (absolute so it won't shift layout) */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${selectedChat === session.id ? 'bg-blue-500' : 'bg-transparent'}`} />
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <p className="text-sm text-gray-900">{session.resident}</p>

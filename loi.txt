@@ -1,0 +1,11 @@
+ReferenceError: selectedAssetIds is not defined
+    at CreatePostPage (http://localhost:3000/src/pages/CreatePostPage.tsx?t=1779090769160:964:80)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:11596:26)
+    at updateFunctionComponent (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:14630:28)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:15972:22)
+    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19806:22)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19251:20)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19190:13)
+    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19169:15)
+    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:18786:28)
+    at performSyncWorkOnRoot (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:18932:28)

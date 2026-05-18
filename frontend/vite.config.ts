@@ -63,6 +63,18 @@
       strictPort: false, // Tự động dùng port khác nếu 3000 bị chiếm
       open: true,
       proxy: {
+        '/api': {
+          target: 'http://localhost:5052',
+          changeOrigin: true,
+          secure: false,
+          ws: false,
+        },
+        '/hubs': {
+          target: 'http://localhost:5052',
+          changeOrigin: true,
+          secure: false,
+          ws: true,
+        },
         '/n8n-proxy': {
           target: 'https://lhdpo.app.n8n.cloud',
           changeOrigin: true,

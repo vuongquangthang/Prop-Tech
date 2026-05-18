@@ -24,6 +24,7 @@ public class FileController : ControllerBase
     }
 
     [HttpPost("upload")]
+    [RequestSizeLimit(50 * 1024 * 1024)] // allow up to 50MB at server layer but enforce app-level 5MB below
     public async Task<ActionResult<object>> UploadFile([FromForm] IFormFile file)
     {
         try
@@ -66,10 +67,12 @@ public class FileController : ControllerBase
 
             extension = string.IsNullOrWhiteSpace(extension) ? ".jpg" : extension.ToLowerInvariant();
 
-            // Validate file size (max 5MB)
-            if (file.Length > 5 * 1024 * 1024)
+            // Validate file size (max 5MB) and return 413 for payload too large
+            const long maxBytes = 5 * 1024 * 1024;
+            if (file.Length > maxBytes)
             {
-                return BadRequest(new { message = "Kích thước file không được vượt quá 5MB" });
+                _logger.LogWarning("Rejected upload due to size: {FileName} ({Size} bytes)", file.FileName, file.Length);
+                return StatusCode(StatusCodes.Status413PayloadTooLarge, new { message = "Kích thước file không được vượt quá 5MB" });
             }
 
             // Create uploads directory if not exists

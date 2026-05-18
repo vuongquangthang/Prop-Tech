@@ -55,13 +55,13 @@ export function PostManagementPage() {
         </div>
 
         <div className="mb-6">
-          <div className="flex space-x-8 border-b border-gray-300">
-            <button className="pb-3 px-2 text-sm font-semibold border-b-2 border-blue-600 text-blue-600">
+          <div className="flex items-end gap-8 border-b border-gray-300">
+            <button className="-mb-px border-b-2 border-blue-600 px-2 pb-3 text-sm font-semibold text-blue-600">
               Quản lý bài đăng
             </button>
             <button
               onClick={() => navigate('/messages')}
-              className="pb-3 px-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 hover:border-gray-300 transition-colors"
+              className="-mb-px border-b-2 border-transparent px-2 pb-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
             >
               Tin nhắn
             </button>
@@ -115,64 +115,156 @@ export function PostManagementPage() {
       </div>
 
       {selectedPost && (
-        <div className="fixed inset-0 z-50 p-4" style={{ pointerEvents: 'auto' }}>
-          <div className={`absolute inset-0 bg-black/50 ${showHistory ? 'pointer-events-none' : ''}`} />
-          <div className="relative max-w-5xl w-full rounded bg-white p-6" style={{ zIndex: 51 }}>
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-lg bg-white">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-300 bg-white px-6 py-4">
               <div>
-                <h3 className="text-xl font-bold">{selectedPost.title || '—'}</h3>
+                <h3 className="text-lg text-gray-800 font-semibold">Chi tiết bài đăng</h3>
                 <p className="text-sm text-gray-600">{selectedPost.roomCode ?? '—'} • {selectedPost.buildingName ?? '—'}</p>
               </div>
               <button onClick={() => setSelectedPost(null)} className="rounded p-1 hover:bg-gray-100"><X size={18} /></button>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <div className="text-sm">Giá: <strong>{formatMoneyVnd(selectedPost.baseRentPrice)}</strong></div>
-                <div className="text-sm">Diện tích: {selectedPost.area ?? '—'} m²</div>
-                <div className="text-sm">Số người tối đa: {selectedPost.maxOccupants ?? '—'}</div>
-                <div className="text-sm">Mô tả:
-                  <div className="mt-1 text-gray-700 whitespace-pre-wrap">{selectedPost.description ?? '—'}</div>
-                </div>
-                <div className="text-sm">Tiện ích: {selectedPost.amenities?.length ? selectedPost.amenities.join(', ') : '—'}</div>
+            <div className="p-6 space-y-6">
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <p className="text-xs text-gray-500 mb-1">Tiêu đề bài đăng</p>
+                <p className="text-base font-semibold text-gray-800">{selectedPost.title || '—'}</p>
+              </div>
 
-                {selectedPost.imageUrls && selectedPost.imageUrls.length > 0 && (
-                  <div className="mt-3">
-                    <p className="mb-2 text-sm text-gray-600">Ảnh minh họa</p>
-                    <div className="flex gap-2">
-                      {selectedPost.imageUrls.slice(0, 6).map((url: string, i: number) => (
-                        <img key={i} src={url} alt={`img-${i}`} className="h-20 w-32 rounded object-cover border" />
-                      ))}
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-700">Thông tin phòng</h4>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Giá thuê</span>
+                    <span className="font-semibold text-gray-800">{formatMoneyVnd(selectedPost.baseRentPrice)}</span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Diện tích</span>
+                    <span className="text-gray-800">{selectedPost.area ?? '—'} m²</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Số người tối đa</span>
+                    <span className="text-gray-800">{selectedPost.maxOccupants ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-gray-300 pt-2">
+                    <span className="text-gray-600">Trạng thái</span>
+                    <span className={`font-semibold ${selectedPost.isLocked ? 'text-red-700' : 'text-green-700'}`}>
+                      {selectedPost.isLocked ? 'Đang khóa' : 'Đang hoạt động'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-700">Thông tin liên hệ</h4>
+                  <div className="text-sm">
+                    <p className="text-gray-600">Địa chỉ</p>
+                    <p className="text-gray-800">{selectedPost.address ?? `${selectedPost.buildingName ?? '—'} - ${selectedPost.roomCode ?? '—'}`}</p>
+                  </div>
+                  <div className="text-sm">
+                    <p className="text-gray-600">Người liên hệ</p>
+                    <p className="text-gray-800">{selectedPost.contactName ?? '—'}</p>
+                  </div>
+                  <div className="text-sm">
+                    <p className="text-gray-600">Số điện thoại</p>
+                    <p className="text-gray-800">{selectedPost.contactPhone ?? '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Yêu cầu từ chủ nhà</h4>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedPost.landlordRequirements || selectedPost.description || '—'}</p>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Thông tin đăng</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Thời gian vào ở</span>
+                    <span className="text-gray-800">
+                      {selectedPost.moveInType === 'from-date'
+                        ? `Từ ${selectedPost.moveInDate ? new Date(selectedPost.moveInDate).toLocaleDateString('vi-VN') : '—'}`
+                        : 'Ở luôn'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Khu vực ngập lụt</span>
+                    <span className="text-gray-800">{selectedPost.floodProne ? 'Có' : 'Không'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Kiểu liên hệ</span>
+                    <span className="text-gray-800">{selectedPost.contactType === 'other' ? 'Nhập thủ công' : 'Theo tài khoản hiện tại'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Ngày đăng</span>
+                    <span className="text-gray-800">{selectedPost.createdAt ? new Date(selectedPost.createdAt).toLocaleDateString('vi-VN') : '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Tiện ích</h4>
+                <p className="text-sm text-gray-700">{selectedPost.amenities?.length ? selectedPost.amenities.join(', ') : '—'}</p>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Dịch vụ đi kèm</h4>
+                {selectedPost.servicePrices?.length ? (
+                  <div className="overflow-hidden rounded border border-gray-300 bg-white">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-300">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Tên dịch vụ</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">Đơn giá</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedPost.servicePrices.map((s: any, i: number) => (
+                          <tr key={i} className="border-b border-gray-200 last:border-b-0">
+                            <td className="px-4 py-2 text-sm text-gray-700">{s.name ?? 'Dịch vụ'}</td>
+                            <td className="px-4 py-2 text-right text-sm text-gray-800">
+                              {Number(s.price ?? 0).toLocaleString('vi-VN')} {s.unit ?? ''}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-700">—</p>
                 )}
               </div>
 
-              <div className="space-y-3">
-                <div className="text-sm">Địa chỉ: {selectedPost.address ?? '—'}</div>
-                <div className="text-sm">Liên hệ: {selectedPost.contactName ?? '—'} — {selectedPost.contactPhone ?? '—'}</div>
-                <div className="text-sm">Trạng thái: {selectedPost.isLocked ? 'Đang khóa' : 'Đang hoạt động'}</div>
-
-                <div className="mt-4 flex justify-end gap-3">
-                  <button onClick={() => setSelectedPost(null)} className="rounded border px-4 py-2">Đóng</button>
-                  <button onClick={() => setShowHistory(true)} className="rounded border px-4 py-2">Lịch sử</button>
-                  <button onClick={() => { setSelectedPost(null); navigate(`/post-management/create?edit=${selectedPost.id}`); }} className="rounded bg-gray-800 px-4 py-2 text-white">Chỉnh sửa</button>
+              {selectedPost.imageUrls && selectedPost.imageUrls.length > 0 && (
+                <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Ảnh minh họa</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {selectedPost.imageUrls.slice(0, 6).map((url: string, i: number) => (
+                      <img key={i} src={url} alt={`img-${i}`} className="h-28 w-full rounded border border-gray-300 object-cover" />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 flex justify-end gap-3 border-t border-gray-300 bg-white px-6 py-4">
+              <button onClick={() => setSelectedPost(null)} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Đóng</button>
+              <button onClick={() => setShowHistory(true)} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Lịch sử</button>
+              <button onClick={() => { setSelectedPost(null); navigate(`/post-management/create?edit=${selectedPost.id}`); }} className="rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700">Chỉnh sửa</button>
             </div>
           </div>
         </div>
       )}
 
       {showHistory && selectedPost && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" style={{ zIndex: 60 }}>
-          <div className="max-w-2xl w-full rounded bg-white p-6" style={{ zIndex: 61 }}>
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white">
+            <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
               <h4 className="text-lg font-semibold">Lịch sử chỉnh sửa</h4>
               <button onClick={() => setShowHistory(false)} className="rounded p-1 hover:bg-gray-100"><X size={18} /></button>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="px-6 py-4 space-y-3">
               {selectedPost.editHistory && selectedPost.editHistory.length ? (
                 <ul className="list-disc pl-5 text-sm text-gray-700">
                   {selectedPost.editHistory.map((h: any, i: number) => (
@@ -184,8 +276,8 @@ export function PostManagementPage() {
               )}
             </div>
 
-            <div className="mt-4 flex justify-end">
-              <button onClick={() => setShowHistory(false)} className="rounded border px-4 py-2">Đóng</button>
+            <div className="flex justify-end border-t border-gray-300 px-6 py-4">
+              <button onClick={() => setShowHistory(false)} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Đóng</button>
             </div>
           </div>
         </div>
@@ -193,4 +285,3 @@ export function PostManagementPage() {
     </div>
   );
 }
-

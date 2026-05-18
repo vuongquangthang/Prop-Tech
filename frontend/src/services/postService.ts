@@ -1,6 +1,8 @@
 import { api, handleApiError } from '../lib/api-client';
-import { API_ENDPOINTS } from '../lib/api-config';
+import { API_CONFIG, API_ENDPOINTS } from '../lib/api-config';
 import { createMockPost, deleteMockPost, getMockPosts, getMockRooms, toggleMockPostLock, replaceMockPosts } from '../mocks/postsMock';
+
+const POST_AMENITIES_CACHE_KEY = 'prop-tech-post-amenities-cache';
 
 export interface RoomOption {
   id: number;
@@ -13,7 +15,8 @@ export interface RoomOption {
   maxOccupants?: number | null;
   defaultRentPrice?: number | null;
   status: string;
-  services?: any[];
+  services?: PostServiceLineItem[];
+  amenities?: string[];
 }
 
 export interface PostServiceLineItem {
@@ -48,6 +51,9 @@ export interface PostRecord {
   contactName: string;
   contactPhone: string;
   servicePrices: PostServiceLineItem[];
+  description?: string;
+  address?: string;
+  amenities?: string[];
   imageUrls: string[];
   coverImageUrl?: string;
 }
@@ -64,7 +70,103 @@ export interface CreatePostInput {
   contactName: string;
   contactPhone: string;
   servicePrices: PostServiceLineItem[];
+  amenities?: string[];
   imageUrls: string[];
+}
+
+function normalizeRoomAmenities(room: any): string[] {
+  const raw = room?.amenities ?? room?.features ?? [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.name ?? item.assetName ?? item.label ?? '';
+        return '';
+      })
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean);
+  }
+
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item ?? '').trim()).filter(Boolean);
+      }
+    } catch {
+      return raw.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
+function normalizeAmenityStrings(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean);
+}
+
+function readPostAmenitiesCache(): Record<string, string[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(POST_AMENITIES_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const entries = Object.entries(parsed as Record<string, unknown>).map(([postId, amenities]) => [postId, normalizeAmenityStrings(amenities)]);
+    return Object.fromEntries(entries);
+  } catch {
+    return {};
+  }
+}
+
+function writePostAmenitiesCache(cache: Record<string, string[]>): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(POST_AMENITIES_CACHE_KEY, JSON.stringify(cache));
+}
+
+function persistPostAmenities(postId: number, amenities: string[] | undefined): void {
+  if (!postId || !amenities?.length) return;
+  const cache = readPostAmenitiesCache();
+  cache[String(postId)] = normalizeAmenityStrings(amenities);
+  writePostAmenitiesCache(cache);
+}
+
+function applyCachedAmenities(post: PostRecord): PostRecord {
+  const cache = readPostAmenitiesCache();
+  const cachedAmenities = normalizeAmenityStrings(cache[String(post.id)]);
+  const currentAmenities = normalizeAmenityStrings(post.amenities);
+
+  if (currentAmenities.length > 0) {
+    if (JSON.stringify(currentAmenities) !== JSON.stringify(cachedAmenities)) {
+      cache[String(post.id)] = currentAmenities;
+      writePostAmenitiesCache(cache);
+    }
+    return post;
+  }
+
+  if (cachedAmenities.length > 0) {
+    return {
+      ...post,
+      amenities: cachedAmenities,
+    };
+  }
+
+  return post;
+}
+
+function normalizeRoomServices(room: any): PostServiceLineItem[] {
+  const raw = room?.services ?? room?.servicePrices ?? room?.lineItems ?? [];
+  if (!Array.isArray(raw)) return [];
+
+  return raw.map((item: any, index: number) => ({
+    key: item?.key ?? `service-${index}`,
+    name: item?.name ?? item?.serviceName ?? 'Dịch vụ',
+    unit: item?.unit ?? '',
+    price: Number(item?.price ?? item?.unitPrice ?? item?.amount ?? 0),
+  }));
 }
 
 function mapRoomDto(room: any): RoomOption {
@@ -79,8 +181,84 @@ function mapRoomDto(room: any): RoomOption {
     maxOccupants: room.maxOccupants ?? room.maxPeople ?? null,
     defaultRentPrice: room.defaultRentPrice ?? room.price ?? null,
     status: room.status ?? 'Trống',
-    services: Array.isArray(room.services) ? room.services : Array.isArray(room.servicePrices) ? room.servicePrices : Array.isArray(room.lineItems) ? room.lineItems : [],
+    services: normalizeRoomServices(room),
+    amenities: normalizeRoomAmenities(room),
   };
+}
+
+function resolvePostImageUrl(url: string): string {
+  const trimmed = String(url ?? '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+
+  const baseUrl = (API_CONFIG.BASE_URL || '').replace(/\/+$/, '');
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${baseUrl}${path}`;
+}
+
+function normalizePostImageUrls(post: any): string[] {
+  const rawSources = post?.imageUrls ?? post?.images ?? post?.mediaUrls ?? [];
+
+  let urls: any[] = [];
+  if (Array.isArray(rawSources)) {
+    urls = rawSources;
+  } else if (typeof rawSources === 'string') {
+    const raw = rawSources.trim();
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        urls = Array.isArray(parsed) ? parsed : [raw];
+      } catch {
+        urls = raw.includes(',') ? raw.split(',') : [raw];
+      }
+    }
+  }
+
+  return urls
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object') return item.url ?? item.imageUrl ?? item.path ?? '';
+      return '';
+    })
+    .map(resolvePostImageUrl)
+    .filter(Boolean);
+}
+
+function normalizePostAmenities(post: any, roomObj: any): string[] {
+  const raw = post?.amenities ?? roomObj?.amenities ?? [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.name ?? item.assetName ?? item.label ?? '';
+        return '';
+      })
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean);
+  }
+
+  if (typeof raw === 'string') {
+    return raw
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeServicePrices(post: any): PostServiceLineItem[] {
+  const raw = post?.servicePrices ?? post?.services ?? post?.lineItems ?? [];
+  if (!Array.isArray(raw)) return [];
+
+  return raw.map((item: any, index: number) => ({
+    key: item?.key ?? `service-${index}`,
+    name: item?.name ?? item?.serviceName ?? 'Dịch vụ',
+    unit: item?.unit ?? '',
+    price: Number(item?.price ?? item?.unitPrice ?? item?.amount ?? 0),
+  }));
 }
 
 function normalizePostRecord(post: any): PostRecord {
@@ -104,6 +282,19 @@ function normalizePostRecord(post: any): PostRecord {
 
   const resolvedFloorNumber = Number(post.floorNumber ?? (roomObj ? roomObj.floorNumber ?? roomObj.floor ?? 0 : 0));
 
+  const normalizedImageUrls = normalizePostImageUrls(post);
+  const normalizedCoverImageUrl = resolvePostImageUrl(post.coverImageUrl ?? normalizedImageUrls[0] ?? '');
+  const finalImageUrls = normalizedImageUrls.length > 0
+    ? normalizedImageUrls
+    : (normalizedCoverImageUrl ? [normalizedCoverImageUrl] : []);
+  const normalizedAmenities = normalizePostAmenities(post, roomObj);
+  const resolvedAddress =
+    post.address ??
+    post.location ??
+    post.roomAddress ??
+    roomObj?.address ??
+    `${resolvedBuildingName} - Tầng ${resolvedFloorNumber} - ${resolvedRoomCode}`;
+
   return {
     id: Number(post.id ?? Date.now()),
     roomId: Number(post.roomId ?? (roomObj ? roomObj.id ?? roomObj.roomId ?? 0 : 0)),
@@ -122,15 +313,18 @@ function normalizePostRecord(post: any): PostRecord {
     status: post.status ?? 'active',
     roomStatus: post.roomStatus ?? post.statusRoom ?? 'Trống',
     moveInType: post.moveInType ?? 'immediate',
-    moveInDate: post.moveInDate,
+    moveInDate: post.moveInDate ?? post.availableFrom ?? post.availableDate,
     floodProne: Boolean(post.floodProne ?? false),
     landlordRequirements: post.landlordRequirements ?? '',
     contactType: post.contactType ?? 'current',
     contactName: post.contactName ?? '',
     contactPhone: post.contactPhone ?? '',
-    servicePrices: Array.isArray(post.servicePrices) ? post.servicePrices : [],
-    imageUrls: Array.isArray(post.imageUrls) ? post.imageUrls : Array.isArray(post.images) ? post.images : [],
-    coverImageUrl: post.coverImageUrl ?? post.imageUrls?.[0],
+    servicePrices: normalizeServicePrices(post),
+    description: post.description ?? post.content ?? post.landlordRequirements ?? '',
+    address: resolvedAddress,
+    amenities: normalizedAmenities,
+    imageUrls: finalImageUrls,
+    coverImageUrl: normalizedCoverImageUrl,
   };
 }
 
@@ -170,12 +364,22 @@ export const postService = {
       const posts = Array.isArray(postsResp.data) ? postsResp.data : [];
       const normalized = posts.map((p: any) => {
         const postCopy = { ...p } as any;
-        if (!postCopy.roomCode && postCopy.roomId) {
+        if (postCopy.roomId) {
           const room = roomMap.get(Number(postCopy.roomId));
+          if (room && !postCopy.room && !postCopy.roomDto) {
+            postCopy.room = room;
+          }
           if (room) {
+            const roomNormalized = mapRoomDto(room);
             postCopy.roomCode = room.roomCode ?? room.code ?? postCopy.roomCode;
             postCopy.buildingName = room.buildingName ?? room.building ?? postCopy.buildingName;
             postCopy.floorNumber = postCopy.floorNumber ?? room.floorNumber ?? room.floor;
+            if ((!Array.isArray(postCopy.servicePrices) || postCopy.servicePrices.length === 0) && roomNormalized.services?.length) {
+              postCopy.servicePrices = roomNormalized.services;
+            }
+            if ((!Array.isArray(postCopy.amenities) || postCopy.amenities.length === 0) && roomNormalized.amenities?.length) {
+              postCopy.amenities = roomNormalized.amenities;
+            }
           }
         }
 
@@ -188,7 +392,7 @@ export const postService = {
         return normalizedPost;
       });
 
-      return normalized;
+      return normalized.map(applyCachedAmenities);
     } catch {
       return getMockPosts();
     }
@@ -227,12 +431,19 @@ export const postService = {
       }
 
       const normalized = normalizePostRecord(created);
+      const inputAmenities = normalizeAmenityStrings((input as any).amenities);
+      if (inputAmenities.length > 0) {
+        persistPostAmenities(normalized.id, inputAmenities);
+      }
       try {
         // eslint-disable-next-line no-console
         console.log('[postService] createPost normalized:', { id: normalized.id, roomId: normalized.roomId, roomCode: normalized.roomCode, buildingName: normalized.buildingName });
       } catch {}
 
-      return normalized;
+      return applyCachedAmenities({
+        ...normalized,
+        amenities: normalized.amenities?.length ? normalized.amenities : inputAmenities,
+      });
     } catch (error) {
       if (error) {
         void handleApiError(error);
@@ -269,7 +480,15 @@ export const postService = {
   updatePost: async (id: number, payload: Partial<CreatePostInput>): Promise<PostRecord> => {
     try {
       const response = await api.put(API_ENDPOINTS.POSTS.BY_ID(id), payload);
-      return normalizePostRecord(response.data);
+      const normalized = normalizePostRecord(response.data);
+      const payloadAmenities = normalizeAmenityStrings((payload as any).amenities);
+      if (payloadAmenities.length > 0) {
+        persistPostAmenities(normalized.id || id, payloadAmenities);
+      }
+      return applyCachedAmenities({
+        ...normalized,
+        amenities: normalized.amenities?.length ? normalized.amenities : payloadAmenities,
+      });
     } catch (error) {
       if (error) {
         void handleApiError(error);
@@ -301,7 +520,15 @@ export const postService = {
             // eslint-disable-next-line no-console
             console.log('[postService] updatePost fallback updated:', { id: updated.id, roomId: updated.roomId, roomCode: updated.roomCode });
           } catch {}
-          return normalizePostRecord(updated);
+          const normalized = normalizePostRecord(updated);
+          const payloadAmenities = normalizeAmenityStrings((payload as any).amenities);
+          if (payloadAmenities.length > 0) {
+            persistPostAmenities(normalized.id || id, payloadAmenities);
+          }
+          return applyCachedAmenities({
+            ...normalized,
+            amenities: normalized.amenities?.length ? normalized.amenities : payloadAmenities,
+          });
         }
       } catch {
         // ignore
