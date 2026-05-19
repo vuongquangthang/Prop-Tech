@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -9,28 +11,89 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { RoommatePost, roommatePost } from './roommateData';
+import axios from 'axios';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { contractService } from '../services/contract.service';
+import { postService } from '../services/post.service';
+import { roomService } from '../services/room.service';
+import { PostDto } from '../types/dto';
 
 export default function RoommatePostScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  const [post, setPost] = useState<RoommatePost>(roommatePost);
-  const [hasPost, setHasPost] = useState(false);
+  const [post, setPost] = useState<PostDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentOccupants, setCurrentOccupants] = useState<number | null>(null);
+  const [needMore, setNeedMore] = useState<number | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
 
-  useEffect(() => {
-    if (route.params?.hasPost) {
-      setHasPost(true);
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return 'Chưa cập nhật';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
+    return date.toLocaleDateString('vi-VN');
+  };
+
+  const loadOccupancy = async (postData: PostDto) => {
+    try {
+      const myRoom = await roomService.getMyRoom();
+      const contract = await contractService.getById(myRoom.contractId);
+      const now = new Date();
+      const activeResidents = contract.residents.filter((resident) => {
+        if (!resident.toDate) return true;
+        const toDate = new Date(resident.toDate);
+        return !Number.isNaN(toDate.getTime()) && toDate > now;
+      }).length;
+
+      setCurrentOccupants(activeResidents);
+      if (postData.maxOccupants != null) {
+        setNeedMore(Math.max(0, postData.maxOccupants - activeResidents));
+      } else {
+        setNeedMore(null);
+      }
+    } catch {
+      setCurrentOccupants(null);
+      setNeedMore(null);
     }
-  }, [route.params?.hasPost]);
+  };
+
+  const loadPost = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await postService.getMyPost();
+      setPost(data);
+      await loadOccupancy(data);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setPost(null);
+        setCurrentOccupants(null);
+        setNeedMore(null);
+      } else {
+        const message = axios.isAxiosError(err)
+          ? err.response?.data?.message || 'Không thể tải bài đăng'
+          : 'Không thể tải bài đăng';
+        setError(message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPost();
+    }, [loadPost])
+  );
 
   const toggleStatus = () => {
-    setPost((prev) => ({
-      ...prev,
-      status: prev.status === 'open' ? 'closed' : 'open',
-    }));
-    setShowStatusDialog(false);
+    if (!post) return;
+    const isLocked = !post.isLocked;
+    postService
+      .updateLock(post.id, { isLocked })
+      .then((updated) => setPost(updated))
+      .catch(() => Alert.alert('Lỗi', 'Không thể cập nhật trạng thái bài đăng'))
+      .finally(() => setShowStatusDialog(false));
   };
 
   return (
@@ -46,7 +109,15 @@ export default function RoommatePostScreen() {
           </View>
         </View>
 
-        {hasPost ? (
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#1A4B84" />
+          </View>
+        ) : error ? (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : post ? (
           <>
             <View style={styles.topStatsRow}>
               <View style={styles.topStatCard}>
@@ -54,7 +125,7 @@ export default function RoommatePostScreen() {
                 <Text style={styles.topStatLabel}>Lượt xem</Text>
               </View>
               <View style={styles.topStatCard}>
-                <Text style={styles.topStatNumber}>{post.pendingMessages}</Text>
+                <Text style={styles.topStatNumber}>{post.messages}</Text>
                 <Text style={styles.topStatLabel}>Tin nhắn chờ</Text>
               </View>
             </View>
@@ -62,12 +133,16 @@ export default function RoommatePostScreen() {
             <View style={styles.postCard}>
               <View style={styles.postHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.postTitle}>{post.room}</Text>
+                  <Text style={styles.postTitle}>{post.title}</Text>
                   <Text style={styles.postSub}>
-                    Đang ở: {post.currentOccupants} | Cần thêm: {post.needMore} người
+                    {currentOccupants !== null && needMore !== null
+                      ? `Đang ở: ${currentOccupants} | Cần thêm: ${needMore} người`
+                      : post.maxOccupants != null
+                        ? `Số người tối đa: ${post.maxOccupants} người`
+                        : 'Số người tối đa: Chưa cập nhật'}
                   </Text>
                 </View>
-                {post.status === 'open' ? (
+                {!post.isLocked ? (
                   <View style={[styles.statusBadge, styles.statusOpen]}>
                     <Ionicons name="lock-open-outline" size={12} color="#15803D" />
                     <Text style={styles.statusOpenText}>Mở</Text>
@@ -81,8 +156,8 @@ export default function RoommatePostScreen() {
               </View>
 
               <View style={styles.metaRow}>
-                <Text style={styles.metaText}>Đăng: {post.postedDate}</Text>
-                <Text style={styles.metaText}>Cập nhật: {post.lastUpdated}</Text>
+                <Text style={styles.metaText}>Đăng: {formatDate(post.postDate)}</Text>
+                <Text style={styles.metaText}>Cập nhật: {formatDate(post.createdAt)}</Text>
               </View>
 
               <View style={styles.metricRow}>
@@ -99,7 +174,7 @@ export default function RoommatePostScreen() {
                 >
                   <View style={styles.metricNumberRow}>
                     <Ionicons name="chatbubble-ellipses-outline" size={14} color="#1A4B84" />
-                    <Text style={styles.metricNumberPrimary}>{post.pendingMessages}</Text>
+                    <Text style={styles.metricNumberPrimary}>{post.messages}</Text>
                   </View>
                   <Text style={styles.metricLabelPrimary}>Tin nhắn chờ</Text>
                 </TouchableOpacity>
@@ -126,11 +201,11 @@ export default function RoommatePostScreen() {
 
                   <TouchableOpacity style={styles.actionButton} onPress={() => setShowStatusDialog(true)}>
                     <Ionicons
-                      name={post.status === 'open' ? 'lock-closed-outline' : 'lock-open-outline'}
+                      name={post.isLocked ? 'lock-open-outline' : 'lock-closed-outline'}
                       size={16}
                       color="#374151"
                     />
-                    <Text style={styles.actionButtonText}>{post.status === 'open' ? 'Khóa' : 'Mở'}</Text>
+                    <Text style={styles.actionButtonText}>{post.isLocked ? 'Mở' : 'Khóa'}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -139,7 +214,7 @@ export default function RoommatePostScreen() {
                   onPress={() => navigation.navigate('RoommateHistory')}
                 >
                   <Ionicons name="time-outline" size={16} color="#6B7280" />
-                  <Text style={styles.historyButtonText}>Lịch sử chỉnh sửa ({post.editHistory})</Text>
+                  <Text style={styles.historyButtonText}>Lịch sử chỉnh sửa</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -166,9 +241,9 @@ export default function RoommatePostScreen() {
       <Modal visible={showStatusDialog} transparent animationType="fade" onRequestClose={() => setShowStatusDialog(false)}>
         <View style={styles.dialogOverlay}>
           <View style={styles.dialogCard}>
-            <Text style={styles.dialogTitle}>{post.status === 'open' ? 'Khóa bài đăng?' : 'Mở bài đăng?'}</Text>
+            <Text style={styles.dialogTitle}>{post?.isLocked ? 'Mở bài đăng?' : 'Khóa bài đăng?'}</Text>
             <Text style={styles.dialogDesc}>
-              {post.status === 'open'
+              {!post?.isLocked
                 ? 'Khi khóa, bài đăng sẽ không hiển thị cho người khác. Bạn có thể mở lại bất cứ lúc nào.'
                 : 'Khi mở, bài đăng sẽ hiển thị công khai để mọi người có thể xem và liên hệ với bạn.'}
             </Text>
@@ -177,7 +252,7 @@ export default function RoommatePostScreen() {
                 <Text style={styles.dialogCancelText}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.dialogConfirm} onPress={toggleStatus}>
-                <Text style={styles.dialogConfirmText}>{post.status === 'open' ? 'Khóa bài' : 'Mở bài'}</Text>
+                <Text style={styles.dialogConfirmText}>{post?.isLocked ? 'Mở bài' : 'Khóa bài'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -196,6 +271,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 16,
+  },
+  center: {
+    paddingVertical: 40,
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -384,6 +463,17 @@ const styles = StyleSheet.create({
   historyButtonText: {
     fontSize: 13,
     color: '#6B7280',
+  },
+  errorCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    padding: 12,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
   },
   emptyCard: {
     backgroundColor: '#FFFFFF',

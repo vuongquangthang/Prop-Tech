@@ -171,7 +171,13 @@ public class HopDongService : IHopDongService
                 };
 
                 await _hopDongRepository.AddAsync(contract);
-                // DO NOT SaveChanges here - add to transaction context
+                // Save now to get ContractId for ChiTietO (composite key requires known FK)
+                await _hopDongRepository.SaveChangesAsync();
+
+                if (contract.Id <= 0)
+                {
+                    throw new InvalidOperationException("Không thể tạo hợp đồng: ContractId chưa được sinh");
+                }
 
                 // Persist ChiTietO records explicitly to avoid missing residents in detail views.
                 foreach (var residentDto in dto.Residents)
@@ -185,6 +191,9 @@ public class HopDongService : IHopDongService
                     };
                     await _chiTietORepository.AddAsync(chiTietO);
                 }
+
+                // Persist contract + residency details before any other SaveChanges (e.g., user creation)
+                await _hopDongRepository.SaveChangesAsync();
 
                 // Auto-create default service usages so monthly invoice calculation has baseline services.
                 var selectedServiceIds = dto.SelectedServiceIds

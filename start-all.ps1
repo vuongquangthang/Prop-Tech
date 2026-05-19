@@ -98,7 +98,7 @@ Start-Sleep -Seconds 3
 
 # 6. Start Mobile App
 Write-Host "`n6. Starting Mobile App (Expo)..." -ForegroundColor Yellow
-Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\mobile" -ArgumentList "-NoExit", "-Command", "pnpm start"
+Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\mobile" -ArgumentList "-NoExit", "-Command", "if (Get-Command nvm -ErrorAction SilentlyContinue) { nvm use 20.19.0 }; npm install; npm start"
 Write-Host "   Mobile starting..." -ForegroundColor Green
 
 # 7. Summary
@@ -140,4 +140,4 @@ Write-Host "========================================`n" -ForegroundColor Cyan
 Write-Host "Troubleshooting:" -ForegroundColor White
 Write-Host "  - If Frontend fails: Close some programs and run script again" -ForegroundColor Gray
 Write-Host "  - If Backend fails: Check SQL Server is running" -ForegroundColor Gray
-Write-Host "  - If Mobile fails: Check Expo CLI is installed\n" -ForegroundColor Gray
+Write-Host "  - If Mobile fails: Use Node 20 (nvm use 20.19.0) and run npm install in mobile\n" -ForegroundColor Gray

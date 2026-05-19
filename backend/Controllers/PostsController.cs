@@ -8,7 +8,7 @@ namespace backend.Controllers;
 
 [ApiController]
 [Route("api/posts")]
-[Authorize(Roles = "Admin,QuanLy")]
+[Authorize]
 public class PostsController : ControllerBase
 {
     private readonly IPostService _postService;
@@ -18,7 +18,18 @@ public class PostsController : ControllerBase
         _postService = postService;
     }
 
+    private int GetUserId()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
+        {
+            throw new InvalidOperationException("Không thể xác thực người dùng");
+        }
+        return userId;
+    }
+
     [HttpGet]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<List<PostDto>>> GetAll()
     {
         try
@@ -33,6 +44,7 @@ public class PostsController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<PostDto>> GetById(int id)
     {
         try
@@ -51,16 +63,45 @@ public class PostsController : ControllerBase
         }
     }
 
+    [HttpGet("my")]
+    [Authorize(Roles = "CuDan")]
+    public async Task<ActionResult<PostDto>> GetMy()
+    {
+        try
+        {
+            var userId = GetUserId();
+            var post = await _postService.GetByUserIdAsync(userId);
+            if (post == null)
+            {
+                return NotFound(new { message = "Bạn chưa có bài đăng nào" });
+            }
+
+            return Ok(post);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
     [HttpPost]
+    [Authorize(Roles = "Admin,QuanLy,CuDan")]
     public async Task<ActionResult<PostDto>> Create([FromBody] CreatePostDto dto)
     {
         try
         {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var createdByUserId = int.TryParse(userIdClaim, out var userId) ? userId : (int?)null;
+            var createdByUserId = GetUserId();
 
             var post = await _postService.CreateAsync(dto, createdByUserId);
             return CreatedAtAction(nameof(GetById), new { id = post.Id }, post);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
+        {
+            return Unauthorized(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -73,12 +114,31 @@ public class PostsController : ControllerBase
     }
 
     [HttpPatch("{id}/lock")]
+    [Authorize(Roles = "Admin,QuanLy,CuDan")]
     public async Task<ActionResult<PostDto>> UpdateLock(int id, [FromBody] UpdatePostLockDto dto)
     {
         try
         {
+            if (User.IsInRole("CuDan"))
+            {
+                var userId = GetUserId();
+                var existing = await _postService.GetByIdAsync(id);
+                if (existing == null)
+                {
+                    return NotFound(new { message = "Bài đăng không tồn tại" });
+                }
+                if (existing.CreatedByUserId != userId)
+                {
+                    return Forbid();
+                }
+            }
+
             var post = await _postService.UpdateLockAsync(id, dto.IsLocked);
             return Ok(post);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
+        {
+            return Unauthorized(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -91,12 +151,31 @@ public class PostsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin,QuanLy,CuDan")]
     public async Task<ActionResult<PostDto>> Update(int id, [FromBody] UpdatePostDto dto)
     {
         try
         {
+            if (User.IsInRole("CuDan"))
+            {
+                var userId = GetUserId();
+                var existing = await _postService.GetByIdAsync(id);
+                if (existing == null)
+                {
+                    return NotFound(new { message = "Bài đăng không tồn tại" });
+                }
+                if (existing.CreatedByUserId != userId)
+                {
+                    return Forbid();
+                }
+            }
+
             var post = await _postService.UpdateAsync(id, dto);
             return Ok(post);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
+        {
+            return Unauthorized(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -109,6 +188,7 @@ public class PostsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> Delete(int id)
     {
         try

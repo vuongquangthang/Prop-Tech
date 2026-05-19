@@ -10,6 +10,7 @@ public interface IPostService
 {
     Task<List<PostDto>> GetAllAsync();
     Task<PostDto?> GetByIdAsync(int id);
+    Task<PostDto?> GetByUserIdAsync(int userId);
     Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null);
     Task<PostDto> UpdateLockAsync(int id, bool isLocked);
     Task<PostDto> UpdateAsync(int id, UpdatePostDto dto);
@@ -45,6 +46,17 @@ public class PostService : IPostService
         var post = await _context.BaiDangTimPhongs
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == id);
+
+        return post == null ? null : MapToDto(post);
+    }
+
+    public async Task<PostDto?> GetByUserIdAsync(int userId)
+    {
+        var post = await _context.BaiDangTimPhongs
+            .AsNoTracking()
+            .Where(item => item.CreatedByUserId == userId)
+            .OrderByDescending(item => item.CreatedAt)
+            .FirstOrDefaultAsync();
 
         return post == null ? null : MapToDto(post);
     }

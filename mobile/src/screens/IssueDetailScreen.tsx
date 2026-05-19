@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
-import { API_BASE_URL } from '../services/api.service';
+import { resolveImageUrl } from '../utils/image';
 import signalRService from '../services/signalr.service';
 
 export default function IssueDetailScreen() {
@@ -144,12 +144,6 @@ export default function IssueDetailScreen() {
   const formatDateTime = (dateStr?: string) => {
     if (!dateStr) return 'Chưa có mốc thời gian';
     return new Date(dateStr).toLocaleString('vi-VN');
-  };
-
-  const resolveImageUrl = (url?: string) => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${API_BASE_URL}${url}`;
   };
 
   const beforeImages = (() => {

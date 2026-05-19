@@ -1,11 +1,69 @@
-ReferenceError: selectedAssetIds is not defined
-    at CreatePostPage (http://localhost:3000/src/pages/CreatePostPage.tsx?t=1779090769160:964:80)
-    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:11596:26)
-    at updateFunctionComponent (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:14630:28)
-    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:15972:22)
-    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19806:22)
-    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19251:20)
-    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19190:13)
-    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:19169:15)
-    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:18786:28)
-    at performSyncWorkOnRoot (http://localhost:3000/node_modules/.vite/deps/chunk-QTCOOADY.js?v=aa286d51:18932:28)
+kết quả khi tôi chạy lệnh: Microsoft Windows [Version 10.0.26200.8457]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\vuong>node -v
+v20.19.0
+
+C:\Users\vuong>npm -v
+10.8.2
+
+C:\Users\vuong>nvm ls
+
+  * 20.19.0 (Currently using 64-bit executable)
+
+C:\Users\vuong>pnpm -v
+warn: This version of pnpm requires at least Node.js v22.13
+warn: The current version of Node.js is v20.19.0
+warn: Visit https://r.pnpm.io/comp to see the list of past pnpm versions with respective Node.js version support.
+node:internal/modules/cjs/loader:1036
+      throw new ERR_UNKNOWN_BUILTIN_MODULE(request);
+            ^
+
+Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite
+    at Module._load (node:internal/modules/cjs/loader:1036:13)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at ../store/index/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:16070:25)
+    at __init (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:15:56)
+    at ../resolving/npm-resolver/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:26969:5)
+    at __init (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:15:56)
+    at ../workspace/projects-graph/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:27115:5)
+    at __init (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:15:56)
+    at ../workspace/projects-filter/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:43018:5) {
+  code: 'ERR_UNKNOWN_BUILTIN_MODULE'
+}
+
+Node.js v20.19.0
+
+C:\Users\vuong>npm uninstall -g pnpm
+
+up to date in 879ms
+
+C:\Users\vuong>corepack enable
+
+C:\Users\vuong>corepack prepare pnpm@7 --activate
+Preparing pnpm@7 for immediate activation...
+
+C:\Users\vuong>pnpm -v
+warn: This version of pnpm requires at least Node.js v22.13
+warn: The current version of Node.js is v20.19.0
+warn: Visit https://r.pnpm.io/comp to see the list of past pnpm versions with respective Node.js version support.
+node:internal/modules/cjs/loader:1036
+      throw new ERR_UNKNOWN_BUILTIN_MODULE(request);
+            ^
+
+Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite
+    at Module._load (node:internal/modules/cjs/loader:1036:13)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at ../store/index/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:16070:25)
+    at __init (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:15:56)
+    at ../resolving/npm-resolver/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:26969:5)
+    at __init (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:15:56)
+    at ../workspace/projects-graph/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:27115:5)
+    at __init (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:15:56)
+    at ../workspace/projects-filter/lib/index.js (file:///C:/Users/vuong/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:43018:5) {
+  code: 'ERR_UNKNOWN_BUILTIN_MODULE'
+}
+
+Node.js v20.19.0

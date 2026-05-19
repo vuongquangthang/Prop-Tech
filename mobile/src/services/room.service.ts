@@ -16,10 +16,30 @@ export interface ServiceInfo {
   unit: string;
 }
 
+export interface RoomAssetSummary {
+  assetId: number;
+  assetName: string;
+  quantity: number;
+  condition?: string | null;
+}
+
+export interface RoomDetail {
+  id: number;
+  roomCode: string;
+  buildingName: string;
+  floorNumber: number;
+  area?: number | null;
+  maxOccupants?: number | null;
+  status?: string;
+  assets?: RoomAssetSummary[];
+}
+
 export interface MyRoom {
   roomId: number;
   roomCode: string;
   area: number | null;
+  maxOccupants?: number | null;
+  amenities?: string[];
   status: string;
   
   buildingId: number;
@@ -69,6 +89,21 @@ class RoomService {
         throw new Error('Không tìm thấy thông tin phòng');
       }
       throw new Error(error.response?.data?.message || 'Không thể tải thông tin phòng');
+    }
+  }
+
+  /**
+   * Lấy chi tiết phòng theo ID (bao gồm tài sản)
+   */
+  async getRoomDetail(roomId: number): Promise<RoomDetail> {
+    try {
+      const response = await axios.get<RoomDetail>(
+        `${API_BASE_URL}/api/Rooms/${roomId}`,
+        { headers: await this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể tải chi tiết phòng');
     }
   }
 }

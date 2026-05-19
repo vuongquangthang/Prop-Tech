@@ -147,3 +147,78 @@ export interface PaginatedResponse<T> {
   pageSize: number;
   totalPages: number;
 }
+
+// ==================== ROOMMATE POST DTOs ====================
+
+export interface PostServiceLineItemDto {
+  key: string;
+  name: string;
+  unit: string;
+  price: number;
+}
+
+export interface PostDto {
+  id: number;
+  roomId: number;
+  roomCode: string;
+  buildingName: string;
+  floorNumber: number;
+  area?: number | null;
+  maxOccupants?: number | null;
+  title: string;
+  baseRentPrice: number;
+  postDate: string;
+  createdAt: string;
+  views: number;
+  messages: number;
+  isLocked: boolean;
+  status: string;
+  roomStatus: string;
+  moveInType: string;
+  moveInDate?: string | null;
+  floodProne: boolean;
+  landlordRequirements?: string | null;
+  contactType: string;
+  contactName: string;
+  contactPhone: string;
+  servicePrices: PostServiceLineItemDto[];
+  amenities?: string[];
+  imageUrls: string[];
+  coverImageUrl?: string | null;
+  createdByUserId?: number | null;
+}
+
+export interface CreatePostDto {
+  roomId: number;
+  title: string;
+  baseRentPrice: number;
+  moveInType: string;
+  moveInDate?: string | null;
+  floodProne: boolean;
+  landlordRequirements?: string | null;
+  contactType: string;
+  contactName: string;
+  contactPhone: string;
+  servicePrices: PostServiceLineItemDto[];
+  amenities?: string[];
+  imageUrls: string[];
+}
+
+export interface UpdatePostLockDto {
+  isLocked: boolean;
+}
+
+export interface UpdatePostDto {
+  title?: string;
+  baseRentPrice?: number;
+  moveInType?: string;
+  moveInDate?: string | null;
+  floodProne?: boolean;
+  landlordRequirements?: string | null;
+  contactType?: string;
+  contactName?: string;
+  contactPhone?: string;
+  servicePrices?: PostServiceLineItemDto[];
+  amenities?: string[];
+  imageUrls?: string[];
+}
