@@ -307,6 +307,16 @@ export default function HomeScreen() {
               <Text style={styles.utilityText}>Danh sách sự cố</Text>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={[styles.utilityCard, styles.utilityCardFull]}
+            onPress={() => navigation.navigate('RoommatePost' as never)}
+          >
+            <View style={styles.utilityIcon}>
+              <Ionicons name="people" size={24} color="#1A4B84" />
+            </View>
+            <Text style={styles.utilityText}>Tìm bạn ở ghép</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -664,6 +674,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+  },
+  utilityCardFull: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
   },
   utilityIcon: {
     position: 'relative',

@@ -12,6 +12,12 @@ import ChatbotScreen from '../screens/ChatbotScreen';
 import RoomDetailScreen from '../screens/RoomDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ContractChangeApprovalScreen from '../screens/ContractChangeApprovalScreen';
+import RoommatePostScreen from '../screens/RoommatePostScreen';
+import RoommateCreateScreen from '../screens/RoommateCreateScreen';
+import RoommateDetailScreen from '../screens/RoommateDetailScreen';
+import RoommateEditScreen from '../screens/RoommateEditScreen';
+import RoommateHistoryScreen from '../screens/RoommateHistoryScreen';
+import RoommateMessagesScreen from '../screens/RoommateMessagesScreen';
 import { useAuthStore } from '../store/authStore';
 import signalrService from '../services/signalr.service';
 
@@ -29,6 +35,12 @@ const MainStack = () => {
       <Stack.Screen name="RoomDetail" component={RoomDetailScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="ContractChangeApproval" component={ContractChangeApprovalScreen} />
+      <Stack.Screen name="RoommatePost" component={RoommatePostScreen} />
+      <Stack.Screen name="RoommateCreate" component={RoommateCreateScreen} />
+      <Stack.Screen name="RoommateDetail" component={RoommateDetailScreen} />
+      <Stack.Screen name="RoommateEdit" component={RoommateEditScreen} />
+      <Stack.Screen name="RoommateHistory" component={RoommateHistoryScreen} />
+      <Stack.Screen name="RoommateMessages" component={RoommateMessagesScreen} />
     </Stack.Navigator>
   );
 };
