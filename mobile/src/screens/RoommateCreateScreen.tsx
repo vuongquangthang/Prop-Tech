@@ -20,6 +20,7 @@ import { servicesService, type ServiceInRoomDto } from '../services/services.ser
 import * as ImagePicker from 'expo-image-picker';
 import { fileService } from '../services/file.service';
 import { useAuthStore } from '../store/authStore';
+import { DEFAULT_AMENITIES, mergeAmenities } from '../utils/amenities';
 import type { CreatePostDto, PostServiceLineItemDto } from '../types/dto';
 
 type PriceMap = Record<string, string>;
@@ -143,7 +144,7 @@ export default function RoommateCreateScreen() {
         console.warn('Không thể tải tiện nghi từ DB', err);
       }
       setSelectedAmenities(amenityList);
-      setAmenityCatalog(amenityList);
+      setAmenityCatalog(mergeAmenities(DEFAULT_AMENITIES, amenityList));
 
       const contract = await contractService.getById(myRoom.contractId);
       const now = new Date();

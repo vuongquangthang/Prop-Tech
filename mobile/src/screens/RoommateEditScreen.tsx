@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { contractService } from '../services/contract.service';
 import { postService } from '../services/post.service';
 import { MyRoom, roomService } from '../services/room.service';
@@ -21,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { fileService } from '../services/file.service';
 import { useAuthStore } from '../store/authStore';
 import { resolveImageUrl } from '../utils/image';
+import { DEFAULT_AMENITIES, mergeAmenities } from '../utils/amenities';
 import type { PostDto, PostServiceLineItemDto, UpdatePostDto } from '../types/dto';
 
 type PriceMap = Record<string, string>;
@@ -133,7 +135,8 @@ export default function RoommateEditScreen() {
         const toDate = new Date(resident.toDate);
         return !Number.isNaN(toDate.getTime()) && toDate > now;
       }).length;
-      setCurrentOccupants(activeResidents);
+      const currentCount = myPost.currentOccupants ?? activeResidents;
+      setCurrentOccupants(currentCount);
 
       let dbServices: ServiceInRoomDto[] = [];
       try {
@@ -163,7 +166,7 @@ export default function RoommateEditScreen() {
       setCustomPhone(myPost.contactType === 'other' ? myPost.contactPhone : '');
 
       const maxOccupants = myPost.maxOccupants ?? myRoom.maxOccupants ?? null;
-      const computedNeedMore = maxOccupants ? Math.max(0, maxOccupants - activeResidents) : 1;
+      const computedNeedMore = maxOccupants ? Math.max(0, maxOccupants - currentCount) : 1;
       setNeedMore(String(computedNeedMore));
 
       const nextServicePrices: PriceMap = {};
@@ -186,7 +189,7 @@ export default function RoommateEditScreen() {
       const postAmenities = Array.isArray(myPost.amenities) ? myPost.amenities : [];
       const initialAmenities = postAmenities.length ? postAmenities : amenityList;
       setSelectedAmenities(initialAmenities);
-      setAmenityCatalog(amenityList.length ? amenityList : initialAmenities);
+      setAmenityCatalog(mergeAmenities(DEFAULT_AMENITIES, amenityList.length ? amenityList : initialAmenities));
       // preload images from post
       if (myPost.imageUrls?.length) {
         setImages(myPost.imageUrls.map((u, i) => ({ uri: resolveImageUrl(u), uploadedUrl: u, name: `img_${i}` })));
@@ -239,9 +242,15 @@ export default function RoommateEditScreen() {
       price: parseMoneyInput(servicePrices[item.key] ?? String(item.beforePrice)),
     }));
 
+    const extraNeedMore = Number.parseInt((needMore || '').replace(/[^\d]/g, ''), 10);
+    const sanitizedNeedMore = Number.isNaN(extraNeedMore) ? 0 : Math.max(0, extraNeedMore);
+    const maxOccupants = currentOccupants + sanitizedNeedMore;
+
     const payload: UpdatePostDto = {
       title: title.trim(),
       baseRentPrice: parseMoneyInput(baseRentPrice),
+      maxOccupants,
+      currentOccupants,
       moveInType,
       moveInDate: moveInType === 'from-date' ? parseDateInput(moveInDate) : null,
       floodProne: floodProne === 'yes',
@@ -276,7 +285,20 @@ export default function RoommateEditScreen() {
 
       await postService.update(post.id, payload);
       Alert.alert('Thành công', 'Đã lưu thay đổi bài đăng.', [
-        { text: 'OK', onPress: () => navigation.navigate('RoommatePost') },
+        {
+          text: 'OK',
+          onPress: () => {
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 1,
+                routes: [
+                  { name: 'MainTabs' },
+                  { name: 'RoommatePost' },
+                ],
+              })
+            );
+          },
+        },
       ]);
     } catch (e: any) {
       Alert.alert('Không thể lưu', e?.response?.data?.message || e?.message || 'Đã có lỗi xảy ra');
@@ -360,11 +382,24 @@ export default function RoommateEditScreen() {
               <View style={styles.twoCols}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Số người đang ở</Text>
-                  <TextInput style={[styles.input, styles.readonlyInput]} editable={false} value={String(currentOccupants)} />
+                  <TextInput
+                    style={styles.input}
+                    value={String(currentOccupants)}
+                    keyboardType="numeric"
+                    onChangeText={(value) => {
+                      const parsed = Number.parseInt(value.replace(/[^\d]/g, ''), 10);
+                      setCurrentOccupants(Number.isNaN(parsed) ? 0 : Math.max(0, parsed));
+                    }}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Cần thêm</Text>
-                  <TextInput style={styles.input} value={needMore} editable={false} />
+                  <TextInput
+                    style={styles.input}
+                    value={needMore}
+                    keyboardType="numeric"
+                    onChangeText={setNeedMore}
+                  />
                 </View>
               </View>
 

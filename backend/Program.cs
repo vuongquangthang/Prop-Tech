@@ -255,6 +255,8 @@ using (var scope = app.Services.CreateScope())
                         SO_TANG INT NOT NULL,
                         DIEN_TICH DECIMAL(10,2) NULL,
                         SO_NGUOI_TOI_DA INT NULL,
+                        SO_NGUOI_DANG_O INT NULL,
+                        SO_NGUOI_DANG_O INT NULL,
                         TIEU_DE NVARCHAR(300) NOT NULL,
                         GIA_THUE DECIMAL(18,2) NOT NULL,
                         NGAY_DANG DATETIME2 NOT NULL,
@@ -308,6 +310,10 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE [USER] ADD MUST_CHANGE_PASSWORD BIT NOT NULL CONSTRAINT DF_USER_MUST_CHANGE_PASSWORD DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('LICH_SU_CHAT') AND name = 'IS_KNOWLEDGE_GAP')
                     ALTER TABLE LICH_SU_CHAT ADD IS_KNOWLEDGE_GAP BIT NOT NULL CONSTRAINT DF_LICH_SU_CHAT_IS_KNOWLEDGE_GAP DEFAULT(0);
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'TIEN_NGHI_JSON')
+                    ALTER TABLE BAI_DANG_TIM_PHONG ADD TIEN_NGHI_JSON NVARCHAR(MAX) NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_TIEN_NGHI_JSON DEFAULT('[]');
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'SO_NGUOI_DANG_O')
+                    ALTER TABLE BAI_DANG_TIM_PHONG ADD SO_NGUOI_DANG_O INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('YEU_CAU_SUA_CHUA') AND name = 'UPDATED_AT')
                     ALTER TABLE YEU_CAU_SUA_CHUA ADD UPDATED_AT DATETIME2 NOT NULL CONSTRAINT DF_YCSC_UPDATED_AT DEFAULT(GETUTCDATE());
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('THANH_TOAN') AND name = 'NOI_DUNG_CHUYEN_KHOAN')
@@ -565,4 +571,3 @@ app.MapControllers();
 app.MapHub<backend.Hubs.NotificationHub>("/hubs/notifications");
 
 app.Run();
-

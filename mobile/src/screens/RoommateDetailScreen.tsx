@@ -49,7 +49,7 @@ export default function RoommateDetailScreen() {
         const toDate = new Date(resident.toDate);
         return !Number.isNaN(toDate.getTime()) && toDate > now;
       }).length;
-      setCurrentOccupants(activeResidents);
+      setCurrentOccupants(myPost.currentOccupants ?? activeResidents);
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Không thể tải chi tiết bài đăng');
     } finally {
@@ -164,7 +164,7 @@ export default function RoommateDetailScreen() {
           <Ionicons name="chatbubble-ellipses-outline" size={16} color="#374151" />
           <Text style={styles.outlineText}>Tin nhắn ({post?.messages ?? 0})</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('RoommateEdit')}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.replace('RoommateEdit')}>
           <Text style={styles.primaryText}>Chỉnh sửa</Text>
         </TouchableOpacity>
       </View>

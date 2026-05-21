@@ -35,6 +35,9 @@ public class BaiDangTimPhong
     [Column("SO_NGUOI_TOI_DA")]
     public int? MaxOccupants { get; set; }
 
+    [Column("SO_NGUOI_DANG_O")]
+    public int? CurrentOccupants { get; set; }
+
     [Required]
     [StringLength(300)]
     [Column("TIEU_DE")]
@@ -105,6 +108,9 @@ public class BaiDangTimPhong
     [Required]
     [Column("ANH_JSON")]
     public string ImageUrlsJson { get; set; } = "[]";
+
+    [Column("TIEN_NGHI_JSON")]
+    public string AmenitiesJson { get; set; } = "[]";
 
     [StringLength(1000)]
     [Column("ANH_BIA_URL")]

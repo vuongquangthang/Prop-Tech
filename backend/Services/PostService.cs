@@ -105,6 +105,7 @@ public class PostService : IPostService
             ContactPhone = dto.ContactPhone.Trim(),
             ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions),
             ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions),
+            AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions),
             CoverImageUrl = dto.ImageUrls.FirstOrDefault(),
             CreatedByUserId = createdByUserId,
         };
@@ -140,6 +141,8 @@ public class PostService : IPostService
 
         if (!string.IsNullOrWhiteSpace(dto.Title)) post.Title = dto.Title.Trim();
         if (dto.BaseRentPrice.HasValue) post.BaseRentPrice = dto.BaseRentPrice.Value;
+        if (dto.MaxOccupants.HasValue) post.MaxOccupants = dto.MaxOccupants.Value;
+        if (dto.CurrentOccupants.HasValue) post.CurrentOccupants = dto.CurrentOccupants.Value;
         if (!string.IsNullOrWhiteSpace(dto.MoveInType)) post.MoveInType = dto.MoveInType;
         if (dto.MoveInDate.HasValue) post.MoveInDate = dto.MoveInDate;
         if (dto.FloodProne.HasValue) post.FloodProne = dto.FloodProne.Value;
@@ -157,6 +160,11 @@ public class PostService : IPostService
         {
             post.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
             post.CoverImageUrl = dto.ImageUrls.FirstOrDefault();
+        }
+
+        if (dto.Amenities != null)
+        {
+            post.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
         }
 
         await _context.SaveChangesAsync();
@@ -187,6 +195,7 @@ public class PostService : IPostService
             FloorNumber = post.FloorNumber,
             Area = post.Area,
             MaxOccupants = post.MaxOccupants,
+            CurrentOccupants = post.CurrentOccupants,
             Title = post.Title,
             BaseRentPrice = post.BaseRentPrice,
             PostDate = post.PostDate,
@@ -205,6 +214,7 @@ public class PostService : IPostService
             ContactPhone = post.ContactPhone,
             ServicePrices = DeserializeList<PostServiceLineItemDto>(post.ServicePricesJson),
             ImageUrls = DeserializeList<string>(post.ImageUrlsJson),
+            Amenities = DeserializeList<string>(post.AmenitiesJson ?? "[]"),
             CoverImageUrl = post.CoverImageUrl,
             CreatedByUserId = post.CreatedByUserId,
         };

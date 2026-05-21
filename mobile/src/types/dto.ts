@@ -165,6 +165,7 @@ export interface PostDto {
   floorNumber: number;
   area?: number | null;
   maxOccupants?: number | null;
+  currentOccupants?: number | null;
   title: string;
   baseRentPrice: number;
   postDate: string;
@@ -211,6 +212,8 @@ export interface UpdatePostLockDto {
 export interface UpdatePostDto {
   title?: string;
   baseRentPrice?: number;
+  maxOccupants?: number;
+  currentOccupants?: number;
   moveInType?: string;
   moveInDate?: string | null;
   floodProne?: boolean;

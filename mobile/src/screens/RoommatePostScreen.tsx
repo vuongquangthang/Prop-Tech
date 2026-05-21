@@ -193,7 +193,7 @@ export default function RoommatePostScreen() {
 
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => navigation.navigate('RoommateEdit')}
+                    onPress={() => navigation.replace('RoommateEdit')}
                   >
                     <Ionicons name="create-outline" size={16} color="#374151" />
                     <Text style={styles.actionButtonText}>Sửa</Text>
