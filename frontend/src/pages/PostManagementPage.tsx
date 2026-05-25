@@ -1,4 +1,4 @@
-import { Plus, Eye, Lock, Unlock, RefreshCw, X } from 'lucide-react';
+import { Plus, Eye, Lock, Unlock, RefreshCw, X, MessageCircle } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
@@ -140,9 +140,15 @@ export function PostManagementPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-1 text-sm text-gray-700">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/messages')}
+                          className="mx-auto inline-flex items-center justify-center gap-1 text-sm text-gray-700 transition-colors hover:text-blue-600"
+                          title="Đi tới trang tin nhắn"
+                        >
+                          <MessageCircle size={16} className="text-gray-500" />
                           <span className={Number(p.messages ?? 0) > 0 ? 'font-bold text-blue-700' : ''}>{p.messages ?? 0}</span>
-                        </div>
+                        </button>
                       </td>
                       <td className="px-6 py-4 text-center">
                         {(() => {
