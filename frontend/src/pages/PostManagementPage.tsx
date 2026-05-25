@@ -6,6 +6,19 @@ import { usePosts } from '../hooks/usePosts';
 import { formatMoneyVnd } from '../lib/postValidation';
 import { postService, type PostEditHistoryDto } from '../services/postService';
 
+const roomStatusConfig = {
+  'Trống': { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
+  empty: { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
+  'Đã thuê': { label: 'Đã thuê', bgColor: '#FEE2E2', textColor: '#991B1B', borderColor: '#FECACA' },
+  rented: { label: 'Đã thuê', bgColor: '#FEE2E2', textColor: '#991B1B', borderColor: '#FECACA' },
+  'Bảo trì': { label: 'Bảo trì', bgColor: '#FED7AA', textColor: '#9A3412', borderColor: '#FDBA74' },
+  maintenance: { label: 'Bảo trì', bgColor: '#FED7AA', textColor: '#9A3412', borderColor: '#FDBA74' },
+};
+
+const getRoomStatusConfig = (status: string) => {
+  return (roomStatusConfig as Record<string, (typeof roomStatusConfig)['Trống']>)[status] || roomStatusConfig['Trống'];
+};
+
 export function PostManagementPage() {
   const navigate = useNavigate();
   const { posts, loading, error, refresh, updatePost } = usePosts();
@@ -104,10 +117,11 @@ export function PostManagementPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
+                    <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng đã đăng</th>
                     <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày đăng</th>
-                    <th className="px-6 py-3 text-center text-sm text-gray-600">Tin nhắn</th>
-                    <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
+                    <th className="px-6 py-3 text-center text-sm text-gray-600">Lượng người xem</th>
+                    <th className="px-6 py-3 text-center text-sm text-gray-600">Tin nhắn đang chờ</th>
+                    <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái phòng</th>
                     <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                   </tr>
                 </thead>
@@ -118,9 +132,38 @@ export function PostManagementPage() {
                         <div className="font-semibold">{p.roomCode ?? p.room}</div>
                         <div className="text-xs text-gray-500">{p.buildingName ?? p.building}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{new Date(p.createdAt).toLocaleDateString('vi-VN')}</td>
-                      <td className="px-6 py-4 text-center">{p.messages ?? 0}</td>
-                      <td className="px-6 py-4 text-center">{p.isLocked ? 'Đang khóa' : 'Đang hoạt động'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{new Date(p.postDate ?? p.createdAt).toLocaleDateString('vi-VN')}</td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-1 text-sm text-gray-700">
+                          <Eye size={16} className="text-gray-500" />
+                          <span>{p.views ?? 0}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-1 text-sm text-gray-700">
+                          <span className={Number(p.messages ?? 0) > 0 ? 'font-bold text-blue-700' : ''}>{p.messages ?? 0}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {(() => {
+                          const cfg = getRoomStatusConfig(p.roomStatus ?? 'Trống');
+                          return (
+                            <span
+                              className="inline-block rounded whitespace-nowrap"
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: 'var(--type-caption)',
+                                fontWeight: 600,
+                                backgroundColor: cfg.bgColor,
+                                color: cfg.textColor,
+                                border: `1px solid ${cfg.borderColor}`,
+                              }}
+                            >
+                              {cfg.label}
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button onClick={() => setSelectedPost(p)} className="p-2 rounded hover:bg-gray-100"><Eye size={16} /></button>
