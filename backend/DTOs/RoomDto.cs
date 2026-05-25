@@ -15,6 +15,16 @@ public class RoomDto
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
     public string Status { get; set; } = null!; // Trống, Đã thuê, Bảo trì, Khác
+    public string RoomType { get; set; } = "single";
+    public bool HasPrivateBathroom { get; set; }
+    public int? LivingRoomCount { get; set; }
+    public int? BedroomCount { get; set; }
+    public int? KitchenCount { get; set; }
+    public int? BathroomCount { get; set; }
+    public List<string> ImageUrls { get; set; } = new();
+    public List<string> Amenities { get; set; } = new();
+    public List<int> ServiceIds { get; set; } = new();
+    public List<ServiceInfoDto> Services { get; set; } = new();
 }
 
 /// <summary>
@@ -28,6 +38,15 @@ public class CreateRoomDto
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
     public string Status { get; set; } = "Trống";
+    public string RoomType { get; set; } = "single";
+    public bool HasPrivateBathroom { get; set; }
+    public int? LivingRoomCount { get; set; }
+    public int? BedroomCount { get; set; }
+    public int? KitchenCount { get; set; }
+    public int? BathroomCount { get; set; }
+    public List<string>? ImageUrls { get; set; }
+    public List<string>? Amenities { get; set; }
+    public List<int>? ServiceIds { get; set; }
 }
 
 /// <summary>
@@ -40,6 +59,15 @@ public class UpdateRoomDto
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
     public string? Status { get; set; }
+    public string? RoomType { get; set; }
+    public bool? HasPrivateBathroom { get; set; }
+    public int? LivingRoomCount { get; set; }
+    public int? BedroomCount { get; set; }
+    public int? KitchenCount { get; set; }
+    public int? BathroomCount { get; set; }
+    public List<string>? ImageUrls { get; set; }
+    public List<string>? Amenities { get; set; }
+    public List<int>? ServiceIds { get; set; }
 }
 
 /// <summary>

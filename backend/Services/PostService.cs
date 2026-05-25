@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using backend.Data;
 using backend.DTOs;
@@ -12,29 +13,35 @@ public interface IPostService
     Task<PostDto?> GetByIdAsync(int id);
     Task<PostDto?> GetByUserIdAsync(int userId);
     Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null);
-    Task<PostDto> UpdateLockAsync(int id, bool isLocked);
-    Task<PostDto> UpdateAsync(int id, UpdatePostDto dto);
+    Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null);
+    Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null);
+    Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20);
     Task DeleteAsync(int id);
 }
 
 public class PostService : IPostService
 {
+    private const string PostEntityType = nameof(BaiDangTimPhong);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
     private readonly ApplicationDbContext _context;
+    private readonly IAuditLogService _auditLogService;
 
-    public PostService(ApplicationDbContext context)
+    public PostService(ApplicationDbContext context, IAuditLogService auditLogService)
     {
         _context = context;
+        _auditLogService = auditLogService;
     }
 
     public async Task<List<PostDto>> GetAllAsync()
     {
         var posts = await _context.BaiDangTimPhongs
             .AsNoTracking()
+            .Include(post => post.CreatedByUser)
             .OrderByDescending(post => post.CreatedAt)
             .ToListAsync();
 
@@ -45,6 +52,7 @@ public class PostService : IPostService
     {
         var post = await _context.BaiDangTimPhongs
             .AsNoTracking()
+            .Include(item => item.CreatedByUser)
             .FirstOrDefaultAsync(item => item.Id == id);
 
         return post == null ? null : MapToDto(post);
@@ -54,6 +62,7 @@ public class PostService : IPostService
     {
         var post = await _context.BaiDangTimPhongs
             .AsNoTracking()
+            .Include(item => item.CreatedByUser)
             .Where(item => item.CreatedByUserId == userId)
             .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefaultAsync();
@@ -112,26 +121,42 @@ public class PostService : IPostService
 
         await _context.BaiDangTimPhongs.AddAsync(post);
         await _context.SaveChangesAsync();
+        await LogHistoryAsync(createdByUserId, post.Id, "CREATE", BuildCreateSummary(post), BuildCreateChanges(post));
 
         return MapToDto(post);
     }
 
-    public async Task<PostDto> UpdateLockAsync(int id, bool isLocked)
+    public async Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null)
     {
         var post = await _context.BaiDangTimPhongs.FirstOrDefaultAsync(item => item.Id == id);
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
         }
+
+        var oldIsLocked = post.IsLocked;
+        var oldStatus = post.Status;
 
         post.IsLocked = isLocked;
         post.Status = isLocked ? "paused" : "active";
         await _context.SaveChangesAsync();
+        if (oldIsLocked != post.IsLocked || oldStatus != post.Status)
+        {
+            await LogHistoryAsync(changedByUserId, post.Id, "UPDATE", isLocked ? "Khóa bài đăng" : "Mở bài đăng", new[]
+            {
+                new PostHistoryChangeDto
+                {
+                    Label = "Trạng thái bài đăng",
+                    Before = DescribeStatus(oldStatus, oldIsLocked),
+                    After = DescribeStatus(post.Status, post.IsLocked),
+                }
+            });
+        }
 
         return MapToDto(post);
     }
 
-    public async Task<PostDto> UpdateAsync(int id, UpdatePostDto dto)
+    public async Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null)
     {
         var post = await _context.BaiDangTimPhongs.FirstOrDefaultAsync(item => item.Id == id);
         if (post == null)
@@ -139,37 +164,153 @@ public class PostService : IPostService
             throw new InvalidOperationException("Bài đăng không tồn tại");
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.Title)) post.Title = dto.Title.Trim();
-        if (dto.BaseRentPrice.HasValue) post.BaseRentPrice = dto.BaseRentPrice.Value;
-        if (dto.MaxOccupants.HasValue) post.MaxOccupants = dto.MaxOccupants.Value;
-        if (dto.CurrentOccupants.HasValue) post.CurrentOccupants = dto.CurrentOccupants.Value;
-        if (!string.IsNullOrWhiteSpace(dto.MoveInType)) post.MoveInType = dto.MoveInType;
-        if (dto.MoveInDate.HasValue) post.MoveInDate = dto.MoveInDate;
-        if (dto.FloodProne.HasValue) post.FloodProne = dto.FloodProne.Value;
-        if (dto.LandlordRequirements != null) post.LandlordRequirements = string.IsNullOrWhiteSpace(dto.LandlordRequirements) ? null : dto.LandlordRequirements.Trim();
-        if (!string.IsNullOrWhiteSpace(dto.ContactType)) post.ContactType = dto.ContactType;
-        if (!string.IsNullOrWhiteSpace(dto.ContactName)) post.ContactName = dto.ContactName.Trim();
-        if (!string.IsNullOrWhiteSpace(dto.ContactPhone)) post.ContactPhone = dto.ContactPhone.Trim();
+        var changes = new List<PostHistoryChangeDto>();
+
+        var nextTitle = string.IsNullOrWhiteSpace(dto.Title) ? null : dto.Title.Trim();
+        if (nextTitle != null && !StringEquals(post.Title, nextTitle))
+        {
+            AddChange(changes, "Tiêu đề", post.Title, nextTitle);
+            post.Title = nextTitle;
+        }
+
+        if (dto.BaseRentPrice.HasValue && post.BaseRentPrice != dto.BaseRentPrice.Value)
+        {
+            AddChange(changes, "Giá thuê", FormatMoney(post.BaseRentPrice), FormatMoney(dto.BaseRentPrice.Value));
+            post.BaseRentPrice = dto.BaseRentPrice.Value;
+        }
+
+        if (dto.MaxOccupants.HasValue && post.MaxOccupants != dto.MaxOccupants.Value)
+        {
+            AddChange(changes, "Số người tối đa", FormatNullableInt(post.MaxOccupants), FormatNullableInt(dto.MaxOccupants));
+            post.MaxOccupants = dto.MaxOccupants.Value;
+        }
+
+        if (dto.CurrentOccupants.HasValue && post.CurrentOccupants != dto.CurrentOccupants.Value)
+        {
+            AddChange(changes, "Số người đang ở", FormatNullableInt(post.CurrentOccupants), FormatNullableInt(dto.CurrentOccupants));
+            post.CurrentOccupants = dto.CurrentOccupants.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.MoveInType) && !StringEquals(post.MoveInType, dto.MoveInType))
+        {
+            AddChange(changes, "Kiểu vào ở", FormatMoveInType(post.MoveInType), FormatMoveInType(dto.MoveInType));
+            post.MoveInType = dto.MoveInType;
+        }
+
+        if (dto.MoveInType == "immediate" && post.MoveInDate != null)
+        {
+            AddChange(changes, "Ngày vào ở", FormatDate(post.MoveInDate), "Ở ngay");
+            post.MoveInDate = null;
+        }
+        else if (dto.MoveInDate.HasValue && post.MoveInDate != dto.MoveInDate.Value)
+        {
+            AddChange(changes, "Ngày vào ở", FormatDate(post.MoveInDate), FormatDate(dto.MoveInDate));
+            post.MoveInDate = dto.MoveInDate;
+        }
+
+        if (dto.FloodProne.HasValue && post.FloodProne != dto.FloodProne.Value)
+        {
+            AddChange(changes, "Khu vực ngập lụt", FormatBool(post.FloodProne), FormatBool(dto.FloodProne.Value));
+            post.FloodProne = dto.FloodProne.Value;
+        }
+
+        if (dto.LandlordRequirements != null)
+        {
+            var nextRequirements = string.IsNullOrWhiteSpace(dto.LandlordRequirements) ? null : dto.LandlordRequirements.Trim();
+            if (!StringEquals(post.LandlordRequirements, nextRequirements))
+            {
+                AddChange(changes, "Yêu cầu chủ nhà", FormatNullableText(post.LandlordRequirements), FormatNullableText(nextRequirements));
+                post.LandlordRequirements = nextRequirements;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ContactType) && !StringEquals(post.ContactType, dto.ContactType))
+        {
+            AddChange(changes, "Kiểu liên hệ", FormatContactType(post.ContactType), FormatContactType(dto.ContactType));
+            post.ContactType = dto.ContactType;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ContactName) && !StringEquals(post.ContactName, dto.ContactName.Trim()))
+        {
+            AddChange(changes, "Tên liên hệ", post.ContactName, dto.ContactName.Trim());
+            post.ContactName = dto.ContactName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ContactPhone) && !StringEquals(post.ContactPhone, dto.ContactPhone.Trim()))
+        {
+            AddChange(changes, "Số điện thoại", post.ContactPhone, dto.ContactPhone.Trim());
+            post.ContactPhone = dto.ContactPhone.Trim();
+        }
 
         if (dto.ServicePrices != null)
         {
+            var nextServicePrices = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions);
+            if (!StringEquals(post.ServicePricesJson, nextServicePrices))
+            {
+                AddChange(changes, "Giá dịch vụ", BuildServiceSummary(post.ServicePricesJson), BuildServiceSummary(nextServicePrices));
+            }
             post.ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions);
         }
 
         if (dto.ImageUrls != null)
         {
+            var nextImageUrls = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
+            if (!StringEquals(post.ImageUrlsJson, nextImageUrls))
+            {
+                AddChange(changes, "Ảnh bài đăng", BuildImageSummary(post.ImageUrlsJson), BuildImageSummary(nextImageUrls));
+            }
             post.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
             post.CoverImageUrl = dto.ImageUrls.FirstOrDefault();
         }
 
         if (dto.Amenities != null)
         {
-            post.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
+            var nextAmenities = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
+            if (!StringEquals(post.AmenitiesJson ?? "[]", nextAmenities))
+            {
+                AddChange(changes, "Tiện ích", BuildAmenitySummary(post.AmenitiesJson), BuildAmenitySummary(nextAmenities));
+            }
+            post.AmenitiesJson = nextAmenities;
         }
 
         await _context.SaveChangesAsync();
+        if (changes.Count > 0)
+        {
+            await LogHistoryAsync(changedByUserId, post.Id, "UPDATE", BuildUpdateSummary(post, changes.Count), changes);
+        }
 
         return MapToDto(post);
+    }
+
+    public async Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20)
+    {
+        var post = await _context.BaiDangTimPhongs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == id);
+
+        if (post == null)
+        {
+            throw new InvalidOperationException("Bài đăng không tồn tại");
+        }
+
+        var logs = await _auditLogService.GetByEntityAsync(PostEntityType, id, limit);
+        if (logs.Count == 0)
+        {
+            return new List<PostEditHistoryDto>
+            {
+                new()
+                {
+                    Id = 0,
+                    Version = "Phiên bản hiện tại",
+                    Summary = BuildCreateSummary(post),
+                    ChangedAt = post.CreatedAt,
+                    IsCurrent = true,
+                    Changes = BuildCreateChanges(post).Select(change => FormatChange(change)).ToList(),
+                }
+            };
+        }
+
+        return logs.Select((log, index) => MapHistoryEntry(log, index == 0, index + 1)).ToList();
     }
 
     public async Task DeleteAsync(int id)
@@ -217,7 +358,194 @@ public class PostService : IPostService
             Amenities = DeserializeList<string>(post.AmenitiesJson ?? "[]"),
             CoverImageUrl = post.CoverImageUrl,
             CreatedByUserId = post.CreatedByUserId,
+            CreatedByUserRole = post.CreatedByUser?.Role,
         };
+    }
+
+    private async Task LogHistoryAsync(int? userId, int postId, string action, string summary, IEnumerable<PostHistoryChangeDto> changes)
+    {
+        var payload = new PostHistoryPayload
+        {
+            Summary = summary,
+            Changes = changes.ToList(),
+        };
+
+        await _auditLogService.LogAsync(userId, action, PostEntityType, postId, JsonSerializer.Serialize(payload, JsonOptions));
+    }
+
+    private static PostEditHistoryDto MapHistoryEntry(AuditLogDto log, bool isCurrent, int versionNumber)
+    {
+        var payload = ParseHistoryPayload(log.NewValues ?? log.Details);
+        var summary = payload?.Summary ?? log.Details ?? log.Action;
+        var changes = payload?.Changes?.Select(FormatChange).ToList();
+
+        return new PostEditHistoryDto
+        {
+            Id = log.Id,
+            Version = isCurrent ? "Phiên bản hiện tại" : $"Phiên bản {versionNumber}",
+            Summary = summary,
+            ChangedBy = log.FullName ?? log.Username ?? "Hệ thống",
+            ChangedAt = log.CreatedAt,
+            IsCurrent = isCurrent,
+            Changes = changes is { Count: > 0 } ? changes : new List<string> { summary },
+        };
+    }
+
+    private static PostHistoryPayload? ParseHistoryPayload(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<PostHistoryPayload>(json, JsonOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string BuildCreateSummary(BaiDangTimPhong post) => $"Tạo bài đăng cho phòng {post.RoomCode}";
+
+    private static string BuildUpdateSummary(BaiDangTimPhong post, int changeCount)
+        => $"Cập nhật bài đăng {post.RoomCode} ({changeCount} thay đổi)";
+
+    private static List<PostHistoryChangeDto> BuildCreateChanges(BaiDangTimPhong post)
+    {
+        var changes = new List<PostHistoryChangeDto>();
+        AddChange(changes, "Tiêu đề", null, post.Title);
+        AddChange(changes, "Giá thuê", null, FormatMoney(post.BaseRentPrice));
+        if (post.MaxOccupants.HasValue)
+        {
+            AddChange(changes, "Số người tối đa", null, FormatNullableInt(post.MaxOccupants));
+        }
+        AddChange(changes, "Kiểu vào ở", null, FormatMoveInType(post.MoveInType));
+        if (post.MoveInDate.HasValue)
+        {
+            AddChange(changes, "Ngày vào ở", null, FormatDate(post.MoveInDate));
+        }
+        AddChange(changes, "Khu vực ngập lụt", null, FormatBool(post.FloodProne));
+        if (!string.IsNullOrWhiteSpace(post.LandlordRequirements))
+        {
+            AddChange(changes, "Yêu cầu chủ nhà", null, FormatNullableText(post.LandlordRequirements));
+        }
+        AddChange(changes, "Kiểu liên hệ", null, FormatContactType(post.ContactType));
+        AddChange(changes, "Tên liên hệ", null, post.ContactName);
+        AddChange(changes, "Số điện thoại", null, post.ContactPhone);
+        if (DeserializeList<PostServiceLineItemDto>(post.ServicePricesJson).Count > 0)
+        {
+            AddChange(changes, "Giá dịch vụ", null, BuildServiceSummary(post.ServicePricesJson));
+        }
+        if (DeserializeList<string>(post.AmenitiesJson).Count > 0)
+        {
+            AddChange(changes, "Tiện ích", null, BuildAmenitySummary(post.AmenitiesJson));
+        }
+        if (DeserializeList<string>(post.ImageUrlsJson).Count > 0)
+        {
+            AddChange(changes, "Ảnh bài đăng", null, BuildImageSummary(post.ImageUrlsJson));
+        }
+        return changes;
+    }
+
+    private static void AddChange(ICollection<PostHistoryChangeDto> changes, string label, string? before, string? after)
+    {
+        if (StringEquals(before, after))
+        {
+            return;
+        }
+
+        changes.Add(new PostHistoryChangeDto
+        {
+            Label = label,
+            Before = before,
+            After = after,
+        });
+    }
+
+    private static string FormatChange(PostHistoryChangeDto change)
+    {
+        if (string.IsNullOrWhiteSpace(change.Before))
+        {
+            return $"{change.Label}: {change.After}";
+        }
+
+        if (string.IsNullOrWhiteSpace(change.After))
+        {
+            return $"{change.Label}: {change.Before} → đã xóa";
+        }
+
+        return $"{change.Label}: {change.Before} → {change.After}";
+    }
+
+    private static string FormatMoney(decimal value)
+        => value.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
+
+    private static string FormatNullableInt(int? value)
+        => value.HasValue ? value.Value.ToString(CultureInfo.InvariantCulture) : "—";
+
+    private static string FormatDate(DateTime? value)
+        => value.HasValue ? value.Value.ToString("dd/MM/yyyy") : "Ở ngay";
+
+    private static string FormatBool(bool value) => value ? "Có" : "Không";
+
+    private static string FormatNullableText(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
+
+    private static string FormatMoveInType(string value)
+        => StringEquals(value, "from-date") ? "Từ ngày" : "Ở ngay";
+
+    private static string FormatContactType(string value)
+        => StringEquals(value, "other") ? "Nhập thủ công" : "Theo tài khoản hiện tại";
+
+    private static string DescribeStatus(string status, bool isLocked)
+    {
+        if (isLocked)
+        {
+            return "Đã khóa";
+        }
+
+        return StringEquals(status, "paused") ? "Tạm dừng" : "Đang hoạt động";
+    }
+
+    private static string BuildAmenitySummary(string? json)
+    {
+        var items = DeserializeList<string>(json ?? "[]");
+        return items.Count == 0 ? "Chưa có tiện ích" : string.Join(", ", items);
+    }
+
+    private static string BuildImageSummary(string? json)
+    {
+        var items = DeserializeList<string>(json ?? "[]");
+        return items.Count == 0 ? "Chưa có ảnh" : $"{items.Count} ảnh";
+    }
+
+    private static string BuildServiceSummary(string? json)
+    {
+        var items = DeserializeList<PostServiceLineItemDto>(json ?? "[]");
+        if (items.Count == 0)
+        {
+            return "Chưa có dịch vụ";
+        }
+
+        return string.Join("; ", items.Select(item => $"{item.Name}: {FormatMoney(item.Price)} {item.Unit}".Trim()));
+    }
+
+    private static bool StringEquals(string? left, string? right)
+        => string.Equals(left?.Trim(), right?.Trim(), StringComparison.Ordinal);
+
+    private sealed class PostHistoryPayload
+    {
+        public string Summary { get; set; } = null!;
+        public List<PostHistoryChangeDto> Changes { get; set; } = new();
+    }
+
+    private sealed class PostHistoryChangeDto
+    {
+        public string Label { get; set; } = null!;
+        public string? Before { get; set; }
+        public string? After { get; set; }
     }
 
     private static List<T> DeserializeList<T>(string json)

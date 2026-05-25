@@ -256,7 +256,6 @@ using (var scope = app.Services.CreateScope())
                         DIEN_TICH DECIMAL(10,2) NULL,
                         SO_NGUOI_TOI_DA INT NULL,
                         SO_NGUOI_DANG_O INT NULL,
-                        SO_NGUOI_DANG_O INT NULL,
                         TIEU_DE NVARCHAR(300) NOT NULL,
                         GIA_THUE DECIMAL(18,2) NOT NULL,
                         NGAY_DANG DATETIME2 NOT NULL,

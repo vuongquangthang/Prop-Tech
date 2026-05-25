@@ -2,6 +2,8 @@ using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace backend.Services;
 
@@ -25,6 +27,13 @@ public class RoomService : IRoomService
     private readonly IHopDongRepository _hopDongRepository;
     private readonly IChiTietORepository _chiTietORepository;
     private readonly IUserRepository _userRepository;
+    private readonly IServiceRepository _serviceRepository;
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     public RoomService(
         IRoomRepository roomRepository,
@@ -32,7 +41,8 @@ public class RoomService : IRoomService
         IBuildingRepository buildingRepository,
         IHopDongRepository hopDongRepository,
         IChiTietORepository chiTietORepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IServiceRepository serviceRepository)
     {
         _roomRepository = roomRepository;
         _floorRepository = floorRepository;
@@ -40,6 +50,7 @@ public class RoomService : IRoomService
         _hopDongRepository = hopDongRepository;
         _chiTietORepository = chiTietORepository;
         _userRepository = userRepository;
+        _serviceRepository = serviceRepository;
     }
 
     public async Task<List<RoomDto>> GetAllAsync()
@@ -82,19 +93,30 @@ public class RoomService : IRoomService
 
         var floor = await _floorRepository.GetByIdAsync(room.FloorId);
         var building = floor != null ? await _buildingRepository.GetByIdAsync(floor.BuildingId) : null;
+        var baseDto = await MapToDto(room);
 
         return new RoomDetailDto
         {
-            Id = room.Id,
-            FloorId = room.FloorId,
-            BuildingId = floor?.BuildingId ?? 0,
-            BuildingName = building?.BuildingName ?? "",
-            FloorNumber = floor?.FloorNumber ?? 0,
-            RoomCode = room.RoomCode,
-            Area = room.Area,
-            MaxOccupants = room.MaxOccupants,
-            DefaultRentPrice = room.DefaultRentPrice,
-            Status = room.Status,
+            Id = baseDto.Id,
+            FloorId = baseDto.FloorId,
+            BuildingId = floor?.BuildingId ?? baseDto.BuildingId,
+            BuildingName = building?.BuildingName ?? baseDto.BuildingName,
+            FloorNumber = baseDto.FloorNumber,
+            RoomCode = baseDto.RoomCode,
+            Area = baseDto.Area,
+            MaxOccupants = baseDto.MaxOccupants,
+            DefaultRentPrice = baseDto.DefaultRentPrice,
+            Status = baseDto.Status,
+            RoomType = baseDto.RoomType,
+            HasPrivateBathroom = baseDto.HasPrivateBathroom,
+            LivingRoomCount = baseDto.LivingRoomCount,
+            BedroomCount = baseDto.BedroomCount,
+            KitchenCount = baseDto.KitchenCount,
+            BathroomCount = baseDto.BathroomCount,
+            ImageUrls = baseDto.ImageUrls,
+            Amenities = baseDto.Amenities,
+            ServiceIds = baseDto.ServiceIds,
+            Services = baseDto.Services,
             ActiveContracts = room.HopDongs?
                 .Where(hd => hd.ExpectedEndDate == null || hd.ExpectedEndDate > DateTime.UtcNow)
                 .Select(hd => new ContractSummaryDto
@@ -206,7 +228,16 @@ public class RoomService : IRoomService
             Area = dto.Area,
             MaxOccupants = dto.MaxOccupants,
             DefaultRentPrice = dto.DefaultRentPrice,
-            Status = dto.Status
+            Status = dto.Status,
+            RoomType = NormalizeRoomType(dto.RoomType),
+            HasPrivateBathroom = dto.HasPrivateBathroom,
+            LivingRoomCount = dto.LivingRoomCount,
+            BedroomCount = dto.BedroomCount,
+            KitchenCount = dto.KitchenCount,
+            BathroomCount = dto.BathroomCount,
+            ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls ?? new List<string>(), JsonOptions),
+            AmenitiesJson = JsonSerializer.Serialize(dto.Amenities ?? new List<string>(), JsonOptions),
+            ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds ?? new List<int>(), JsonOptions)
         };
 
         await _roomRepository.AddAsync(room);
@@ -237,6 +268,15 @@ public class RoomService : IRoomService
         if (dto.MaxOccupants.HasValue) room.MaxOccupants = dto.MaxOccupants;
         if (dto.DefaultRentPrice.HasValue) room.DefaultRentPrice = dto.DefaultRentPrice;
         if (dto.Status != null) room.Status = dto.Status;
+        if (dto.RoomType != null) room.RoomType = NormalizeRoomType(dto.RoomType);
+        if (dto.HasPrivateBathroom.HasValue) room.HasPrivateBathroom = dto.HasPrivateBathroom.Value;
+        if (dto.LivingRoomCount.HasValue) room.LivingRoomCount = dto.LivingRoomCount;
+        if (dto.BedroomCount.HasValue) room.BedroomCount = dto.BedroomCount;
+        if (dto.KitchenCount.HasValue) room.KitchenCount = dto.KitchenCount;
+        if (dto.BathroomCount.HasValue) room.BathroomCount = dto.BathroomCount;
+        if (dto.ImageUrls != null) room.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
+        if (dto.Amenities != null) room.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
+        if (dto.ServiceIds != null) room.ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds, JsonOptions);
 
         _roomRepository.Update(room);
         await _roomRepository.SaveChangesAsync();
@@ -268,6 +308,10 @@ public class RoomService : IRoomService
     {
         var floor = await _floorRepository.GetByIdAsync(room.FloorId);
         var building = floor != null ? await _buildingRepository.GetByIdAsync(floor.BuildingId) : null;
+        var serviceIds = DeserializeList<int>(room.ServiceIdsJson);
+        var services = await ResolveServicesAsync(serviceIds);
+        var imageUrls = DeserializeList<string>(room.ImageUrlsJson);
+        var amenities = DeserializeList<string>(room.AmenitiesJson);
 
         return new RoomDto
         {
@@ -280,7 +324,75 @@ public class RoomService : IRoomService
             Area = room.Area,
             MaxOccupants = room.MaxOccupants,
             DefaultRentPrice = room.DefaultRentPrice,
-            Status = room.Status
+            Status = room.Status,
+            RoomType = NormalizeRoomType(room.RoomType),
+            HasPrivateBathroom = room.HasPrivateBathroom,
+            LivingRoomCount = room.LivingRoomCount,
+            BedroomCount = room.BedroomCount,
+            KitchenCount = room.KitchenCount,
+            BathroomCount = room.BathroomCount,
+            ImageUrls = imageUrls,
+            Amenities = amenities,
+            ServiceIds = serviceIds,
+            Services = services
         };
+    }
+
+    private static string NormalizeRoomType(string? roomType)
+    {
+        if (string.IsNullOrWhiteSpace(roomType))
+        {
+            return "single";
+        }
+
+        var normalized = roomType.Trim().ToLowerInvariant();
+        return normalized is "single" or "apartment" ? normalized : "single";
+    }
+
+    private static List<T> DeserializeList<T>(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new List<T>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<T>>(json, JsonOptions) ?? new List<T>();
+        }
+        catch
+        {
+            return new List<T>();
+        }
+    }
+
+    private async Task<List<ServiceInfoDto>> ResolveServicesAsync(List<int> serviceIds)
+    {
+        if (serviceIds.Count == 0)
+        {
+            return new List<ServiceInfoDto>();
+        }
+
+        var services = await _serviceRepository.FindAsync(s => serviceIds.Contains(s.Id));
+        var serviceMap = services.ToDictionary(s => s.Id, s => s);
+
+        var result = new List<ServiceInfoDto>();
+        foreach (var id in serviceIds)
+        {
+            if (!serviceMap.TryGetValue(id, out var service))
+            {
+                continue;
+            }
+
+            result.Add(new ServiceInfoDto
+            {
+                ServiceId = service.Id,
+                ServiceName = service.Name,
+                Price = service.CommonUnitPrice ?? 0,
+                Unit = service.Unit ?? string.Empty
+            });
+        }
+
+        return result;
     }
 }

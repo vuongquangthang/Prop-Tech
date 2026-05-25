@@ -39,6 +39,7 @@ public class PostDto
     public List<string> Amenities { get; set; } = new();
     public string? CoverImageUrl { get; set; }
     public int? CreatedByUserId { get; set; }
+    public string? CreatedByUserRole { get; set; }
 }
 
 public class CreatePostDto
@@ -79,4 +80,15 @@ public class UpdatePostDto
     public List<PostServiceLineItemDto>? ServicePrices { get; set; }
     public List<string>? ImageUrls { get; set; }
     public List<string>? Amenities { get; set; }
+}
+
+public class PostEditHistoryDto
+{
+    public long Id { get; set; }
+    public string Version { get; set; } = null!;
+    public string Summary { get; set; } = null!;
+    public string? ChangedBy { get; set; }
+    public DateTime ChangedAt { get; set; }
+    public bool IsCurrent { get; set; }
+    public List<string> Changes { get; set; } = new();
 }

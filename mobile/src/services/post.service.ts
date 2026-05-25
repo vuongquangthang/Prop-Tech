@@ -1,5 +1,5 @@
 import apiService from './api.service';
-import { CreatePostDto, PostDto, UpdatePostDto, UpdatePostLockDto } from '../types/dto';
+import { CreatePostDto, PostDto, PostEditHistoryDto, UpdatePostDto, UpdatePostLockDto } from '../types/dto';
 
 class PostService {
   private baseUrl = '/api/posts';
@@ -18,6 +18,10 @@ class PostService {
 
   async updateLock(id: number, data: UpdatePostLockDto): Promise<PostDto> {
     return apiService.patch<PostDto>(`${this.baseUrl}/${id}/lock`, data);
+  }
+
+  async getHistory(id: number, limit = 20): Promise<PostEditHistoryDto[]> {
+    return apiService.get<PostEditHistoryDto[]>(`${this.baseUrl}/${id}/history?limit=${limit}`);
   }
 }
 

@@ -1,6 +1,56 @@
 # Script to start backend, frontend and mobile app
 # Usage: .\start-all.ps1
 
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = $scriptRoot
+$backendPath = Join-Path $repoRoot "backend"
+$frontendPath = Join-Path $repoRoot "frontend"
+$mobilePath = Join-Path $repoRoot "mobile"
+
+$backendHttpPort = 5052
+$backendHttpsPort = 5053
+$frontendPort = 3000
+$expoPort = 8081
+
+$pnpmVersion = "7.33.7"
+$nodeVersion = "20.19.0"
+$ngrokDomain = if ($env:PROPTECH_NGROK_DOMAIN) { $env:PROPTECH_NGROK_DOMAIN } else { "praiseworthy-katlyn-discountable.ngrok-free.dev" }
+
+function Get-EnvValueFromFile {
+    param(
+        [string]$Path,
+        [string]$Key
+    )
+
+    if (-not (Test-Path $Path)) {
+        return $null
+    }
+
+    $line = Get-Content $Path | Where-Object { $_ -match "^\s*$Key=" } | Select-Object -First 1
+    if (-not $line) {
+        return $null
+    }
+
+    return ($line -replace "^\s*$Key=", "").Trim()
+}
+
+$apiBaseUrl = if ($env:PROPTECH_API_BASE_URL) {
+    $env:PROPTECH_API_BASE_URL
+} else {
+    (Get-EnvValueFromFile -Path (Join-Path $frontendPath ".env.development") -Key "VITE_API_BASE_URL") ??
+    (Get-EnvValueFromFile -Path (Join-Path $frontendPath ".env") -Key "VITE_API_BASE_URL") ??
+    "http://localhost:$backendHttpPort"
+}
+
+function Stop-PortProcess {
+    param([int]$Port)
+
+    Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-Host "   Killing process on port $Port (PID: $($_.OwningProcess))" -ForegroundColor Red
+        Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "  STARTING PROP-TECH SYSTEM" -ForegroundColor Yellow
 Write-Host "========================================`n" -ForegroundColor Cyan
@@ -8,37 +58,15 @@ Write-Host "========================================`n" -ForegroundColor Cyan
 # 1. Kill old processes and ports
 Write-Host "1. Cleaning up processes and ports..." -ForegroundColor Yellow
 
-# Kill all node processes (fixes esbuild thread issues)
-Write-Host "   Stopping all Node.js processes..." -ForegroundColor Gray
-Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-
 # Kill all dotnet processes
 Write-Host "   Stopping all .NET processes..." -ForegroundColor Gray
 Get-Process -Name dotnet -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*Prop-Tech*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# Kill port 3000 (Frontend)
-Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { 
-    Write-Host "   Killing process on port 3000 (PID: $($_.OwningProcess))" -ForegroundColor Red
-    Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue 
-}
-
-# Kill port 5052 (Backend HTTP)
-Get-NetTCPConnection -LocalPort 5052 -ErrorAction SilentlyContinue | ForEach-Object { 
-    Write-Host "   Killing process on port 5052 (PID: $($_.OwningProcess))" -ForegroundColor Red
-    Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue 
-}
-
-# Kill port 5053 (Backend HTTPS)
-Get-NetTCPConnection -LocalPort 5053 -ErrorAction SilentlyContinue | ForEach-Object { 
-    Write-Host "   Killing process on port 5053 (PID: $($_.OwningProcess))" -ForegroundColor Red
-    Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue 
-}
-
-# Kill port 8081 (Expo)
-Get-NetTCPConnection -LocalPort 8081 -ErrorAction SilentlyContinue | ForEach-Object { 
-    Write-Host "   Killing process on port 8081 (PID: $($_.OwningProcess))" -ForegroundColor Red
-    Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue 
-}
+# Kill ports
+Stop-PortProcess -Port $frontendPort
+Stop-PortProcess -Port $backendHttpPort
+Stop-PortProcess -Port $backendHttpsPort
+Stop-PortProcess -Port $expoPort
 
 # Force garbage collection to free resources
 Write-Host "   Freeing system resources..." -ForegroundColor Gray
@@ -50,7 +78,9 @@ Write-Host "   Cleanup completed" -ForegroundColor Green
 
 # 2. Start Backend
 Write-Host "`n2. Starting Backend..." -ForegroundColor Yellow
-Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\backend" -ArgumentList "-NoExit", "-Command", "dotnet run"
+$backendUrls = "http://0.0.0.0:$backendHttpPort;https://0.0.0.0:$backendHttpsPort"
+$backendCommand = "`$env:ASPNETCORE_URLS='$backendUrls'; dotnet run"
+Start-Process powershell -WorkingDirectory $backendPath -ArgumentList "-NoExit", "-Command", $backendCommand
 Write-Host "   Backend starting..." -ForegroundColor Green
 
 # 3. Wait for backend to be ready
@@ -65,7 +95,7 @@ while ($attempt -lt $maxAttempts -and -not $backendReady) {
     Write-Host "   Checking backend... attempt $attempt/$maxAttempts" -ForegroundColor Gray
     
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:5052/swagger/index.html" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "http://localhost:$backendHttpPort/swagger/index.html" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
             $backendReady = $true
             Write-Host "Backend is ready!" -ForegroundColor Green
@@ -84,13 +114,27 @@ Start-Sleep -Seconds 2
 
 # 4. Start Ngrok tunnel
 Write-Host "`n4. Starting Ngrok tunnel..." -ForegroundColor Yellow
-Start-Process cmd -ArgumentList "/K", "cd /d D:\Prop_Tech\Ngrok && ngrok http --domain=praiseworthy-katlyn-discountable.ngrok-free.dev 5052"
-Write-Host "   Ngrok tunnel starting on praiseworthy-katlyn-discountable.ngrok-free.dev" -ForegroundColor Green
+if (Get-Command ngrok -ErrorAction SilentlyContinue) {
+    Start-Process ngrok -ArgumentList "http", "--domain=$ngrokDomain", $backendHttpPort
+    Write-Host "   Ngrok tunnel starting on $ngrokDomain" -ForegroundColor Green
+} elseif (Test-Path "D:\Prop_Tech\Ngrok") {
+    Start-Process cmd -ArgumentList "/K", "cd /d D:\Prop_Tech\Ngrok && ngrok http --domain=$ngrokDomain $backendHttpPort"
+    Write-Host "   Ngrok tunnel starting on $ngrokDomain" -ForegroundColor Green
+} else {
+    Write-Host "   Ngrok not found. Skipping tunnel." -ForegroundColor Yellow
+}
 
 # 5. Start Frontend
 Write-Host "`n5. Starting Frontend..." -ForegroundColor Yellow
 Write-Host "   Note: If Frontend fails with thread error, close some programs and try again" -ForegroundColor DarkGray
-Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\frontend" -ArgumentList "-NoExit", "-Command", "pnpm run dev"
+$frontendCommand = @"
+if (Get-Command nvm -ErrorAction SilentlyContinue) { nvm use $nodeVersion | Out-Null }
+if (Get-Command corepack -ErrorAction SilentlyContinue) { corepack enable | Out-Null; corepack prepare pnpm@$pnpmVersion --activate | Out-Null }
+`$env:VITE_API_BASE_URL='$apiBaseUrl'
+if (-not (Test-Path 'node_modules')) { pnpm install }
+pnpm run dev
+"@
+Start-Process powershell -WorkingDirectory $frontendPath -ArgumentList "-NoExit", "-Command", $frontendCommand
 Write-Host "   Frontend starting..." -ForegroundColor Green
 
 # Wait for frontend to initialize
@@ -98,18 +142,25 @@ Start-Sleep -Seconds 3
 
 # 6. Start Mobile App
 Write-Host "`n6. Starting Mobile App (Expo)..." -ForegroundColor Yellow
-Start-Process powershell -WorkingDirectory "d:\Prop_Tech\Prop-Tech\mobile" -ArgumentList "-NoExit", "-Command", "if (Get-Command nvm -ErrorAction SilentlyContinue) { nvm use 20.19.0 }; npm install; npm start"
+$mobileCommand = @"
+if (Get-Command nvm -ErrorAction SilentlyContinue) { nvm use $nodeVersion | Out-Null }
+`$env:EXPO_PUBLIC_API_BASE_URL='$apiBaseUrl'
+if (-not (Test-Path 'node_modules')) { npm install }
+npm start
+"@
+Start-Process powershell -WorkingDirectory $mobilePath -ArgumentList "-NoExit", "-Command", $mobileCommand
 Write-Host "   Mobile starting..." -ForegroundColor Green
 
 # 7. Summary
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "  SYSTEM STARTING UP" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "`nBackend:  http://localhost:5052 (HTTP) | https://localhost:5053 (HTTPS)" -ForegroundColor Yellow
-Write-Host "Ngrok:    https://praiseworthy-katlyn-discountable.ngrok-free.dev" -ForegroundColor Yellow
-Write-Host "Frontend: http://localhost:3000" -ForegroundColor Yellow
+Write-Host "`nBackend:  http://localhost:$backendHttpPort (HTTP) | https://localhost:$backendHttpsPort (HTTPS)" -ForegroundColor Yellow
+Write-Host "API Base: $apiBaseUrl" -ForegroundColor Yellow
+Write-Host "Ngrok:    https://$ngrokDomain" -ForegroundColor Yellow
+Write-Host "Frontend: http://localhost:$frontendPort" -ForegroundColor Yellow
 Write-Host "Mobile:   Check QR code in Mobile terminal" -ForegroundColor Yellow
-Write-Host "Swagger:  http://localhost:5052/swagger`n" -ForegroundColor Yellow
+Write-Host "Swagger:  http://localhost:$backendHttpPort/swagger`n" -ForegroundColor Yellow
 
 
 Write-Host "`nWaiting 8s to check services status..." -ForegroundColor Gray
@@ -117,7 +168,7 @@ Start-Sleep -Seconds 8
 
 # 8. Check status
 try {
-    $backend = Invoke-WebRequest -Uri "http://localhost:5052/swagger/index.html" -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
+    $backend = Invoke-WebRequest -Uri "http://localhost:$backendHttpPort/swagger/index.html" -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
     if ($backend.StatusCode -eq 200) {
         Write-Host "  Backend: OK" -ForegroundColor Green
     }
@@ -126,7 +177,7 @@ try {
 }
 
 try {
-    $frontend = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
+    $frontend = Invoke-WebRequest -Uri "http://localhost:$frontendPort" -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
     if ($frontend.StatusCode -eq 200) {
         Write-Host "  Frontend: OK" -ForegroundColor Green
     }

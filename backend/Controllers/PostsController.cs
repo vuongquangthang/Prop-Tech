@@ -131,10 +131,13 @@ public class PostsController : ControllerBase
                 {
                     return Forbid();
                 }
+                var residentUpdatedPost = await _postService.UpdateLockAsync(id, dto.IsLocked, userId);
+                return Ok(residentUpdatedPost);
             }
 
-            var post = await _postService.UpdateLockAsync(id, dto.IsLocked);
-            return Ok(post);
+            var adminId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedAdminId) ? parsedAdminId : (int?)null;
+            var adminUpdatedPost = await _postService.UpdateLockAsync(id, dto.IsLocked, adminId);
+            return Ok(adminUpdatedPost);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
         {
@@ -168,10 +171,13 @@ public class PostsController : ControllerBase
                 {
                     return Forbid();
                 }
+                var residentUpdatedPost = await _postService.UpdateAsync(id, dto, userId);
+                return Ok(residentUpdatedPost);
             }
 
-            var post = await _postService.UpdateAsync(id, dto);
-            return Ok(post);
+            var adminId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedAdminId) ? parsedAdminId : (int?)null;
+            var adminUpdatedPost = await _postService.UpdateAsync(id, dto, adminId);
+            return Ok(adminUpdatedPost);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
         {
@@ -195,6 +201,40 @@ public class PostsController : ControllerBase
         {
             await _postService.DeleteAsync(id);
             return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    [HttpGet("{id}/history")]
+    [Authorize(Roles = "Admin,QuanLy,CuDan")]
+    public async Task<ActionResult<List<PostEditHistoryDto>>> GetHistory(int id, [FromQuery] int limit = 20)
+    {
+        try
+        {
+            if (User.IsInRole("CuDan"))
+            {
+                var userId = GetUserId();
+                var existing = await _postService.GetByIdAsync(id);
+                if (existing == null)
+                {
+                    return NotFound(new { message = "Bài đăng không tồn tại" });
+                }
+
+                if (existing.CreatedByUserId != userId)
+                {
+                    return Forbid();
+                }
+            }
+
+            var history = await _postService.GetHistoryAsync(id, limit);
+            return Ok(history);
         }
         catch (InvalidOperationException ex)
         {

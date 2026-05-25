@@ -97,6 +97,7 @@ const seedPosts: PostRecord[] = [
     ],
     imageUrls: [placeholderImage],
     coverImageUrl: placeholderImage,
+    createdByUserRole: 'Admin',
   },
   {
     id: 2,
@@ -130,6 +131,7 @@ const seedPosts: PostRecord[] = [
     ],
     imageUrls: [placeholderImage],
     coverImageUrl: placeholderImage,
+    createdByUserRole: 'QuanLy',
   },
 ];
 
@@ -205,6 +207,7 @@ export function createMockPost(input: CreatePostInput): PostRecord {
     servicePrices: input.servicePrices,
     imageUrls: input.imageUrls,
     coverImageUrl: input.imageUrls[0] ?? placeholderImage,
+    createdByUserRole: 'Admin',
   };
 
   const posts = [newPost, ...readPostsFromStorage()];

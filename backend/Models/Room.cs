@@ -40,6 +40,35 @@ public class Room
     [Column("TRANG_THAI")]
     public string Status { get; set; } = "Trống"; // Trống, Đã thuê, Bảo trì, Khác
 
+    [Required]
+    [StringLength(20)]
+    [Column("LOAI_PHONG")]
+    public string RoomType { get; set; } = "single"; // single, apartment
+
+    [Column("CO_VE_SINH_KHEP_KIN")]
+    public bool HasPrivateBathroom { get; set; }
+
+    [Column("SO_PHONG_KHACH")]
+    public int? LivingRoomCount { get; set; }
+
+    [Column("SO_PHONG_NGU")]
+    public int? BedroomCount { get; set; }
+
+    [Column("SO_PHONG_BEP")]
+    public int? KitchenCount { get; set; }
+
+    [Column("SO_PHONG_VE_SINH")]
+    public int? BathroomCount { get; set; }
+
+    [Column("ANH_PHONG_JSON", TypeName = "nvarchar(max)")]
+    public string ImageUrlsJson { get; set; } = "[]";
+
+    [Column("TIEN_NGHI_JSON", TypeName = "nvarchar(max)")]
+    public string AmenitiesJson { get; set; } = "[]";
+
+    [Column("DICH_VU_JSON", TypeName = "nvarchar(max)")]
+    public string ServiceIdsJson { get; set; } = "[]";
+
     // Navigation properties
     [ForeignKey("FloorId")]
     public Floor Floor { get; set; } = null!;

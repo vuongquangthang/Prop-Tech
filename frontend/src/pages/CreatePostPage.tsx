@@ -38,6 +38,7 @@ export function CreatePostPage() {
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const selectedRoomType = String((selectedRoom as any)?.type ?? 'single');
   const isEditing = editingPostId !== null;
   const availableCatalogServices = serviceCatalog.filter((catalogItem) =>
     !localServices.some((service) => String(service.key ?? '').toLowerCase() === String(catalogItem.key).toLowerCase())
@@ -496,13 +497,15 @@ export function CreatePostPage() {
                     </div>
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Loại phòng</p>
-                      <p className="text-sm font-semibold text-gray-800">{((selectedRoom as any).type ?? '').toString() === 'single' ? 'Phòng đơn' : 'Căn hộ'}</p>
+                      <p className="text-sm font-semibold text-gray-800">{selectedRoomType === 'single' ? 'Phòng đơn' : 'Căn hộ'}</p>
                     </div>
                   </div>
 
-                  {((selectedRoom as any).type ?? 'single') === 'single' ? (
+                  {selectedRoomType === 'single' ? (
                       <div className="mt-4 border-t border-gray-300 pt-4">
-                        <p className="text-sm text-gray-600">✓ Có vệ sinh khép kín</p>
+                        <p className="text-sm text-gray-600">
+                          {((selectedRoom as any).hasPrivateBathroom ?? false) ? '✓ Có vệ sinh khép kín' : '✕ Không có vệ sinh khép kín'}
+                        </p>
                       </div>
                   ) : (
                     <div className="mt-4 border-t border-gray-300 pt-4">

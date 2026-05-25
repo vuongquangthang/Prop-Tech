@@ -2,8 +2,14 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import * as SecureStore from 'expo-secure-store';
 import { LoginResponse, RefreshTokenRequest } from '../types/dto';
 
+declare const process: {
+  env?: Record<string, string | undefined>;
+};
+
 // Base URL - Change this to your actual backend URL
-export const API_BASE_URL = 'http://192.168.1.77:5052';
+const envBaseUrl =
+  typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
+export const API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl : 'http://192.168.2.11:5052';
 const BASE_URL = API_BASE_URL;
 
 // Storage keys

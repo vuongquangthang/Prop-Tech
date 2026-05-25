@@ -31,6 +31,16 @@ export interface Room {
   maxOccupants?: number;
   defaultRentPrice?: number;
   status: string;
+  roomType?: string;
+  hasPrivateBathroom?: boolean;
+  livingRoomCount?: number | null;
+  bedroomCount?: number | null;
+  kitchenCount?: number | null;
+  bathroomCount?: number | null;
+  imageUrls?: string[];
+  amenities?: string[];
+  serviceIds?: number[];
+  services?: ServiceInContract[] | any[];
   description?: string;
 }
 

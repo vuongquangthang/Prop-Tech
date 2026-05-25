@@ -225,3 +225,13 @@ export interface UpdatePostDto {
   amenities?: string[];
   imageUrls?: string[];
 }
+
+export interface PostEditHistoryDto {
+  id: number;
+  version: string;
+  summary: string;
+  changedBy?: string | null;
+  changedAt: string;
+  isCurrent: boolean;
+  changes: string[];
+}

@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { usePosts } from '../hooks/usePosts';
 import { formatMoneyVnd } from '../lib/postValidation';
+import { postService, type PostEditHistoryDto } from '../services/postService';
 
 export function PostManagementPage() {
   const navigate = useNavigate();
@@ -11,6 +12,9 @@ export function PostManagementPage() {
   const location = useLocation();
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [historyItems, setHistoryItems] = useState<PostEditHistoryDto[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const sorted = useMemo(() => [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [posts]);
 
@@ -29,6 +33,24 @@ export function PostManagementPage() {
       await refresh();
     } catch {
       toast.error('Không thể cập nhật trạng thái');
+    }
+  };
+
+  const handleShowHistory = async () => {
+    if (!selectedPost) return;
+
+    setShowHistory(true);
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      const history = await postService.getHistory(selectedPost.id);
+      setHistoryItems(history);
+    } catch (err) {
+      setHistoryItems([]);
+      setHistoryError(err instanceof Error ? err.message : 'Không thể tải lịch sử chỉnh sửa');
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -249,7 +271,7 @@ export function PostManagementPage() {
 
             <div className="sticky bottom-0 flex justify-end gap-3 border-t border-gray-300 bg-white px-6 py-4">
               <button onClick={() => setSelectedPost(null)} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Đóng</button>
-              <button onClick={() => setShowHistory(true)} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Lịch sử</button>
+              <button onClick={() => void handleShowHistory()} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Lịch sử</button>
               <button onClick={() => { setSelectedPost(null); navigate(`/post-management/create?edit=${selectedPost.id}`); }} className="rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700">Chỉnh sửa</button>
             </div>
           </div>
@@ -261,23 +283,64 @@ export function PostManagementPage() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white">
             <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
               <h4 className="text-lg font-semibold">Lịch sử chỉnh sửa</h4>
-              <button onClick={() => setShowHistory(false)} className="rounded p-1 hover:bg-gray-100"><X size={18} /></button>
+              <button
+                onClick={() => {
+                  setShowHistory(false);
+                  setHistoryItems([]);
+                  setHistoryError(null);
+                }}
+                className="rounded p-1 hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
             </div>
 
             <div className="px-6 py-4 space-y-3">
-              {selectedPost.editHistory && selectedPost.editHistory.length ? (
-                <ul className="list-disc pl-5 text-sm text-gray-700">
-                  {selectedPost.editHistory.map((h: any, i: number) => (
-                    <li key={i} className="mb-2">{h.summary ?? `[${new Date(h.date).toLocaleString('vi-VN')}]`}</li>
+              {historyLoading ? (
+                <div className="rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">Đang tải lịch sử...</div>
+              ) : historyError ? (
+                <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">{historyError}</div>
+              ) : historyItems.length ? (
+                <div className="space-y-3">
+                  {historyItems.map((item) => (
+                    <div key={item.id} className={`rounded border p-4 ${item.isCurrent ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{item.version}</p>
+                          <p className="mt-1 text-sm text-gray-600">{item.summary}</p>
+                        </div>
+                        {item.isCurrent && (
+                          <span className="rounded-full bg-blue-600 px-2 py-1 text-[11px] font-semibold text-white">Hiện tại</span>
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                        <span>{new Date(item.changedAt).toLocaleString('vi-VN')}</span>
+                        {item.changedBy ? <span>Bởi {item.changedBy}</span> : null}
+                      </div>
+                      <div className="mt-3 space-y-1">
+                        {item.changes.map((change, index) => (
+                          <p key={`${item.id}-${index}`} className="text-sm text-gray-700">• {change}</p>
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                </ul>
+                </div>
               ) : (
                 <div className="text-sm text-gray-600">Chưa có lịch sử chỉnh sửa.</div>
               )}
             </div>
 
             <div className="flex justify-end border-t border-gray-300 px-6 py-4">
-              <button onClick={() => setShowHistory(false)} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Đóng</button>
+              <button
+                onClick={() => {
+                  setShowHistory(false);
+                  setHistoryItems([]);
+                  setHistoryError(null);
+                }}
+                className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>

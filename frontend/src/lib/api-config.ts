@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
     BASE: '/api/posts',
     BY_ID: (id: number) => `/api/posts/${id}`,
     LOCK: (id: number) => `/api/posts/${id}/lock`,
+    HISTORY: (id: number) => `/api/posts/${id}/history`,
   },
   
   // Residents

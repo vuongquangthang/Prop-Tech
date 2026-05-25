@@ -15,6 +15,15 @@ export interface RoomOption {
   maxOccupants?: number | null;
   defaultRentPrice?: number | null;
   status: string;
+  type?: 'single' | 'apartment' | string;
+  hasPrivateBathroom?: boolean;
+  rooms?: {
+    living?: number | null;
+    bedroom?: number | null;
+    kitchen?: number | null;
+    bathroom?: number | null;
+  };
+  imageUrls?: string[];
   services?: PostServiceLineItem[];
   amenities?: string[];
 }
@@ -56,6 +65,18 @@ export interface PostRecord {
   amenities?: string[];
   imageUrls: string[];
   coverImageUrl?: string;
+  createdByUserId?: number | null;
+  createdByUserRole?: string | null;
+}
+
+export interface PostEditHistoryDto {
+  id: number;
+  version: string;
+  summary: string;
+  changedBy?: string | null;
+  changedAt: string;
+  isCurrent: boolean;
+  changes: string[];
 }
 
 export interface CreatePostInput {
@@ -162,14 +183,56 @@ function normalizeRoomServices(room: any): PostServiceLineItem[] {
   if (!Array.isArray(raw)) return [];
 
   return raw.map((item: any, index: number) => ({
-    key: item?.key ?? `service-${index}`,
+    key: String(item?.key ?? item?.serviceId ?? item?.id ?? `service-${index}`),
     name: item?.name ?? item?.serviceName ?? 'Dịch vụ',
     unit: item?.unit ?? '',
     price: Number(item?.price ?? item?.unitPrice ?? item?.amount ?? 0),
   }));
 }
 
+function normalizeRoomType(room: any): 'single' | 'apartment' {
+  const raw = String(room?.roomType ?? room?.type ?? 'single').trim().toLowerCase();
+  return raw === 'apartment' ? 'apartment' : 'single';
+}
+
+function normalizeRoomCounts(room: any) {
+  const living = room?.rooms?.living ?? room?.livingRoomCount ?? room?.livingRoom ?? room?.soPhongKhach ?? null;
+  const bedroom = room?.rooms?.bedroom ?? room?.bedroomCount ?? room?.bedRoomCount ?? room?.soPhongNgu ?? null;
+  const kitchen = room?.rooms?.kitchen ?? room?.kitchenCount ?? room?.soPhongBep ?? null;
+  const bathroom = room?.rooms?.bathroom ?? room?.bathroomCount ?? room?.soPhongVeSinh ?? null;
+  return {
+    living: living !== null && living !== undefined ? Number(living) : null,
+    bedroom: bedroom !== null && bedroom !== undefined ? Number(bedroom) : null,
+    kitchen: kitchen !== null && kitchen !== undefined ? Number(kitchen) : null,
+    bathroom: bathroom !== null && bathroom !== undefined ? Number(bathroom) : null,
+  };
+}
+
+function normalizeRoomImageUrls(room: any): string[] {
+  const rawSources = room?.imageUrls ?? room?.images ?? room?.imageUrlsJson ?? [];
+  let urls: any[] = [];
+  if (Array.isArray(rawSources)) {
+    urls = rawSources;
+  } else if (typeof rawSources === 'string') {
+    const raw = rawSources.trim();
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        urls = Array.isArray(parsed) ? parsed : [raw];
+      } catch {
+        urls = raw.includes(',') ? raw.split(',') : [raw];
+      }
+    }
+  }
+
+  return urls
+    .map((item) => (typeof item === 'string' ? item : item?.url ?? item?.imageUrl ?? item?.path ?? ''))
+    .map(resolvePostImageUrl)
+    .filter(Boolean);
+}
+
 function mapRoomDto(room: any): RoomOption {
+  const type = normalizeRoomType(room);
   return {
     id: Number(room.id ?? 0),
     floorId: Number(room.floorId ?? 0),
@@ -181,6 +244,10 @@ function mapRoomDto(room: any): RoomOption {
     maxOccupants: room.maxOccupants ?? room.maxPeople ?? null,
     defaultRentPrice: room.defaultRentPrice ?? room.price ?? null,
     status: room.status ?? 'Trống',
+    type,
+    hasPrivateBathroom: Boolean(room.hasPrivateBathroom ?? room.privateBathroom ?? room.coVeSinhKhepKin ?? false),
+    rooms: normalizeRoomCounts(room),
+    imageUrls: normalizeRoomImageUrls(room),
     services: normalizeRoomServices(room),
     amenities: normalizeRoomAmenities(room),
   };
@@ -262,14 +329,6 @@ function normalizeServicePrices(post: any): PostServiceLineItem[] {
 }
 
 function normalizePostRecord(post: any): PostRecord {
-  // Debug: log incoming post object to help trace missing roomCode/buildingName
-  try {
-    // keep lightweight logging
-    // eslint-disable-next-line no-console
-    console.log('[postService] normalizePostRecord input:', { id: post?.id, roomId: post?.roomId, roomCode: post?.roomCode, buildingName: post?.buildingName });
-  } catch (e) {
-    // ignore logging errors
-  }
   const createdAt = post.createdAt ?? post.postDate ?? new Date().toISOString();
 
   const roomObj = post.room ?? post.roomDto ?? null;
@@ -325,7 +384,14 @@ function normalizePostRecord(post: any): PostRecord {
     amenities: normalizedAmenities,
     imageUrls: finalImageUrls,
     coverImageUrl: normalizedCoverImageUrl,
+    createdByUserId: post.createdByUserId ?? null,
+    createdByUserRole: post.createdByUserRole ?? post.createdByRole ?? post.creatorRole ?? null,
   };
+}
+
+function isWebPost(post: PostRecord): boolean {
+  const role = String(post.createdByUserRole ?? '').trim();
+  return role === 'Admin' || role === 'QuanLy' || post.createdByUserId == null;
 }
 
 export const postService = {
@@ -345,15 +411,6 @@ export const postService = {
         api.get(API_ENDPOINTS.ROOMS.BASE).catch(() => ({ data: getMockRooms() })),
         api.get(API_ENDPOINTS.POSTS.BASE).catch(() => ({ data: getMockPosts() })),
       ]);
-
-      // Debug: log raw responses
-      try {
-        // eslint-disable-next-line no-console
-        console.log('[postService] getPosts roomsResp.length, postsResp.length', {
-          rooms: Array.isArray(roomsResp.data) ? roomsResp.data.length : 0,
-          posts: Array.isArray(postsResp.data) ? postsResp.data.length : 0,
-        });
-      } catch {}
 
       const rooms = Array.isArray(roomsResp.data) ? roomsResp.data : [];
       const roomMap = new Map<number, any>();
@@ -384,36 +441,19 @@ export const postService = {
         }
 
         const normalizedPost = normalizePostRecord(postCopy);
-        try {
-          // eslint-disable-next-line no-console
-          console.log('[postService] mapped post', { id: normalizedPost.id, roomId: normalizedPost.roomId, roomCode: normalizedPost.roomCode, buildingName: normalizedPost.buildingName });
-        } catch {}
-
         return normalizedPost;
       });
 
-      return normalized.map(applyCachedAmenities);
+      return normalized.filter(isWebPost).map(applyCachedAmenities);
     } catch {
-      return getMockPosts();
+      return getMockPosts().filter(isWebPost).map(applyCachedAmenities);
     }
   },
 
   createPost: async (input: CreatePostInput): Promise<PostRecord> => {
     try {
-      // Debug: log create input
-      try {
-        // eslint-disable-next-line no-console
-        console.log('[postService] createPost input:', { roomId: input.roomId, title: input.title, baseRentPrice: input.baseRentPrice });
-      } catch {}
-
       const response = await api.post(API_ENDPOINTS.POSTS.BASE, input);
       const created = response.data ?? {};
-
-      // Debug: log raw create response
-      try {
-        // eslint-disable-next-line no-console
-        console.log('[postService] createPost response:', { raw: created });
-      } catch {}
 
       // If backend didn't return roomCode but returned roomId, try to map room info
       if (!created.roomCode && created.roomId) {
@@ -435,11 +475,6 @@ export const postService = {
       if (inputAmenities.length > 0) {
         persistPostAmenities(normalized.id, inputAmenities);
       }
-      try {
-        // eslint-disable-next-line no-console
-        console.log('[postService] createPost normalized:', { id: normalized.id, roomId: normalized.roomId, roomCode: normalized.roomCode, buildingName: normalized.buildingName });
-      } catch {}
-
       return applyCachedAmenities({
         ...normalized,
         amenities: normalized.amenities?.length ? normalized.amenities : inputAmenities,
@@ -474,6 +509,15 @@ export const postService = {
       }
 
       throw error;
+    }
+  },
+
+  getHistory: async (id: number): Promise<PostEditHistoryDto[]> => {
+    try {
+      const response = await api.get(API_ENDPOINTS.POSTS.HISTORY(id));
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      throw new Error(handleApiError(error));
     }
   },
 
