@@ -32,6 +32,15 @@ export interface RoomDetail {
   maxOccupants?: number | null;
   status?: string;
   assets?: RoomAssetSummary[];
+  description?: string | null;
+  imageUrls?: string[];
+  amenities?: string[];
+  roomType?: string;
+  hasPrivateBathroom?: boolean;
+  livingRoomCount?: number | null;
+  bedroomCount?: number | null;
+  kitchenCount?: number | null;
+  bathroomCount?: number | null;
 }
 
 export interface MyRoom {

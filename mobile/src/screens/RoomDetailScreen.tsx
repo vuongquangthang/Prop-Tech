@@ -8,12 +8,16 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Image,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 // @ts-ignore - TypeScript cache issue, restart TS server if error persists
-import { roomService, MyRoom, ServiceInfo, ElectricityTier } from '../services/room.service';
+import { roomService, MyRoom, ServiceInfo, ElectricityTier, RoomDetail } from '../services/room.service';
 import { contractService, ContractDetail } from '../services/contract.service';
+import { resolveImageUrl } from '../utils/image';
 
 export default function RoomDetailScreen() {
   const navigation = useNavigation();
@@ -25,6 +29,8 @@ export default function RoomDetailScreen() {
   const [isContractLoading, setIsContractLoading] = useState(false);
   const [contractError, setContractError] = useState<string | null>(null);
   const [showContractDetail, setShowContractDetail] = useState(false);
+  const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadRoomData();
@@ -35,6 +41,14 @@ export default function RoomDetailScreen() {
       setError(null);
       const data = await roomService.getMyRoom();
       setRoom(data);
+      // fetch full room detail (includes images, assets, description, amenities)
+      try {
+        const detail = await roomService.getRoomDetail(data.roomId);
+        setRoomDetail(detail);
+      } catch (e) {
+        // non-fatal: show basic my-room info if detail fails
+        setRoomDetail(null);
+      }
     } catch (err: any) {
       setError(err.message || 'Không thể tải thông tin phòng');
     } finally {
@@ -227,6 +241,29 @@ export default function RoomDetailScreen() {
             <Text style={styles.infoLabel}>Tầng:</Text>
             <Text style={styles.infoValue}>Tầng {room.floorNumber}</Text>
           </View>
+
+          {room.maxOccupants != null && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Số người tối đa:</Text>
+              <Text style={styles.infoValue}>{room.maxOccupants}</Text>
+            </View>
+          )}
+
+          {/* Description */}
+          {roomDetail?.description || roomDetail?.imageUrls?.length ? (
+            <View style={{ marginTop: 12 }}>
+              {roomDetail?.imageUrls?.length ? (
+                <TouchableOpacity onPress={() => setPreviewImageUrl(resolveImageUrl(roomDetail.imageUrls[0]))}>
+                  <Image source={{ uri: resolveImageUrl(roomDetail.imageUrls[0]) }} style={{ width: '100%', height: 200, borderRadius: 8 }} />
+                </TouchableOpacity>
+              ) : null}
+              {roomDetail?.description ? (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>{roomDetail.description}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </View>
 
         {/* Contract Info Card */}
@@ -455,6 +492,37 @@ export default function RoomDetailScreen() {
             </View>
           )}
         </View>
+        {/* Amenities & Assets (from detailed room) */}
+        {((roomDetail && roomDetail.amenities && roomDetail.amenities.length > 0) || (room.amenities && room.amenities.length > 0)) && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="layers" size={20} color="#1A4B84" />
+              <Text style={styles.sectionTitle}>Tiện nghi</Text>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
+              {(roomDetail?.amenities?.length ? roomDetail.amenities : room.amenities || []).map((a: string, i: number) => (
+                <View key={i} style={{ backgroundColor: '#F3F4F6', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, marginRight: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 13, color: '#374151' }}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {roomDetail?.assets && roomDetail.assets.length > 0 && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="archive" size={20} color="#1A4B84" />
+              <Text style={styles.sectionTitle}>Tài sản trong phòng</Text>
+            </View>
+            {roomDetail.assets.map((asset) => (
+              <View key={asset.assetId} style={styles.infoRowCompact}>
+                <Text style={styles.infoLabel}>{asset.assetName}</Text>
+                <Text style={styles.infoValue}>x{asset.quantity}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Services Card */}
         {room.services.length > 0 && (
@@ -532,6 +600,14 @@ export default function RoomDetailScreen() {
           </View>
         )}
       </ScrollView>
+      {/* Image preview modal */}
+      <Modal visible={!!previewImageUrl} transparent animationType="fade" onRequestClose={() => setPreviewImageUrl(null)}>
+        <Pressable style={styles.previewOverlay} onPress={() => setPreviewImageUrl(null)}>
+          {previewImageUrl && (
+            <Image source={{ uri: previewImageUrl }} style={styles.previewImage} resizeMode="contain" />
+          )}
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -851,5 +927,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#3B82F6',
     marginTop: 4,
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '92%',
+    height: '72%',
   },
 });

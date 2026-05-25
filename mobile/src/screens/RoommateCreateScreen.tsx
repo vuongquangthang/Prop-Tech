@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { contractService } from '../services/contract.service';
 import { postService } from '../services/post.service';
-import { MyRoom, roomService } from '../services/room.service';
+import { MyRoom, roomService, RoomDetail } from '../services/room.service';
+import { resolveImageUrl } from '../utils/image';
 import { servicesService, type ServiceInRoomDto } from '../services/services.service';
 import * as ImagePicker from 'expo-image-picker';
 import { fileService } from '../services/file.service';
@@ -102,6 +103,7 @@ export default function RoommateCreateScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [room, setRoom] = useState<MyRoom | null>(null);
+  const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
   const [services, setServices] = useState<RoomFormService[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -118,11 +120,13 @@ export default function RoommateCreateScreen() {
   const [customName, setCustomName] = useState('');
   const [customPhone, setCustomPhone] = useState('');
   const [images, setImages] = useState<Array<{ uri: string; uploadedUrl?: string; name?: string }>>([]);
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  // amenities that come from the room (pre-existing) and user-added extras
+  const [initialAmenities, setInitialAmenities] = useState<string[]>([]);
+  const [addedAmenities, setAddedAmenities] = useState<string[]>([]);
   const [amenityCatalog, setAmenityCatalog] = useState<string[]>([]);
   const [newAmenity, setNewAmenity] = useState('');
 
-  const availableAmenities = amenityCatalog.filter((amenity) => !selectedAmenities.includes(amenity));
+  const availableAmenities = amenityCatalog.filter((amenity) => !initialAmenities.includes(amenity) && !addedAmenities.includes(amenity));
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -134,16 +138,25 @@ export default function RoommateCreateScreen() {
       // preload amenities
       let amenityList: string[] = Array.isArray(myRoom.amenities) ? myRoom.amenities : [];
       try {
-        const roomDetail = await roomService.getRoomDetail(myRoom.roomId);
-        const assets = Array.isArray(roomDetail.assets) ? roomDetail.assets : [];
+        const detail = await roomService.getRoomDetail(myRoom.roomId);
+        setRoomDetail(detail);
+        const assets = Array.isArray(detail.assets) ? detail.assets : [];
         const assetNames = assets.map((asset) => asset.assetName).filter(Boolean);
         if (assetNames.length) {
           amenityList = assetNames;
         }
+
+        // populate images from room detail so user can reuse room-uploaded photos
+        if (Array.isArray(detail.imageUrls) && detail.imageUrls.length) {
+          const imgs = detail.imageUrls.map((u) => ({ uri: resolveImageUrl(u), uploadedUrl: u, name: undefined }));
+          setImages(imgs);
+        }
       } catch (err) {
         console.warn('Không thể tải tiện nghi từ DB', err);
       }
-      setSelectedAmenities(amenityList);
+      // initial amenities are those already present in the room; user can add more below
+      setInitialAmenities(amenityList);
+      setAddedAmenities([]);
       setAmenityCatalog(mergeAmenities(DEFAULT_AMENITIES, amenityList));
 
       const contract = await contractService.getById(myRoom.contractId);
@@ -245,7 +258,7 @@ export default function RoommateCreateScreen() {
       contactName,
       contactPhone,
       servicePrices: servicePricePayload,
-      amenities: selectedAmenities,
+      amenities: [...initialAmenities, ...addedAmenities],
       imageUrls: [],
     };
 
@@ -268,7 +281,7 @@ export default function RoommateCreateScreen() {
           return;
         }
       }
-
+    
       payload.imageUrls = uploadedUrls;
 
       await postService.create(payload);
@@ -307,22 +320,23 @@ export default function RoommateCreateScreen() {
   const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
 
   const handleAddAmenity = (amenity: string) => {
-    if (selectedAmenities.includes(amenity)) {
+    if (initialAmenities.includes(amenity) || addedAmenities.includes(amenity)) {
       Alert.alert('Tiện ích đã có', 'Tiện ích này đã nằm trong danh sách.');
       return;
     }
-    setSelectedAmenities((prev) => [...prev, amenity]);
+    setAddedAmenities((prev) => [...prev, amenity]);
   };
 
   const handleRemoveAmenity = (name: string) => {
-    setSelectedAmenities((prev) => prev.filter((item) => item !== name));
+    // only allow removing user-added amenities, not initial room amenities
+    setAddedAmenities((prev) => prev.filter((item) => item !== name));
   };
 
   const addCustomAmenity = () => {
     const value = (newAmenity || '').trim();
     if (!value) return;
     setAmenityCatalog((prev) => (prev.includes(value) ? prev : [...prev, value]));
-    setSelectedAmenities((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    setAddedAmenities((prev) => (prev.includes(value) ? prev : [...prev, value]));
     setNewAmenity('');
   };
 
@@ -344,6 +358,16 @@ export default function RoommateCreateScreen() {
           <>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Thông tin phòng (từ hệ thống)</Text>
+              {roomDetail?.imageUrls && roomDetail.imageUrls.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8, marginBottom: 8 }}>
+                  {roomDetail.imageUrls.map((u, i) => (
+                    <Image key={u + i} source={{ uri: resolveImageUrl(u) }} style={{ width: 140, height: 96, borderRadius: 8, marginRight: 8 }} />
+                  ))}
+                </ScrollView>
+              )}
+              {roomDetail?.description ? (
+                <Text style={[styles.roomText, { marginBottom: 8 }]}>{roomDetail.description}</Text>
+              ) : null}
               <Text style={styles.roomText}>Phòng: {room.roomCode}</Text>
               <Text style={styles.roomText}>Vị trí: {room.buildingName} - Tầng {room.floorNumber}</Text>
               <Text style={styles.roomText}>Diện tích: {room.area ?? 0} m²</Text>
@@ -405,33 +429,44 @@ export default function RoommateCreateScreen() {
 
               <View style={{ marginTop: 8 }}>
                 <Text style={styles.label}>Tiện nghi</Text>
-                <View style={styles.amenityPickerBox}>
-                  {availableAmenities.length > 0 ? (
-                    <View style={styles.amenityList}>
-                      {availableAmenities.map((amenity, idx) => (
-                        <TouchableOpacity
-                          key={`${amenity}-${idx}`}
-                          style={styles.amenityOption}
-                          onPress={() => handleAddAmenity(amenity)}
-                        >
-                          <Text style={styles.amenityOptionText}>{amenity}</Text>
+                  <View style={styles.amenityPickerBox}>
+                    <Text style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>Tiện nghi hiện có trong phòng</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {initialAmenities.length > 0 ? initialAmenities.map((amenity, idx) => (
+                        <View key={`${amenity}-init-${idx}`} style={styles.selectedAmenityTag}>
+                          <Text style={styles.selectedAmenityText}>{amenity}</Text>
+                        </View>
+                      )) : <Text style={styles.mutedText}>Chưa có tiện nghi</Text>}
+                    </View>
+
+                    <View style={{ height: 12 }} />
+                    <Text style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>Thêm tiện nghi (nếu muốn)</Text>
+                    {availableAmenities.length > 0 ? (
+                      <View style={styles.amenityList}>
+                        {availableAmenities.map((amenity, idx) => (
+                          <TouchableOpacity
+                            key={`${amenity}-${idx}`}
+                            style={styles.amenityOption}
+                            onPress={() => handleAddAmenity(amenity)}
+                          >
+                            <Text style={styles.amenityOptionText}>{amenity}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.mutedText}>Không còn tiện ích nào để thêm</Text>
+                    )}
+                  </View>
+                  <View style={styles.selectedAmenityList}>
+                    {addedAmenities.length > 0 ? addedAmenities.map((amenity, idx) => (
+                      <View key={`${amenity}-${idx}`} style={styles.selectedAmenityTag}>
+                        <Text style={styles.selectedAmenityText}>{amenity}</Text>
+                        <TouchableOpacity onPress={() => handleRemoveAmenity(amenity)}>
+                          <Ionicons name="close" size={14} color="#DC2626" />
                         </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.mutedText}>Không còn tiện ích nào để thêm</Text>
-                  )}
-                </View>
-                <View style={styles.selectedAmenityList}>
-                  {selectedAmenities.length > 0 ? selectedAmenities.map((amenity, idx) => (
-                    <View key={`${amenity}-${idx}`} style={styles.selectedAmenityTag}>
-                      <Text style={styles.selectedAmenityText}>{amenity}</Text>
-                      <TouchableOpacity onPress={() => handleRemoveAmenity(amenity)}>
-                        <Ionicons name="close" size={14} color="#DC2626" />
-                      </TouchableOpacity>
-                    </View>
-                  )) : <Text style={styles.mutedText}>Chưa có tiện nghi</Text>}
-                </View>
+                      </View>
+                    )) : null}
+                  </View>
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
