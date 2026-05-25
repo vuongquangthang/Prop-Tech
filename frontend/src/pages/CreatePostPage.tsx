@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Edit2 } from 'lucide-react';
+import { ArrowLeft, Check, Edit2, Image as ImageIcon } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
@@ -6,12 +6,23 @@ import { postService, type RoomOption, type PostRecord, type PostServiceLineItem
 import { serviceService } from '../services/api.service';
 import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
+import { API_CONFIG } from '../lib/api-config';
 
 interface AssetOption {
   id: number;
   assetName: string;
   assetCode: string;
 }
+
+const resolveImageUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+
+  const baseUrl = (API_CONFIG.BASE_URL || '').replace(/\/+$/, '');
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 
 export function CreatePostPage() {
   const navigate = useNavigate();
@@ -452,7 +463,7 @@ export function CreatePostPage() {
           </div>
 
           {selectedRoom && (
-            <>
+            <div className="space-y-6">
               <div className="space-y-4">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Tiêu đề bài đăng</h4>
                 <div>
@@ -473,7 +484,7 @@ export function CreatePostPage() {
               <div className="space-y-4">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin phòng</h4>
 
-                <div className="rounded border border-gray-300 bg-gray-50 p-4">
+                <div className="rounded border border-gray-300 bg-gray-50 p-4 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Mã phòng</p>
@@ -501,14 +512,36 @@ export function CreatePostPage() {
                     </div>
                   </div>
 
-                  {selectedRoomType === 'single' ? (
-                      <div className="mt-4 border-t border-gray-300 pt-4">
-                        <p className="text-sm text-gray-600">
-                          {((selectedRoom as any).hasPrivateBathroom ?? false) ? '✓ Có vệ sinh khép kín' : '✕ Không có vệ sinh khép kín'}
-                        </p>
+                  <div className="border-t border-gray-300 pt-4">
+                    <p className="mb-2 text-sm text-gray-600">Ảnh phòng</p>
+                    {Array.isArray(selectedRoom.imageUrls) && selectedRoom.imageUrls.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                        {selectedRoom.imageUrls.slice(0, 6).map((url, idx) => (
+                          <div key={idx} className="aspect-[4/3] overflow-hidden rounded border border-gray-300 bg-white">
+                            <img
+                              src={resolveImageUrl(url)}
+                              alt={`Ảnh phòng ${idx + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ))}
                       </div>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-500">
+                        <ImageIcon size={18} className="text-gray-400" />
+                        Chưa có ảnh phòng
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedRoomType === 'single' ? (
+                    <div className="border-t border-gray-300 pt-4">
+                      <p className="text-sm text-gray-600">
+                        {((selectedRoom as any).hasPrivateBathroom ?? false) ? '✓ Có vệ sinh khép kín' : '✕ Không có vệ sinh khép kín'}
+                      </p>
+                    </div>
                   ) : (
-                    <div className="mt-4 border-t border-gray-300 pt-4">
+                    <div className="border-t border-gray-300 pt-4">
                       <p className="mb-2 text-sm text-gray-600">Cấu trúc căn hộ:</p>
                       <div className="grid grid-cols-4 gap-2 text-sm text-gray-700">
                         <div>{(selectedRoom as any).rooms?.living ?? '—'} phòng khách</div>
@@ -519,7 +552,7 @@ export function CreatePostPage() {
                     </div>
                   )}
 
-                  <div className="mt-4 border-t border-gray-300 pt-4">
+                  <div className="border-t border-gray-300 pt-4">
                     <p className="mb-2 text-sm text-gray-600">Tiện nghi:</p>
                     <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
                       {availableAssetAmenities.length > 0 ? (
@@ -556,10 +589,11 @@ export function CreatePostPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 border-t border-gray-300 pt-4">
-                    <p className="mb-3 text-sm text-gray-600">Dịch vụ đi kèm:</p>
-                    <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
-                      {availableCatalogServices.length > 0 ? (
+                  <div className="border-t border-gray-300 pt-4">
+                    <p className="mb-2 text-sm text-gray-600">Dịch vụ đi kèm:</p>
+
+                    {availableCatalogServices.length > 0 && (
+                      <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
                         <div className="flex flex-wrap gap-2">
                           {availableCatalogServices.map((service) => (
                             <button
@@ -572,75 +606,71 @@ export function CreatePostPage() {
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <span className="text-xs text-gray-500">Không còn dịch vụ nào để thêm</span>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
                     <div className="overflow-hidden rounded border border-gray-300">
                       <table className="w-full">
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="border-b border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-600">Tên dịch vụ</th>
-                            <th className="border-b border-gray-300 px-4 py-2 text-center text-sm font-semibold text-gray-600">Giá tiền</th>
-                            <th className="border-b border-gray-300 px-4 py-2 text-center text-sm font-semibold text-gray-600">Thao tác</th>
+                            <th className="border-b border-gray-300 px-4 py-2 text-right text-sm font-semibold text-gray-600">Giá tiền</th>
                           </tr>
                         </thead>
                         <tbody>
                           {localServices.length === 0 ? (
                             <tr className="border-b border-gray-200 last:border-b-0">
-                              <td className="px-4 py-3 text-sm text-gray-700" colSpan={3}>
+                              <td className="px-4 py-3 text-sm text-gray-700" colSpan={2}>
                                 <span className="text-sm text-gray-600">Chưa chọn dịch vụ nào từ danh mục đơn giá.</span>
                               </td>
                             </tr>
                           ) : (
                             localServices.map((service: any, idx: number) => (
-                            <tr key={idx} className="border-b border-gray-200 last:border-b-0">
-                              <td className="px-4 py-3 text-sm text-gray-700">{service.name}</td>
-                              <td className="px-4 py-3 text-center">
-                                <div className="flex items-center justify-center space-x-2">
-                                  {editingServiceIndex === idx ? (
-                                    <input
-                                      type="text"
-                                      value={getServicePrice(idx, service.price ?? service.unitPrice ?? service.amount ?? '')}
-                                      onChange={(e) => handleServicePriceChange(idx, e.target.value)}
-                                      className="w-32 rounded border border-gray-300 px-2 py-1 text-center text-sm focus:border-blue-500 focus:outline-none"
-                                    />
-                                  ) : (
-                                    <span className="text-sm text-gray-800">
-                                      {getServicePrice(idx, service.price ?? service.unitPrice ?? service.amount ?? '')} {service.unit ?? ''}
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (editingServiceIndex === idx) {
-                                        // save to localServices
-                                        const key = `${selectedRoomId}-${idx}`;
-                                        const updatedPrice = servicePrices[key] ?? '';
-                                        setLocalServices((prev) => prev.map((s, i) => (i === idx ? { ...s, price: updatedPrice } : s)));
-                                        handleServicePriceSave();
-                                      } else {
-                                        handleServicePriceEdit(idx, service.price ?? service.unitPrice ?? service.amount ?? '');
-                                      }
-                                    }}
-                                    className="rounded p-1 hover:bg-gray-100"
-                                    title="Chỉnh sửa"
-                                  >
-                                    <Edit2 size={14} className="text-gray-600" />
-                                  </button>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveService(idx)}
-                                  className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                                  title="Bỏ dịch vụ"
-                                >
-                                  Xóa
-                                </button>
-                              </td>
-                            </tr>
+                              <tr key={idx} className="border-b border-gray-200 last:border-b-0">
+                                <td className="px-4 py-3 text-sm text-gray-700">{service.name}</td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    {editingServiceIndex === idx ? (
+                                      <>
+                                        <input
+                                          type="text"
+                                          value={getServicePrice(idx, service.price ?? service.unitPrice ?? service.amount ?? '')}
+                                          onChange={(e) => handleServicePriceChange(idx, e.target.value)}
+                                          className="w-32 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-blue-500 focus:outline-none"
+                                        />
+                                        <span className="text-xs text-gray-600">VNĐ/{service.unit ?? ''}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const key = `${selectedRoomId}-${idx}`;
+                                            const updatedPrice = servicePrices[key] ?? '';
+                                            setLocalServices((prev) => prev.map((s, i) => (i === idx ? { ...s, price: updatedPrice } : s)));
+                                            handleServicePriceSave();
+                                          }}
+                                          className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
+                                        >
+                                          Lưu
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="text-sm font-medium text-gray-800">
+                                          {getServicePrice(idx, service.price ?? service.unitPrice ?? service.amount ?? '')}
+                                        </span>
+                                        <span className="text-xs text-gray-600">VNĐ/{service.unit ?? ''}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleServicePriceEdit(idx, service.price ?? service.unitPrice ?? service.amount ?? '')}
+                                          className="rounded p-1 hover:bg-gray-100"
+                                          title="Chỉnh sửa giá"
+                                        >
+                                          <Edit2 size={14} className="text-gray-600" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
                             ))
                           )}
                         </tbody>
@@ -652,7 +682,6 @@ export function CreatePostPage() {
 
               <div className="space-y-4">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thời gian vào ở</h4>
-
                 <div>
                   <label className="mb-3 block text-sm text-gray-700">Có thể vào ở *</label>
                   <div className="space-y-3">
@@ -665,7 +694,9 @@ export function CreatePostPage() {
                         checked={moveInType === 'immediate'}
                         onChange={(e) => {
                           setMoveInType(e.target.value as 'immediate' | 'from-date');
-                          setMoveInDateInput('');
+                          if (e.target.value === 'immediate') {
+                            setMoveInDateInput('');
+                          }
                         }}
                         className="h-4 w-4"
                       />
@@ -697,104 +728,48 @@ export function CreatePostPage() {
 
               <div className="space-y-4">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin bổ sung</h4>
-
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Có nằm trong khu vực dễ ngập lụt *</label>
                   <div className="flex items-center space-x-6">
                     <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="flood-yes"
-                        name="flood"
-                        value="yes"
-                        checked={floodProne === 'yes'}
-                        onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')}
-                        className="h-4 w-4"
-                      />
+                      <input type="radio" id="flood-yes" name="flood" value="yes" checked={floodProne === 'yes'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4" />
                       <label htmlFor="flood-yes" className="text-sm text-gray-700">Có</label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="flood-no"
-                        name="flood"
-                        value="no"
-                        checked={floodProne === 'no'}
-                        onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')}
-                        className="h-4 w-4"
-                      />
+                      <input type="radio" id="flood-no" name="flood" value="no" checked={floodProne === 'no'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4" />
                       <label htmlFor="flood-no" className="text-sm text-gray-700">Không</label>
                     </div>
                   </div>
                 </div>
-
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Yêu cầu từ chủ nhà khi cho thuê (nếu có)</label>
-                  <textarea
-                    rows={3}
-                    placeholder="VD: Không nuôi thú cưng, không hút thuốc trong phòng..."
-                    value={landlordRequirementsInput}
-                    onChange={(e) => setLandlordRequirementsInput(e.target.value)}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                  />
+                  <textarea rows={3} placeholder="VD: Không nuôi thú cưng, không hút thuốc trong phòng..." value={landlordRequirementsInput} onChange={(e) => setLandlordRequirementsInput(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none" />
                 </div>
               </div>
 
               <div className="space-y-4">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin liên hệ</h4>
-
                 <div>
                   <label className="mb-3 block text-sm text-gray-700">Chọn thông tin liên hệ *</label>
                   <div className="space-y-3">
                     <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="contact-current"
-                        name="contact"
-                        value="current"
-                        checked={contactType === 'current'}
-                        onChange={(e) => setContactType(e.target.value as 'current' | 'other')}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor="contact-current" className="text-sm text-gray-700">
-                        Lấy từ tài khoản đang dùng <span className="text-gray-500">(Nguyễn Văn A - 0912345678)</span>
-                      </label>
+                      <input type="radio" id="contact-current" name="contact" value="current" checked={contactType === 'current'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
+                      <label htmlFor="contact-current" className="text-sm text-gray-700">Lấy từ tài khoản đang dùng <span className="text-gray-500">(Nguyễn Văn A - 0912345678)</span></label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="contact-other"
-                        name="contact"
-                        value="other"
-                        checked={contactType === 'other'}
-                        onChange={(e) => setContactType(e.target.value as 'current' | 'other')}
-                        className="h-4 w-4"
-                      />
+                      <input type="radio" id="contact-other" name="contact" value="other" checked={contactType === 'other'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
                       <label htmlFor="contact-other" className="text-sm text-gray-700">Khác (Nhập thủ công)</label>
                     </div>
                   </div>
-
                   {contactType === 'other' && (
                     <div className="mt-4 grid grid-cols-2 gap-4 border-l-2 border-gray-300 pl-6">
                       <div>
                         <label className="mb-2 block text-sm text-gray-700">Tên người liên hệ *</label>
-                            <input
-                              type="text"
-                              placeholder="VD: Nguyễn Văn B"
-                              value={contactNameInput}
-                              onChange={(e) => setContactNameInput(e.target.value)}
-                              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                            />
+                        <input type="text" placeholder="VD: Nguyễn Văn B" value={contactNameInput} onChange={(e) => setContactNameInput(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none" />
                       </div>
                       <div>
                         <label className="mb-2 block text-sm text-gray-700">Số điện thoại *</label>
-                            <input
-                              type="tel"
-                              placeholder="VD: 0987654321"
-                              value={contactPhoneInput}
-                              onChange={(e) => setContactPhoneInput(e.target.value)}
-                              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                            />
+                        <input type="tel" placeholder="VD: 0987654321" value={contactPhoneInput} onChange={(e) => setContactPhoneInput(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none" />
                       </div>
                     </div>
                   )}
@@ -803,25 +778,10 @@ export function CreatePostPage() {
 
               <div className="space-y-4">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Ảnh minh họa</h4>
-
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Thêm ảnh (tối đa 6 ảnh)</label>
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={handleDrop}
-                    role="button"
-                    tabIndex={0}
-                    className="flex cursor-pointer items-center justify-center flex-col gap-2 rounded border-2 border-dashed border-gray-300 p-6 text-center hover:bg-gray-50"
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => handleFilesSelected(e.target.files)}
-                      className="hidden"
-                    />
+                  <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} role="button" tabIndex={0} className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-gray-300 p-6 text-center hover:bg-gray-50">
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFilesSelected(e.target.files)} className="hidden" />
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16l5-5 5 5M12 11v10" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -829,24 +789,17 @@ export function CreatePostPage() {
                     <div className="text-sm font-medium text-gray-700">Kéo thả ảnh vào đây hoặc bấm để chọn</div>
                     <div className="text-xs text-gray-500">PNG, JPG, JPEG — tối đa {6} ảnh. Bạn còn {Math.max(0, 6 - imagePreviews.length)} ảnh có thể thêm.</div>
                   </div>
-
                   <div className="mt-3 flex flex-wrap gap-3">
                     {imagePreviews.map((src, idx) => (
-                      <div key={idx} className="relative w-28 h-20 overflow-hidden rounded border">
-                        <img src={src} alt={`preview-${idx}`} className="object-cover w-full h-full" />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(idx)}
-                          className="absolute top-1 right-1 rounded bg-white/90 px-1 py-0.5 text-xs"
-                        >
-                          X
-                        </button>
+                      <div key={idx} className="relative h-20 w-28 overflow-hidden rounded border">
+                        <img src={src} alt={`preview-${idx}`} className="h-full w-full object-cover" />
+                        <button type="button" onClick={() => removeImage(idx)} className="absolute right-1 top-1 rounded bg-white/90 px-1 py-0.5 text-xs">X</button>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
 
