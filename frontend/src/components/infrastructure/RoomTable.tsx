@@ -14,6 +14,7 @@ interface RoomData {
   maxPeople: number;
   price: number;
   status: string;
+  description?: string;
   type?: string;
   hasPrivateBathroom?: boolean;
   rooms?: {
@@ -22,6 +23,7 @@ interface RoomData {
     kitchen?: number | null;
     bathroom?: number | null;
   };
+
   amenities?: string[];
   serviceIds?: number[];
   imageUrls?: string[];
@@ -80,6 +82,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [addServiceIds, setAddServiceIds] = useState<number[]>([]);
   const [addImagePreview, setAddImagePreview] = useState<string | null>(null);
   const [addImageFile, setAddImageFile] = useState<File | null>(null);
+  const [addDescription, setAddDescription] = useState<string>('');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -92,6 +95,17 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [editMaxPeople, setEditMaxPeople] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editStatus, setEditStatus] = useState('Trống');
+  const [editRoomType, setEditRoomType] = useState<'single' | 'apartment'>('single');
+  const [editHasPrivateBathroom, setEditHasPrivateBathroom] = useState(false);
+  const [editLivingRoomCount, setEditLivingRoomCount] = useState('');
+  const [editBedroomCount, setEditBedroomCount] = useState('');
+  const [editKitchenCount, setEditKitchenCount] = useState('');
+  const [editBathroomCount, setEditBathroomCount] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editAmenities, setEditAmenities] = useState<string[]>([]);
+  const [editServiceIds, setEditServiceIds] = useState<number[]>([]);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -126,7 +140,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         maxPeople: room.maxOccupants || 0,
         price: room.defaultRentPrice || room.monthlyRent || room.giaThue || 0,
         status: room.status || room.trangThai || 'Trống',
-        type: room.roomType || room.type || 'single',
+        description: room.description || room.moTa || '',
+        type: room.roomType || room.loaiPhong || room.type || 'single',
         hasPrivateBathroom: !!(room.hasPrivateBathroom ?? room.privateBathroom ?? false),
         rooms: room.rooms || {
           living: room.livingRoomCount ?? null,
@@ -209,19 +224,22 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     reader.readAsDataURL(file);
   };
 
-  const openAddModal = async () => {
-    let refreshedFloors = selectableFloors;
-    try {
-      const allFloors = await floorService.getAll();
-      setFloors(allFloors);
-      refreshedFloors = selectedBuildingId
-        ? allFloors.filter(f => f.buildingId === selectedBuildingId)
-        : allFloors;
-    } catch {
-      // Use current in-memory list if fetch fails.
+  const handleEditImageChange = (file?: File | null) => {
+    if (!file) {
+      setEditImageFile(null);
+      setEditImagePreview(selectedRoom?.imageUrls?.[0] ?? null);
+      return;
     }
 
-    try {
+    setEditImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setEditImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+
+    const openAddModal = async () => {
+      try {
       const services = await serviceService.getAll();
       setServiceCatalog(services);
     } catch {
@@ -229,8 +247,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     }
 
     const defaultFloorId =
-      (selectedFloorId != null && refreshedFloors.some(f => f.id === selectedFloorId) ? selectedFloorId : null)
-      ?? refreshedFloors[0]?.id
+      (selectedFloorId != null && selectableFloors.some(f => f.id === selectedFloorId) ? selectedFloorId : null)
+      ?? selectableFloors[0]?.id
       ?? 0;
 
     setAddFloorId(defaultFloorId);
@@ -245,10 +263,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setAddBedroomCount('');
     setAddKitchenCount('');
     setAddBathroomCount('');
-    setAddAmenities([]);
     setAddServiceIds([]);
     setAddImagePreview(null);
     setAddImageFile(null);
+    setAddDescription('');
     setAddError(null);
     setShowAddModal(true);
   };
@@ -289,6 +307,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         kitchenCount: addRoomType === 'apartment' ? parseInt(addKitchenCount, 10) : null,
         bathroomCount: addRoomType === 'apartment' ? parseInt(addBathroomCount, 10) : null,
         imageUrls,
+        description: addDescription,
         amenities: addAmenities,
         serviceIds: addServiceIds,
       } as any);
@@ -299,14 +318,33 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     finally { setAddLoading(false); }
   };
 
-  const openEditModal = (room: RoomData) => {
+  const openEditModal = async (room: RoomData) => {
     setSelectedRoom(room);
     setEditRoomCode(room.code);
     setEditArea(String(room.area));
     setEditMaxPeople(String(room.maxPeople || ''));
     setEditPrice(String(room.price));
     setEditStatus(room.status);
+    setEditRoomType((room.type || 'single') as 'single' | 'apartment');
+    setEditHasPrivateBathroom(!!room.hasPrivateBathroom);
+    setEditLivingRoomCount(room.rooms?.living != null ? String(room.rooms.living) : '');
+    setEditBedroomCount(room.rooms?.bedroom != null ? String(room.rooms.bedroom) : '');
+    setEditKitchenCount(room.rooms?.kitchen != null ? String(room.rooms.kitchen) : '');
+    setEditBathroomCount(room.rooms?.bathroom != null ? String(room.rooms.bathroom) : '');
+    setEditDescription(room.description ?? '');
+    setEditImagePreview((room.imageUrls && room.imageUrls.length > 0) ? room.imageUrls[0] : null);
+    setEditImageFile(null);
+    setEditAmenities(room.amenities ?? []);
+    setEditServiceIds(room.serviceIds ?? []);
     setEditError(null);
+
+    try {
+      const services = await serviceService.getAll();
+      setServiceCatalog(services);
+    } catch {
+      setServiceCatalog([]);
+    }
+
     setShowEditModal(true);
   };
 
@@ -315,12 +353,27 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setEditLoading(true); setEditError(null);
     try {
       const maxPeopleValue = editMaxPeople ? parseInt(editMaxPeople, 10) : 0;
+      const imageUrls: string[] = selectedRoom.imageUrls ? [...selectedRoom.imageUrls] : [];
+      if (editImageFile) {
+        const uploaded = await fileService.upload(editImageFile);
+        if (uploaded) imageUrls.unshift(uploaded);
+      }
       await roomService.update(selectedRoom.id, {
         roomCode: editRoomCode.trim(),
         area: parseFloat(editArea),
         maxOccupants: maxPeopleValue,
         defaultRentPrice: parseFloat(editPrice),
-        status: editStatus
+        status: editStatus,
+        roomType: editRoomType,
+        hasPrivateBathroom: editRoomType === 'single' ? editHasPrivateBathroom : false,
+        livingRoomCount: editRoomType === 'apartment' ? parseInt(editLivingRoomCount, 10) : null,
+        bedroomCount: editRoomType === 'apartment' ? parseInt(editBedroomCount, 10) : null,
+        kitchenCount: editRoomType === 'apartment' ? parseInt(editKitchenCount, 10) : null,
+        bathroomCount: editRoomType === 'apartment' ? parseInt(editBathroomCount, 10) : null,
+        description: editDescription,
+        imageUrls,
+        amenities: editAmenities,
+        serviceIds: editServiceIds,
       } as any);
 
       await fetchRooms();
@@ -643,6 +696,18 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 </div>
               </div>
 
+                {/* Description */}
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">Mô tả</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Mô tả chi tiết về phòng..."
+                    value={addDescription}
+                    onChange={e => setAddDescription(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                  />
+                </div>
+
               {addError && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{addError}</p>
               )}
@@ -661,44 +726,181 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       )}
 
       {showEditModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-[900px] max-h-[90vh] overflow-y-auto">
+            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
               <h3 className="text-lg text-gray-800">Chỉnh sửa Phòng - {selectedRoom.code}</h3>
               <button onClick={() => setShowEditModal(false)} className="p-1 hover:bg-gray-100 rounded"><X size={20} className="text-gray-600" /></button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+
+            <div className="p-6 space-y-6">
+              <div className="bg-blue-50 border border-blue-300 rounded p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Vị trí:</strong> {floors.find(f => f.id === selectedRoom.floorId)?.buildingName ? `${floors.find(f => f.id === selectedRoom.floorId)?.buildingName} - ` : ''}Tầng {floors.find(f => f.id === selectedRoom.floorId)?.floorNumber ?? selectedRoom.floorId}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Thông tin cơ bản</h4>
+
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">Mã phòng *</label>
-                  <input type="text" value={editRoomCode} onChange={e => setEditRoomCode(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                  <label className="block text-sm text-gray-700 mb-2">Ảnh phòng</label>
+                  <div className="flex items-start gap-4">
+                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
+                      {editImagePreview ? (
+                        <img src={editImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Upload size={32} className="text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleEditImageChange(e.target.files?.[0] ?? null)}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-gray-800 file:text-white hover:file:bg-gray-700"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Hỗ trợ: JPG, PNG. Dung lượng tối đa 5MB</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-2">Diện tích (m²) *</label>
-                  <input type="number" value={editArea} onChange={e => setEditArea(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Mã phòng *</label>
+                    <input type="text" value={editRoomCode} onChange={e => setEditRoomCode(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Diện tích (m²) *</label>
+                    <input type="number" value={editArea} onChange={e => setEditArea(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Số người tối đa *</label>
+                    <input type="number" value={editMaxPeople} onChange={e => setEditMaxPeople(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Loại phòng *</label>
+                    <select value={editRoomType} onChange={e => setEditRoomType(e.target.value as 'single' | 'apartment')} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+                      <option value="single">Phòng đơn</option>
+                      <option value="apartment">Căn hộ</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Giá thuê (VNĐ/tháng) *</label>
+                    <input type="text" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Trạng thái *</label>
+                    <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+                      <option value="Trống">Trống</option>
+                      <option value="Đã thuê">Đã thuê</option>
+                      <option value="Bảo trì">Bảo trì</option>
+                    </select>
+                  </div>
                 </div>
               </div>
+
+              <div className="space-y-4">
+                <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Chi tiết phòng</h4>
+                {editRoomType === 'single' ? (
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="private-bathroom-edit" checked={editHasPrivateBathroom} onChange={(e) => setEditHasPrivateBathroom(e.target.checked)} className="w-4 h-4" />
+                    <label htmlFor="private-bathroom-edit" className="text-sm text-gray-700">Có vệ sinh khép kín</label>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-2">Số phòng khách *</label>
+                      <input type="number" min="0" value={editLivingRoomCount} onChange={e => setEditLivingRoomCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-2">Số phòng ngủ *</label>
+                      <input type="number" min="0" value={editBedroomCount} onChange={e => setEditBedroomCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-2">Số phòng bếp *</label>
+                      <input type="number" min="0" value={editKitchenCount} onChange={e => setEditKitchenCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-2">Số phòng vệ sinh *</label>
+                      <input type="number" min="0" value={editBathroomCount} onChange={e => setEditBathroomCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">Phí dịch vụ cơ bản</label>
+                  <div className="bg-blue-50 border border-blue-300 rounded px-3 py-2 mb-3">
+                    <p className="text-xs text-blue-800">
+                      💡 Danh sách dịch vụ được lấy từ <strong>Quản lý Hạ tầng → Quản lý dịch vụ</strong>
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                    {serviceCatalog.length === 0 ? (
+                      <span className="text-xs text-gray-500">Chưa có dịch vụ nào</span>
+                    ) : (
+                      serviceCatalog.map((service) => (
+                        <div className="flex items-center space-x-2" key={service.id}>
+                          <input
+                            type="checkbox"
+                            id={`edit-service-${service.id}`}
+                            className="w-4 h-4"
+                            checked={editServiceIds.includes(service.id)}
+                            onChange={() => setEditServiceIds(prev => prev.includes(service.id) ? prev.filter(id => id !== service.id) : [...prev, service.id])}
+                          />
+                          <label htmlFor={`edit-service-${service.id}`} className="text-sm text-gray-700">
+                            {service.name} {service.unit ? `(${service.unit})` : ''}
+                          </label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {amenityOptions.map((amenity) => (
+                      <div className="flex items-center space-x-2" key={amenity.key}>
+                        <input
+                          type="checkbox"
+                          id={`edit-amenity-${amenity.key}`}
+                          className="w-4 h-4"
+                          checked={editAmenities.includes(amenity.label)}
+                          onChange={() => setEditAmenities(prev => prev.includes(amenity.label) ? prev.filter(item => item !== amenity.label) : [...prev, amenity.label])}
+                        />
+                        <label htmlFor={`edit-amenity-${amenity.key}`} className="text-sm text-gray-700">{amenity.label}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Số người tối đa</label>
-                <input type="number" value={editMaxPeople} onChange={e => setEditMaxPeople(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                <label className="block text-sm text-gray-700 mb-2">Mô tả</label>
+                <textarea
+                  rows={3}
+                  placeholder="Mô tả chi tiết về phòng..."
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-700 mb-2">Giá thuê (VNĐ/tháng) *</label>
-                  <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-2">Trạng thái *</label>
-                  <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-                    <option value="Trống">Trống</option>
-                    <option value="Đã thuê">Đã thuê</option>
-                    <option value="Bảo trì">Bảo trì</option>
-                  </select>
-                </div>
-              </div>
+
               {editError && <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{editError}</p>}
             </div>
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
+
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
               <button onClick={() => setShowEditModal(false)} disabled={editLoading} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50">Hủy</button>
               <button onClick={handleEditSubmit} disabled={editLoading} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2">
                 {editLoading && <Loader2 size={14} className="animate-spin" />}<span>Lưu thay đổi</span>
