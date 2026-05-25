@@ -473,7 +473,6 @@ export const knowledgeService = {
         activated: number;
         entries: KnowledgeBase[];
       }>(API_ENDPOINTS.KNOWLEDGE.UPLOAD_DOCUMENT, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
       });
       return response.data;
     } catch (error) {
@@ -489,11 +488,7 @@ export const fileService = {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await api.post<{ url: string }>(API_ENDPOINTS.FILE.UPLOAD, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await api.post<{ url: string }>(API_ENDPOINTS.FILE.UPLOAD, formData);
       return response.data.url;
     } catch (error) {
       throw new Error(handleApiError(error));

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { roomService, floorService, serviceService } from '../../services/api.service';
 import type { Floor } from '../../services/api.service';
 import type { Service } from '../../services/api.service';
+import { API_CONFIG } from '../../lib/api-config';
 import { fileService } from '../../services/feature.service';
 
 interface RoomData {
@@ -40,6 +41,16 @@ const statusConfig = {
 
 const getStatusConfig = (status: string) => {
   return (statusConfig as any)[status] || statusConfig['Trống'];
+};
+
+const resolveRoomImageUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+
+  const baseUrl = (API_CONFIG.BASE_URL || '').replace(/\/+$/, '');
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
 const amenityOptions = [
@@ -151,7 +162,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         },
         amenities: room.amenities || [],
         serviceIds: room.serviceIds || [],
-        imageUrls: room.imageUrls || [],
+        imageUrls: Array.isArray(room.imageUrls)
+          ? room.imageUrls.map((url: string) => resolveRoomImageUrl(url)).filter(Boolean)
+          : [],
       }));
       setRooms(roomData);
     } catch (err: any) {
@@ -227,7 +240,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const handleEditImageChange = (file?: File | null) => {
     if (!file) {
       setEditImageFile(null);
-      setEditImagePreview(selectedRoom?.imageUrls?.[0] ?? null);
+      setEditImagePreview(selectedRoom?.imageUrls?.[0] ? resolveRoomImageUrl(selectedRoom.imageUrls[0]) : null);
       return;
     }
 
@@ -332,7 +345,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setEditKitchenCount(room.rooms?.kitchen != null ? String(room.rooms.kitchen) : '');
     setEditBathroomCount(room.rooms?.bathroom != null ? String(room.rooms.bathroom) : '');
     setEditDescription(room.description ?? '');
-    setEditImagePreview((room.imageUrls && room.imageUrls.length > 0) ? room.imageUrls[0] : null);
+    setEditImagePreview((room.imageUrls && room.imageUrls.length > 0) ? resolveRoomImageUrl(room.imageUrls[0]) : null);
     setEditImageFile(null);
     setEditAmenities(room.amenities ?? []);
     setEditServiceIds(room.serviceIds ?? []);
@@ -521,20 +534,26 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Ảnh phòng</label>
                   <div className="flex items-start gap-4">
-                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
+                    <label
+                      htmlFor="add-room-image"
+                      title="Bấm vào ô này để chọn ảnh"
+                      className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden cursor-pointer hover:border-gray-400 transition-colors"
+                    >
                       {addImagePreview ? (
                         <img src={addImagePreview} alt="Preview" className="w-full h-full object-cover" />
                       ) : (
                         <Upload size={32} className="text-gray-400" />
                       )}
-                    </div>
+                    </label>
                     <div className="flex-1">
                       <input
+                        id="add-room-image"
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleAddImageChange(e.target.files?.[0] ?? null)}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-gray-800 file:text-white hover:file:bg-gray-700"
+                        className="hidden"
                       />
+                      <p className="text-sm text-gray-700">Bấm vào ô biểu tượng để chọn ảnh từ máy</p>
                       <p className="text-xs text-gray-500 mt-1">Hỗ trợ: JPG, PNG. Dung lượng tối đa 5MB</p>
                     </div>
                   </div>
@@ -746,20 +765,26 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Ảnh phòng</label>
                   <div className="flex items-start gap-4">
-                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
+                    <label
+                      htmlFor="edit-room-image"
+                      title="Bấm vào ô này để chọn ảnh"
+                      className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden cursor-pointer hover:border-gray-400 transition-colors"
+                    >
                       {editImagePreview ? (
                         <img src={editImagePreview} alt="Preview" className="w-full h-full object-cover" />
                       ) : (
                         <Upload size={32} className="text-gray-400" />
                       )}
-                    </div>
+                    </label>
                     <div className="flex-1">
                       <input
+                        id="edit-room-image"
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleEditImageChange(e.target.files?.[0] ?? null)}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-gray-800 file:text-white hover:file:bg-gray-700"
+                        className="hidden"
                       />
+                      <p className="text-sm text-gray-700">Bấm vào ô biểu tượng để chọn ảnh từ máy</p>
                       <p className="text-xs text-gray-500 mt-1">Hỗ trợ: JPG, PNG. Dung lượng tối đa 5MB</p>
                     </div>
                   </div>
