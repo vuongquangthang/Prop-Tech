@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
 import { apiService } from '../services/api.service';
 import { LoginRequest, LoginResponse, UserDto } from '../types/dto';
 
@@ -7,11 +8,13 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  activeContractId: number | null;
   
   // Actions
   login: (phoneNumber: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
+  setActiveContract: (contractId: number | null) => Promise<void>;
   clearError: () => void;
 }
 
@@ -20,6 +23,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  activeContractId: null,
 
   login: async (phoneNumber: string, password: string) => {
     try {
@@ -46,6 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
         error: null,
+        // default activeContractId stays null until user picks
       });
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 
@@ -75,6 +80,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        activeContractId: null,
       });
     } catch (error) {
       console.error('Logout error:', error);
@@ -98,11 +104,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await apiService.getUser();
 
       if (accessToken && user) {
+        const activeStr = await SecureStore.getItemAsync('active_contract_id');
+        const activeId = activeStr ? parseInt(activeStr, 10) : null;
         set({
           user,
           isAuthenticated: true,
           isLoading: false,
           error: null,
+          activeContractId: activeId,
         });
       } else {
         set({
@@ -110,6 +119,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           isAuthenticated: false,
           isLoading: false,
           error: null,
+          activeContractId: null,
         });
       }
     } catch (error) {
@@ -125,5 +135,18 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => {
     set({ error: null });
+  },
+
+  setActiveContract: async (contractId: number | null) => {
+    try {
+      if (contractId == null) {
+        await SecureStore.deleteItemAsync('active_contract_id');
+      } else {
+        await SecureStore.setItemAsync('active_contract_id', String(contractId));
+      }
+      set({ activeContractId: contractId });
+    } catch (err) {
+      console.error('Failed to save activeContractId', err);
+    }
   },
 }));

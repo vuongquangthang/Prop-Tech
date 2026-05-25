@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
+import { contractService } from '../services/contract.service';
 import invoiceService, { Invoice } from '../services/invoice.service';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
 import { roomService, MyRoom } from '../services/room.service';
@@ -28,22 +29,63 @@ export default function HomeScreen() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [latestUnreadNotification, setLatestUnreadNotification] = useState<import('../services/notification.service').Notification | null>(null);
 
+  const activeContractId = useAuthStore((s) => s.activeContractId);
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [activeContractId]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, [activeContractId])
   );
 
   const loadData = async () => {
     try {
       // Load my room info
       try {
-        const roomData = await roomService.getMyRoom();
-        setMyRoom(roomData);
+        const activeContractId = useAuthStore.getState().activeContractId;
+        if (activeContractId) {
+          // Fetch contract then room detail directly to avoid stale/default my-room
+          const contract = await contractService.getById(activeContractId);
+          if (contract) {
+            const detail = await roomService.getRoomDetail(contract.roomId);
+            const primary = contract.residents?.find(r => r.residencyRole && (r.residencyRole.includes('Người thuê') || r.residencyRole.includes('Chủ')))
+              || contract.residents?.[0];
+
+            const myRoomFromContract = {
+              roomId: detail.id,
+              roomCode: detail.roomCode || '',
+              area: detail.area ?? null,
+              maxOccupants: detail.maxOccupants ?? null,
+              amenities: detail.amenities ?? [],
+              status: detail.status ?? 'N/A',
+              buildingId: 0,
+              buildingName: detail.buildingName ?? '',
+              buildingAddress: '',
+              floorId: 0,
+              floorNumber: detail.floorNumber ?? 0,
+              contractId: contract.id,
+              contractStartDate: contract.startDate,
+              contractEndDate: contract.expectedEndDate ?? null,
+              rentPrice: contract.actualRentPrice,
+              deposit: contract.depositAmount ?? 0,
+              householdHeadName: primary?.fullName,
+              services: [],
+              electricityBasePrice: null,
+              electricityTiers: [],
+              waterPricePerCubicMeter: null,
+            } as any;
+
+            setMyRoom(myRoomFromContract);
+          } else {
+            setMyRoom(null);
+          }
+        } else {
+          const roomData = await roomService.getMyRoom();
+          setMyRoom(roomData);
+        }
       } catch (err) {
         console.log('Could not load room info:', err);
         setMyRoom(null);

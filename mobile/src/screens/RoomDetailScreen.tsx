@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 // @ts-ignore - TypeScript cache issue, restart TS server if error persists
 import { roomService, MyRoom, ServiceInfo, ElectricityTier, RoomDetail } from '../services/room.service';
 import { contractService, ContractDetail } from '../services/contract.service';
+import { useAuthStore } from '../store/authStore';
 import { resolveImageUrl } from '../utils/image';
 
 export default function RoomDetailScreen() {
@@ -32,9 +33,11 @@ export default function RoomDetailScreen() {
   const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
+  const activeContractId = useAuthStore((s) => s.activeContractId);
+
   useEffect(() => {
     loadRoomData();
-  }, []);
+  }, [activeContractId]);
 
   const loadRoomData = async () => {
     try {

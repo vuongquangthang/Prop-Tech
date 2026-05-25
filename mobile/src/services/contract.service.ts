@@ -1,4 +1,5 @@
 import apiService from './api.service';
+import { useAuthStore } from '../store/authStore';
 
 export interface ContractResident {
   residentId: number;
@@ -31,6 +32,18 @@ export interface ContractDetail {
 class ContractService {
   async getById(id: number): Promise<ContractDetail> {
     return apiService.get<ContractDetail>(`/api/HopDong/${id}`);
+  }
+
+  /**
+   * Lấy danh sách hợp đồng đang hoạt động gắn với cư dân hiện tại
+   */
+  async getMyContracts(): Promise<ContractDetail[]> {
+    // Fetch active contracts from server then filter by current residentId
+    const allActive = await apiService.get<ContractDetail[]>('/api/HopDong/active');
+    const state = useAuthStore.getState();
+    const residentId = state.user?.residentId;
+    if (!residentId) return [];
+    return allActive.filter((c) => (c as any).residents?.some((r: any) => r.residentId === residentId));
   }
 }
 

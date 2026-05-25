@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { contractService } from '../services/contract.service';
+import { useAuthStore } from '../store/authStore';
 import { postService } from '../services/post.service';
 import { roomService } from '../services/room.service';
 import { PostDto } from '../types/dto';
@@ -57,6 +58,8 @@ export default function RoommatePostScreen() {
     }
   };
 
+  const activeContractId = useAuthStore((s) => s.activeContractId);
+
   const loadPost = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -78,7 +81,7 @@ export default function RoommatePostScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeContractId]);
 
   useFocusEffect(
     useCallback(() => {

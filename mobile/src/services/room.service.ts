@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { API_BASE_URL } from './api.service';
 import * as SecureStore from 'expo-secure-store';
+import { contractService } from './contract.service';
+import { useAuthStore } from '../store/authStore';
 
 export interface ElectricityTier {
   tierNumber: number;
@@ -88,6 +90,45 @@ class RoomService {
    */
   async getMyRoom(): Promise<MyRoom> {
     try {
+      // If user selected an activeContractId, prefer that contract's room
+      const activeContractId = useAuthStore.getState().activeContractId;
+      if (activeContractId) {
+        // Fetch contract detail then room detail and compose MyRoom
+        const contract = await contractService.getById(activeContractId);
+        if (contract) {
+          const roomDetail = await this.getRoomDetail(contract.roomId);
+          const primary = contract.residents?.find(r => r.residencyRole && (r.residencyRole.includes('Người thuê') || r.residencyRole.includes('Chủ')))
+            || contract.residents?.[0];
+
+          const myRoom: MyRoom = {
+            roomId: roomDetail.id,
+            roomCode: roomDetail.roomCode || '',
+            area: roomDetail.area ?? null,
+            maxOccupants: roomDetail.maxOccupants ?? null,
+            amenities: roomDetail.amenities ?? [],
+            status: roomDetail.status ?? 'N/A',
+            buildingId: 0,
+            buildingName: roomDetail.buildingName ?? '',
+            buildingAddress: '',
+            floorId: 0,
+            floorNumber: roomDetail.floorNumber ?? 0,
+            contractId: contract.id,
+            contractStartDate: contract.startDate,
+            contractEndDate: contract.expectedEndDate ?? null,
+            rentPrice: contract.actualRentPrice,
+            deposit: contract.depositAmount ?? 0,
+            householdHeadName: primary?.fullName,
+            services: [],
+            electricityBasePrice: null,
+            electricityTiers: [],
+            waterPricePerCubicMeter: null,
+          };
+
+          return myRoom;
+        }
+      }
+
+      // Fallback: fetch default my-room endpoint
       const response = await axios.get<MyRoom>(
         `${API_BASE_URL}/api/Rooms/my-room`,
         { headers: await this.getAuthHeaders() }

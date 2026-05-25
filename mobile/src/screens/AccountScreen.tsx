@@ -20,15 +20,18 @@ import { SettingRow } from '../components/SettingRow';
 import apiService from '../services/api.service';
 // @ts-ignore - TypeScript cache issue, restart TS server if error persists
 import { roomService, MyRoom } from '../services/room.service';
+import ContractPicker from '../components/ContractPicker';
 
 export default function AccountScreen() {
   const navigation = useNavigation();
   const { user, logout } = useAuthStore();
   const [myRoom, setMyRoom] = useState<MyRoom | null>(null);
 
+  const activeContractId = useAuthStore((s) => s.activeContractId);
+
   React.useEffect(() => {
     roomService.getMyRoom().then(setMyRoom).catch(() => {});
-  }, []);
+  }, [activeContractId]);
 
   // Change password modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -140,6 +143,14 @@ export default function AccountScreen() {
                 {user?.role === 'Resident' || user?.role === 'CuDan' ? 'Cư dân' : user?.role || 'Cư dân'}
               </Text>
             </View>
+          </View>
+        </View>
+
+        {/* Contract picker */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>HỢP ĐỒNG</Text>
+          <View style={[styles.card, { padding: 12, marginTop: 8 }]}> 
+            <ContractPicker />
           </View>
         </View>
 

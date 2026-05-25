@@ -102,6 +102,8 @@ export default function RoommateEditScreen() {
   const [title, setTitle] = useState('');
   const [needMore, setNeedMore] = useState('1');
   const [baseRentPrice, setBaseRentPrice] = useState('');
+  const [autoBase, setAutoBase] = useState(true);
+  const [lastAutoBaseValue, setLastAutoBaseValue] = useState('');
   const [servicePrices, setServicePrices] = useState<PriceMap>({});
   const [moveInType, setMoveInType] = useState<'immediate' | 'from-date'>('immediate');
   const [moveInDate, setMoveInDate] = useState('');
@@ -116,6 +118,8 @@ export default function RoommateEditScreen() {
   const [newAmenity, setNewAmenity] = useState('');
 
   const availableAmenities = amenityCatalog.filter((amenity) => !selectedAmenities.includes(amenity));
+
+  const activeContractId = useAuthStore((s) => s.activeContractId);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -169,6 +173,18 @@ export default function RoommateEditScreen() {
       const computedNeedMore = maxOccupants ? Math.max(0, maxOccupants - currentCount) : 1;
       setNeedMore(String(computedNeedMore));
 
+      // auto-calculate per-person rent on edit (based on room total rent)
+      try {
+        const totalPeople = Math.max(1, currentCount + computedNeedMore);
+        const perPerson = Math.round((myRoom.rentPrice || 0) / totalPeople);
+        const formatted = formatCurrency(perPerson);
+        setBaseRentPrice(formatted);
+        setLastAutoBaseValue(formatted);
+        setAutoBase(true);
+      } catch (err) {
+        setBaseRentPrice(formatCurrency(myPost.baseRentPrice || myRoom.rentPrice || 0));
+      }
+
       const nextServicePrices: PriceMap = {};
       roomRows.forEach((item) => {
         nextServicePrices[item.key] = formatCurrency(findServicePrice(myPost, item));
@@ -199,13 +215,24 @@ export default function RoommateEditScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeContractId]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData])
   );
+
+  const handleNeedMoreChange = (value: string) => {
+    setNeedMore(value);
+    if (!autoBase || !room) return;
+    const extra = Number.parseInt((value || '').replace(/[^\d]/g, ''), 10) || 0;
+    const total = Math.max(1, currentOccupants + extra);
+    const per = Math.round((room.rentPrice || 0) / total);
+    const formatted = formatCurrency(per);
+    setBaseRentPrice(formatted);
+    setLastAutoBaseValue(formatted);
+  };
 
   const onChangeServicePrice = (key: string, value: string) => {
     setServicePrices((prev) => ({ ...prev, [key]: formatMoneyInput(value) }));
@@ -395,16 +422,24 @@ export default function RoommateEditScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Cần thêm</Text>
                   <TextInput
-                    style={styles.input}
-                    value={needMore}
-                    keyboardType="numeric"
-                    onChangeText={setNeedMore}
-                  />
+                      style={styles.input}
+                      value={needMore}
+                      keyboardType="numeric"
+                      onChangeText={handleNeedMoreChange}
+                    />
                 </View>
               </View>
 
               <Text style={styles.label}>Giá thuê sau chia</Text>
-              <TextInput style={styles.input} value={baseRentPrice} keyboardType="numeric" onChangeText={(value) => setBaseRentPrice(formatMoneyInput(value))} />
+              <TextInput
+                style={styles.input}
+                value={baseRentPrice}
+                keyboardType="numeric"
+                onChangeText={(value) => {
+                  setBaseRentPrice(formatMoneyInput(value));
+                  setAutoBase(false);
+                }}
+              />
 
               {!!services.length && <Text style={styles.label}>Dịch vụ sau chia</Text>}
               {services.map((item) => (

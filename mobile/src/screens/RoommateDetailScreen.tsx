@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { contractService } from '../services/contract.service';
+import { useAuthStore } from '../store/authStore';
 import { postService } from '../services/post.service';
 import { MyRoom, roomService } from '../services/room.service';
 import type { PostDto } from '../types/dto';
@@ -34,6 +35,8 @@ export default function RoommateDetailScreen() {
   const [room, setRoom] = useState<MyRoom | null>(null);
   const [currentOccupants, setCurrentOccupants] = useState<number>(0);
 
+  const activeContractId = useAuthStore((s) => s.activeContractId);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -55,7 +58,7 @@ export default function RoommateDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeContractId]);
 
   useFocusEffect(
     useCallback(() => {
