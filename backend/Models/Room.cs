@@ -35,6 +35,10 @@ public class Room
     [Precision(18, 2)]
     public decimal? DefaultRentPrice { get; set; }
 
+    [Column("MO_TA")]
+    [StringLength(1000)]
+    public string? Description { get; set; }
+
     [Required]
     [StringLength(50)]
     [Column("TRANG_THAI")]

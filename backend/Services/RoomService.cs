@@ -106,6 +106,7 @@ public class RoomService : IRoomService
             Area = baseDto.Area,
             MaxOccupants = baseDto.MaxOccupants,
             DefaultRentPrice = baseDto.DefaultRentPrice,
+            Description = baseDto.Description,
             Status = baseDto.Status,
             RoomType = baseDto.RoomType,
             HasPrivateBathroom = baseDto.HasPrivateBathroom,
@@ -228,6 +229,7 @@ public class RoomService : IRoomService
             Area = dto.Area,
             MaxOccupants = dto.MaxOccupants,
             DefaultRentPrice = dto.DefaultRentPrice,
+            Description = dto.Description,
             Status = dto.Status,
             RoomType = NormalizeRoomType(dto.RoomType),
             HasPrivateBathroom = dto.HasPrivateBathroom,
@@ -267,6 +269,7 @@ public class RoomService : IRoomService
         if (dto.Area.HasValue) room.Area = dto.Area;
         if (dto.MaxOccupants.HasValue) room.MaxOccupants = dto.MaxOccupants;
         if (dto.DefaultRentPrice.HasValue) room.DefaultRentPrice = dto.DefaultRentPrice;
+        if (dto.Description != null) room.Description = dto.Description;
         if (dto.Status != null) room.Status = dto.Status;
         if (dto.RoomType != null) room.RoomType = NormalizeRoomType(dto.RoomType);
         if (dto.HasPrivateBathroom.HasValue) room.HasPrivateBathroom = dto.HasPrivateBathroom.Value;
@@ -324,6 +327,7 @@ public class RoomService : IRoomService
             Area = room.Area,
             MaxOccupants = room.MaxOccupants,
             DefaultRentPrice = room.DefaultRentPrice,
+            Description = room.Description,
             Status = room.Status,
             RoomType = NormalizeRoomType(room.RoomType),
             HasPrivateBathroom = room.HasPrivateBathroom,

@@ -14,6 +14,7 @@ public class RoomDto
     public decimal? Area { get; set; }
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
+    public string? Description { get; set; }
     public string Status { get; set; } = null!; // Trống, Đã thuê, Bảo trì, Khác
     public string RoomType { get; set; } = "single";
     public bool HasPrivateBathroom { get; set; }
@@ -37,6 +38,7 @@ public class CreateRoomDto
     public decimal? Area { get; set; }
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
+    public string? Description { get; set; }
     public string Status { get; set; } = "Trống";
     public string RoomType { get; set; } = "single";
     public bool HasPrivateBathroom { get; set; }
@@ -58,6 +60,7 @@ public class UpdateRoomDto
     public decimal? Area { get; set; }
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
+    public string? Description { get; set; }
     public string? Status { get; set; }
     public string? RoomType { get; set; }
     public bool? HasPrivateBathroom { get; set; }
