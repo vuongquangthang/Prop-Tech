@@ -1,4 +1,4 @@
-import { Plus, Eye, Lock, Unlock, RefreshCw, X, MessageCircle } from 'lucide-react';
+import { Plus, Eye, Lock, Unlock, X, MessageCircle } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
@@ -78,10 +78,6 @@ export function PostManagementPage() {
           </div>
 
           <div className="flex gap-3">
-            <button onClick={() => void refresh()} className="inline-flex items-center gap-2 rounded border px-3 py-2 bg-white">
-              <RefreshCw size={16} />
-              Làm mới
-            </button>
             <button onClick={() => navigate('/post-management/create')} className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-white">
               <Plus size={16} />
               Tạo bài đăng
@@ -246,6 +242,17 @@ export function PostManagementPage() {
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Yêu cầu từ chủ nhà</h4>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedPost.landlordRequirements || selectedPost.description || '—'}</p>
               </div>
+
+              {Array.isArray((selectedPost as any).roomImageUrls) && (selectedPost as any).roomImageUrls.length > 0 && (
+                <div className="bg-gray-50 border border-gray-300 rounded p-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Ảnh phòng</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {(selectedPost as any).roomImageUrls.slice(0, 6).map((url: string, i: number) => (
+                      <img key={`room-${i}`} src={url} alt={`room-img-${i}`} className="h-28 w-full rounded border border-gray-300 object-cover" />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Thông tin đăng</h4>

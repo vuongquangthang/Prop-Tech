@@ -1,4 +1,5 @@
 using backend.DTOs;
+using backend.Data;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,9 @@ public class RoomService : IRoomService
     private readonly IChiTietORepository _chiTietORepository;
     private readonly IUserRepository _userRepository;
     private readonly IServiceRepository _serviceRepository;
+    private readonly IChiTietTaiSanPhongRepository _chiTietTaiSanPhongRepository;
+    private readonly ITaiSanRepository _taiSanRepository;
+    private readonly ApplicationDbContext _dbContext;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -42,7 +46,10 @@ public class RoomService : IRoomService
         IHopDongRepository hopDongRepository,
         IChiTietORepository chiTietORepository,
         IUserRepository userRepository,
-        IServiceRepository serviceRepository)
+        IServiceRepository serviceRepository,
+        IChiTietTaiSanPhongRepository chiTietTaiSanPhongRepository,
+        ITaiSanRepository taiSanRepository,
+        ApplicationDbContext dbContext)
     {
         _roomRepository = roomRepository;
         _floorRepository = floorRepository;
@@ -51,6 +58,9 @@ public class RoomService : IRoomService
         _chiTietORepository = chiTietORepository;
         _userRepository = userRepository;
         _serviceRepository = serviceRepository;
+        _chiTietTaiSanPhongRepository = chiTietTaiSanPhongRepository;
+        _taiSanRepository = taiSanRepository;
+        _dbContext = dbContext;
     }
 
     public async Task<List<RoomDto>> GetAllAsync()
@@ -208,6 +218,8 @@ public class RoomService : IRoomService
 
     public async Task<RoomDto> CreateAsync(CreateRoomDto dto)
     {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
         // Validate floor exists
         var floor = await _floorRepository.GetByIdAsync(dto.FloorId);
         if (floor == null)
@@ -244,11 +256,25 @@ public class RoomService : IRoomService
 
         await _roomRepository.AddAsync(room);
         await _roomRepository.SaveChangesAsync();
-        return await MapToDto(room);
+
+        await SyncRoomAssetsAsync(room.Id, dto.Amenities);
+        await _roomRepository.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        var createdRoom = await _roomRepository.GetWithDetailsAsync(room.Id);
+        if (createdRoom == null)
+        {
+            throw new InvalidOperationException("Không thể tải lại thông tin phòng vừa tạo");
+        }
+
+        return await MapToDto(createdRoom);
     }
 
     public async Task<RoomDto> UpdateAsync(int id, UpdateRoomDto dto)
     {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
         var room = await _roomRepository.GetByIdAsync(id);
         if (room == null)
         {
@@ -283,7 +309,22 @@ public class RoomService : IRoomService
 
         _roomRepository.Update(room);
         await _roomRepository.SaveChangesAsync();
-        return await MapToDto(room);
+
+        if (dto.Amenities != null)
+        {
+            await SyncRoomAssetsAsync(room.Id, dto.Amenities);
+            await _roomRepository.SaveChangesAsync();
+        }
+
+        await transaction.CommitAsync();
+
+        var updatedRoom = await _roomRepository.GetWithDetailsAsync(room.Id);
+        if (updatedRoom == null)
+        {
+            throw new InvalidOperationException("Không thể tải lại thông tin phòng vừa cập nhật");
+        }
+
+        return await MapToDto(updatedRoom);
     }
 
     public async Task DeleteAsync(int id)
@@ -314,7 +355,13 @@ public class RoomService : IRoomService
         var serviceIds = DeserializeList<int>(room.ServiceIdsJson);
         var services = await ResolveServicesAsync(serviceIds);
         var imageUrls = DeserializeList<string>(room.ImageUrlsJson);
-        var amenities = DeserializeList<string>(room.AmenitiesJson);
+        var amenities = room.ChiTietTaiSanPhongs != null && room.ChiTietTaiSanPhongs.Count > 0
+            ? room.ChiTietTaiSanPhongs
+                .Where(ct => ct.TaiSan != null)
+                .Select(ct => ct.TaiSan!.AssetName)
+                .Distinct()
+                .ToList()
+            : DeserializeList<string>(room.AmenitiesJson);
 
         return new RoomDto
         {
@@ -340,6 +387,54 @@ public class RoomService : IRoomService
             ServiceIds = serviceIds,
             Services = services
         };
+    }
+
+    private async Task SyncRoomAssetsAsync(int roomId, List<string>? amenityNames)
+    {
+        var selectedAmenityNames = (amenityNames ?? new List<string>())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var allAssets = (await _taiSanRepository.GetAllAsync()).ToList();
+        var selectedAssets = new List<TaiSan>();
+
+        foreach (var amenityName in selectedAmenityNames)
+        {
+            var asset = allAssets.FirstOrDefault(x => string.Equals(x.AssetName?.Trim(), amenityName, StringComparison.OrdinalIgnoreCase));
+            if (asset == null)
+            {
+                throw new InvalidOperationException($"Tiện nghi '{amenityName}' không tồn tại trong kho tài sản");
+            }
+
+            selectedAssets.Add(asset);
+        }
+
+        var existingDetails = (await _chiTietTaiSanPhongRepository.GetByRoomIdAsync(roomId)).ToList();
+        var existingByAssetId = existingDetails.ToDictionary(x => x.AssetId);
+        var selectedAssetIds = selectedAssets.Select(x => x.Id).ToHashSet();
+
+        foreach (var detail in existingDetails.Where(x => !selectedAssetIds.Contains(x.AssetId)).ToList())
+        {
+            await _chiTietTaiSanPhongRepository.DeleteAsync(detail.RoomId, detail.AssetId);
+        }
+
+        foreach (var asset in selectedAssets)
+        {
+            if (existingByAssetId.ContainsKey(asset.Id))
+            {
+                continue;
+            }
+
+            await _chiTietTaiSanPhongRepository.CreateAsync(new ChiTietTaiSanPhong
+            {
+                RoomId = roomId,
+                AssetId = asset.Id,
+                Quantity = 1,
+                Condition = "Tốt"
+            });
+        }
     }
 
     private static string NormalizeRoomType(string? roomType)

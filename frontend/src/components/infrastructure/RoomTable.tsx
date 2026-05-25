@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { roomService, floorService, serviceService } from '../../services/api.service';
 import type { Floor } from '../../services/api.service';
 import type { Service } from '../../services/api.service';
+import { api } from '../../lib/api-client';
+import { API_ENDPOINTS } from '../../lib/api-config';
 import { API_CONFIG } from '../../lib/api-config';
 import { fileService } from '../../services/feature.service';
 
@@ -30,6 +32,14 @@ interface RoomData {
   imageUrls?: string[];
 }
 
+interface AssetOption {
+  id: number;
+  assetName: string;
+  assetCode: string;
+  totalRooms: number;
+  totalQuantity: number;
+}
+
 const statusConfig = {
   empty: { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
   'Trống': { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
@@ -53,17 +63,6 @@ const resolveRoomImageUrl = (url?: string) => {
   return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-const amenityOptions = [
-  { key: 'ac', label: '❄️ Điều hòa' },
-  { key: 'heater', label: '🚿 Nước nóng' },
-  { key: 'fridge', label: '🧊 Tủ lạnh' },
-  { key: 'washer', label: '🧺 Máy giặt' },
-  { key: 'bed', label: '🛏️ Giường' },
-  { key: 'desk', label: '🪑 Bàn làm việc' },
-  { key: 'tv', label: '📺 Tivi' },
-  { key: 'wifi', label: '📶 WiFi' },
-];
-
 interface RoomTableProps {
   selectedFloorId?: number | null;
   selectedBuildingId?: number | null;
@@ -75,6 +74,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [floors, setFloors] = useState<Floor[]>([]);
+  const [assetCatalog, setAssetCatalog] = useState<AssetOption[]>([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addFloorId, setAddFloorId] = useState<number>(0);
@@ -183,6 +183,28 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     }
   };
 
+  const fetchServiceCatalog = async () => {
+    try {
+      const services = await serviceService.getAll();
+      setServiceCatalog(services);
+    } catch {
+      setServiceCatalog([]);
+    }
+  };
+
+  const fetchAssetCatalog = async () => {
+    try {
+      const res = await api.get<AssetOption[]>(API_ENDPOINTS.ASSETS.BASE);
+      setAssetCatalog(res.data);
+    } catch {
+      setAssetCatalog([]);
+    }
+  };
+
+  const loadReferenceData = async () => {
+    await Promise.all([fetchServiceCatalog(), fetchAssetCatalog()]);
+  };
+
   const buildingFloorIds = selectedBuildingId
     ? floors.filter(f => f.buildingId === selectedBuildingId).map(f => f.id)
     : null;
@@ -281,6 +303,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setAddImageFile(null);
     setAddDescription('');
     setAddError(null);
+    await loadReferenceData();
     setShowAddModal(true);
   };
 
@@ -351,12 +374,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setEditServiceIds(room.serviceIds ?? []);
     setEditError(null);
 
-    try {
-      const services = await serviceService.getAll();
-      setServiceCatalog(services);
-    } catch {
-      setServiceCatalog([]);
-    }
+    await loadReferenceData();
 
     setShowEditModal(true);
   };
@@ -698,19 +716,23 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {amenityOptions.map((amenity) => (
-                      <div className="flex items-center space-x-2" key={amenity.key}>
-                        <input
-                          type="checkbox"
-                          id={`amenity-${amenity.key}`}
-                          className="w-4 h-4"
-                          checked={addAmenities.includes(amenity.label)}
-                          onChange={() => toggleAmenity(amenity.label)}
-                        />
-                        <label htmlFor={`amenity-${amenity.key}`} className="text-sm text-gray-700">{amenity.label}</label>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                    {assetCatalog.length === 0 ? (
+                      <span className="text-xs text-gray-500">Chưa có tài sản nào trong kho</span>
+                    ) : (
+                      assetCatalog.map((asset) => (
+                        <div className="flex items-center space-x-2" key={asset.id}>
+                          <input
+                            type="checkbox"
+                            id={`amenity-${asset.id}`}
+                            className="w-4 h-4"
+                            checked={addAmenities.includes(asset.assetName)}
+                            onChange={() => toggleAmenity(asset.assetName)}
+                          />
+                          <label htmlFor={`amenity-${asset.id}`} className="text-sm text-gray-700">{asset.assetName}</label>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -894,19 +916,23 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {amenityOptions.map((amenity) => (
-                      <div className="flex items-center space-x-2" key={amenity.key}>
-                        <input
-                          type="checkbox"
-                          id={`edit-amenity-${amenity.key}`}
-                          className="w-4 h-4"
-                          checked={editAmenities.includes(amenity.label)}
-                          onChange={() => setEditAmenities(prev => prev.includes(amenity.label) ? prev.filter(item => item !== amenity.label) : [...prev, amenity.label])}
-                        />
-                        <label htmlFor={`edit-amenity-${amenity.key}`} className="text-sm text-gray-700">{amenity.label}</label>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                    {assetCatalog.length === 0 ? (
+                      <span className="text-xs text-gray-500">Chưa có tài sản nào trong kho</span>
+                    ) : (
+                      assetCatalog.map((asset) => (
+                        <div className="flex items-center space-x-2" key={asset.id}>
+                          <input
+                            type="checkbox"
+                            id={`edit-amenity-${asset.id}`}
+                            className="w-4 h-4"
+                            checked={editAmenities.includes(asset.assetName)}
+                            onChange={() => setEditAmenities(prev => prev.includes(asset.assetName) ? prev.filter(item => item !== asset.assetName) : [...prev, asset.assetName])}
+                          />
+                          <label htmlFor={`edit-amenity-${asset.id}`} className="text-sm text-gray-700">{asset.assetName}</label>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Edit2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Check, Edit2, Image as ImageIcon, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
@@ -421,45 +421,60 @@ export function CreatePostPage() {
       <div className="max-w-5xl rounded border-2 border-gray-300 bg-white">
         <div className="p-6 space-y-6">
           <div className="space-y-4">
-            <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Chọn phòng muốn đăng</h4>
-
-            <div className="grid grid-cols-1 gap-3">
-              {rooms.map((room) => (
-                <div
-                  key={room.id}
-                  onClick={() => setSelectedRoomId(room.id)}
-                  className={`cursor-pointer rounded border-2 p-4 transition-all ${
-                    selectedRoomId === room.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex flex-1 items-start space-x-3">
-                      <div
-                        className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border-2 ${
-                          selectedRoomId === room.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                        }`}
-                      >
-                        {selectedRoomId === room.id && <Check size={14} className="text-white" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="mb-1 flex items-center space-x-3">
-                          <span className="font-semibold text-gray-800">{(room as any).roomCode ?? (room as any).code}</span>
-                          <span className="text-sm text-gray-500">{(room as any).buildingName ?? (room as any).building} - {(room as any).floorNumber ?? (room as any).floor}</span>
-                          <span className={`rounded px-2 py-1 text-xs font-medium ${room.status === 'Trống' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                            {room.status === 'Trống' ? 'Trống' : 'Đã thuê'}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-700">
-                          <span className="mr-3">{room.area ?? 0} m²</span>
-                          <span className="mr-3">Tối đa {room.maxOccupants ?? (room as any).maxPeople ?? 0} người</span>
-                          <span>{room.defaultRentPrice ? `${room.defaultRentPrice.toLocaleString('vi-VN')} VNĐ/tháng` : ((room as any).price ? `${(room as any).price} VNĐ/tháng` : '—')}</span>
+            {!isEditing ? (
+              <>
+                <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Chọn phòng muốn đăng</h4>
+                <div className="grid grid-cols-1 gap-3">
+                  {rooms.map((room) => (
+                    <div
+                      key={room.id}
+                      onClick={() => setSelectedRoomId(room.id)}
+                      className={`cursor-pointer rounded border-2 p-4 transition-all ${
+                        selectedRoomId === room.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex flex-1 items-start space-x-3">
+                          <div
+                            className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border-2 ${
+                              selectedRoomId === room.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                            }`}
+                          >
+                            {selectedRoomId === room.id && <Check size={14} className="text-white" />}
+                          </div>
+                          <div className="flex-1">
+                            <div className="mb-1 flex items-center space-x-3">
+                              <span className="font-semibold text-gray-800">{(room as any).roomCode ?? (room as any).code}</span>
+                              <span className="text-sm text-gray-500">{(room as any).buildingName ?? (room as any).building} - {(room as any).floorNumber ?? (room as any).floor}</span>
+                              <span className={`rounded px-2 py-1 text-xs font-medium ${room.status === 'Trống' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {room.status === 'Trống' ? 'Trống' : 'Đã thuê'}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-700">
+                              <span className="mr-3">{room.area ?? 0} m²</span>
+                              <span className="mr-3">Tối đa {room.maxOccupants ?? (room as any).maxPeople ?? 0} người</span>
+                              <span>{room.defaultRentPrice ? `${room.defaultRentPrice.toLocaleString('vi-VN')} VNĐ/tháng` : ((room as any).price ? `${(room as any).price} VNĐ/tháng` : '—')}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : selectedRoom ? (
+              <div className="rounded border border-blue-200 bg-blue-50 p-4">
+                <p className="mb-2 text-sm font-semibold text-blue-800">Phòng đang sửa</p>
+                <div className="grid grid-cols-1 gap-2 text-sm text-blue-900 md:grid-cols-2">
+                  <div><span className="font-medium">Mã phòng:</span> {(selectedRoom as any).roomCode ?? (selectedRoom as any).code}</div>
+                  <div><span className="font-medium">Vị trí:</span> {(selectedRoom as any).buildingName ?? (selectedRoom as any).building} - {(selectedRoom as any).floorNumber ?? (selectedRoom as any).floor}</div>
+                  <div><span className="font-medium">Diện tích:</span> {selectedRoom.area ?? 0} m²</div>
+                  <div><span className="font-medium">Tối đa:</span> {(selectedRoom as any).maxOccupants ?? (selectedRoom as any).maxPeople ?? 0} người</div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">Đang tải thông tin phòng...</div>
+            )}
           </div>
 
           {selectedRoom && (
@@ -554,8 +569,8 @@ export function CreatePostPage() {
 
                   <div className="border-t border-gray-300 pt-4">
                     <p className="mb-2 text-sm text-gray-600">Tiện nghi:</p>
-                    <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
-                      {availableAssetAmenities.length > 0 ? (
+                    {availableAssetAmenities.length > 0 && (
+                      <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
                         <div className="flex flex-wrap gap-2">
                           {availableAssetAmenities.map((asset) => (
                             <button
@@ -564,14 +579,12 @@ export function CreatePostPage() {
                               onClick={() => handleAddAmenityFromAssets(asset.id)}
                               className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
                             >
-                              {asset.assetName}{asset.assetCode ? ` (${asset.assetCode})` : ''}
+                              {asset.assetName}
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <span className="text-xs text-gray-500">Không còn tiện ích nào để thêm</span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       {selectedAmenities.length > 0 ? selectedAmenities.map((amenity, idx) => (
                         <span key={`${amenity}-${idx}`} className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700">
@@ -665,6 +678,14 @@ export function CreatePostPage() {
                                           title="Chỉnh sửa giá"
                                         >
                                           <Edit2 size={14} className="text-gray-600" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveService(idx)}
+                                          className="rounded p-1 hover:bg-red-50"
+                                          title="Bỏ dịch vụ"
+                                        >
+                                          <X size={14} className="text-red-600" />
                                         </button>
                                       </>
                                     )}

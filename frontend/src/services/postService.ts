@@ -64,6 +64,7 @@ export interface PostRecord {
   address?: string;
   amenities?: string[];
   imageUrls: string[];
+  roomImageUrls?: string[];
   coverImageUrl?: string;
   createdByUserId?: number | null;
   createdByUserRole?: string | null;
@@ -343,6 +344,7 @@ function normalizePostRecord(post: any): PostRecord {
 
   const normalizedImageUrls = normalizePostImageUrls(post);
   const normalizedCoverImageUrl = resolvePostImageUrl(post.coverImageUrl ?? normalizedImageUrls[0] ?? '');
+  const roomImageUrls = normalizeRoomImageUrls(roomObj ?? post.room);
   const finalImageUrls = normalizedImageUrls.length > 0
     ? normalizedImageUrls
     : (normalizedCoverImageUrl ? [normalizedCoverImageUrl] : []);
@@ -383,6 +385,7 @@ function normalizePostRecord(post: any): PostRecord {
     address: resolvedAddress,
     amenities: normalizedAmenities,
     imageUrls: finalImageUrls,
+    roomImageUrls,
     coverImageUrl: normalizedCoverImageUrl,
     createdByUserId: post.createdByUserId ?? null,
     createdByUserRole: post.createdByUserRole ?? post.createdByRole ?? post.creatorRole ?? null,

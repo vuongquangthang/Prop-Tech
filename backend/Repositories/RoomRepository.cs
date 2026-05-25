@@ -15,12 +15,18 @@ public class RoomRepository : Repository<Room>, IRoomRepository
         return await _dbSet
             .Include(r => r.Floor)
                 .ThenInclude(f => f.Building)
+            .Include(r => r.ChiTietTaiSanPhongs)
+                .ThenInclude(ct => ct.TaiSan)
             .FirstOrDefaultAsync(r => r.RoomCode == maPhong);
     }
 
     public async Task<IEnumerable<Room>> GetByFloorIdAsync(int floorId)
     {
         return await _dbSet
+            .Include(r => r.Floor)
+                .ThenInclude(f => f.Building)
+            .Include(r => r.ChiTietTaiSanPhongs)
+                .ThenInclude(ct => ct.TaiSan)
             .Where(r => r.FloorId == floorId)
             .OrderBy(r => r.RoomCode)
             .ToListAsync();
@@ -31,7 +37,20 @@ public class RoomRepository : Repository<Room>, IRoomRepository
         return await _dbSet
             .Include(r => r.Floor)
                 .ThenInclude(f => f.Building)
+            .Include(r => r.ChiTietTaiSanPhongs)
+                .ThenInclude(ct => ct.TaiSan)
             .Where(r => r.Status == status)
+            .ToListAsync();
+    }
+
+    public override async Task<IEnumerable<Room>> GetAllAsync()
+    {
+        return await _dbSet
+            .Include(r => r.Floor)
+                .ThenInclude(f => f.Building)
+            .Include(r => r.ChiTietTaiSanPhongs)
+                .ThenInclude(ct => ct.TaiSan)
+            .OrderBy(r => r.RoomCode)
             .ToListAsync();
     }
 
