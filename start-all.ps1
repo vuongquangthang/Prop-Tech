@@ -16,6 +16,21 @@ $pnpmVersion = "7.33.7"
 $nodeVersion = "20.19.0"
 $ngrokDomain = if ($env:PROPTECH_NGROK_DOMAIN) { $env:PROPTECH_NGROK_DOMAIN } else { "praiseworthy-katlyn-discountable.ngrok-free.dev" }
 
+# Create and use a project-local temp/cache directory to avoid filling system %TEMP%
+$localTemp = Join-Path $repoRoot "local_temp"
+if (-not (Test-Path $localTemp)) { New-Item -ItemType Directory -Path $localTemp | Out-Null }
+# Save originals to restore later
+$origTemp = $env:TEMP
+$origTmp = $env:TMP
+$env:TEMP = $localTemp
+$env:TMP = $localTemp
+
+# Redirect package manager caches to repo-local folders to reduce temp churn
+$env:NPM_CONFIG_CACHE = Join-Path $repoRoot ".npm_cache"
+if (-not (Test-Path $env:NPM_CONFIG_CACHE)) { New-Item -ItemType Directory -Path $env:NPM_CONFIG_CACHE | Out-Null }
+$env:PNPM_STORE_PATH = Join-Path $repoRoot ".pnpm_store"
+if (-not (Test-Path $env:PNPM_STORE_PATH)) { New-Item -ItemType Directory -Path $env:PNPM_STORE_PATH | Out-Null }
+
 function Get-EnvValueFromFile {
     param(
         [string]$Path,
@@ -131,7 +146,7 @@ $frontendCommand = @"
 if (Get-Command nvm -ErrorAction SilentlyContinue) { nvm use $nodeVersion | Out-Null }
 if (Get-Command corepack -ErrorAction SilentlyContinue) { corepack enable | Out-Null; corepack prepare pnpm@$pnpmVersion --activate | Out-Null }
 `$env:VITE_API_BASE_URL='$apiBaseUrl'
-if (-not (Test-Path 'node_modules')) { pnpm install }
+if (-not (Test-Path 'node_modules')) { pnpm install --store-dir $env:PNPM_STORE_PATH }
 pnpm run dev
 "@
 Start-Process powershell -WorkingDirectory $frontendPath -ArgumentList "-NoExit", "-Command", $frontendCommand
@@ -145,7 +160,7 @@ Write-Host "`n6. Starting Mobile App (Expo)..." -ForegroundColor Yellow
 $mobileCommand = @"
 if (Get-Command nvm -ErrorAction SilentlyContinue) { nvm use $nodeVersion | Out-Null }
 `$env:EXPO_PUBLIC_API_BASE_URL='$apiBaseUrl'
-if (-not (Test-Path 'node_modules')) { npm install }
+if (-not (Test-Path 'node_modules')) { npm install --cache $env:NPM_CONFIG_CACHE }
 npm start
 "@
 Start-Process powershell -WorkingDirectory $mobilePath -ArgumentList "-NoExit", "-Command", $mobileCommand
@@ -192,3 +207,29 @@ Write-Host "Troubleshooting:" -ForegroundColor White
 Write-Host "  - If Frontend fails: Close some programs and run script again" -ForegroundColor Gray
 Write-Host "  - If Backend fails: Check SQL Server is running" -ForegroundColor Gray
 Write-Host "  - If Mobile fails: Use Node 20 (nvm use 20.19.0) and run npm install in mobile\n" -ForegroundColor Gray
+
+# Cleanup local temp used for this script to avoid leaving junk in system temp
+Write-Host "`nCleaning up temporary files created during startup..." -ForegroundColor Yellow
+try {
+    # Allow a short grace period for child processes to release handles
+    Start-Sleep -Seconds 2
+    if (Test-Path $localTemp) {
+        Get-ChildItem -Path $localTemp -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path $localTemp -Force -ErrorAction SilentlyContinue
+    }
+    # Prune pnpm and npm local caches older than 7 days to save disk
+    $npmCache = $env:NPM_CONFIG_CACHE
+    if ($npmCache -and (Test-Path $npmCache)) {
+        Get-ChildItem -Path $npmCache -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    }
+    $pnpmStore = $env:PNPM_STORE_PATH
+    if ($pnpmStore -and (Test-Path $pnpmStore)) {
+        Get-ChildItem -Path $pnpmStore -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    }
+} catch {
+    Write-Host "Cleanup warning: $_" -ForegroundColor Yellow
+}
+
+# Restore original TEMP env vars
+if ($origTemp) { $env:TEMP = $origTemp }
+if ($origTmp) { $env:TMP = $origTmp }
