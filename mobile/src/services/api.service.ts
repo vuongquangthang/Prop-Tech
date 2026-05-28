@@ -9,7 +9,8 @@ declare const process: {
 // Base URL - Change this to your actual backend URL
 const envBaseUrl =
   typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
-export const API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl : 'http://192.168.2.11:5052';
+// Default to the developer machine LAN IP so physical devices can reach the backend.
+export const API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl : 'http://192.168.1.77:5052';
 const BASE_URL = API_BASE_URL;
 
 // Storage keys

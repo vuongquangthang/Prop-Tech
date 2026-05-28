@@ -99,3 +99,5 @@ CMD.txt
 frontend/FRONTEND_README.md
 start-all.ps1
 loi.txt
+mobile/src/services/api.service.ts
+mobile/tsconfig.json
