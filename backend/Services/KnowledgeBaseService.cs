@@ -10,14 +10,14 @@ namespace backend.Services;
 
 public interface IKnowledgeBaseService
 {
-    Task<List<KnowledgeBaseDto>> GetAllAsync(bool activeOnly = false);
-    Task<List<KnowledgeBaseDto>> GetByCategoryAsync(string category);
-    Task<List<KnowledgeBaseDto>> SearchAsync(string keyword);
-    Task<KnowledgeBaseDto?> GetByIdAsync(int id);
-    Task<KnowledgeBaseDto> CreateAsync(CreateKnowledgeBaseDto dto, int userId);
-    Task<KnowledgeBaseDto> UpdateAsync(int id, UpdateKnowledgeBaseDto dto, int userId);
-    Task DeleteAsync(int id);
-    Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId);
+    Task<List<KnowledgeBaseDto>> GetAllAsync(int ownerUserId, bool activeOnly = false);
+    Task<List<KnowledgeBaseDto>> GetByCategoryAsync(string category, int ownerUserId);
+    Task<List<KnowledgeBaseDto>> SearchAsync(string keyword, int ownerUserId);
+    Task<KnowledgeBaseDto?> GetByIdAsync(int id, int ownerUserId);
+    Task<KnowledgeBaseDto> CreateAsync(CreateKnowledgeBaseDto dto, int userId, int ownerUserId);
+    Task<KnowledgeBaseDto> UpdateAsync(int id, UpdateKnowledgeBaseDto dto, int userId, int ownerUserId);
+    Task DeleteAsync(int id, int ownerUserId);
+    Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId);
 }
 
 public class KnowledgeBaseService : IKnowledgeBaseService
@@ -29,39 +29,39 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         _repository = repository;
     }
 
-    public async Task<List<KnowledgeBaseDto>> GetAllAsync(bool activeOnly = false)
+    public async Task<List<KnowledgeBaseDto>> GetAllAsync(int ownerUserId, bool activeOnly = false)
     {
         var items = activeOnly 
-            ? await _repository.GetAllActiveAsync()
-            : await _repository.GetAllAsync();
+            ? await _repository.GetAllActiveAsync(ownerUserId)
+            : await _repository.GetAllAsync(ownerUserId);
         
         return items.Select(MapToDto).ToList();
     }
 
-    public async Task<List<KnowledgeBaseDto>> GetByCategoryAsync(string category)
+    public async Task<List<KnowledgeBaseDto>> GetByCategoryAsync(string category, int ownerUserId)
     {
-        var items = await _repository.GetByCategoryAsync(category);
+        var items = await _repository.GetByCategoryAsync(category, ownerUserId);
         return items.Select(MapToDto).ToList();
     }
 
-    public async Task<List<KnowledgeBaseDto>> SearchAsync(string keyword)
+    public async Task<List<KnowledgeBaseDto>> SearchAsync(string keyword, int ownerUserId)
     {
         if (string.IsNullOrWhiteSpace(keyword))
         {
             return new List<KnowledgeBaseDto>();
         }
 
-        var items = await _repository.SearchAsync(keyword);
+        var items = await _repository.SearchAsync(keyword, ownerUserId);
         return items.Select(MapToDto).ToList();
     }
 
-    public async Task<KnowledgeBaseDto?> GetByIdAsync(int id)
+    public async Task<KnowledgeBaseDto?> GetByIdAsync(int id, int ownerUserId)
     {
-        var item = await _repository.GetByIdAsync(id);
+        var item = await _repository.GetByIdAsync(id, ownerUserId);
         return item == null ? null : MapToDto(item);
     }
 
-    public async Task<KnowledgeBaseDto> CreateAsync(CreateKnowledgeBaseDto dto, int userId)
+    public async Task<KnowledgeBaseDto> CreateAsync(CreateKnowledgeBaseDto dto, int userId, int ownerUserId)
     {
         var kb = new KnowledgeBase
         {
@@ -71,19 +71,20 @@ public class KnowledgeBaseService : IKnowledgeBaseService
             Tags = dto.Tags,
             IsActive = dto.IsActive,
             UpdatedAt = DateTime.UtcNow,
-            UpdatedBy = userId
+            UpdatedBy = userId,
+            OwnerUserId = ownerUserId
         };
 
         await _repository.AddAsync(kb);
         await _repository.SaveChangesAsync();
 
-        var created = await _repository.GetByIdAsync(kb.Id);
+        var created = await _repository.GetByIdAsync(kb.Id, ownerUserId);
         return MapToDto(created!);
     }
 
-    public async Task<KnowledgeBaseDto> UpdateAsync(int id, UpdateKnowledgeBaseDto dto, int userId)
+    public async Task<KnowledgeBaseDto> UpdateAsync(int id, UpdateKnowledgeBaseDto dto, int userId, int ownerUserId)
     {
-        var kb = await _repository.GetByIdAsync(id);
+        var kb = await _repository.GetByIdAsync(id, ownerUserId);
         if (kb == null)
         {
             throw new InvalidOperationException("Không tìm thấy kiến thức này");
@@ -110,13 +111,13 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         _repository.Update(kb);
         await _repository.SaveChangesAsync();
 
-        var updated = await _repository.GetByIdAsync(id);
+        var updated = await _repository.GetByIdAsync(id, ownerUserId);
         return MapToDto(updated!);
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int ownerUserId)
     {
-        var kb = await _repository.GetByIdAsync(id);
+        var kb = await _repository.GetByIdAsync(id, ownerUserId);
         if (kb == null)
         {
             throw new InvalidOperationException("Không tìm thấy kiến thức này");
@@ -126,7 +127,7 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         await _repository.SaveChangesAsync();
     }
 
-    public async Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId)
+    public async Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId)
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         string rawText;
@@ -159,7 +160,8 @@ public class KnowledgeBaseService : IKnowledgeBaseService
                 Category = category,
                 IsActive = autoActivate,
                 UpdatedAt = now,
-                UpdatedBy = userId
+                UpdatedBy = userId,
+                OwnerUserId = ownerUserId
             });
         }
 
@@ -248,7 +250,8 @@ public class KnowledgeBaseService : IKnowledgeBaseService
             IsActive = kb.IsActive,
             UpdatedAt = kb.UpdatedAt,
             UpdatedBy = kb.UpdatedBy,
-            UpdatedByName = kb.UpdatedByUser?.PhoneNumber
+            UpdatedByName = kb.UpdatedByUser?.PhoneNumber,
+            OwnerUserId = kb.OwnerUserId
         };
     }
 }

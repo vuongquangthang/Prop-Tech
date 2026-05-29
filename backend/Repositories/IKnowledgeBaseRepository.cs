@@ -4,8 +4,9 @@ namespace backend.Repositories;
 
 public interface IKnowledgeBaseRepository : IRepository<KnowledgeBase>
 {
-    Task<List<KnowledgeBase>> GetAllActiveAsync();
-    Task<List<KnowledgeBase>> GetByCategoryAsync(string category);
-    Task<List<KnowledgeBase>> SearchAsync(string keyword);
-    Task<KnowledgeBase?> GetByIdAsync(int id);
+    Task<List<KnowledgeBase>> GetAllAsync(int ownerUserId);
+    Task<List<KnowledgeBase>> GetAllActiveAsync(int ownerUserId);
+    Task<List<KnowledgeBase>> GetByCategoryAsync(string category, int ownerUserId);
+    Task<List<KnowledgeBase>> SearchAsync(string keyword, int ownerUserId);
+    Task<KnowledgeBase?> GetByIdAsync(int id, int ownerUserId);
 }

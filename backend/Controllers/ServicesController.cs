@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
@@ -17,6 +18,16 @@ public class ServicesController : ControllerBase
         _serviceService = serviceService;
     }
 
+    private int GetUserId()
+    {
+        var claim = User.GetOwnerUserId().ToString();
+        if (!int.TryParse(claim, out var userId) || userId <= 0)
+        {
+            throw new InvalidOperationException("Không thể xác thực người dùng");
+        }
+        return userId;
+    }
+
     /// <summary>
     /// Lấy danh sách tất cả dịch vụ
     /// </summary>
@@ -25,7 +36,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var services = await _serviceService.GetAllAsync();
+            var services = await _serviceService.GetAllAsync(GetUserId());
             return Ok(services);
         }
         catch (Exception ex)
@@ -42,7 +53,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var services = await _serviceService.GetActiveServicesAsync();
+            var services = await _serviceService.GetActiveServicesAsync(GetUserId());
             return Ok(services);
         }
         catch (Exception ex)
@@ -59,7 +70,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var services = await _serviceService.GetServicesByContractAsync(contractId);
+            var services = await _serviceService.GetServicesByContractAsync(contractId, GetUserId());
             return Ok(services);
         }
         catch (InvalidOperationException ex)
@@ -83,7 +94,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var services = await _serviceService.GetServicesByRoomAsync(roomId, fromDate, toDate);
+            var services = await _serviceService.GetServicesByRoomAsync(roomId, GetUserId(), fromDate, toDate);
             return Ok(services);
         }
         catch (Exception ex)
@@ -100,7 +111,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var service = await _serviceService.GetByIdAsync(id);
+            var service = await _serviceService.GetByIdAsync(id, GetUserId());
             if (service == null)
             {
                 return NotFound(new { message = "Dịch vụ không tồn tại" });
@@ -122,7 +133,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var service = await _serviceService.CreateAsync(dto);
+            var service = await _serviceService.CreateAsync(dto, GetUserId());
             return CreatedAtAction(nameof(GetById), new { id = service.Id }, service);
         }
         catch (InvalidOperationException ex)
@@ -144,7 +155,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var service = await _serviceService.UpdateAsync(id, dto);
+            var service = await _serviceService.UpdateAsync(id, dto, GetUserId());
             return Ok(service);
         }
         catch (InvalidOperationException ex)
@@ -166,7 +177,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            await _serviceService.DeleteAsync(id);
+            await _serviceService.DeleteAsync(id, GetUserId());
             return Ok(new { message = "Đã đánh dấu dịch vụ không hoạt động" });
         }
         catch (InvalidOperationException ex)
@@ -187,7 +198,7 @@ public class ServicesController : ControllerBase
     {
         try
         {
-            var history = await _serviceService.GetPriceHistoryAsync(id);
+            var history = await _serviceService.GetPriceHistoryAsync(id, GetUserId());
             return Ok(history);
         }
         catch (Exception ex)

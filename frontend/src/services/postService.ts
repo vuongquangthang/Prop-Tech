@@ -3,6 +3,9 @@ import { API_CONFIG, API_ENDPOINTS } from '../lib/api-config';
 import { createMockPost, deleteMockPost, getMockPosts, getMockRooms, toggleMockPostLock, replaceMockPosts } from '../mocks/postsMock';
 
 const POST_AMENITIES_CACHE_KEY = 'prop-tech-post-amenities-cache';
+const PLACEHOLDER_IMAGE_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720"><rect width="960" height="720" fill="#f1f5f9"/><rect x="120" y="150" width="720" height="420" rx="24" fill="#e2e8f0"/><path d="M230 500l145-150 110 105 88-85 155 130H230z" fill="#cbd5e1"/><circle cx="660" cy="280" r="52" fill="#94a3b8"/><text x="480" y="630" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" fill="#475569">Không có ảnh</text></svg>'
+)}`;
 
 export interface RoomOption {
   id: number;
@@ -257,6 +260,7 @@ function mapRoomDto(room: any): RoomOption {
 function resolvePostImageUrl(url: string): string {
   const trimmed = String(url ?? '').trim();
   if (!trimmed) return '';
+  if (isPlaceholderImagePath(trimmed)) return PLACEHOLDER_IMAGE_URL;
   if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
   if (trimmed.startsWith('//')) return `https:${trimmed}`;
@@ -264,6 +268,22 @@ function resolvePostImageUrl(url: string): string {
   const baseUrl = (API_CONFIG.BASE_URL || '').replace(/\/+$/, '');
   const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return `${baseUrl}${path}`;
+}
+
+function isPlaceholderImagePath(url: string): boolean {
+  const normalized = url.trim().toLowerCase();
+  if (!normalized) return false;
+
+  const path = normalized.split('?')[0];
+  if (path === 'placeholder.svg' || path === '/placeholder.svg' || path.endsWith('/placeholder.svg')) {
+    return true;
+  }
+
+  try {
+    return new URL(normalized).pathname.toLowerCase().endsWith('/placeholder.svg');
+  } catch {
+    return false;
+  }
 }
 
 function normalizePostImageUrls(post: any): string[] {
@@ -392,9 +412,9 @@ function normalizePostRecord(post: any): PostRecord {
   };
 }
 
-function isWebPost(post: PostRecord): boolean {
+function isManagedPost(post: PostRecord): boolean {
   const role = String(post.createdByUserRole ?? '').trim();
-  return role === 'Admin' || role === 'QuanLy' || post.createdByUserId == null;
+  return role === 'Admin' || role === 'QuanLy' || role === 'CuDan' || post.createdByUserId == null;
 }
 
 export const postService = {
@@ -447,9 +467,9 @@ export const postService = {
         return normalizedPost;
       });
 
-      return normalized.filter(isWebPost).map(applyCachedAmenities);
+      return normalized.filter(isManagedPost).map(applyCachedAmenities);
     } catch {
-      return getMockPosts().filter(isWebPost).map(applyCachedAmenities);
+      return getMockPosts().filter(isManagedPost).map(applyCachedAmenities);
     }
   },
 

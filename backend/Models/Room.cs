@@ -8,7 +8,7 @@ namespace backend.Models;
 /// Phòng - Thông tin phòng
 /// </summary>
 [Table("PHONG")]
-[Index(nameof(RoomCode), IsUnique = true)]
+[Index(nameof(FloorId), nameof(RoomCode), IsUnique = true)]
 public class Room
 {
     [Key]

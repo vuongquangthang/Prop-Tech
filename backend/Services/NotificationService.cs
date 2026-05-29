@@ -1,75 +1,85 @@
 using backend.DTOs;
+using backend.Data;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.AspNetCore.SignalR;
 using backend.Hubs;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
 public interface INotificationService
 {
-    Task<List<NotificationResponseDto>> GetMyNotificationsAsync(int userId, bool unreadOnly = false);
-    Task<int> GetUnreadCountAsync(int userId);
-    Task MarkAsReadAsync(int id, int userId, bool canManageAdmin = false);
-    Task MarkAllAsReadAsync(int userId, bool includeAdmin = false);
+    Task<List<NotificationResponseDto>> GetMyNotificationsAsync(int userId, int ownerUserId, bool unreadOnly = false);
+    Task<int> GetUnreadCountAsync(int userId, int ownerUserId);
+    Task MarkAsReadAsync(int id, int userId, int ownerUserId, bool canManageAdmin = false);
+    Task MarkAllAsReadAsync(int userId, int ownerUserId, bool includeAdmin = false);
     Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto);
     Task BroadcastAsync(int senderUserId, string title, string content, string type);
-    Task<List<NotificationResponseDto>> GetAllRecentAsync(int limit = 200);
+    Task<List<NotificationResponseDto>> GetAllRecentAsync(int ownerUserId, int limit = 200);
     /// <summary>Tạo thông báo DB + push SignalR cho cư dân cụ thể</summary>
     Task SendToUserAsync(int recipientUserId, string title, string content, string type);
     /// <summary>Tạo thông báo DB chỉ hiển thị trên trang quản lý (ScopeType=ADMIN)</summary>
-    Task CreateAdminNotificationAsync(string title, string content, string type);
+    Task CreateAdminNotificationAsync(string title, string content, string type, int ownerUserId);
     /// <summary>Số thông báo ADMIN chưa đọc (dùng cho badge BQL)</summary>
-    Task<int> GetAdminUnreadCountAsync();
+    Task<int> GetAdminUnreadCountAsync(int ownerUserId);
 }
 
 public class NotificationService : INotificationService
 {
     private readonly INotificationRepository _repo;
     private readonly IHubContext<NotificationHub> _hub;
+    private readonly ApplicationDbContext _context;
 
     public NotificationService(
         INotificationRepository repo,
-        IHubContext<NotificationHub> hub)
+        IHubContext<NotificationHub> hub,
+        ApplicationDbContext context)
     {
         _repo = repo;
         _hub = hub;
+        _context = context;
     }
 
-    public async Task<List<NotificationResponseDto>> GetMyNotificationsAsync(int userId, bool unreadOnly = false)
+    public async Task<List<NotificationResponseDto>> GetMyNotificationsAsync(int userId, int ownerUserId, bool unreadOnly = false)
     {
-        var items = await _repo.GetByRecipientIdAsync(userId, unreadOnly);
+        var items = await _repo.GetByRecipientIdAsync(userId, ownerUserId, unreadOnly);
         return items.Select(MapToDto).ToList();
     }
 
-    public async Task<int> GetUnreadCountAsync(int userId)
+    public async Task<int> GetUnreadCountAsync(int userId, int ownerUserId)
     {
-        return await _repo.GetUnreadCountAsync(userId);
+        return await _repo.GetUnreadCountAsync(userId, ownerUserId);
     }
 
-    public async Task MarkAsReadAsync(int id, int userId, bool canManageAdmin = false)
+    public async Task MarkAsReadAsync(int id, int userId, int ownerUserId, bool canManageAdmin = false)
     {
         // Verify the notification belongs to the user (or is a broadcast)
         var notification = await _repo.GetByIdWithUserAsync(id);
         if (notification == null) return;
-        var canReadOwnOrBroadcast = notification.RecipientId == userId || notification.ScopeType == "ALL";
-        var canReadAdmin = canManageAdmin && notification.ScopeType == "ADMIN";
+        var ownerMatches = notification.OwnerUserId == ownerUserId;
+        var canReadOwnOrBroadcast = ownerMatches && (notification.RecipientId == userId || notification.ScopeType == "ALL");
+        var canReadAdmin = canManageAdmin && ownerMatches && notification.ScopeType == "ADMIN";
         if (!canReadOwnOrBroadcast && !canReadAdmin) return;
 
         await _repo.MarkAsReadAsync(id);
     }
 
-    public async Task MarkAllAsReadAsync(int userId, bool includeAdmin = false)
+    public async Task MarkAllAsReadAsync(int userId, int ownerUserId, bool includeAdmin = false)
     {
-        await _repo.MarkAllAsReadAsync(userId, includeAdmin);
+        await _repo.MarkAllAsReadAsync(userId, ownerUserId, includeAdmin);
     }
 
     public async Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto)
     {
+        var ownerUserId = await ResolveOwnerUserIdForUserAsync((int)dto.RecipientId)
+            ?? await ResolveOwnerUserIdForUserAsync(senderUserId);
+
         var notification = new Notification
         {
             UserId = senderUserId,
             RecipientId = (int?)dto.RecipientId,
+            OwnerUserId = ownerUserId,
             ScopeType = "USER",
             NotificationType = dto.Type,
             Title = dto.Title,
@@ -93,9 +103,12 @@ public class NotificationService : INotificationService
 
     public async Task BroadcastAsync(int senderUserId, string title, string content, string type)
     {
+        var ownerUserId = await ResolveOwnerUserIdForUserAsync(senderUserId) ?? senderUserId;
+
         var notification = new Notification
         {
             UserId = senderUserId,
+            OwnerUserId = ownerUserId,
             ScopeType = "ALL",
             NotificationType = type,
             Title = title,
@@ -110,20 +123,24 @@ public class NotificationService : INotificationService
         await _repo.SaveChangesAsync();
 
         var responseDto = MapToDto(notification);
-        await _hub.Clients.All.SendAsync("ReceiveNotification", responseDto);
+        await _hub.Clients.Group(NotificationHub.OwnerGroup(ownerUserId))
+            .SendAsync("ReceiveNotification", responseDto);
     }
 
-    public async Task<List<NotificationResponseDto>> GetAllRecentAsync(int limit = 200)
+    public async Task<List<NotificationResponseDto>> GetAllRecentAsync(int ownerUserId, int limit = 200)
     {
-        var items = await _repo.GetAllRecentAsync(limit);
+        var items = await _repo.GetAllRecentAsync(ownerUserId, limit);
         return items.Select(MapToDto).ToList();
     }
 
     public async Task SendToUserAsync(int recipientUserId, string title, string content, string type)
     {
+        var ownerUserId = await ResolveOwnerUserIdForUserAsync(recipientUserId);
+
         var notification = new Notification
         {
             RecipientId = recipientUserId,
+            OwnerUserId = ownerUserId,
             ScopeType = "USER",
             NotificationType = type,
             Title = title,
@@ -136,13 +153,14 @@ public class NotificationService : INotificationService
         await _repo.AddAsync(notification);
         await _repo.SaveChangesAsync();
         var dto = MapToDto(notification);
-        await _hub.Clients.Group($"user_{recipientUserId}").SendAsync("ReceiveNotification", dto);
+        await _hub.Clients.Group(NotificationHub.UserGroup(recipientUserId)).SendAsync("ReceiveNotification", dto);
     }
 
-    public async Task CreateAdminNotificationAsync(string title, string content, string type)
+    public async Task CreateAdminNotificationAsync(string title, string content, string type, int ownerUserId)
     {
         var notification = new Notification
         {
+            OwnerUserId = ownerUserId,
             ScopeType = "ADMIN",
             NotificationType = type,
             Title = title,
@@ -156,14 +174,15 @@ public class NotificationService : INotificationService
         await _repo.SaveChangesAsync();
     }
 
-    public async Task<int> GetAdminUnreadCountAsync()
+    public async Task<int> GetAdminUnreadCountAsync(int ownerUserId)
     {
-        return await _repo.GetAdminUnreadCountAsync();
+        return await _repo.GetAdminUnreadCountAsync(ownerUserId);
     }
 
     private static NotificationResponseDto MapToDto(Notification n) => new()
     {
         Id = n.Id,
+        OwnerUserId = n.OwnerUserId,
         Title = n.Title,
         Content = n.Content,
         NotificationType = n.NotificationType,
@@ -173,4 +192,12 @@ public class NotificationService : INotificationService
         CreatedAt = n.CreatedAt,
         SenderPhone = n.User?.PhoneNumber,
     };
+
+    private async Task<int?> ResolveOwnerUserIdForUserAsync(int userId)
+    {
+        return await _context.Users
+            .Where(user => user.Id == userId)
+            .Select(user => (int?)(user.OwnerUserId ?? user.Id))
+            .FirstOrDefaultAsync();
+    }
 }

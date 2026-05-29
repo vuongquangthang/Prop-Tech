@@ -26,7 +26,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            var vehicles = await _xeService.GetAllAsync();
+            var vehicles = await _xeService.GetAllAsync(User.GetOwnerUserId());
             return Ok(vehicles);
         }
         catch (Exception ex)
@@ -44,7 +44,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            var vehicles = await _xeService.GetActiveVehiclesAsync();
+            var vehicles = await _xeService.GetActiveVehiclesAsync(User.GetOwnerUserId());
             return Ok(vehicles);
         }
         catch (Exception ex)
@@ -61,7 +61,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            var vehicles = await _xeService.GetByResidentIdAsync(residentId);
+            var vehicles = await _xeService.GetByResidentIdAsync(residentId, User.GetOwnerUserId());
             return Ok(vehicles);
         }
         catch (Exception ex)
@@ -78,7 +78,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            var vehicle = await _xeService.GetByIdAsync(id);
+            var vehicle = await _xeService.GetByIdAsync(id, User.GetOwnerUserId());
             if (vehicle == null)
             {
                 return NotFound(new { message = "Xe không tồn tại" });
@@ -100,7 +100,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            var vehicle = await _xeService.CreateAsync(dto);
+            var vehicle = await _xeService.CreateAsync(dto, User.GetOwnerUserId());
             return CreatedAtAction(nameof(GetById), new { id = vehicle.Id }, vehicle);
         }
         catch (InvalidOperationException ex)
@@ -122,7 +122,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            var vehicle = await _xeService.UpdateAsync(id, dto);
+            var vehicle = await _xeService.UpdateAsync(id, dto, User.GetOwnerUserId());
             return Ok(vehicle);
         }
         catch (InvalidOperationException ex)
@@ -144,7 +144,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            await _xeService.CancelAsync(id, dto);
+            await _xeService.CancelAsync(id, dto, User.GetOwnerUserId());
             return Ok(new { message = "Hủy đăng ký xe thành công" });
         }
         catch (InvalidOperationException ex)
@@ -166,7 +166,7 @@ public class XeController : ControllerBase
     {
         try
         {
-            await _xeService.DeleteAsync(id);
+            await _xeService.DeleteAsync(id, User.GetOwnerUserId());
             return Ok(new { message = "Xóa xe thành công" });
         }
         catch (InvalidOperationException ex)

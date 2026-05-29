@@ -8,7 +8,7 @@ namespace backend.Models;
 /// Tòa nhà - Thông tin tòa nhà trong khu chung cư
 /// </summary>
 [Table("TOA_NHA")]
-[Index(nameof(BuildingName), IsUnique = true)]
+[Index(nameof(OwnerUserId), nameof(BuildingName), IsUnique = true)]
 public class Building
 {
     [Key]
@@ -33,6 +33,12 @@ public class Building
     [StringLength(1000)]
     public string? Description { get; set; }
 
+    [Column("OWNER_USER_ID")]
+    public int? OwnerUserId { get; set; }
+
     // Navigation properties
+    [ForeignKey("OwnerUserId")]
+    public User? OwnerUser { get; set; }
+
     public ICollection<Floor> Floors { get; set; } = new List<Floor>();
 }

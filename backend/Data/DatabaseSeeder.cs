@@ -130,6 +130,16 @@ public static class DatabaseSeeder
         var userAdmin = users.First(u => u.Role == "Admin");
         var userManager = users.First(u => u.PhoneNumber == "0987654321");
         var userResident1 = users.First(u => u.ResidentId == residents[0].Id);
+        foreach (var user in users)
+        {
+            user.OwnerUserId = user.Role == "Admin" ? user.Id : userAdmin.Id;
+        }
+        building.OwnerUserId = userAdmin.Id;
+        foreach (var resident in residents)
+        {
+            resident.OwnerUserId = userAdmin.Id;
+        }
+        context.SaveChanges();
 
         // 6. Create Contracts (3 contracts)
         var room101 = rooms.First(r => r.RoomCode == "101");
@@ -214,12 +224,12 @@ public static class DatabaseSeeder
         // 9. Create Services (6 services)
         var services = new List<Service>
         {
-            new Service { Name = "Điện", ServiceType = "Điện", CommonUnitPrice = 3500, Unit = "kWh" },
-            new Service { Name = "Nước", ServiceType = "Nước", CommonUnitPrice = 20000, Unit = "m³" },
-            new Service { Name = "Phí quản lý", ServiceType = "Khác", CommonUnitPrice = 15000, Unit = "m²" },
-            new Service { Name = "Gửi xe máy", ServiceType = "Gửi xe", CommonUnitPrice = 100000, Unit = "tháng" },
-            new Service { Name = "Gửi ô tô", ServiceType = "Gửi xe", CommonUnitPrice = 1500000, Unit = "tháng" },
-            new Service { Name = "Internet", ServiceType = "Khác", CommonUnitPrice = 200000, Unit = "tháng" }
+            new Service { Name = "Điện", ServiceType = "Điện", CommonUnitPrice = 3500, Unit = "kWh", OwnerUserId = userAdmin.Id },
+            new Service { Name = "Nước", ServiceType = "Nước", CommonUnitPrice = 20000, Unit = "m³", OwnerUserId = userAdmin.Id },
+            new Service { Name = "Phí quản lý", ServiceType = "Khác", CommonUnitPrice = 15000, Unit = "m²", OwnerUserId = userAdmin.Id },
+            new Service { Name = "Gửi xe máy", ServiceType = "Gửi xe", CommonUnitPrice = 100000, Unit = "tháng", OwnerUserId = userAdmin.Id },
+            new Service { Name = "Gửi ô tô", ServiceType = "Gửi xe", CommonUnitPrice = 1500000, Unit = "tháng", OwnerUserId = userAdmin.Id },
+            new Service { Name = "Internet", ServiceType = "Khác", CommonUnitPrice = 200000, Unit = "tháng", OwnerUserId = userAdmin.Id }
         };
         context.Services.AddRange(services);
         context.SaveChanges();

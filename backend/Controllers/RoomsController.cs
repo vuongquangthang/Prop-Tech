@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
@@ -17,6 +18,16 @@ public class RoomsController : ControllerBase
         _roomService = roomService;
     }
 
+    private int GetUserId()
+    {
+        var claim = User.GetOwnerUserId().ToString();
+        if (!int.TryParse(claim, out var userId) || userId <= 0)
+        {
+            throw new InvalidOperationException("Không thể xác thực người dùng");
+        }
+        return userId;
+    }
+
     /// <summary>
     /// Lấy danh sách tất cả phòng
     /// </summary>
@@ -25,7 +36,7 @@ public class RoomsController : ControllerBase
     {
         try
         {
-            var rooms = await _roomService.GetAllAsync();
+            var rooms = await _roomService.GetAllAsync(GetUserId());
             return Ok(rooms);
         }
         catch (Exception ex)
@@ -42,7 +53,7 @@ public class RoomsController : ControllerBase
     {
         try
         {
-            var rooms = await _roomService.GetByFloorIdAsync(floorId);
+            var rooms = await _roomService.GetByFloorIdAsync(floorId, GetUserId());
             return Ok(rooms);
         }
         catch (Exception ex)
@@ -59,7 +70,7 @@ public class RoomsController : ControllerBase
     {
         try
         {
-            var rooms = await _roomService.GetByStatusAsync(status);
+            var rooms = await _roomService.GetByStatusAsync(status, GetUserId());
             return Ok(rooms);
         }
         catch (Exception ex)
@@ -76,7 +87,7 @@ public class RoomsController : ControllerBase
     {
         try
         {
-            var room = await _roomService.GetByIdAsync(id);
+            var room = await _roomService.GetByIdAsync(id, GetUserId());
             if (room == null)
             {
                 return NotFound(new { message = "Phòng không tồn tại" });
@@ -127,7 +138,7 @@ public class RoomsController : ControllerBase
     {
         try
         {
-            var room = await _roomService.CreateAsync(dto);
+            var room = await _roomService.CreateAsync(dto, GetUserId());
             return CreatedAtAction(nameof(GetById), new { id = room.Id }, room);
         }
         catch (InvalidOperationException ex)
@@ -149,7 +160,7 @@ public class RoomsController : ControllerBase
     {
         try
         {
-            var room = await _roomService.UpdateAsync(id, dto);
+            var room = await _roomService.UpdateAsync(id, dto, GetUserId());
             return Ok(room);
         }
         catch (InvalidOperationException ex)
@@ -171,7 +182,7 @@ public class RoomsController : ControllerBase
     {
         try
         {
-            await _roomService.DeleteAsync(id);
+            await _roomService.DeleteAsync(id, GetUserId());
             return Ok(new { message = "Xóa phòng thành công" });
         }
         catch (InvalidOperationException ex)

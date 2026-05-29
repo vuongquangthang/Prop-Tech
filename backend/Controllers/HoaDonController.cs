@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
+using backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
@@ -12,17 +14,53 @@ namespace backend.Controllers;
 public class HoaDonController : ControllerBase
 {
     private readonly IHoaDonService _hoaDonService;
+    private readonly ApplicationDbContext _context;
 
-    public HoaDonController(IHoaDonService hoaDonService)
+    public HoaDonController(IHoaDonService hoaDonService, ApplicationDbContext context)
     {
         _hoaDonService = hoaDonService;
+        _context = context;
+    }
+
+    private async Task<HashSet<int>> GetOwnedContractIdsAsync()
+    {
+        var userId = GetCurrentOwnerUserId();
+        var contractIds = await _context.HopDongs
+            .AsNoTracking()
+            .Where(contract => contract.Room.Floor.Building.OwnerUserId == userId)
+            .Select(contract => contract.Id)
+            .ToListAsync();
+        return contractIds.ToHashSet();
+    }
+
+    private async Task<bool> OwnsContractAsync(int contractId)
+    {
+        var userId = GetCurrentOwnerUserId();
+        return await _context.HopDongs
+            .AsNoTracking()
+            .AnyAsync(contract => contract.Id == contractId && contract.Room.Floor.Building.OwnerUserId == userId);
+    }
+
+    private async Task<bool> OwnsInvoiceAsync(int invoiceId)
+    {
+        var ownerUserId = GetCurrentOwnerUserId();
+        return await _context.HoaDons
+            .AsNoTracking()
+            .AnyAsync(invoice => invoice.Id == invoiceId && invoice.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId);
     }
 
     [HttpGet]
     [Authorize(Roles = "Admin,QuanLy,KeToan,NhanVien")]
     public async Task<ActionResult<List<HoaDonDto>>> GetAll()
     {
-        try { return Ok(await _hoaDonService.GetAllAsync()); }
+        try
+        {
+            var ownedContractIds = await GetOwnedContractIdsAsync();
+            var invoices = (await _hoaDonService.GetAllAsync())
+                .Where(invoice => ownedContractIds.Contains(invoice.ContractId))
+                .ToList();
+            return Ok(invoices);
+        }
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 
@@ -47,7 +85,13 @@ public class HoaDonController : ControllerBase
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
             // CuDan only sees their own unpaid invoices; staff sees all
             int? filterUserId = (userRole == "CuDan") ? userId : null;
-            return Ok(await _hoaDonService.GetUnpaidInvoicesAsync(filterUserId));
+            var invoices = await _hoaDonService.GetUnpaidInvoicesAsync(filterUserId);
+            if (userRole != "CuDan")
+            {
+                var ownedContractIds = await GetOwnedContractIdsAsync();
+                invoices = invoices.Where(invoice => ownedContractIds.Contains(invoice.ContractId)).ToList();
+            }
+            return Ok(invoices);
         }
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
@@ -58,6 +102,10 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(contractId))
+            {
+                return NotFound(new { message = "Hợp đồng không tồn tại" });
+            }
             var invoices = await _hoaDonService.GetByContractIdAsync(contractId);
             var unpaidInvoices = invoices
                 .Where(i => i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần")
@@ -79,14 +127,28 @@ public class HoaDonController : ControllerBase
     [Authorize(Roles = "Admin,QuanLy,KeToan")]
     public async Task<ActionResult<List<HoaDonDto>>> GetDrafts()
     {
-        try { return Ok(await _hoaDonService.GetDraftInvoicesAsync()); }
+        try
+        {
+            var ownedContractIds = await GetOwnedContractIdsAsync();
+            var invoices = (await _hoaDonService.GetDraftInvoicesAsync())
+                .Where(invoice => ownedContractIds.Contains(invoice.ContractId))
+                .ToList();
+            return Ok(invoices);
+        }
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 
     [HttpGet("contract/{contractId}")]
     public async Task<ActionResult<List<HoaDonDto>>> GetByContract(int contractId)
     {
-        try { return Ok(await _hoaDonService.GetByContractIdAsync(contractId)); }
+        try
+        {
+            if (!await OwnsContractAsync(contractId))
+            {
+                return Ok(new List<HoaDonDto>());
+            }
+            return Ok(await _hoaDonService.GetByContractIdAsync(contractId));
+        }
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 
@@ -96,7 +158,7 @@ public class HoaDonController : ControllerBase
         try
         {
             var invoice = await _hoaDonService.GetByIdAsync(id);
-            if (invoice == null) return NotFound(new { message = "Hóa đơn không tồn tại" });
+            if (invoice == null || !await OwnsContractAsync(invoice.ContractId)) return NotFound(new { message = "Hóa đơn không tồn tại" });
             return Ok(invoice);
         }
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
@@ -108,6 +170,10 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(dto.ContractId))
+            {
+                return BadRequest(new { message = "Hợp đồng không tồn tại" });
+            }
             var invoice = await _hoaDonService.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = invoice.Id }, invoice);
         }
@@ -124,7 +190,7 @@ public class HoaDonController : ControllerBase
     {
         try
         {
-            var result = await _hoaDonService.CalculateDraftInvoicesAsync(year, month);
+            var result = await _hoaDonService.CalculateDraftInvoicesAsync(year, month, GetCurrentOwnerUserId());
             return Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
@@ -140,6 +206,7 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsInvoiceAsync(id)) return NotFound(new { message = "Hoa don khong ton tai" });
             var invoice = await _hoaDonService.EditDraftAsync(id, dto);
             return Ok(invoice);
         }
@@ -156,6 +223,7 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsInvoiceAsync(id)) return NotFound(new { message = "Hoa don khong ton tai" });
             var userId = GetCurrentUserId();
             var invoice = await _hoaDonService.ApproveAsync(id, userId);
             return Ok(invoice);
@@ -173,6 +241,15 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            var ownedInvoiceIds = await _context.HoaDons
+                .AsNoTracking()
+                .Where(invoice => dto.InvoiceIds.Contains(invoice.Id) && invoice.HopDong.Room.Floor.Building.OwnerUserId == GetCurrentOwnerUserId())
+                .Select(invoice => invoice.Id)
+                .ToListAsync();
+            if (ownedInvoiceIds.Count != dto.InvoiceIds.Distinct().Count())
+            {
+                return BadRequest(new { message = "Danh sach hoa don co hoa don khong ton tai" });
+            }
             var userId = GetCurrentUserId();
             var result = await _hoaDonService.BatchApproveAsync(dto.InvoiceIds, userId);
             return Ok(result);
@@ -189,6 +266,7 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsInvoiceAsync(id)) return NotFound(new { message = "Hoa don khong ton tai" });
             var invoice = await _hoaDonService.RejectAsync(id, dto.Reason);
             return Ok(invoice);
         }
@@ -202,6 +280,7 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsInvoiceAsync(id)) return NotFound(new { message = "Hoa don khong ton tai" });
             var invoice = await _hoaDonService.PayInvoiceAsync(id, dto);
             return Ok(invoice);
         }
@@ -215,6 +294,7 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsInvoiceAsync(id)) return NotFound(new { message = "Hoa don khong ton tai" });
             var userId = GetCurrentUserId();
             var result = await _hoaDonService.SendReminderAsync(id, userId, dto?.Content);
             return Ok(result);
@@ -229,6 +309,7 @@ public class HoaDonController : ControllerBase
     {
         try
         {
+            if (!await OwnsInvoiceAsync(id)) return NotFound(new { message = "Hoa don khong ton tai" });
             await _hoaDonService.DeleteAsync(id);
             return Ok(new { message = "Xóa hóa đơn thành công" });
         }
@@ -240,5 +321,10 @@ public class HoaDonController : ControllerBase
     {
         var claim = User.FindFirst("id") ?? User.FindFirst(ClaimTypes.NameIdentifier);
         return int.TryParse(claim?.Value, out var id) ? id : 0;
+    }
+
+    private int GetCurrentOwnerUserId()
+    {
+        return User.GetOwnerUserId();
     }
 }

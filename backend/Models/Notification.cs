@@ -19,6 +19,12 @@ public class Notification
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 
+    [Column("owner_user_id")]
+    public int? OwnerUserId { get; set; }
+
+    [ForeignKey(nameof(OwnerUserId))]
+    public User? OwnerUser { get; set; }
+
     [Column("recipient_id")]
     public int? RecipientId { get; set; }
 

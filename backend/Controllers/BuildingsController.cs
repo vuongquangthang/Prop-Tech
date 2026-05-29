@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
@@ -17,6 +18,16 @@ public class BuildingsController : ControllerBase
         _buildingService = buildingService;
     }
 
+    private int GetUserId()
+    {
+        var claim = User.GetOwnerUserId().ToString();
+        if (!int.TryParse(claim, out var userId) || userId <= 0)
+        {
+            throw new InvalidOperationException("Không thể xác thực người dùng");
+        }
+        return userId;
+    }
+
     /// <summary>
     /// Lấy danh sách tất cả tòa nhà
     /// </summary>
@@ -25,7 +36,7 @@ public class BuildingsController : ControllerBase
     {
         try
         {
-            var buildings = await _buildingService.GetAllAsync();
+            var buildings = await _buildingService.GetAllAsync(GetUserId());
             return Ok(buildings);
         }
         catch (Exception ex)
@@ -42,7 +53,7 @@ public class BuildingsController : ControllerBase
     {
         try
         {
-            var building = await _buildingService.GetByIdAsync(id);
+            var building = await _buildingService.GetByIdAsync(id, GetUserId());
             if (building == null)
             {
                 return NotFound(new { message = "Tòa nhà không tồn tại" });
@@ -64,7 +75,7 @@ public class BuildingsController : ControllerBase
     {
         try
         {
-            var building = await _buildingService.CreateAsync(dto);
+            var building = await _buildingService.CreateAsync(dto, GetUserId());
             return CreatedAtAction(nameof(GetById), new { id = building.Id }, building);
         }
         catch (InvalidOperationException ex)
@@ -86,7 +97,7 @@ public class BuildingsController : ControllerBase
     {
         try
         {
-            var building = await _buildingService.UpdateAsync(id, dto);
+            var building = await _buildingService.UpdateAsync(id, dto, GetUserId());
             return Ok(building);
         }
         catch (InvalidOperationException ex)
@@ -108,7 +119,7 @@ public class BuildingsController : ControllerBase
     {
         try
         {
-            await _buildingService.DeleteAsync(id);
+            await _buildingService.DeleteAsync(id, GetUserId());
             return Ok(new { message = "Xóa tòa nhà thành công" });
         }
         catch (InvalidOperationException ex)

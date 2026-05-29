@@ -307,6 +307,20 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE HOP_DONG ADD CONG_THUC_HOA_DON_JSON NVARCHAR(MAX) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'MUST_CHANGE_PASSWORD')
                     ALTER TABLE [USER] ADD MUST_CHANGE_PASSWORD BIT NOT NULL CONSTRAINT DF_USER_MUST_CHANGE_PASSWORD DEFAULT(0);
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'OWNER_USER_ID')
+                    ALTER TABLE [USER] ADD OWNER_USER_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TOA_NHA') AND name = 'OWNER_USER_ID')
+                    ALTER TABLE TOA_NHA ADD OWNER_USER_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('DICH_VU') AND name = 'OWNER_USER_ID')
+                    ALTER TABLE DICH_VU ADD OWNER_USER_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CU_DAN') AND name = 'OWNER_USER_ID')
+                    ALTER TABLE CU_DAN ADD OWNER_USER_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TAI_SAN') AND name = 'OWNER_USER_ID')
+                    ALTER TABLE TAI_SAN ADD OWNER_USER_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('KNOWLEDGE_BASE') AND name = 'OWNER_USER_ID')
+                    ALTER TABLE KNOWLEDGE_BASE ADD OWNER_USER_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'TEN_HIEN_THI')
+                    ALTER TABLE [USER] ADD TEN_HIEN_THI NVARCHAR(200) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('LICH_SU_CHAT') AND name = 'IS_KNOWLEDGE_GAP')
                     ALTER TABLE LICH_SU_CHAT ADD IS_KNOWLEDGE_GAP BIT NOT NULL CONSTRAINT DF_LICH_SU_CHAT_IS_KNOWLEDGE_GAP DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'TIEN_NGHI_JSON')
@@ -327,6 +341,120 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE CHI_SO_NUOC ADD ANOMALY_NOTE NVARCHAR(500) NULL;
             """);
             Console.WriteLine("✅ HOA_DON columns ensured");
+
+            context.Database.ExecuteSqlRaw("""
+                DECLARE @DefaultOwnerUserId INT = (
+                    SELECT TOP 1 USER_ID
+                    FROM [USER]
+                    WHERE VAI_TRO IN (N'Admin', N'QuanLy')
+                    ORDER BY CASE WHEN VAI_TRO = N'Admin' THEN 0 ELSE 1 END, USER_ID
+                );
+
+                IF @DefaultOwnerUserId IS NOT NULL
+                BEGIN
+                    UPDATE TOA_NHA SET OWNER_USER_ID = @DefaultOwnerUserId WHERE OWNER_USER_ID IS NULL;
+                    UPDATE DICH_VU SET OWNER_USER_ID = @DefaultOwnerUserId WHERE OWNER_USER_ID IS NULL;
+                    UPDATE CU_DAN SET OWNER_USER_ID = @DefaultOwnerUserId WHERE OWNER_USER_ID IS NULL;
+                    UPDATE TAI_SAN SET OWNER_USER_ID = @DefaultOwnerUserId WHERE OWNER_USER_ID IS NULL;
+                    UPDATE KNOWLEDGE_BASE SET OWNER_USER_ID = @DefaultOwnerUserId WHERE OWNER_USER_ID IS NULL;
+                END;
+
+                UPDATE ts
+                SET OWNER_USER_ID = room_owner.OWNER_USER_ID
+                FROM TAI_SAN ts
+                INNER JOIN (
+                    SELECT cttsp.TAI_SAN_ID, MIN(tn.OWNER_USER_ID) AS OWNER_USER_ID
+                    FROM CHI_TIET_TAI_SAN_PHONG cttsp
+                    INNER JOIN PHONG p ON p.PHONG_ID = cttsp.PHONG_ID
+                    INNER JOIN TANG t ON t.TANG_ID = p.TANG_ID
+                    INNER JOIN TOA_NHA tn ON tn.TOA_NHA_ID = t.TOA_NHA_ID
+                    WHERE tn.OWNER_USER_ID IS NOT NULL
+                    GROUP BY cttsp.TAI_SAN_ID
+                ) room_owner ON room_owner.TAI_SAN_ID = ts.TAI_SAN_ID
+                WHERE ts.OWNER_USER_ID IS NULL OR ts.OWNER_USER_ID <> room_owner.OWNER_USER_ID;
+
+                UPDATE [USER]
+                SET OWNER_USER_ID = USER_ID
+                WHERE OWNER_USER_ID IS NULL
+                  AND VAI_TRO IN (N'Admin', N'QuanLy', N'KeToan', N'NhanVien');
+
+                UPDATE u
+                SET OWNER_USER_ID = cd.OWNER_USER_ID
+                FROM [USER] u
+                INNER JOIN CU_DAN cd ON cd.CU_DAN_ID = u.CU_DAN_ID
+                WHERE u.OWNER_USER_ID IS NULL
+                  AND cd.OWNER_USER_ID IS NOT NULL;
+
+                UPDATE u
+                SET TEN_HIEN_THI = cd.HO_TEN
+                FROM [USER] u
+                INNER JOIN CU_DAN cd ON cd.CU_DAN_ID = u.CU_DAN_ID
+                WHERE (u.TEN_HIEN_THI IS NULL OR LTRIM(RTRIM(u.TEN_HIEN_THI)) = '')
+                  AND cd.HO_TEN IS NOT NULL
+                  AND LTRIM(RTRIM(cd.HO_TEN)) <> '';
+
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TOA_NHA_TEN_TOA_NHA' AND object_id = OBJECT_ID('TOA_NHA'))
+                    DROP INDEX IX_TOA_NHA_TEN_TOA_NHA ON TOA_NHA;
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PHONG_MA_PHONG' AND object_id = OBJECT_ID('PHONG'))
+                    DROP INDEX IX_PHONG_MA_PHONG ON PHONG;
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TAI_SAN_MA_TAI_SAN' AND object_id = OBJECT_ID('TAI_SAN'))
+                    DROP INDEX IX_TAI_SAN_MA_TAI_SAN ON TAI_SAN;
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TAI_SAN_AssetCode' AND object_id = OBJECT_ID('TAI_SAN'))
+                    DROP INDEX IX_TAI_SAN_AssetCode ON TAI_SAN;
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TaiSans_AssetCode' AND object_id = OBJECT_ID('TAI_SAN'))
+                    DROP INDEX IX_TaiSans_AssetCode ON TAI_SAN;
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA' AND object_id = OBJECT_ID('TOA_NHA'))
+                    CREATE UNIQUE INDEX IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA ON TOA_NHA(OWNER_USER_ID, TEN_TOA_NHA) WHERE OWNER_USER_ID IS NOT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PHONG_TANG_ID_MA_PHONG' AND object_id = OBJECT_ID('PHONG'))
+                    CREATE UNIQUE INDEX IX_PHONG_TANG_ID_MA_PHONG ON PHONG(TANG_ID, MA_PHONG);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_DICH_VU_OWNER_USER_ID_TEN_DICH_VU' AND object_id = OBJECT_ID('DICH_VU'))
+                    CREATE UNIQUE INDEX IX_DICH_VU_OWNER_USER_ID_TEN_DICH_VU ON DICH_VU(OWNER_USER_ID, TEN_DICH_VU) WHERE OWNER_USER_ID IS NOT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TAI_SAN_OWNER_USER_ID_MA_TAI_SAN' AND object_id = OBJECT_ID('TAI_SAN'))
+                    CREATE UNIQUE INDEX IX_TAI_SAN_OWNER_USER_ID_MA_TAI_SAN ON TAI_SAN(OWNER_USER_ID, MA_TAI_SAN) WHERE OWNER_USER_ID IS NOT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KNOWLEDGE_BASE_OWNER_USER_ID' AND object_id = OBJECT_ID('KNOWLEDGE_BASE'))
+                    CREATE INDEX IX_KNOWLEDGE_BASE_OWNER_USER_ID ON KNOWLEDGE_BASE(OWNER_USER_ID);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_USER_OWNER_USER_ID' AND object_id = OBJECT_ID('[USER]'))
+                    CREATE INDEX IX_USER_OWNER_USER_ID ON [USER](OWNER_USER_ID);
+
+                IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TOA_NHA_USER_OWNER_USER_ID')
+                    ALTER TABLE TOA_NHA ADD CONSTRAINT FK_TOA_NHA_USER_OWNER_USER_ID FOREIGN KEY (OWNER_USER_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_DICH_VU_USER_OWNER_USER_ID')
+                    ALTER TABLE DICH_VU ADD CONSTRAINT FK_DICH_VU_USER_OWNER_USER_ID FOREIGN KEY (OWNER_USER_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CU_DAN_USER_OWNER_USER_ID')
+                    ALTER TABLE CU_DAN ADD CONSTRAINT FK_CU_DAN_USER_OWNER_USER_ID FOREIGN KEY (OWNER_USER_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TAI_SAN_USER_OWNER_USER_ID')
+                    ALTER TABLE TAI_SAN ADD CONSTRAINT FK_TAI_SAN_USER_OWNER_USER_ID FOREIGN KEY (OWNER_USER_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_KNOWLEDGE_BASE_USER_OWNER_USER_ID')
+                    ALTER TABLE KNOWLEDGE_BASE ADD CONSTRAINT FK_KNOWLEDGE_BASE_USER_OWNER_USER_ID FOREIGN KEY (OWNER_USER_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_USER_USER_OWNER_USER_ID')
+                    ALTER TABLE [USER] ADD CONSTRAINT FK_USER_USER_OWNER_USER_ID FOREIGN KEY (OWNER_USER_ID) REFERENCES [USER](USER_ID);
+            """);
+            Console.WriteLine("Owner scope columns ensured");
+
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('notifications', 'U') IS NOT NULL
+                BEGIN
+                    IF COL_LENGTH('notifications', 'owner_user_id') IS NULL
+                        ALTER TABLE notifications ADD owner_user_id INT NULL;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM sys.indexes
+                        WHERE name = 'IX_notifications_owner_user_id'
+                          AND object_id = OBJECT_ID('notifications')
+                    )
+                        CREATE INDEX IX_notifications_owner_user_id ON notifications(owner_user_id);
+
+                    UPDATE n
+                    SET owner_user_id = COALESCE(recipient.OWNER_USER_ID, sender.OWNER_USER_ID, sender.USER_ID)
+                    FROM notifications n
+                    LEFT JOIN [USER] recipient ON recipient.USER_ID = n.recipient_id
+                    LEFT JOIN [USER] sender ON sender.USER_ID = n.user_id
+                    WHERE n.owner_user_id IS NULL
+                      AND COALESCE(recipient.OWNER_USER_ID, sender.OWNER_USER_ID, sender.USER_ID) IS NOT NULL;
+                END;
+            """);
+            Console.WriteLine("Notification owner scope ensured");
 
             context.Database.ExecuteSqlRaw("""
                 UPDATE HOP_DONG
@@ -355,18 +483,25 @@ using (var scope = app.Services.CreateScope())
                 DELETE FROM TAI_SAN
                 WHERE MA_TAI_SAN IN ('THANGMAY-01', 'DIEUHOA-SANH', 'MAYPHATSONG-WIFI', 'CAMERA-SANH-01', 'BANGHEXUONG');
 
+                DECLARE @AssetOwnerUserId INT = (
+                    SELECT TOP 1 USER_ID
+                    FROM [USER]
+                    WHERE VAI_TRO IN (N'Admin', N'QuanLy')
+                    ORDER BY CASE WHEN SO_DIEN_THOAI = 'propadmin173852' THEN 0 ELSE 1 END, USER_ID
+                );
+
                 IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-DIEUHOA')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Điều hòa', 'TS-PHONG-DIEUHOA');
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Điều hòa', 'TS-PHONG-DIEUHOA', @AssetOwnerUserId);
                 IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-MAYGIAT')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Máy giặt', 'TS-PHONG-MAYGIAT');
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Máy giặt', 'TS-PHONG-MAYGIAT', @AssetOwnerUserId);
                 IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-GIUONG')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Giường', 'TS-PHONG-GIUONG');
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Giường', 'TS-PHONG-GIUONG', @AssetOwnerUserId);
                 IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TULANH')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Tủ lạnh', 'TS-PHONG-TULANH');
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Tủ lạnh', 'TS-PHONG-TULANH', @AssetOwnerUserId);
                 IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TUQUANAO')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Tủ quần áo', 'TS-PHONG-TUQUANAO');
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Tủ quần áo', 'TS-PHONG-TUQUANAO', @AssetOwnerUserId);
                 IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-BINHNONG')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN) VALUES (N'Bình nóng lạnh', 'TS-PHONG-BINHNONG');
+                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Bình nóng lạnh', 'TS-PHONG-BINHNONG', @AssetOwnerUserId);
 
                 DECLARE @Room101Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '101');
                 DECLARE @Room201Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '201');
@@ -524,6 +659,8 @@ using (var scope = app.Services.CreateScope())
         
         // Seed complete demo data with all tables
         DatabaseSeeder.SeedCompleteData(context);
+        PublicRoomDemoSeeder.EnsurePublicRooms(context);
+        FinanceDemoDataSeeder.EnsureProptechAdminFinanceDemo(context);
     }
     catch (Exception ex)
     {
@@ -562,6 +699,19 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads"
 });
+
+app.MapGet("/placeholder.svg", () => Results.Content(
+    """
+    <svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720">
+      <rect width="960" height="720" fill="#f1f5f9"/>
+      <rect x="120" y="150" width="720" height="420" rx="24" fill="#e2e8f0"/>
+      <path d="M230 500l145-150 110 105 88-85 155 130H230z" fill="#cbd5e1"/>
+      <circle cx="660" cy="280" r="52" fill="#94a3b8"/>
+      <text x="480" y="630" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" fill="#475569">Không có ảnh</text>
+    </svg>
+    """,
+    "image/svg+xml; charset=utf-8"
+));
 
 app.UseAuthentication();
 app.UseAuthorization();

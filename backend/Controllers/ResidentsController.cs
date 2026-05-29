@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
@@ -17,6 +18,16 @@ public class ResidentsController : ControllerBase
         _residentService = residentService;
     }
 
+    private int GetUserId()
+    {
+        var claim = User.GetOwnerUserId().ToString();
+        if (!int.TryParse(claim, out var userId) || userId <= 0)
+        {
+            throw new InvalidOperationException("Không thể xác thực người dùng");
+        }
+        return userId;
+    }
+
     /// <summary>
     /// Lấy danh sách tất cả cư dân
     /// </summary>
@@ -25,7 +36,7 @@ public class ResidentsController : ControllerBase
     {
         try
         {
-            var residents = await _residentService.GetAllAsync();
+            var residents = await _residentService.GetAllAsync(GetUserId());
             return Ok(residents);
         }
         catch (Exception ex)
@@ -47,7 +58,7 @@ public class ResidentsController : ControllerBase
                 return BadRequest(new { message = "Tên tìm kiếm không được để trống" });
             }
 
-            var residents = await _residentService.SearchByNameAsync(name);
+            var residents = await _residentService.SearchByNameAsync(name, GetUserId());
             return Ok(residents);
         }
         catch (Exception ex)
@@ -64,7 +75,7 @@ public class ResidentsController : ControllerBase
     {
         try
         {
-            var resident = await _residentService.GetByIdAsync(id);
+            var resident = await _residentService.GetByIdAsync(id, GetUserId());
             if (resident == null)
             {
                 return NotFound(new { message = "Cư dân không tồn tại" });
@@ -86,7 +97,7 @@ public class ResidentsController : ControllerBase
     {
         try
         {
-            var resident = await _residentService.CreateAsync(dto);
+            var resident = await _residentService.CreateAsync(dto, GetUserId());
             return CreatedAtAction(nameof(GetById), new { id = resident.Id }, resident);
         }
         catch (InvalidOperationException ex)
@@ -108,7 +119,7 @@ public class ResidentsController : ControllerBase
     {
         try
         {
-            var resident = await _residentService.UpdateAsync(id, dto);
+            var resident = await _residentService.UpdateAsync(id, dto, GetUserId());
             return Ok(resident);
         }
         catch (InvalidOperationException ex)
@@ -130,7 +141,7 @@ public class ResidentsController : ControllerBase
     {
         try
         {
-            await _residentService.DeleteAsync(id);
+            await _residentService.DeleteAsync(id, GetUserId());
             return Ok(new { message = "Xóa cư dân thành công" });
         }
         catch (InvalidOperationException ex)

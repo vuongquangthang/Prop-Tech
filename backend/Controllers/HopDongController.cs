@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
+using backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
@@ -13,11 +15,13 @@ public class HopDongController : ControllerBase
 {
     private readonly IHopDongService _hopDongService;
     private readonly IChiTietOService _chiTietOService;
+    private readonly ApplicationDbContext _context;
 
-    public HopDongController(IHopDongService hopDongService, IChiTietOService chiTietOService)
+    public HopDongController(IHopDongService hopDongService, IChiTietOService chiTietOService, ApplicationDbContext context)
     {
         _hopDongService = hopDongService;
         _chiTietOService = chiTietOService;
+        _context = context;
     }
 
     private int GetUserId()
@@ -30,6 +34,33 @@ public class HopDongController : ControllerBase
         return userId;
     }
 
+    private async Task<HashSet<int>> GetOwnedRoomIdsAsync()
+    {
+        var userId = User.GetOwnerUserId();
+        var roomIds = await _context.Rooms
+            .AsNoTracking()
+            .Where(room => room.Floor.Building.OwnerUserId == userId)
+            .Select(room => room.Id)
+            .ToListAsync();
+        return roomIds.ToHashSet();
+    }
+
+    private async Task<bool> OwnsRoomAsync(int roomId)
+    {
+        var userId = User.GetOwnerUserId();
+        return await _context.Rooms
+            .AsNoTracking()
+            .AnyAsync(room => room.Id == roomId && room.Floor.Building.OwnerUserId == userId);
+    }
+
+    private async Task<bool> OwnsContractAsync(int contractId)
+    {
+        var ownerUserId = User.GetOwnerUserId();
+        return await _context.HopDongs
+            .AsNoTracking()
+            .AnyAsync(contract => contract.Id == contractId && contract.Room.Floor.Building.OwnerUserId == ownerUserId);
+    }
+
     /// <summary>
     /// Lấy danh sách tất cả hợp đồng
     /// </summary>
@@ -38,7 +69,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
-            var contracts = await _hopDongService.GetAllAsync();
+            var ownedRoomIds = await GetOwnedRoomIdsAsync();
+            var contracts = (await _hopDongService.GetAllAsync())
+                .Where(contract => ownedRoomIds.Contains(contract.RoomId))
+                .ToList();
             return Ok(contracts);
         }
         catch (Exception ex)
@@ -55,7 +89,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
-            var contracts = await _hopDongService.GetActiveContractsAsync();
+            var ownedRoomIds = await GetOwnedRoomIdsAsync();
+            var contracts = (await _hopDongService.GetActiveContractsAsync())
+                .Where(contract => ownedRoomIds.Contains(contract.RoomId))
+                .ToList();
             return Ok(contracts);
         }
         catch (Exception ex)
@@ -72,6 +109,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsRoomAsync(roomId))
+            {
+                return Ok(new List<HopDongDto>());
+            }
             var contracts = await _hopDongService.GetByRoomIdAsync(roomId);
             return Ok(contracts);
         }
@@ -90,7 +131,7 @@ public class HopDongController : ControllerBase
         try
         {
             var contract = await _hopDongService.GetByIdAsync(id);
-            if (contract == null)
+            if (contract == null || !await OwnsRoomAsync(contract.RoomId))
             {
                 return NotFound(new { message = "Hợp đồng không tồn tại" });
             }
@@ -111,6 +152,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsRoomAsync(dto.RoomId))
+            {
+                return BadRequest(new { message = "Phòng không tồn tại" });
+            }
             var contract = await _hopDongService.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = contract.Id }, contract);
         }
@@ -133,6 +178,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(id))
+            {
+                return NotFound(new { message = "Hop dong khong ton tai" });
+            }
             var contract = await _hopDongService.UpdateAsync(id, dto);
             return Ok(contract);
         }
@@ -155,6 +204,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(id))
+            {
+                return NotFound(new { message = "Hop dong khong ton tai" });
+            }
             await _hopDongService.SendContractChangeProposalAsync(id, dto, GetUserId());
             return Ok(new { message = "Đã cập nhật và áp dụng thay đổi hợp đồng" });
         }
@@ -214,6 +267,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(id))
+            {
+                return NotFound(new { message = "Hop dong khong ton tai" });
+            }
             await _hopDongService.DeleteAsync(id);
             return Ok(new { message = "Xóa hợp đồng thành công" });
         }
@@ -235,6 +292,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(contractId))
+            {
+                return NotFound(new { message = "Hop dong khong ton tai" });
+            }
             var residents = await _chiTietOService.GetResidentsByContractAsync(contractId);
             return Ok(residents);
         }
@@ -253,6 +314,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(contractId))
+            {
+                return NotFound(new { message = "Hop dong khong ton tai" });
+            }
             var resident = await _chiTietOService.AddResidentToContractAsync(contractId, dto);
             return Ok(resident);
         }
@@ -275,6 +340,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(contractId))
+            {
+                return NotFound(new { message = "Hop dong khong ton tai" });
+            }
             await _chiTietOService.RemoveResidentFromContractAsync(contractId, residentId);
             return Ok(new { message = "Đã cập nhật ngày chuyển đi cho cư dân" });
         }
@@ -297,6 +366,10 @@ public class HopDongController : ControllerBase
     {
         try
         {
+            if (!await OwnsContractAsync(contractId))
+            {
+                return NotFound(new { message = "Hop dong khong ton tai" });
+            }
             await _chiTietOService.UpdateMoveOutDateAsync(contractId, residentId, toDate);
             return Ok(new { message = "Cập nhật ngày chuyển đi thành công" });
         }

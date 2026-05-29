@@ -27,7 +27,7 @@ public class YeuCauSuaChuaController : ControllerBase
     {
         try
         {
-            var requests = await _yeuCauService.GetAllAsync();
+            var requests = await _yeuCauService.GetAllAsync(User.GetOwnerUserId());
             return Ok(requests);
         }
         catch (Exception ex)
@@ -45,7 +45,7 @@ public class YeuCauSuaChuaController : ControllerBase
     {
         try
         {
-            var requests = await _yeuCauService.GetByStatusAsync(status);
+            var requests = await _yeuCauService.GetByStatusAsync(status, User.GetOwnerUserId());
             return Ok(requests);
         }
         catch (Exception ex)
@@ -62,7 +62,7 @@ public class YeuCauSuaChuaController : ControllerBase
     {
         try
         {
-            var requests = await _yeuCauService.GetByRoomIdAsync(roomId);
+            var requests = await _yeuCauService.GetByRoomIdAsync(roomId, User.GetOwnerUserId());
             return Ok(requests);
         }
         catch (Exception ex)
@@ -102,10 +102,16 @@ public class YeuCauSuaChuaController : ControllerBase
     {
         try
         {
-            var request = await _yeuCauService.GetByIdAsync(id);
+            var request = await _yeuCauService.GetByIdAsync(
+                id,
+                User.IsInRole("CuDan") ? null : User.GetOwnerUserId());
             if (request == null)
             {
                 return NotFound(new { message = "Yêu cầu không tồn tại" });
+            }
+            if (User.IsInRole("CuDan") && request.UserId != User.GetAuthenticatedUserId())
+            {
+                return Forbid();
             }
             return Ok(request);
         }
@@ -163,7 +169,10 @@ public class YeuCauSuaChuaController : ControllerBase
                 }
             }
             
-            var request = await _yeuCauService.UpdateAsync(id, dto);
+            var request = await _yeuCauService.UpdateAsync(
+                id,
+                dto,
+                userRole == "CuDan" ? null : User.GetOwnerUserId());
             return Ok(request);
         }
         catch (InvalidOperationException ex)
@@ -225,7 +234,10 @@ public class YeuCauSuaChuaController : ControllerBase
                 }
             }
             
-            var request = await _yeuCauService.CloseAsync(id, dto);
+            var request = await _yeuCauService.CloseAsync(
+                id,
+                dto,
+                userRole == "CuDan" ? null : User.GetOwnerUserId());
             return Ok(request);
         }
         catch (InvalidOperationException ex)
@@ -247,7 +259,7 @@ public class YeuCauSuaChuaController : ControllerBase
     {
         try
         {
-            await _yeuCauService.DeleteAsync(id);
+            await _yeuCauService.DeleteAsync(id, User.GetOwnerUserId());
             return Ok(new { message = "Xóa yêu cầu thành công" });
         }
         catch (InvalidOperationException ex)

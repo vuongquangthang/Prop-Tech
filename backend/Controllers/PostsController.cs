@@ -28,13 +28,18 @@ public class PostsController : ControllerBase
         return userId;
     }
 
+    private int GetOwnerUserId()
+    {
+        return User.GetOwnerUserId();
+    }
+
     [HttpGet]
     [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<List<PostDto>>> GetAll()
     {
         try
         {
-            var posts = await _postService.GetAllAsync();
+            var posts = await _postService.GetAllAsync(GetOwnerUserId());
             return Ok(posts);
         }
         catch (Exception ex)
@@ -49,7 +54,7 @@ public class PostsController : ControllerBase
     {
         try
         {
-            var post = await _postService.GetByIdAsync(id);
+            var post = await _postService.GetByIdAsync(id, GetOwnerUserId());
             if (post == null)
             {
                 return NotFound(new { message = "Bài đăng không tồn tại" });
@@ -96,7 +101,7 @@ public class PostsController : ControllerBase
         {
             var createdByUserId = GetUserId();
 
-            var post = await _postService.CreateAsync(dto, createdByUserId);
+            var post = await _postService.CreateAsync(dto, createdByUserId, GetOwnerUserId());
             return CreatedAtAction(nameof(GetById), new { id = post.Id }, post);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
@@ -135,8 +140,8 @@ public class PostsController : ControllerBase
                 return Ok(residentUpdatedPost);
             }
 
-            var adminId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedAdminId) ? parsedAdminId : (int?)null;
-            var adminUpdatedPost = await _postService.UpdateLockAsync(id, dto.IsLocked, adminId);
+            var adminId = GetUserId();
+            var adminUpdatedPost = await _postService.UpdateLockAsync(id, dto.IsLocked, adminId, GetOwnerUserId());
             return Ok(adminUpdatedPost);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
@@ -175,8 +180,8 @@ public class PostsController : ControllerBase
                 return Ok(residentUpdatedPost);
             }
 
-            var adminId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedAdminId) ? parsedAdminId : (int?)null;
-            var adminUpdatedPost = await _postService.UpdateAsync(id, dto, adminId);
+            var adminId = GetUserId();
+            var adminUpdatedPost = await _postService.UpdateAsync(id, dto, adminId, GetOwnerUserId());
             return Ok(adminUpdatedPost);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("xác thực"))
@@ -199,7 +204,7 @@ public class PostsController : ControllerBase
     {
         try
         {
-            await _postService.DeleteAsync(id);
+            await _postService.DeleteAsync(id, GetOwnerUserId());
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -233,7 +238,8 @@ public class PostsController : ControllerBase
                 }
             }
 
-            var history = await _postService.GetHistoryAsync(id, limit);
+            var ownerUserId = User.IsInRole("CuDan") ? null : (int?)GetOwnerUserId();
+            var history = await _postService.GetHistoryAsync(id, limit, ownerUserId);
             return Ok(history);
         }
         catch (InvalidOperationException ex)

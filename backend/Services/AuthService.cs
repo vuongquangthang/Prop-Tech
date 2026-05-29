@@ -33,7 +33,8 @@ public class AuthService : IAuthService
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request)
     {
-        var user = await _userRepository.GetByPhoneNumberAsync(request.PhoneNumber);
+        var identity = request.PhoneNumber.Trim().ToLowerInvariant();
+        var user = await _userRepository.GetByPhoneOrEmailAsync(identity);
         
         if (user == null)
         {
@@ -102,6 +103,7 @@ public class AuthService : IAuthService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Role = "CuDan",
             ResidentId = resident.Id,
+            DisplayName = request.FullName,
             IsLocked = false
         };
         await _userRepository.AddAsync(user);
@@ -197,6 +199,10 @@ public class AuthService : IAuthService
         user.Email = dto.Email;
         user.Address = dto.Address;
         user.AvatarUrl = dto.AvatarUrl;
+        if (!string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            user.DisplayName = dto.FullName.Trim();
+        }
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync();
 
@@ -218,6 +224,9 @@ public class AuthService : IAuthService
             PhoneNumber = user.PhoneNumber,
             Role = MapRoleToEnglish(user.Role),
             ResidentId = user.ResidentId,
+            OwnerUserId = user.OwnerUserId,
+            FullName = user.DisplayName ?? residentName,
+            DisplayName = user.DisplayName,
             ResidentName = residentName,
             IsLocked = user.IsLocked,
             MustChangePassword = user.MustChangePassword,

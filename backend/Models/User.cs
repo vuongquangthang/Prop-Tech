@@ -33,6 +33,9 @@ public class User
     [Column("CU_DAN_ID")]
     public int? ResidentId { get; set; }
 
+    [Column("OWNER_USER_ID")]
+    public int? OwnerUserId { get; set; }
+
     [Required]
     [Column("IS_LOCKED")]
     public bool IsLocked { get; set; } = false;
@@ -55,6 +58,10 @@ public class User
     [Column("EMAIL")]
     public string? Email { get; set; }
 
+    [StringLength(200)]
+    [Column("TEN_HIEN_THI")]
+    public string? DisplayName { get; set; }
+
     [StringLength(500)]
     [Column("ADDRESS")]
     public string? Address { get; set; }
@@ -65,6 +72,9 @@ public class User
     // Navigation properties
     [ForeignKey("ResidentId")]
     public Resident? Resident { get; set; }
+
+    [ForeignKey("OwnerUserId")]
+    public User? OwnerUser { get; set; }
 
     public ICollection<YeuCauSuaChua> YeuCauSuaChuas { get; set; } = new List<YeuCauSuaChua>();
     public ICollection<LichSuChat> LichSuChats { get; set; } = new List<LichSuChat>();

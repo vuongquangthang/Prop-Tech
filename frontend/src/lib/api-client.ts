@@ -19,7 +19,10 @@ export interface LoginResponse {
   user: {
     id: number;
     phoneNumber: string;
-    fullName: string;
+    fullName?: string;
+    displayName?: string;
+    residentName?: string;
+    email?: string;
     role: string;
   };
 }
@@ -75,7 +78,7 @@ apiClient.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
           const response = await axios.post<LoginResponse>(
-            `${API_CONFIG.BASE_URL}/api/Auth/refresh`,
+            `${API_CONFIG.BASE_URL}/api/Auth/refresh-token`,
             { refreshToken }
           );
 

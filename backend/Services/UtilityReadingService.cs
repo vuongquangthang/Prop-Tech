@@ -9,8 +9,8 @@ namespace backend.Services;
 
 public interface IUtilityReadingService
 {
-    Task<List<RoomUtilityReadingDto>> GetMonthReadingsAsync(short year, byte month);
-    Task<BatchReadingResultDto> RecordBatchAsync(List<RecordUtilityReadingDto> readings, int recordedByUserId);
+    Task<List<RoomUtilityReadingDto>> GetMonthReadingsAsync(short year, byte month, int ownerUserId);
+    Task<BatchReadingResultDto> RecordBatchAsync(List<RecordUtilityReadingDto> readings, int recordedByUserId, int ownerUserId);
 }
 
 public class UtilityReadingService : IUtilityReadingService
@@ -26,7 +26,7 @@ public class UtilityReadingService : IUtilityReadingService
     /// <summary>
     /// Lấy danh sách phòng kèm chỉ số điện/nước tháng đã chọn
     /// </summary>
-    public async Task<List<RoomUtilityReadingDto>> GetMonthReadingsAsync(short year, byte month)
+    public async Task<List<RoomUtilityReadingDto>> GetMonthReadingsAsync(short year, byte month, int ownerUserId)
     {
         var periodStart = new DateTime(year, month, 1);
         var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
@@ -36,7 +36,8 @@ public class UtilityReadingService : IUtilityReadingService
             .Include(r => r.Floor).ThenInclude(f => f.Building)
             .Include(r => r.HopDongs).ThenInclude(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident)
             .Include(r => r.ChiTietSuDungDichVus).ThenInclude(ctsdv => ctsdv.Service)
-            .Where(r => r.HopDongs.Any(hd =>
+            .Where(r => r.Floor.Building.OwnerUserId == ownerUserId
+                && r.HopDongs.Any(hd =>
                 hd.StartDate <= periodEnd &&
                 (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStart) &&
                 hd.ChiTietOs.Any(ct => ct.FromDate <= periodEnd && (ct.ToDate == null || ct.ToDate >= periodStart))))
@@ -159,7 +160,7 @@ public class UtilityReadingService : IUtilityReadingService
     /// <summary>
     /// Chốt chỉ số điện/nước hàng loạt
     /// </summary>
-    public async Task<BatchReadingResultDto> RecordBatchAsync(List<RecordUtilityReadingDto> readings, int recordedByUserId)
+    public async Task<BatchReadingResultDto> RecordBatchAsync(List<RecordUtilityReadingDto> readings, int recordedByUserId, int ownerUserId)
     {
         var result = new BatchReadingResultDto();
 
@@ -169,7 +170,7 @@ public class UtilityReadingService : IUtilityReadingService
             {
                 var room = await _context.Rooms
                     .Include(r => r.ChiTietSuDungDichVus).ThenInclude(u => u.Service)
-                    .FirstOrDefaultAsync(r => r.Id == dto.RoomId);
+                    .FirstOrDefaultAsync(r => r.Id == dto.RoomId && r.Floor.Building.OwnerUserId == ownerUserId);
 
                 if (room == null)
                 {

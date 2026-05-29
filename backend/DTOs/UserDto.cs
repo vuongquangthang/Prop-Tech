@@ -9,6 +9,9 @@ public class UserDto
     public string PhoneNumber { get; set; } = null!;
     public string Role { get; set; } = null!;
     public int? ResidentId { get; set; }
+    public int? OwnerUserId { get; set; }
+    public string? FullName { get; set; }
+    public string? DisplayName { get; set; }
     public string? ResidentName { get; set; }
     public bool IsLocked { get; set; }
     public bool MustChangePassword { get; set; }

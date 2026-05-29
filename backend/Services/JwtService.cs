@@ -46,6 +46,7 @@ public class JwtService : IJwtService
             new(ClaimTypes.MobilePhone, user.PhoneNumber),
             new(ClaimTypes.Role, user.Role),
             new("UserId", user.Id.ToString()),
+            new("OwnerUserId", (user.OwnerUserId ?? user.Id).ToString()),
             new("PhoneNumber", user.PhoneNumber),
             new("Role", user.Role)
         };

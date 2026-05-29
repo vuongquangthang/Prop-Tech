@@ -536,10 +536,14 @@ public class HopDongService : IHopDongService
 
         await ApplyProposalToContractAsync(envelope);
 
+        var ownerUserId = contract.Room?.Floor?.Building?.OwnerUserId
+            ?? await ResolveOwnerUserIdForUserAsync(senderUserId);
+
         await _notificationService.CreateAdminNotificationAsync(
             "Hợp đồng đã được cập nhật",
             $"Đã áp dụng ngay thay đổi cho hợp đồng {contract.ContractCode} (phòng {contract.Room?.RoomCode ?? "không xác định"}).",
-            "CONTRACT_CHANGE");
+            "CONTRACT_CHANGE",
+            ownerUserId);
     }
 
     public async Task<ContractChangeDetailDto> GetContractChangeDetailAsync(int notificationId, int userId)
@@ -722,7 +726,8 @@ public class HopDongService : IHopDongService
         await _notificationService.CreateAdminNotificationAsync(
             "Cư dân đã xác nhận thay đổi hợp đồng",
             $"Thay đổi hợp đồng {envelope.ContractCode ?? ("#" + envelope.ContractId)} - phòng {roomText} đã được cư dân xác nhận và áp dụng.",
-            "CONTRACT_CHANGE");
+            "CONTRACT_CHANGE",
+            notification.OwnerUserId ?? await ResolveOwnerUserIdForContractAsync(envelope.ContractId));
     }
 
     public async Task RequestContractChangeDiscussionAsync(int notificationId, int userId, string? message)
@@ -761,7 +766,28 @@ public class HopDongService : IHopDongService
         await _notificationService.CreateAdminNotificationAsync(
             "Cư dân yêu cầu thảo luận lại hợp đồng",
             $"Hợp đồng {envelope.ContractCode ?? ("#" + envelope.ContractId)} có phản hồi từ cư dân: {envelope.ResidentMessage}",
-            "CONTRACT_CHANGE");
+            "CONTRACT_CHANGE",
+            notification.OwnerUserId ?? await ResolveOwnerUserIdForContractAsync(envelope.ContractId));
+    }
+
+    private async Task<int> ResolveOwnerUserIdForUserAsync(int userId)
+    {
+        var ownerUserId = await _context.Users
+            .Where(user => user.Id == userId)
+            .Select(user => (int?)(user.OwnerUserId ?? user.Id))
+            .FirstOrDefaultAsync();
+
+        return ownerUserId ?? throw new InvalidOperationException("Khong the xac dinh chu nha cua nguoi dung");
+    }
+
+    private async Task<int> ResolveOwnerUserIdForContractAsync(int contractId)
+    {
+        var ownerUserId = await _context.HopDongs
+            .Where(contract => contract.Id == contractId)
+            .Select(contract => contract.Room.Floor.Building.OwnerUserId)
+            .FirstOrDefaultAsync();
+
+        return ownerUserId ?? throw new InvalidOperationException("Khong the xac dinh chu nha cua hop dong");
     }
 
     private static string BuildProposalSummary(HopDong contract, SendContractChangeProposalDto dto, Dictionary<int, Service> serviceMap)
@@ -1082,6 +1108,12 @@ public class HopDongService : IHopDongService
         var existingByResident = await _userRepository.FirstOrDefaultAsync(u => u.ResidentId == residentId);
         if (existingByResident != null)
         {
+            if (!existingByResident.OwnerUserId.HasValue && resident.OwnerUserId.HasValue)
+            {
+                existingByResident.OwnerUserId = resident.OwnerUserId;
+                _userRepository.Update(existingByResident);
+                await _userRepository.SaveChangesAsync();
+            }
             return;
         }
 
@@ -1099,6 +1131,7 @@ public class HopDongService : IHopDongService
             }
 
             existingByPhone.ResidentId = residentId;
+            existingByPhone.OwnerUserId = resident.OwnerUserId ?? existingByPhone.OwnerUserId;
             existingByPhone.IsLocked = false;
             existingByPhone.MustChangePassword = true;
             _userRepository.Update(existingByPhone);
@@ -1113,6 +1146,7 @@ public class HopDongService : IHopDongService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
             Role = "CuDan",
             ResidentId = residentId,
+            OwnerUserId = resident.OwnerUserId,
             IsLocked = false,
             MustChangePassword = true
         };
@@ -1140,9 +1174,13 @@ public class HopDongService : IHopDongService
         if (existingByResident != null)
         {
             // Update email if user account already exists
-            if (string.IsNullOrWhiteSpace(existingByResident.Email))
+            if (string.IsNullOrWhiteSpace(existingByResident.Email) || !existingByResident.OwnerUserId.HasValue)
             {
-                existingByResident.Email = email.Trim();
+                if (string.IsNullOrWhiteSpace(existingByResident.Email))
+                {
+                    existingByResident.Email = email.Trim();
+                }
+                existingByResident.OwnerUserId = resident.OwnerUserId ?? existingByResident.OwnerUserId;
                 _userRepository.Update(existingByResident);
                 await _userRepository.SaveChangesAsync();
             }
@@ -1164,6 +1202,7 @@ public class HopDongService : IHopDongService
 
             existingByPhone.ResidentId = residentId;
             existingByPhone.Email = email.Trim();
+            existingByPhone.OwnerUserId = resident.OwnerUserId ?? existingByPhone.OwnerUserId;
             existingByPhone.IsLocked = false;
             existingByPhone.MustChangePassword = true;
             _userRepository.Update(existingByPhone);
@@ -1180,6 +1219,7 @@ public class HopDongService : IHopDongService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
             Role = "CuDan",
             ResidentId = residentId,
+            OwnerUserId = resident.OwnerUserId,
             IsLocked = false,
             MustChangePassword = true
         };

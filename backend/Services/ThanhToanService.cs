@@ -12,10 +12,15 @@ namespace backend.Services;
 public interface IThanhToanService
 {
     Task<List<ThanhToanDto>> GetAllAsync();
+    Task<List<ThanhToanDto>> GetAllAsync(int ownerUserId);
     Task<List<ThanhToanDto>> GetByInvoiceIdAsync(int invoiceId);
+    Task<List<ThanhToanDto>> GetByInvoiceIdAsync(int invoiceId, int ownerUserId);
     Task<ThanhToanDto?> GetByIdAsync(long id);
+    Task<ThanhToanDto?> GetByIdAsync(long id, int ownerUserId);
     Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto);
+    Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto, int ownerUserId);
     Task DeleteAsync(long id);
+    Task DeleteAsync(long id, int ownerUserId);
     Task<List<ThanhToanDto>> GetByUserIdAsync(int userId);
     /// <summary>
     /// Xử lý webhook từ PayOS: xác minh chữ ký, tìm hóa đơn theo orderCode
@@ -62,10 +67,35 @@ public class ThanhToanService : IThanhToanService
         return result;
     }
 
+    public async Task<List<ThanhToanDto>> GetAllAsync(int ownerUserId)
+    {
+        var payments = await PaymentsForOwner(ownerUserId).ToListAsync();
+        var result = new List<ThanhToanDto>();
+        foreach (var payment in payments)
+        {
+            result.Add(await MapToDto(payment));
+        }
+        return result;
+    }
+
     public async Task<List<ThanhToanDto>> GetByInvoiceIdAsync(int invoiceId)
     {
         var payments = await _thanhToanRepository.GetByInvoiceIdAsync(invoiceId);
         
+        var result = new List<ThanhToanDto>();
+        foreach (var payment in payments)
+        {
+            result.Add(await MapToDto(payment));
+        }
+        return result;
+    }
+
+    public async Task<List<ThanhToanDto>> GetByInvoiceIdAsync(int invoiceId, int ownerUserId)
+    {
+        var payments = await PaymentsForOwner(ownerUserId)
+            .Where(payment => payment.InvoiceId == invoiceId)
+            .ToListAsync();
+
         var result = new List<ThanhToanDto>();
         foreach (var payment in payments)
         {
@@ -80,12 +110,43 @@ public class ThanhToanService : IThanhToanService
         return payment == null ? null : await MapToDto(payment);
     }
 
+    public async Task<ThanhToanDto?> GetByIdAsync(long id, int ownerUserId)
+    {
+        var payment = await PaymentsForOwner(ownerUserId)
+            .FirstOrDefaultAsync(item => item.Id == id);
+        return payment == null ? null : await MapToDto(payment);
+    }
+
     public async Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto)
     {
         var payment = await _thanhToanRepository.GetByIdAsync(id);
         if (payment == null)
         {
             throw new InvalidOperationException("Thanh toán không tồn tại");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.PaymentType))
+            payment.PaymentType = dto.PaymentType;
+
+        if (dto.TransactionCode != null)
+            payment.TransactionCode = dto.TransactionCode;
+
+        if (dto.TransferDescription != null)
+            payment.TransferDescription = dto.TransferDescription;
+
+        _thanhToanRepository.Update(payment);
+        await _thanhToanRepository.SaveChangesAsync();
+
+        return await MapToDto(payment);
+    }
+
+    public async Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto, int ownerUserId)
+    {
+        var payment = await PaymentsForOwner(ownerUserId)
+            .FirstOrDefaultAsync(item => item.Id == id);
+        if (payment == null)
+        {
+            throw new InvalidOperationException("Thanh toan khong ton tai trong pham vi chu nha nay");
         }
 
         if (!string.IsNullOrWhiteSpace(dto.PaymentType))
@@ -121,6 +182,46 @@ public class ThanhToanService : IThanhToanService
         await _thanhToanRepository.SaveChangesAsync();
     }
 
+    public async Task DeleteAsync(long id, int ownerUserId)
+    {
+        var payment = await PaymentsForOwner(ownerUserId)
+            .FirstOrDefaultAsync(item => item.Id == id);
+        if (payment == null)
+        {
+            throw new InvalidOperationException("Thanh toan khong ton tai trong pham vi chu nha nay");
+        }
+
+        if (payment.InvoiceId.HasValue)
+        {
+            throw new InvalidOperationException("Khong the xoa thanh toan hoa don truc tiep. Vui long su dung chuc nang dieu chinh hoa don.");
+        }
+
+        _thanhToanRepository.Remove(payment);
+        await _thanhToanRepository.SaveChangesAsync();
+    }
+
+    private IQueryable<ThanhToan> PaymentsForOwner(int ownerUserId)
+    {
+        return _context.ThanhToans
+            .Include(t => t.HoaDon)
+                .ThenInclude(hd => hd!.HopDong)
+                    .ThenInclude(c => c.Room)
+                        .ThenInclude(r => r.Floor)
+                            .ThenInclude(f => f.Building)
+            .Include(t => t.TatToan)
+                .ThenInclude(tt => tt!.Residency)
+                    .ThenInclude(c => c!.Room)
+                        .ThenInclude(r => r.Floor)
+                            .ThenInclude(f => f.Building)
+            .Where(t =>
+                (t.HoaDon != null &&
+                 t.HoaDon.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId) ||
+                (t.TatToan != null &&
+                 t.TatToan.Residency != null &&
+                 t.TatToan.Residency.Room.Floor.Building.OwnerUserId == ownerUserId))
+            .OrderByDescending(t => t.PaidAt ?? t.CreatedAt);
+    }
+
     private async Task<ThanhToanDto> MapToDto(ThanhToan payment)
     {
         string? invoiceReference = null;
@@ -130,6 +231,10 @@ public class ThanhToanService : IThanhToanService
         {
             invoiceReference = $"{payment.HoaDon.Month}/{payment.HoaDon.Year}";
             roomNumber = payment.HoaDon.HopDong?.Room?.RoomCode;
+        }
+        else if (payment.TatToan?.Residency?.Room != null)
+        {
+            roomNumber = payment.TatToan.Residency.Room.RoomCode;
         }
         else if (payment.InvoiceId.HasValue)
         {
@@ -249,14 +354,16 @@ public class ThanhToanService : IThanhToanService
 
             var title = $"Thanh toán hóa đơn - {(roomCode != null ? $"Phòng {roomCode}" : $"HĐ #{invoice?.Id}")}";
             var content = $"{(roomCode != null ? $"Phòng {roomCode}" : "Cư dân")} đã thanh toán hóa đơn tháng {invoice?.Month}/{invoice?.Year}.";
-            await _notificationService.CreateAdminNotificationAsync(title, content, "PAYMENT");
+            var ownerUserId = await ResolveOwnerUserIdForInvoiceAsync(invoice);
+            await _notificationService.CreateAdminNotificationAsync(title, content, "PAYMENT", ownerUserId);
         }
         catch { /* Không block flow chính */ }
 
         // 6. Gửi SignalR để app cư dân tự động refresh
         try
         {
-            await _hubContext.Clients.All.SendAsync("PaymentSuccess", new
+            var ownerUserId = await ResolveOwnerUserIdForInvoiceAsync(invoice);
+            await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId)).SendAsync("PaymentSuccess", new
             {
                 transactionId = transaction.Id,
                 transactionCode = orderCodeStr,
@@ -271,5 +378,19 @@ public class ThanhToanService : IThanhToanService
         catch { /* SignalR failure không block flow chính */ }
 
         return $"OK: invoice #{invoice?.Id} marked '{invoiceStatus}'";
+    }
+    private async Task<int> ResolveOwnerUserIdForInvoiceAsync(HoaDon? invoice)
+    {
+        if (invoice == null)
+        {
+            throw new InvalidOperationException("Khong the xac dinh hoa don thanh toan");
+        }
+
+        var ownerUserId = await _context.HopDongs
+            .Where(contract => contract.Id == invoice.ContractId)
+            .Select(contract => contract.Room.Floor.Building.OwnerUserId)
+            .FirstOrDefaultAsync();
+
+        return ownerUserId ?? throw new InvalidOperationException("Khong the xac dinh chu nha cua hoa don");
     }
 }

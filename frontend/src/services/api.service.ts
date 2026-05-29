@@ -198,8 +198,10 @@ export interface User {
   id: number;
   username: string;
   fullName?: string;
+  displayName?: string;
   phoneNumber?: string;
   role: string;
+  ownerUserId?: number;
   isLocked: boolean;
   mustChangePassword?: boolean;
   lastLogin?: string;

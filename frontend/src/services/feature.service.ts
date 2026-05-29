@@ -86,6 +86,7 @@ export interface UnansweredChatItem {
 
 export interface Notification {
   id: number;
+  ownerUserId?: number;
   title: string;
   content: string;
   notificationType: string;

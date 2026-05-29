@@ -30,7 +30,7 @@ public class ThanhToanController : ControllerBase
     {
         try
         {
-            var payments = await _thanhToanService.GetAllAsync();
+            var payments = await _thanhToanService.GetAllAsync(GetCurrentOwnerUserId());
             return Ok(payments);
         }
         catch (Exception ex)
@@ -66,7 +66,10 @@ public class ThanhToanController : ControllerBase
     {
         try
         {
-            var payments = await _thanhToanService.GetByInvoiceIdAsync(invoiceId);
+            var userId = GetCurrentOwnerUserId();
+            var payments = User.IsInRole("CuDan")
+                ? await _thanhToanService.GetByInvoiceIdAsync(invoiceId)
+                : await _thanhToanService.GetByInvoiceIdAsync(invoiceId, userId);
             return Ok(payments);
         }
         catch (Exception ex)
@@ -83,7 +86,10 @@ public class ThanhToanController : ControllerBase
     {
         try
         {
-            var payment = await _thanhToanService.GetByIdAsync(id);
+            var userId = GetCurrentOwnerUserId();
+            var payment = User.IsInRole("CuDan")
+                ? await _thanhToanService.GetByIdAsync(id)
+                : await _thanhToanService.GetByIdAsync(id, userId);
             if (payment == null)
             {
                 return NotFound(new { message = "Thanh toán không tồn tại" });
@@ -105,7 +111,7 @@ public class ThanhToanController : ControllerBase
     {
         try
         {
-            var payment = await _thanhToanService.UpdateAsync(id, dto);
+            var payment = await _thanhToanService.UpdateAsync(id, dto, GetCurrentOwnerUserId());
             return Ok(payment);
         }
         catch (InvalidOperationException ex)
@@ -127,7 +133,7 @@ public class ThanhToanController : ControllerBase
     {
         try
         {
-            await _thanhToanService.DeleteAsync(id);
+            await _thanhToanService.DeleteAsync(id, GetCurrentOwnerUserId());
             return Ok(new { message = "Xóa thanh toán thành công" });
         }
         catch (InvalidOperationException ex)
@@ -144,6 +150,12 @@ public class ThanhToanController : ControllerBase
     {
         var claim = User.FindFirst("id") ?? User.FindFirst(ClaimTypes.NameIdentifier);
         return int.TryParse(claim?.Value, out var id) ? id : 0;
+    }
+
+    private int GetCurrentOwnerUserId()
+    {
+        var claim = User.FindFirst("OwnerUserId");
+        return int.TryParse(claim?.Value, out var id) ? id : GetCurrentUserId();
     }
 
     /// <summary>

@@ -29,10 +29,27 @@ public class LichSuChatRepository : Repository<LichSuChat>, ILichSuChatRepositor
             .ToListAsync();
     }
 
+    public async Task<List<LichSuChat>> GetRecentAsync(int ownerUserId, int limit = 50)
+    {
+        return await _context.LichSuChats
+            .Include(x => x.User)
+            .Where(x => x.User.OwnerUserId == ownerUserId)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
+    }
+
     public async Task<LichSuChat?> GetByIdAsync(long id)
     {
         return await _context.LichSuChats
             .Include(x => x.User)
             .FirstOrDefaultAsync(x => x.Id == id);
+    }
+
+    public async Task<LichSuChat?> GetByIdAsync(long id, int ownerUserId)
+    {
+        return await _context.LichSuChats
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(x => x.Id == id && x.User.OwnerUserId == ownerUserId);
     }
 }

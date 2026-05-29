@@ -40,7 +40,13 @@ public class Resident
     [Column("CCCD_BACK_URL")]
     public string? IdCardBackUrl { get; set; }
 
+    [Column("OWNER_USER_ID")]
+    public int? OwnerUserId { get; set; }
+
     // Navigation properties
+    [ForeignKey("OwnerUserId")]
+    public User? OwnerUser { get; set; }
+
     public ICollection<User> Users { get; set; } = new List<User>();
     public ICollection<ChiTietO> ChiTietOs { get; set; } = new List<ChiTietO>();
     public ICollection<Xe> Xes { get; set; } = new List<Xe>();

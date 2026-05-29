@@ -12,6 +12,7 @@ public class ServiceDto
     public decimal? CommonUnitPrice { get; set; }
     public bool IsActive { get; set; }
     public DateTime? EffectiveDate { get; set; }
+    public int? OwnerUserId { get; set; }
 }
 
 /// <summary>

@@ -13,40 +13,53 @@ namespace backend.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<ChiTietTaiSanPhong>> GetAllAsync()
+        public async Task<IEnumerable<ChiTietTaiSanPhong>> GetAllAsync(int ownerUserId)
         {
             return await _context.ChiTietTaiSanPhongs
                 .Include(c => c.Room)
+                    .ThenInclude(r => r.Floor)
+                        .ThenInclude(f => f.Building)
                 .Include(c => c.TaiSan)
+                .Where(c => c.Room.Floor.Building.OwnerUserId == ownerUserId && c.TaiSan.OwnerUserId == ownerUserId)
                 .OrderBy(c => c.RoomId)
                 .ThenBy(c => c.AssetId)
                 .ToListAsync();
         }
 
-        public async Task<ChiTietTaiSanPhong?> GetByRoomAndAssetAsync(int roomId, int assetId)
+        public async Task<ChiTietTaiSanPhong?> GetByRoomAndAssetAsync(int roomId, int assetId, int ownerUserId)
         {
             return await _context.ChiTietTaiSanPhongs
                 .Include(c => c.Room)
+                    .ThenInclude(r => r.Floor)
+                        .ThenInclude(f => f.Building)
                 .Include(c => c.TaiSan)
-                .FirstOrDefaultAsync(c => c.RoomId == roomId && c.AssetId == assetId);
+                .FirstOrDefaultAsync(c =>
+                    c.RoomId == roomId &&
+                    c.AssetId == assetId &&
+                    c.Room.Floor.Building.OwnerUserId == ownerUserId &&
+                    c.TaiSan.OwnerUserId == ownerUserId);
         }
 
-        public async Task<IEnumerable<ChiTietTaiSanPhong>> GetByRoomIdAsync(int roomId)
+        public async Task<IEnumerable<ChiTietTaiSanPhong>> GetByRoomIdAsync(int roomId, int ownerUserId)
         {
             return await _context.ChiTietTaiSanPhongs
                 .Include(c => c.Room)
+                    .ThenInclude(r => r.Floor)
+                        .ThenInclude(f => f.Building)
                 .Include(c => c.TaiSan)
-                .Where(c => c.RoomId == roomId)
+                .Where(c => c.RoomId == roomId && c.Room.Floor.Building.OwnerUserId == ownerUserId && c.TaiSan.OwnerUserId == ownerUserId)
                 .OrderBy(c => c.AssetId)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<ChiTietTaiSanPhong>> GetByAssetIdAsync(int assetId)
+        public async Task<IEnumerable<ChiTietTaiSanPhong>> GetByAssetIdAsync(int assetId, int ownerUserId)
         {
             return await _context.ChiTietTaiSanPhongs
                 .Include(c => c.Room)
+                    .ThenInclude(r => r.Floor)
+                        .ThenInclude(f => f.Building)
                 .Include(c => c.TaiSan)
-                .Where(c => c.AssetId == assetId)
+                .Where(c => c.AssetId == assetId && c.Room.Floor.Building.OwnerUserId == ownerUserId && c.TaiSan.OwnerUserId == ownerUserId)
                 .OrderBy(c => c.RoomId)
                 .ToListAsync();
         }
@@ -65,10 +78,18 @@ namespace backend.Repositories
             return detail;
         }
 
-        public async Task<bool> DeleteAsync(int roomId, int assetId)
+        public async Task<bool> DeleteAsync(int roomId, int assetId, int ownerUserId)
         {
             var detail = await _context.ChiTietTaiSanPhongs
-                .FirstOrDefaultAsync(c => c.RoomId == roomId && c.AssetId == assetId);
+                .Include(c => c.Room)
+                    .ThenInclude(r => r.Floor)
+                        .ThenInclude(f => f.Building)
+                .Include(c => c.TaiSan)
+                .FirstOrDefaultAsync(c =>
+                    c.RoomId == roomId &&
+                    c.AssetId == assetId &&
+                    c.Room.Floor.Building.OwnerUserId == ownerUserId &&
+                    c.TaiSan.OwnerUserId == ownerUserId);
             
             if (detail == null) return false;
 

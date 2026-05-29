@@ -7,6 +7,7 @@ import { serviceService } from '../services/api.service';
 import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
 import { API_CONFIG } from '../lib/api-config';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AssetOption {
   id: number;
@@ -26,6 +27,7 @@ const resolveImageUrl = (url?: string) => {
 
 export function CreatePostPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [existingPosts, setExistingPosts] = useState<PostRecord[]>([]);
@@ -49,6 +51,25 @@ export function CreatePostPage() {
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const getRoomLocation = (room: RoomOption | any) => {
+    const buildingName = room?.buildingName ?? room?.building ?? 'Chưa xác định';
+    const floorNumber = room?.floorNumber ?? room?.floor;
+    return floorNumber ? `${buildingName} - Tầng ${floorNumber}` : buildingName;
+  };
+  const getRoomRentText = (room: RoomOption | any) => {
+    const rent = room?.defaultRentPrice ?? room?.price;
+    if (rent === null || rent === undefined || rent === '') return '—';
+    const numericRent = Number(rent);
+    return Number.isFinite(numericRent)
+      ? `${numericRent.toLocaleString('vi-VN')} VNĐ/tháng`
+      : `${rent} VNĐ/tháng`;
+  };
+  const isAvailableRoom = (room: RoomOption | any) => room?.status === 'Trống' || room?.status === 'available';
+  const currentAccountName = user?.displayName || user?.fullName || user?.residentName || user?.phoneNumber || '';
+  const currentAccountPhone = user?.phoneNumber || '';
+  const currentAccountLabel = currentAccountName && currentAccountPhone
+    ? `${currentAccountName} - ${currentAccountPhone}`
+    : currentAccountName || currentAccountPhone || 'Chua co thong tin tai khoan';
   const selectedRoomType = String((selectedRoom as any)?.type ?? 'single');
   const isEditing = editingPostId !== null;
   const availableCatalogServices = serviceCatalog.filter((catalogItem) =>
@@ -283,11 +304,16 @@ export function CreatePostPage() {
   const handleSubmit = () => {
     if (!selectedRoom) return;
 
-    const contactName = contactType === 'current' ? 'Nguyễn Văn A' : contactNameInput;
-    const contactPhone = contactType === 'current' ? '0912345678' : contactPhoneInput;
+    const contactName = contactType === 'current' ? currentAccountName : contactNameInput;
+    const contactPhone = contactType === 'current' ? currentAccountPhone : contactPhoneInput;
 
     if (!title || title.trim().length === 0) {
       toast.error('Vui lòng nhập tiêu đề bài đăng');
+      return;
+    }
+
+    if (!contactName.trim() || !contactPhone.trim()) {
+      toast.error('Vui long nhap du thong tin lien he');
       return;
     }
 
@@ -445,15 +471,15 @@ export function CreatePostPage() {
                           <div className="flex-1">
                             <div className="mb-1 flex items-center space-x-3">
                               <span className="font-semibold text-gray-800">{(room as any).roomCode ?? (room as any).code}</span>
-                              <span className="text-sm text-gray-500">{(room as any).buildingName ?? (room as any).building} - {(room as any).floorNumber ?? (room as any).floor}</span>
-                              <span className={`rounded px-2 py-1 text-xs font-medium ${room.status === 'Trống' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                {room.status === 'Trống' ? 'Trống' : 'Đã thuê'}
+                              <span className="text-sm text-gray-500">{getRoomLocation(room)}</span>
+                              <span className={`rounded px-2 py-1 text-xs font-medium ${isAvailableRoom(room) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {isAvailableRoom(room) ? 'Trống' : 'Đã thuê'}
                               </span>
                             </div>
-                            <div className="text-sm text-gray-700">
-                              <span className="mr-3">{room.area ?? 0} m²</span>
-                              <span className="mr-3">Tối đa {room.maxOccupants ?? (room as any).maxPeople ?? 0} người</span>
-                              <span>{room.defaultRentPrice ? `${room.defaultRentPrice.toLocaleString('vi-VN')} VNĐ/tháng` : ((room as any).price ? `${(room as any).price} VNĐ/tháng` : '—')}</span>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                              <span>{room.area ?? 0} m²</span>
+                              <span>Tối đa {room.maxOccupants ?? (room as any).maxPeople ?? 0} người</span>
+                              <span>{getRoomRentText(room)}</span>
                             </div>
                           </div>
                         </div>
@@ -467,7 +493,7 @@ export function CreatePostPage() {
                 <p className="mb-2 text-sm font-semibold text-blue-800">Phòng đang sửa</p>
                 <div className="grid grid-cols-1 gap-2 text-sm text-blue-900 md:grid-cols-2">
                   <div><span className="font-medium">Mã phòng:</span> {(selectedRoom as any).roomCode ?? (selectedRoom as any).code}</div>
-                  <div><span className="font-medium">Vị trí:</span> {(selectedRoom as any).buildingName ?? (selectedRoom as any).building} - {(selectedRoom as any).floorNumber ?? (selectedRoom as any).floor}</div>
+                  <div><span className="font-medium">Vị trí:</span> {getRoomLocation(selectedRoom)}</div>
                   <div><span className="font-medium">Diện tích:</span> {selectedRoom.area ?? 0} m²</div>
                   <div><span className="font-medium">Tối đa:</span> {(selectedRoom as any).maxOccupants ?? (selectedRoom as any).maxPeople ?? 0} người</div>
                 </div>
@@ -507,7 +533,7 @@ export function CreatePostPage() {
                     </div>
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Vị trí</p>
-                      <p className="text-sm font-semibold text-gray-800">{(selectedRoom as any).buildingName ?? (selectedRoom as any).building} - {(selectedRoom as any).floorNumber ?? (selectedRoom as any).floor}</p>
+                      <p className="text-sm font-semibold text-gray-800">{getRoomLocation(selectedRoom)}</p>
                     </div>
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Diện tích</p>
@@ -519,7 +545,7 @@ export function CreatePostPage() {
                     </div>
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Giá thuê</p>
-                      <p className="text-sm font-semibold text-gray-800">{selectedRoom.defaultRentPrice ? `${selectedRoom.defaultRentPrice.toLocaleString('vi-VN')} VNĐ/tháng` : ((selectedRoom as any).price ?? '—')}</p>
+                      <p className="text-sm font-semibold text-gray-800">{getRoomRentText(selectedRoom)}</p>
                     </div>
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Loại phòng</p>
@@ -775,7 +801,7 @@ export function CreatePostPage() {
                   <div className="space-y-3">
                     <div className="flex items-center space-x-2">
                       <input type="radio" id="contact-current" name="contact" value="current" checked={contactType === 'current'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
-                      <label htmlFor="contact-current" className="text-sm text-gray-700">Lấy từ tài khoản đang dùng <span className="text-gray-500">(Nguyễn Văn A - 0912345678)</span></label>
+                      <label htmlFor="contact-current" className="text-sm text-gray-700">Lay tu tai khoan dang dung <span className="text-gray-500">({currentAccountLabel})</span></label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <input type="radio" id="contact-other" name="contact" value="other" checked={contactType === 'other'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />

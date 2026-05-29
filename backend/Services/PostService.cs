@@ -9,14 +9,14 @@ namespace backend.Services;
 
 public interface IPostService
 {
-    Task<List<PostDto>> GetAllAsync();
-    Task<PostDto?> GetByIdAsync(int id);
+    Task<List<PostDto>> GetAllAsync(int ownerUserId);
+    Task<PostDto?> GetByIdAsync(int id, int? ownerUserId = null);
     Task<PostDto?> GetByUserIdAsync(int userId);
-    Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null);
-    Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null);
-    Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null);
-    Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20);
-    Task DeleteAsync(int id);
+    Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null, int? ownerUserId = null);
+    Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null, int? ownerUserId = null);
+    Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null, int? ownerUserId = null);
+    Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20, int? ownerUserId = null);
+    Task DeleteAsync(int id, int ownerUserId);
 }
 
 public class PostService : IPostService
@@ -37,23 +37,44 @@ public class PostService : IPostService
         _auditLogService = auditLogService;
     }
 
-    public async Task<List<PostDto>> GetAllAsync()
+    private static IQueryable<BaiDangTimPhong> FilterPostsForOwner(IQueryable<BaiDangTimPhong> query, int ownerUserId)
     {
-        var posts = await _context.BaiDangTimPhongs
+        return query.Where(post =>
+            post.CreatedByUserId == ownerUserId
+            || (post.Room != null
+                && post.Room.Floor.Building.OwnerUserId == ownerUserId));
+    }
+
+    public async Task<List<PostDto>> GetAllAsync(int ownerUserId)
+    {
+        var posts = await FilterPostsForOwner(_context.BaiDangTimPhongs, ownerUserId)
             .AsNoTracking()
             .Include(post => post.CreatedByUser)
+            .Include(post => post.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
             .OrderByDescending(post => post.CreatedAt)
             .ToListAsync();
 
         return posts.Select(MapToDto).ToList();
     }
 
-    public async Task<PostDto?> GetByIdAsync(int id)
+    public async Task<PostDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var post = await _context.BaiDangTimPhongs
+        var query = _context.BaiDangTimPhongs
             .AsNoTracking()
             .Include(item => item.CreatedByUser)
-            .FirstOrDefaultAsync(item => item.Id == id);
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .Where(item => item.Id == id);
+
+        if (ownerUserId.HasValue)
+        {
+            query = FilterPostsForOwner(query, ownerUserId.Value);
+        }
+
+        var post = await query.FirstOrDefaultAsync();
 
         return post == null ? null : MapToDto(post);
     }
@@ -70,7 +91,7 @@ public class PostService : IPostService
         return post == null ? null : MapToDto(post);
     }
 
-    public async Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null)
+    public async Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null, int? ownerUserId = null)
     {
         if (string.IsNullOrWhiteSpace(dto.Title))
         {
@@ -85,6 +106,18 @@ public class PostService : IPostService
         if (room == null)
         {
             throw new InvalidOperationException("Phòng không tồn tại");
+        }
+
+        if (createdByUserId.HasValue)
+        {
+            var creator = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.Id == createdByUserId.Value);
+            var effectiveOwnerUserId = ownerUserId ?? creator?.OwnerUserId ?? createdByUserId.Value;
+            if (creator?.Role is "Admin" or "QuanLy" && room.Floor.Building.OwnerUserId != effectiveOwnerUserId)
+            {
+                throw new InvalidOperationException("Bạn không có quyền đăng bài cho phòng này");
+            }
         }
 
         var now = DateTime.UtcNow;
@@ -126,9 +159,21 @@ public class PostService : IPostService
         return MapToDto(post);
     }
 
-    public async Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null)
+    public async Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null, int? ownerUserId = null)
     {
-        var post = await _context.BaiDangTimPhongs.FirstOrDefaultAsync(item => item.Id == id);
+        var query = _context.BaiDangTimPhongs
+            .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .Where(item => item.Id == id);
+
+        if (ownerUserId.HasValue)
+        {
+            query = FilterPostsForOwner(query, ownerUserId.Value);
+        }
+
+        var post = await query.FirstOrDefaultAsync();
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
@@ -156,9 +201,21 @@ public class PostService : IPostService
         return MapToDto(post);
     }
 
-    public async Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null)
+    public async Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null, int? ownerUserId = null)
     {
-        var post = await _context.BaiDangTimPhongs.FirstOrDefaultAsync(item => item.Id == id);
+        var query = _context.BaiDangTimPhongs
+            .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .Where(item => item.Id == id);
+
+        if (ownerUserId.HasValue)
+        {
+            query = FilterPostsForOwner(query, ownerUserId.Value);
+        }
+
+        var post = await query.FirstOrDefaultAsync();
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
@@ -282,18 +339,30 @@ public class PostService : IPostService
         return MapToDto(post);
     }
 
-    public async Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20)
+    public async Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20, int? ownerUserId = null)
     {
-        var post = await _context.BaiDangTimPhongs
+        var query = _context.BaiDangTimPhongs
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == id);
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .Where(item => item.Id == id);
+
+        if (ownerUserId.HasValue)
+        {
+            query = FilterPostsForOwner(query, ownerUserId.Value);
+        }
+
+        var post = await query.FirstOrDefaultAsync();
 
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
         }
 
-        var logs = await _auditLogService.GetByEntityAsync(PostEntityType, id, limit);
+        var logs = ownerUserId.HasValue
+            ? await _auditLogService.GetByEntityAsync(PostEntityType, ownerUserId.Value, id, limit)
+            : await _auditLogService.GetByEntityAsync(PostEntityType, id, limit);
         if (logs.Count == 0)
         {
             return new List<PostEditHistoryDto>
@@ -313,9 +382,10 @@ public class PostService : IPostService
         return logs.Select((log, index) => MapHistoryEntry(log, index == 0, index + 1)).ToList();
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int ownerUserId)
     {
-        var post = await _context.BaiDangTimPhongs.FirstOrDefaultAsync(item => item.Id == id);
+        var post = await FilterPostsForOwner(_context.BaiDangTimPhongs, ownerUserId)
+            .FirstOrDefaultAsync(item => item.Id == id);
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");

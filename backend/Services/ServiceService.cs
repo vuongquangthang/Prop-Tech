@@ -1,33 +1,255 @@
+using backend.Data;
 using backend.DTOs;
 using backend.Models;
-using backend.Repositories;
-using backend.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
 public interface IServiceService
 {
-    Task<List<ServiceDto>> GetAllAsync();
-    Task<List<ServiceDto>> GetActiveServicesAsync();
-    Task<List<ServiceInContractDto>> GetServicesByContractAsync(int contractId);
-    Task<List<ServiceInContractDto>> GetServicesByRoomAsync(int roomId, DateTime? fromDate = null, DateTime? toDate = null);
-    Task<ServiceDto?> GetByIdAsync(int id);
-    Task<ServiceDto> CreateAsync(CreateServiceDto dto);
-    Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto);
-    Task DeleteAsync(int id);
-    Task<List<ServicePriceHistoryDto>> GetPriceHistoryAsync(int serviceId);
+    Task<List<ServiceDto>> GetAllAsync(int ownerUserId);
+    Task<List<ServiceDto>> GetActiveServicesAsync(int ownerUserId);
+    Task<List<ServiceInContractDto>> GetServicesByContractAsync(int contractId, int ownerUserId);
+    Task<List<ServiceInContractDto>> GetServicesByRoomAsync(int roomId, int ownerUserId, DateTime? fromDate = null, DateTime? toDate = null);
+    Task<ServiceDto?> GetByIdAsync(int id, int ownerUserId);
+    Task<ServiceDto> CreateAsync(CreateServiceDto dto, int ownerUserId);
+    Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto, int ownerUserId);
+    Task DeleteAsync(int id, int ownerUserId);
+    Task<List<ServicePriceHistoryDto>> GetPriceHistoryAsync(int serviceId, int ownerUserId);
 }
 
 public class ServiceService : IServiceService
 {
-    private readonly IServiceRepository _serviceRepository;
     private readonly ApplicationDbContext _context;
 
-    public ServiceService(IServiceRepository serviceRepository, ApplicationDbContext context)
+    public ServiceService(ApplicationDbContext context)
     {
-        _serviceRepository = serviceRepository;
         _context = context;
+    }
+
+    public async Task<List<ServiceDto>> GetAllAsync(int ownerUserId)
+    {
+        var services = await _context.Services
+            .AsNoTracking()
+            .Where(service => service.OwnerUserId == ownerUserId)
+            .OrderBy(service => service.Name)
+            .ToListAsync();
+
+        return services.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<ServiceDto>> GetActiveServicesAsync(int ownerUserId)
+    {
+        var services = await _context.Services
+            .AsNoTracking()
+            .Where(service => service.OwnerUserId == ownerUserId && service.IsActive)
+            .OrderBy(service => service.Name)
+            .ToListAsync();
+
+        return services.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<ServiceInContractDto>> GetServicesByContractAsync(int contractId, int ownerUserId)
+    {
+        var contract = await _context.HopDongs
+            .AsNoTracking()
+            .Include(contract => contract.Room)
+                .ThenInclude(room => room.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .Include(contract => contract.ChiTietOs)
+            .FirstOrDefaultAsync(contract => contract.Id == contractId);
+
+        if (contract == null || contract.Room.Floor.Building.OwnerUserId != ownerUserId)
+        {
+            throw new InvalidOperationException("Hợp đồng không tồn tại");
+        }
+
+        var contractStart = contract.StartDate;
+        var contractEnd = contract.ExpectedEndDate ?? DateTime.UtcNow;
+        var residentIds = contract.ChiTietOs.Select(item => item.ResidentId).Distinct().ToList();
+
+        var usagesQuery = _context.ChiTietSuDungDichVus
+            .AsNoTracking()
+            .Include(usage => usage.Service)
+            .Include(usage => usage.Resident)
+            .Where(usage => usage.RoomId == contract.RoomId
+                && usage.ApplyFrom <= contractEnd
+                && (usage.ApplyTo == null || usage.ApplyTo >= contractStart)
+                && usage.Service.IsActive
+                && usage.Service.OwnerUserId == ownerUserId);
+
+        if (residentIds.Count > 0)
+        {
+            usagesQuery = usagesQuery.Where(usage => residentIds.Contains(usage.ResidentId));
+        }
+
+        var usages = await usagesQuery.ToListAsync();
+        return AggregateServices(usages);
+    }
+
+    public async Task<List<ServiceInContractDto>> GetServicesByRoomAsync(int roomId, int ownerUserId, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var ownsRoom = await _context.Rooms
+            .AsNoTracking()
+            .AnyAsync(room => room.Id == roomId && room.Floor.Building.OwnerUserId == ownerUserId);
+        if (!ownsRoom)
+        {
+            return new List<ServiceInContractDto>();
+        }
+
+        var from = fromDate ?? DateTime.MinValue;
+        var to = toDate ?? DateTime.MaxValue;
+
+        var usages = await _context.ChiTietSuDungDichVus
+            .AsNoTracking()
+            .Include(usage => usage.Service)
+            .Include(usage => usage.Resident)
+            .Where(usage => usage.RoomId == roomId
+                && usage.ApplyFrom <= to
+                && (usage.ApplyTo == null || usage.ApplyTo >= from)
+                && usage.Service.IsActive
+                && usage.Service.OwnerUserId == ownerUserId)
+            .ToListAsync();
+
+        return AggregateServices(usages);
+    }
+
+    public async Task<ServiceDto?> GetByIdAsync(int id, int ownerUserId)
+    {
+        var service = await _context.Services
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
+        return service == null ? null : MapToDto(service);
+    }
+
+    public async Task<ServiceDto> CreateAsync(CreateServiceDto dto, int ownerUserId)
+    {
+        var serviceName = dto.Name.Trim();
+        var existingService = await _context.Services
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.Name == serviceName);
+        if (existingService != null)
+        {
+            throw new InvalidOperationException($"Dịch vụ '{serviceName}' đã tồn tại");
+        }
+
+        var service = new Service
+        {
+            Name = serviceName,
+            ServiceType = NormalizeServiceType(dto.ServiceType),
+            Unit = string.IsNullOrWhiteSpace(dto.Unit) ? null : dto.Unit.Trim(),
+            CommonUnitPrice = dto.CommonUnitPrice,
+            IsActive = true,
+            EffectiveDate = dto.EffectiveDate ?? DateTime.UtcNow,
+            OwnerUserId = ownerUserId
+        };
+
+        await _context.Services.AddAsync(service);
+        await _context.SaveChangesAsync();
+
+        return MapToDto(service);
+    }
+
+    public async Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto, int ownerUserId)
+    {
+        var service = await _context.Services
+            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
+        if (service == null)
+        {
+            throw new InvalidOperationException("Dịch vụ không tồn tại");
+        }
+
+        var nextName = string.IsNullOrWhiteSpace(dto.Name) ? null : dto.Name.Trim();
+        if (nextName != null && nextName != service.Name)
+        {
+            var existingService = await _context.Services
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.Name == nextName);
+            if (existingService != null)
+            {
+                throw new InvalidOperationException($"Dịch vụ '{nextName}' đã tồn tại");
+            }
+
+            service.Name = nextName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ServiceType))
+        {
+            service.ServiceType = NormalizeServiceType(dto.ServiceType);
+        }
+
+        if (dto.Unit != null)
+        {
+            service.Unit = string.IsNullOrWhiteSpace(dto.Unit) ? null : dto.Unit.Trim();
+        }
+
+        if (dto.CommonUnitPrice.HasValue && dto.CommonUnitPrice.Value != (service.CommonUnitPrice ?? 0))
+        {
+            var effectiveDate = dto.EffectiveDate ?? DateTime.UtcNow;
+            _context.ServicePriceHistories.Add(new ServicePriceHistory
+            {
+                ServiceId = id,
+                OldPrice = service.CommonUnitPrice ?? 0,
+                NewPrice = dto.CommonUnitPrice.Value,
+                EffectiveDate = effectiveDate,
+                Reason = dto.Reason,
+                ChangedAt = DateTime.UtcNow
+            });
+
+            service.CommonUnitPrice = dto.CommonUnitPrice.Value;
+            service.EffectiveDate = effectiveDate;
+        }
+        else if (dto.CommonUnitPrice.HasValue)
+        {
+            service.CommonUnitPrice = dto.CommonUnitPrice.Value;
+        }
+
+        if (dto.IsActive.HasValue)
+        {
+            service.IsActive = dto.IsActive.Value;
+        }
+
+        await _context.SaveChangesAsync();
+        return MapToDto(service);
+    }
+
+    public async Task DeleteAsync(int id, int ownerUserId)
+    {
+        var service = await _context.Services
+            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
+        if (service == null)
+        {
+            throw new InvalidOperationException("Dịch vụ không tồn tại");
+        }
+
+        service.IsActive = false;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<ServicePriceHistoryDto>> GetPriceHistoryAsync(int serviceId, int ownerUserId)
+    {
+        var ownsService = await _context.Services
+            .AsNoTracking()
+            .AnyAsync(item => item.Id == serviceId && item.OwnerUserId == ownerUserId);
+        if (!ownsService)
+        {
+            return new List<ServicePriceHistoryDto>();
+        }
+
+        return await _context.ServicePriceHistories
+            .AsNoTracking()
+            .Where(history => history.ServiceId == serviceId)
+            .OrderByDescending(history => history.EffectiveDate)
+            .Select(history => new ServicePriceHistoryDto
+            {
+                Id = history.Id,
+                OldPrice = history.OldPrice,
+                NewPrice = history.NewPrice,
+                EffectiveDate = history.EffectiveDate,
+                Reason = history.Reason,
+                ChangedAt = history.ChangedAt
+            })
+            .ToListAsync();
     }
 
     private static string NormalizeServiceType(string? serviceType)
@@ -41,190 +263,6 @@ public class ServiceService : IServiceService
         return "Cố định";
     }
 
-    public async Task<List<ServiceDto>> GetAllAsync()
-    {
-        var services = await _serviceRepository.GetAllAsync();
-        return services.Select(MapToDto).ToList();
-    }
-
-    public async Task<List<ServiceDto>> GetActiveServicesAsync()
-    {
-        var services = await _serviceRepository.FindAsync(s => s.IsActive);
-        return services.Select(MapToDto).ToList();
-    }
-
-    public async Task<List<ServiceInContractDto>> GetServicesByContractAsync(int contractId)
-    {
-        var contract = await _context.HopDongs
-            .AsNoTracking()
-            .Include(h => h.ChiTietOs)
-            .FirstOrDefaultAsync(h => h.Id == contractId);
-
-        if (contract == null)
-        {
-            throw new InvalidOperationException("Hợp đồng không tồn tại");
-        }
-
-        var contractStart = contract.StartDate;
-        var contractEnd = contract.ExpectedEndDate ?? DateTime.UtcNow;
-        var residentIds = contract.ChiTietOs.Select(x => x.ResidentId).Distinct().ToList();
-
-        var usagesQuery = _context.ChiTietSuDungDichVus
-            .AsNoTracking()
-            .Include(u => u.Service)
-            .Include(u => u.Resident)
-            .Where(u => u.RoomId == contract.RoomId
-                && u.ApplyFrom <= contractEnd
-                && (u.ApplyTo == null || u.ApplyTo >= contractStart)
-                && u.Service.IsActive);
-
-        if (residentIds.Count > 0)
-        {
-            usagesQuery = usagesQuery.Where(u => residentIds.Contains(u.ResidentId));
-        }
-
-        var usages = await usagesQuery.ToListAsync();
-        return AggregateServices(usages);
-    }
-
-    public async Task<List<ServiceInContractDto>> GetServicesByRoomAsync(int roomId, DateTime? fromDate = null, DateTime? toDate = null)
-    {
-        var from = fromDate ?? DateTime.MinValue;
-        var to = toDate ?? DateTime.MaxValue;
-
-        var usages = await _context.ChiTietSuDungDichVus
-            .AsNoTracking()
-            .Include(u => u.Service)
-            .Include(u => u.Resident)
-            .Where(u => u.RoomId == roomId
-                && u.ApplyFrom <= to
-                && (u.ApplyTo == null || u.ApplyTo >= from)
-                && u.Service.IsActive)
-            .ToListAsync();
-
-        return AggregateServices(usages);
-    }
-
-    public async Task<ServiceDto?> GetByIdAsync(int id)
-    {
-        var service = await _serviceRepository.GetByIdAsync(id);
-        return service == null ? null : MapToDto(service);
-    }
-
-    public async Task<ServiceDto> CreateAsync(CreateServiceDto dto)
-    {
-        // Check if service name already exists
-        var existingService = await _serviceRepository.FirstOrDefaultAsync(s => s.Name == dto.Name);
-        if (existingService != null)
-        {
-            throw new InvalidOperationException($"Dịch vụ '{dto.Name}' đã tồn tại");
-        }
-
-        var service = new Service
-        {
-            Name = dto.Name,
-            ServiceType = NormalizeServiceType(dto.ServiceType),
-            Unit = dto.Unit,
-            CommonUnitPrice = dto.CommonUnitPrice,
-            IsActive = true,
-            EffectiveDate = dto.EffectiveDate ?? DateTime.UtcNow
-        };
-
-        await _serviceRepository.AddAsync(service);
-        await _serviceRepository.SaveChangesAsync();
-
-        return MapToDto(service);
-    }
-
-    public async Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto)
-    {
-        var service = await _serviceRepository.GetByIdAsync(id);
-        if (service == null)
-        {
-            throw new InvalidOperationException("Dịch vụ không tồn tại");
-        }
-
-        // Check unique name if name is being updated
-        if (!string.IsNullOrWhiteSpace(dto.Name) && dto.Name != service.Name)
-        {
-            var existingService = await _serviceRepository.FirstOrDefaultAsync(s => s.Name == dto.Name);
-            if (existingService != null)
-            {
-                throw new InvalidOperationException($"Dịch vụ '{dto.Name}' đã tồn tại");
-            }
-            service.Name = dto.Name;
-        }
-
-        if (!string.IsNullOrWhiteSpace(dto.ServiceType))
-            service.ServiceType = NormalizeServiceType(dto.ServiceType);
-
-        if (dto.Unit != null)
-            service.Unit = dto.Unit;
-
-        // If price is being changed, record history
-        if (dto.CommonUnitPrice.HasValue && dto.CommonUnitPrice.Value != (service.CommonUnitPrice ?? 0))
-        {
-            var effectiveDate = dto.EffectiveDate ?? DateTime.UtcNow;
-            var history = new ServicePriceHistory
-            {
-                ServiceId = id,
-                OldPrice = service.CommonUnitPrice ?? 0,
-                NewPrice = dto.CommonUnitPrice.Value,
-                EffectiveDate = effectiveDate,
-                Reason = dto.Reason,
-                ChangedAt = DateTime.UtcNow
-            };
-            _context.ServicePriceHistories.Add(history);
-
-            service.CommonUnitPrice = dto.CommonUnitPrice.Value;
-            service.EffectiveDate = effectiveDate;
-        }
-        else if (dto.CommonUnitPrice.HasValue)
-        {
-            service.CommonUnitPrice = dto.CommonUnitPrice.Value;
-        }
-
-        if (dto.IsActive.HasValue)
-            service.IsActive = dto.IsActive.Value;
-
-        _serviceRepository.Update(service);
-        await _serviceRepository.SaveChangesAsync();
-        await _context.SaveChangesAsync();
-
-        return MapToDto(service);
-    }
-
-    public async Task<List<ServicePriceHistoryDto>> GetPriceHistoryAsync(int serviceId)
-    {
-        return await _context.ServicePriceHistories
-            .Where(h => h.ServiceId == serviceId)
-            .OrderByDescending(h => h.EffectiveDate)
-            .Select(h => new ServicePriceHistoryDto
-            {
-                Id = h.Id,
-                OldPrice = h.OldPrice,
-                NewPrice = h.NewPrice,
-                EffectiveDate = h.EffectiveDate,
-                Reason = h.Reason,
-                ChangedAt = h.ChangedAt
-            })
-            .ToListAsync();
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        var service = await _serviceRepository.GetByIdAsync(id);
-        if (service == null)
-        {
-            throw new InvalidOperationException("Dịch vụ không tồn tại");
-        }
-
-        // Soft delete - just mark as inactive
-        service.IsActive = false;
-        _serviceRepository.Update(service);
-        await _serviceRepository.SaveChangesAsync();
-    }
-
     private static ServiceDto MapToDto(Service service)
     {
         return new ServiceDto
@@ -235,7 +273,8 @@ public class ServiceService : IServiceService
             Unit = service.Unit,
             CommonUnitPrice = service.CommonUnitPrice,
             IsActive = service.IsActive,
-            EffectiveDate = service.EffectiveDate
+            EffectiveDate = service.EffectiveDate,
+            OwnerUserId = service.OwnerUserId
         };
     }
 
@@ -244,18 +283,18 @@ public class ServiceService : IServiceService
         var now = DateTime.UtcNow;
 
         return usages
-            .GroupBy(u => u.ServiceId)
+            .GroupBy(usage => usage.ServiceId)
             .Select(group =>
             {
-                var latest = group.OrderByDescending(x => x.ApplyFrom).First();
+                var latest = group.OrderByDescending(item => item.ApplyFrom).First();
                 var latestWithOverride = group
-                    .Where(x => x.OverrideUnitPrice.HasValue)
-                    .OrderByDescending(x => x.ApplyFrom)
+                    .Where(item => item.OverrideUnitPrice.HasValue)
+                    .OrderByDescending(item => item.ApplyFrom)
                     .FirstOrDefault();
 
                 var applyToValues = group
-                    .Where(x => x.ApplyTo.HasValue)
-                    .Select(x => x.ApplyTo!.Value)
+                    .Where(item => item.ApplyTo.HasValue)
+                    .Select(item => item.ApplyTo!.Value)
                     .ToList();
 
                 return new ServiceInContractDto
@@ -265,23 +304,23 @@ public class ServiceService : IServiceService
                     ServiceType = latest.Service?.ServiceType ?? string.Empty,
                     Unit = latest.Service?.Unit,
                     UnitPrice = latestWithOverride?.OverrideUnitPrice ?? latest.Service?.CommonUnitPrice,
-                    ApplyFrom = group.Min(x => x.ApplyFrom),
+                    ApplyFrom = group.Min(item => item.ApplyFrom),
                     ApplyTo = applyToValues.Count > 0 ? applyToValues.Max() : null,
-                    TotalQuantity = group.Sum(x => x.Quantity ?? 1),
-                    ResidentCount = group.Select(x => x.ResidentId).Distinct().Count(),
+                    TotalQuantity = group.Sum(item => item.Quantity ?? 1),
+                    ResidentCount = group.Select(item => item.ResidentId).Distinct().Count(),
                     ResidentNames = group
-                        .Select(x => x.Resident?.FullName)
+                        .Select(item => item.Resident?.FullName)
                         .Where(name => !string.IsNullOrWhiteSpace(name))
                         .Distinct()
                         .ToList()!,
-                    IsActive = group.Any(x => x.ApplyFrom <= now && (x.ApplyTo == null || x.ApplyTo >= now)),
+                    IsActive = group.Any(item => item.ApplyFrom <= now && (item.ApplyTo == null || item.ApplyTo >= now)),
                     Note = group
-                        .OrderByDescending(x => x.ApplyFrom)
-                        .Select(x => x.Note)
+                        .OrderByDescending(item => item.ApplyFrom)
+                        .Select(item => item.Note)
                         .FirstOrDefault(note => !string.IsNullOrWhiteSpace(note))
                 };
             })
-            .OrderBy(x => x.ServiceName)
+            .OrderBy(item => item.ServiceName)
             .ToList();
     }
 }

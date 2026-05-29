@@ -5,6 +5,7 @@ namespace backend.DTOs
         public int Id { get; set; }
         public string AssetName { get; set; } = null!;
         public string AssetCode { get; set; } = null!;
+        public int? OwnerUserId { get; set; }
         
         // Aggregated info
         public int TotalRooms { get; set; }

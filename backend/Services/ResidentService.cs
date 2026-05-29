@@ -1,4 +1,5 @@
 using backend.DTOs;
+using backend.Data;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -7,40 +8,65 @@ namespace backend.Services;
 
 public interface IResidentService
 {
-    Task<List<ResidentDto>> GetAllAsync();
-    Task<List<ResidentDto>> SearchByNameAsync(string name);
-    Task<ResidentDetailDto?> GetByIdAsync(int id);
-    Task<ResidentDto> CreateAsync(CreateResidentDto dto);
-    Task<ResidentDto> UpdateAsync(int id, UpdateResidentDto dto);
-    Task DeleteAsync(int id);
+    Task<List<ResidentDto>> GetAllAsync(int ownerUserId);
+    Task<List<ResidentDto>> SearchByNameAsync(string name, int ownerUserId);
+    Task<ResidentDetailDto?> GetByIdAsync(int id, int ownerUserId);
+    Task<ResidentDto> CreateAsync(CreateResidentDto dto, int ownerUserId);
+    Task<ResidentDto> UpdateAsync(int id, UpdateResidentDto dto, int ownerUserId);
+    Task DeleteAsync(int id, int ownerUserId);
 }
 
 public class ResidentService : IResidentService
 {
     private readonly IResidentRepository _residentRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ApplicationDbContext _context;
 
-    public ResidentService(IResidentRepository residentRepository, IUserRepository userRepository)
+    public ResidentService(IResidentRepository residentRepository, IUserRepository userRepository, ApplicationDbContext context)
     {
         _residentRepository = residentRepository;
         _userRepository = userRepository;
+        _context = context;
     }
 
-    public async Task<List<ResidentDto>> GetAllAsync()
+    private IQueryable<Resident> ResidentsForOwner(int ownerUserId)
     {
-        var residents = await _residentRepository.GetAllAsync();
+        return _context.Residents
+            .Include(resident => resident.Users)
+            .Include(resident => resident.ChiTietOs)
+                .ThenInclude(residency => residency.HopDong)
+                    .ThenInclude(contract => contract.Room)
+                        .ThenInclude(room => room.Floor)
+                            .ThenInclude(floor => floor.Building)
+            .Where(resident => resident.OwnerUserId == ownerUserId
+                || resident.ChiTietOs.Any(residency => residency.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId));
+    }
+
+    public async Task<List<ResidentDto>> GetAllAsync(int ownerUserId)
+    {
+        var residents = await ResidentsForOwner(ownerUserId)
+            .AsNoTracking()
+            .OrderBy(resident => resident.FullName)
+            .ToListAsync();
         return residents.Select(MapToDto).ToList();
     }
 
-    public async Task<List<ResidentDto>> SearchByNameAsync(string name)
+    public async Task<List<ResidentDto>> SearchByNameAsync(string name, int ownerUserId)
     {
-        var residents = await _residentRepository.SearchByNameAsync(name);
+        var residents = await ResidentsForOwner(ownerUserId)
+            .AsNoTracking()
+            .Where(resident => resident.FullName.Contains(name))
+            .OrderBy(resident => resident.FullName)
+            .ToListAsync();
         return residents.Select(MapToDto).ToList();
     }
 
-    public async Task<ResidentDetailDto?> GetByIdAsync(int id)
+    public async Task<ResidentDetailDto?> GetByIdAsync(int id, int ownerUserId)
     {
-        var resident = await _residentRepository.GetByIdAsync(id);
+        var resident = await ResidentsForOwner(ownerUserId)
+            .AsNoTracking()
+            .Include(item => item.Xes)
+            .FirstOrDefaultAsync(item => item.Id == id);
         if (resident == null) return null;
 
         return new ResidentDetailDto
@@ -52,6 +78,7 @@ public class ResidentService : IResidentService
             Hometown = resident.Hometown,
             IdCardFrontUrl = resident.IdCardFrontUrl,
             IdCardBackUrl = resident.IdCardBackUrl,
+            OwnerUserId = resident.OwnerUserId,
             Contracts = resident.ChiTietOs?
                 .Select(ct => new ContractSummaryDto
                 {
@@ -74,7 +101,7 @@ public class ResidentService : IResidentService
         };
     }
 
-    public async Task<ResidentDto> CreateAsync(CreateResidentDto dto)
+    public async Task<ResidentDto> CreateAsync(CreateResidentDto dto, int ownerUserId)
     {
         // Check for duplicate phone number or ID card
         if (!string.IsNullOrEmpty(dto.PhoneNumber))
@@ -102,7 +129,8 @@ public class ResidentService : IResidentService
             IdCardNumber = dto.IdCardNumber,
             Hometown = dto.Hometown,
             IdCardFrontUrl = dto.IdCardFrontUrl,
-            IdCardBackUrl = dto.IdCardBackUrl
+            IdCardBackUrl = dto.IdCardBackUrl,
+            OwnerUserId = ownerUserId
         };
 
         await _residentRepository.AddAsync(resident);
@@ -117,9 +145,10 @@ public class ResidentService : IResidentService
         return MapToDto(resident);
     }
 
-    public async Task<ResidentDto> UpdateAsync(int id, UpdateResidentDto dto)
+    public async Task<ResidentDto> UpdateAsync(int id, UpdateResidentDto dto, int ownerUserId)
     {
-        var resident = await _residentRepository.GetByIdAsync(id);
+        var resident = await ResidentsForOwner(ownerUserId)
+            .FirstOrDefaultAsync(item => item.Id == id);
         if (resident == null)
         {
             throw new InvalidOperationException("Cư dân không tồn tại");
@@ -176,6 +205,7 @@ public class ResidentService : IResidentService
         if (existingByResident != null)
         {
             existingByResident.Email = email.Trim();
+            existingByResident.OwnerUserId = resident.OwnerUserId ?? existingByResident.OwnerUserId;
             _userRepository.Update(existingByResident);
             await _userRepository.SaveChangesAsync();
             return;
@@ -186,6 +216,7 @@ public class ResidentService : IResidentService
         {
             existingByPhone.ResidentId = residentId;
             existingByPhone.Email = email.Trim();
+            existingByPhone.OwnerUserId = resident.OwnerUserId ?? existingByPhone.OwnerUserId;
             _userRepository.Update(existingByPhone);
             await _userRepository.SaveChangesAsync();
             return;
@@ -200,6 +231,7 @@ public class ResidentService : IResidentService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
             Role = "CuDan",
             ResidentId = residentId,
+            OwnerUserId = resident.OwnerUserId,
             IsLocked = false,
             MustChangePassword = true
         };
@@ -208,9 +240,10 @@ public class ResidentService : IResidentService
         await _userRepository.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int ownerUserId)
     {
-        var resident = await _residentRepository.GetByIdAsync(id);
+        var resident = await ResidentsForOwner(ownerUserId)
+            .FirstOrDefaultAsync(item => item.Id == id);
         if (resident == null)
         {
             throw new InvalidOperationException("Cư dân không tồn tại");
@@ -252,7 +285,8 @@ public class ResidentService : IResidentService
             IdCardNumber = resident.IdCardNumber,
             Hometown = resident.Hometown,
             IdCardFrontUrl = resident.IdCardFrontUrl,
-            IdCardBackUrl = resident.IdCardBackUrl
+            IdCardBackUrl = resident.IdCardBackUrl,
+            OwnerUserId = resident.OwnerUserId
         };
     }
 }

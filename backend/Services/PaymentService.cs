@@ -116,23 +116,27 @@ public class PaymentService : IPaymentService
         await _thanhToanRepository.SaveChangesAsync();
 
         // Get contract and room info for notification
-        var contract = await _hopDongRepository.GetByIdAsync(invoice.ContractId);
-        var room = contract != null ? await _roomRepository.GetByIdAsync(contract.RoomId) : null;
+        var contract = await _hopDongRepository.GetWithDetailsAsync(invoice.ContractId);
+        var room = contract?.Room;
+        var ownerUserId = room?.Floor?.Building?.OwnerUserId;
 
         // Send SignalR notification - Payment initiated
         try
         {
-            await _hubContext.Clients.All.SendAsync("PaymentInitiated", new
+            if (ownerUserId.HasValue)
             {
-                transactionId = transaction.Id,
-                transactionCode = transaction.TransactionCode,
-                invoiceId = invoice.Id,
-                month = invoice.Month,
-                year = invoice.Year,
-                roomCode = room?.RoomCode,
-                amount = transaction.Amount,
-                status = "PENDING"
-            });
+                await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId.Value)).SendAsync("PaymentInitiated", new
+                {
+                    transactionId = transaction.Id,
+                    transactionCode = transaction.TransactionCode,
+                    invoiceId = invoice.Id,
+                    month = invoice.Month,
+                    year = invoice.Year,
+                    roomCode = room?.RoomCode,
+                    amount = transaction.Amount,
+                    status = "PENDING"
+                });
+            }
             _logger.LogInformation("💰 PayOS payment initiated: {TransactionCode} for invoice {InvoiceId}", transactionCode, invoice.Id);
         }
         catch (Exception ex)
@@ -237,27 +241,31 @@ public class PaymentService : IPaymentService
         var invoice2 = updatedTransaction?.InvoiceId.HasValue == true 
             ? await _hoaDonRepository.GetByIdAsync(updatedTransaction.InvoiceId.Value) 
             : null;
-        var contract = invoice2 != null ? await _hopDongRepository.GetByIdAsync(invoice2.ContractId) : null;
-        var room = contract != null ? await _roomRepository.GetByIdAsync(contract.RoomId) : null;
+        var contract = invoice2 != null ? await _hopDongRepository.GetWithDetailsAsync(invoice2.ContractId) : null;
+        var room = contract?.Room;
+        var ownerUserId = room?.Floor?.Building?.OwnerUserId;
 
         // Send SignalR notification based on payment result
         try
         {
             var eventName = dto.Status == "SUCCESS" ? "PaymentSuccess" : "PaymentFailed";
-            await _hubContext.Clients.All.SendAsync(eventName, new
+            if (ownerUserId.HasValue)
             {
-                transactionId = transaction.Id,
-                transactionCode = transaction.TransactionCode,
-                invoiceId = invoice2?.Id,
-                month = invoice2?.Month,
-                year = invoice2?.Year,
-                roomCode = room?.RoomCode,
-                amount = transaction.Amount,
-                status = dto.Status,
-                invoiceStatus = invoiceStatus,
-                paidAt = transaction.PaidAt,
-                gatewayResponse = dto.GatewayResponse
-            });
+                await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId.Value)).SendAsync(eventName, new
+                {
+                    transactionId = transaction.Id,
+                    transactionCode = transaction.TransactionCode,
+                    invoiceId = invoice2?.Id,
+                    month = invoice2?.Month,
+                    year = invoice2?.Year,
+                    roomCode = room?.RoomCode,
+                    amount = transaction.Amount,
+                    status = dto.Status,
+                    invoiceStatus = invoiceStatus,
+                    paidAt = transaction.PaidAt,
+                    gatewayResponse = dto.GatewayResponse
+                });
+            }
             _logger.LogInformation($"💳 Payment {dto.Status}: {dto.TransactionCode}");
         }
         catch (Exception ex)

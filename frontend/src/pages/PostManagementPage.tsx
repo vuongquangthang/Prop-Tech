@@ -68,8 +68,7 @@ export function PostManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Đăng bài tìm phòng</p>
@@ -85,9 +84,11 @@ export function PostManagementPage() {
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="flex items-end gap-8 border-b border-gray-300">
-            <button className="-mb-px border-b-2 border-blue-600 px-2 pb-3 text-sm font-semibold text-blue-600">
+        <div className="flex items-end gap-8 border-b border-gray-300">
+            <button
+              className="-mb-px border-b-2 px-2 pb-3 text-sm font-semibold"
+              style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+            >
               Quản lý bài đăng
             </button>
             <button
@@ -96,22 +97,21 @@ export function PostManagementPage() {
             >
               Tin nhắn
             </button>
-          </div>
         </div>
 
-        {error && <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
         {loading ? (
-          <div className="rounded border bg-white p-10 text-center text-gray-500">Đang tải danh sách...</div>
+          <div className="rounded-2xl border-2 border-gray-300 bg-white p-10 text-center text-gray-500">Đang tải danh sách...</div>
         ) : (
-          <div className="rounded border bg-white overflow-hidden">
-            <div className="px-6 py-4 flex items-center justify-between border-b">
+          <div className="overflow-hidden rounded-2xl border-2 border-gray-300 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
               <h2 className="text-lg font-semibold">Danh sách bài đăng</h2>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="border-b border-gray-300 bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng đã đăng</th>
                     <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày đăng</th>
@@ -123,7 +123,7 @@ export function PostManagementPage() {
                 </thead>
                 <tbody>
                   {sorted.map((p) => (
-                    <tr key={p.id} className="border-b hover:bg-gray-50">
+                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="font-semibold">{p.roomCode ?? p.room}</div>
                         <div className="text-xs text-gray-500">{p.buildingName ?? p.building}</div>
@@ -179,7 +179,6 @@ export function PostManagementPage() {
             </div>
           </div>
         )}
-      </div>
 
       {selectedPost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
@@ -288,7 +287,7 @@ export function PostManagementPage() {
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">Dịch vụ đi kèm</h4>
                 {selectedPost.servicePrices?.length ? (
-                  <div className="overflow-hidden rounded border border-gray-300 bg-white">
+                  <div className="overflow-hidden rounded-xl border border-gray-300 bg-white">
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-300">
                         <tr>

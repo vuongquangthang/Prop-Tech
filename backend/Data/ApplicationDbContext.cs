@@ -72,7 +72,11 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Building>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.BuildingName).IsUnique();
+            entity.HasIndex(e => new { e.OwnerUserId, e.BuildingName }).IsUnique();
+            entity.HasOne(e => e.OwnerUser)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Floor>(entity =>
@@ -88,7 +92,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Room>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.RoomCode).IsUnique();
+            entity.HasIndex(e => new { e.FloorId, e.RoomCode }).IsUnique();
             entity.HasOne(e => e.Floor)
                 .WithMany(e => e.Rooms)
                 .HasForeignKey(e => e.FloorId)
@@ -101,16 +105,25 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.IdCardNumber).IsUnique();
+            entity.HasOne(e => e.OwnerUser)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.PhoneNumber).IsUnique();
+            entity.HasIndex(e => e.OwnerUserId);
             entity.HasOne(e => e.Resident)
                 .WithMany(e => e.Users)
                 .HasForeignKey(e => e.ResidentId)
                 .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.OwnerUser)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         // ========== HỢP ĐỒNG ==========
@@ -169,6 +182,11 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Service>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.OwnerUserId, e.Name }).IsUnique();
+            entity.HasOne(e => e.OwnerUser)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ServicePriceHistory>(entity =>
@@ -231,6 +249,16 @@ public class ApplicationDbContext : DbContext
 
         // ========== HÓA ĐƠN & THANH TOÁN ==========
         
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.OwnerUserId);
+            entity.HasOne(e => e.OwnerUser)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<HoaDon>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -303,7 +331,11 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<TaiSan>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.AssetCode).IsUnique();
+            entity.HasIndex(e => new { e.OwnerUserId, e.AssetCode }).IsUnique();
+            entity.HasOne(e => e.OwnerUser)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ChiTietTaiSanPhong>(entity =>
@@ -348,9 +380,14 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<KnowledgeBase>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.OwnerUserId);
             entity.HasOne(e => e.UpdatedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.UpdatedBy)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.OwnerUser)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerUserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

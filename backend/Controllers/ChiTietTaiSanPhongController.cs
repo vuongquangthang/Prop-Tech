@@ -21,7 +21,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin,QuanLy")]
         public async Task<ActionResult<IEnumerable<ChiTietTaiSanPhongDto>>> GetAll()
         {
-            var details = await _detailService.GetAllAsync();
+            var details = await _detailService.GetAllAsync(User.GetOwnerUserId());
             return Ok(details);
         }
 
@@ -29,7 +29,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin,QuanLy")]
         public async Task<ActionResult<IEnumerable<ChiTietTaiSanPhongDto>>> GetByRoom(int roomId)
         {
-            var details = await _detailService.GetByRoomIdAsync(roomId);
+            var details = await _detailService.GetByRoomIdAsync(roomId, User.GetOwnerUserId());
             return Ok(details);
         }
 
@@ -37,7 +37,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin,QuanLy")]
         public async Task<ActionResult<IEnumerable<ChiTietTaiSanPhongDto>>> GetByAsset(int assetId)
         {
-            var details = await _detailService.GetByAssetIdAsync(assetId);
+            var details = await _detailService.GetByAssetIdAsync(assetId, User.GetOwnerUserId());
             return Ok(details);
         }
 
@@ -45,7 +45,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin,QuanLy")]
         public async Task<ActionResult<ChiTietTaiSanPhongDto>> GetByRoomAndAsset(int roomId, int assetId)
         {
-            var detail = await _detailService.GetByRoomAndAssetAsync(roomId, assetId);
+            var detail = await _detailService.GetByRoomAndAssetAsync(roomId, assetId, User.GetOwnerUserId());
             if (detail == null)
             {
                 return NotFound(new { message = "Tài sản phòng không tồn tại" });
@@ -59,7 +59,7 @@ namespace backend.Controllers
         {
             try
             {
-                var detail = await _detailService.CreateAsync(dto);
+                var detail = await _detailService.CreateAsync(dto, User.GetOwnerUserId());
                 return CreatedAtAction(
                     nameof(GetByRoomAndAsset),
                     new { roomId = detail.RoomId, assetId = detail.AssetId },
@@ -80,7 +80,7 @@ namespace backend.Controllers
         {
             try
             {
-                var detail = await _detailService.UpdateAsync(roomId, assetId, dto);
+                var detail = await _detailService.UpdateAsync(roomId, assetId, dto, User.GetOwnerUserId());
                 return Ok(detail);
             }
             catch (Exception ex)
@@ -93,7 +93,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult> Delete(int roomId, int assetId)
         {
-            var success = await _detailService.DeleteAsync(roomId, assetId);
+            var success = await _detailService.DeleteAsync(roomId, assetId, User.GetOwnerUserId());
             if (!success)
             {
                 return NotFound(new { message = "Tài sản phòng không tồn tại" });
