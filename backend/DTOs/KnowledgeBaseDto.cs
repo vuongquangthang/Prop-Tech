@@ -14,6 +14,7 @@ public class KnowledgeBaseDto
     public DateTime UpdatedAt { get; set; }
     public int? UpdatedBy { get; set; }
     public string? UpdatedByName { get; set; }
+    public int? OwnerUserId { get; set; }
 }
 
 /// <summary>

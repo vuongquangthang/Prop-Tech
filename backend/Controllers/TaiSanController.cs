@@ -21,7 +21,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin,QuanLy")]
         public async Task<ActionResult<IEnumerable<TaiSanDto>>> GetAll()
         {
-            var taiSans = await _taiSanService.GetAllAsync();
+            var taiSans = await _taiSanService.GetAllAsync(User.GetOwnerUserId());
             return Ok(taiSans);
         }
 
@@ -29,7 +29,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin,QuanLy")]
         public async Task<ActionResult<TaiSanDto>> GetById(int id)
         {
-            var taiSan = await _taiSanService.GetByIdAsync(id);
+            var taiSan = await _taiSanService.GetByIdAsync(id, User.GetOwnerUserId());
             if (taiSan == null)
             {
                 return NotFound(new { message = "Tài sản không tồn tại" });
@@ -41,7 +41,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin,QuanLy")]
         public async Task<ActionResult<TaiSanDto>> GetByCode(string assetCode)
         {
-            var taiSan = await _taiSanService.GetByCodeAsync(assetCode);
+            var taiSan = await _taiSanService.GetByCodeAsync(assetCode, User.GetOwnerUserId());
             if (taiSan == null)
             {
                 return NotFound(new { message = "Tài sản không tồn tại" });
@@ -55,7 +55,7 @@ namespace backend.Controllers
         {
             try
             {
-                var taiSan = await _taiSanService.CreateAsync(dto);
+                var taiSan = await _taiSanService.CreateAsync(dto, User.GetOwnerUserId());
                 return CreatedAtAction(nameof(GetById), new { id = taiSan.Id }, taiSan);
             }
             catch (Exception ex)
@@ -70,7 +70,7 @@ namespace backend.Controllers
         {
             try
             {
-                var taiSan = await _taiSanService.UpdateAsync(id, dto);
+                var taiSan = await _taiSanService.UpdateAsync(id, dto, User.GetOwnerUserId());
                 return Ok(taiSan);
             }
             catch (Exception ex)
@@ -83,7 +83,7 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult> Delete(int id)
         {
-            var success = await _taiSanService.DeleteAsync(id);
+            var success = await _taiSanService.DeleteAsync(id, User.GetOwnerUserId());
             if (!success)
             {
                 return NotFound(new { message = "Tài sản không tồn tại" });

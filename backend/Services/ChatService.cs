@@ -11,9 +11,9 @@ namespace backend.Services;
 public interface IChatService
 {
     Task<List<ChatMessageDto>> GetChatHistoryAsync(int userId, int limit = 100);
-    Task<List<ChatMessageDto>> GetAllUsersHistoryAsync(int limit = 1000);
-    Task<List<UnansweredChatItemDto>> GetUnansweredChatsAsync(int limit = 200);
-    Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId);
+    Task<List<ChatMessageDto>> GetAllUsersHistoryAsync(int ownerUserId, int limit = 1000);
+    Task<List<UnansweredChatItemDto>> GetUnansweredChatsAsync(int ownerUserId, int limit = 200);
+    Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId, int ownerUserId);
     Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto);
     Task<ChatConversationDto> GetConversationAsync(int userId);
 }
@@ -55,15 +55,15 @@ public class ChatService : IChatService
         return chats.OrderBy(x => x.CreatedAt).Select(MapToDto).ToList();
     }
 
-    public async Task<List<ChatMessageDto>> GetAllUsersHistoryAsync(int limit = 1000)
+    public async Task<List<ChatMessageDto>> GetAllUsersHistoryAsync(int ownerUserId, int limit = 1000)
     {
-        var chats = await _chatRepository.GetRecentAsync(limit);
+        var chats = await _chatRepository.GetRecentAsync(ownerUserId, limit);
         return chats.OrderByDescending(x => x.CreatedAt).Select(MapToDto).ToList();
     }
 
-    public async Task<List<UnansweredChatItemDto>> GetUnansweredChatsAsync(int limit = 200)
+    public async Task<List<UnansweredChatItemDto>> GetUnansweredChatsAsync(int ownerUserId, int limit = 200)
     {
-        var chats = await _chatRepository.GetRecentAsync(Math.Max(limit * 4, 200));
+        var chats = await _chatRepository.GetRecentAsync(ownerUserId, Math.Max(limit * 4, 200));
         var ordered = chats.OrderBy(x => x.CreatedAt).ToList();
 
         var unresolved = ordered
@@ -97,9 +97,9 @@ public class ChatService : IChatService
         return unresolved;
     }
 
-    public async Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId)
+    public async Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId, int ownerUserId)
     {
-        var assistantMessage = await _chatRepository.GetByIdAsync(assistantMessageId);
+        var assistantMessage = await _chatRepository.GetByIdAsync(assistantMessageId, ownerUserId);
         if (assistantMessage == null || assistantMessage.MessageRole != "assistant")
         {
             throw new InvalidOperationException("Không tìm thấy câu trả lời AI cần xử lý");
@@ -124,7 +124,8 @@ public class ChatService : IChatService
             Tags = BuildTagsFromQuestion(question.MessageText),
             IsActive = dto.ActivateImmediately,
             UpdatedAt = DateTime.UtcNow,
-            UpdatedBy = resolverUserId
+            UpdatedBy = resolverUserId,
+            OwnerUserId = ownerUserId
         };
 
         await _knowledgeBaseRepository.AddAsync(kb);
@@ -144,7 +145,8 @@ public class ChatService : IChatService
             IsActive = kb.IsActive,
             UpdatedAt = kb.UpdatedAt,
             UpdatedBy = kb.UpdatedBy,
-            UpdatedByName = null
+            UpdatedByName = null,
+            OwnerUserId = kb.OwnerUserId
         };
     }
 

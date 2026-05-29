@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
@@ -17,6 +18,16 @@ public class ReportsController : ControllerBase
         _reportService = reportService;
     }
 
+    private int GetUserId()
+    {
+        var claim = User.GetOwnerUserId().ToString();
+        if (!int.TryParse(claim, out var userId) || userId <= 0)
+        {
+            throw new InvalidOperationException("Không thể xác thực người dùng");
+        }
+        return userId;
+    }
+
     /// <summary>
     /// Lấy thống kê tổng quan dashboard
     /// </summary>
@@ -25,7 +36,7 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var stats = await _reportService.GetDashboardStatsAsync();
+            var stats = await _reportService.GetDashboardStatsAsync(GetUserId());
             return Ok(stats);
         }
         catch (Exception ex)
@@ -42,7 +53,7 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var stats = await _reportService.GetRoomStatsAsync();
+            var stats = await _reportService.GetRoomStatsAsync(GetUserId());
             return Ok(stats);
         }
         catch (Exception ex)
@@ -59,7 +70,7 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var stats = await _reportService.GetRevenueStatsAsync();
+            var stats = await _reportService.GetRevenueStatsAsync(GetUserId());
             return Ok(stats);
         }
         catch (Exception ex)
@@ -76,7 +87,7 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var stats = await _reportService.GetDebtStatsAsync();
+            var stats = await _reportService.GetDebtStatsAsync(GetUserId());
             return Ok(stats);
         }
         catch (Exception ex)
@@ -98,7 +109,7 @@ public class ReportsController : ControllerBase
                 return BadRequest(new { message = "Năm không hợp lệ" });
             }
 
-            var revenue = await _reportService.GetMonthlyRevenueAsync(year);
+            var revenue = await _reportService.GetMonthlyRevenueAsync(year, GetUserId());
             return Ok(revenue);
         }
         catch (Exception ex)

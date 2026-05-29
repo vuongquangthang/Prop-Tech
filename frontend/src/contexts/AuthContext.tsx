@@ -5,7 +5,10 @@ import { API_ENDPOINTS } from '../lib/api-config';
 interface User {
   id: number;
   phoneNumber: string;
-  fullName: string;
+  fullName?: string;
+  displayName?: string;
+  residentName?: string;
+  email?: string;
   role: string;
 }
 

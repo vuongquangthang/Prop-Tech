@@ -1,87 +1,76 @@
+using backend.Data;
 using backend.DTOs;
-using backend.Repositories;
+using backend.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
 public interface IReportService
 {
-    Task<DashboardStatsDto> GetDashboardStatsAsync();
-    Task<List<MonthlyRevenueDto>> GetMonthlyRevenueAsync(int year);
-    Task<RoomStatsDto> GetRoomStatsAsync();
-    Task<RevenueStatsDto> GetRevenueStatsAsync();
-    Task<DebtStatsDto> GetDebtStatsAsync();
+    Task<DashboardStatsDto> GetDashboardStatsAsync(int ownerUserId);
+    Task<List<MonthlyRevenueDto>> GetMonthlyRevenueAsync(int year, int ownerUserId);
+    Task<RoomStatsDto> GetRoomStatsAsync(int ownerUserId);
+    Task<RevenueStatsDto> GetRevenueStatsAsync(int ownerUserId);
+    Task<DebtStatsDto> GetDebtStatsAsync(int ownerUserId);
 }
 
 public class ReportService : IReportService
 {
-    private readonly IRoomRepository _roomRepository;
-    private readonly IHopDongRepository _hopDongRepository;
-    private readonly IResidentRepository _residentRepository;
-    private readonly IHoaDonRepository _hoaDonRepository;
-    private readonly IThanhToanRepository _thanhToanRepository;
-    private readonly IXeRepository _xeRepository;
-    private readonly IYeuCauSuaChuaRepository _yeuCauRepository;
+    private readonly ApplicationDbContext _context;
 
-    public ReportService(
-        IRoomRepository roomRepository,
-        IHopDongRepository hopDongRepository,
-        IResidentRepository residentRepository,
-        IHoaDonRepository hoaDonRepository,
-        IThanhToanRepository thanhToanRepository,
-        IXeRepository xeRepository,
-        IYeuCauSuaChuaRepository yeuCauRepository)
+    public ReportService(ApplicationDbContext context)
     {
-        _roomRepository = roomRepository;
-        _hopDongRepository = hopDongRepository;
-        _residentRepository = residentRepository;
-        _hoaDonRepository = hoaDonRepository;
-        _thanhToanRepository = thanhToanRepository;
-        _xeRepository = xeRepository;
-        _yeuCauRepository = yeuCauRepository;
+        _context = context;
     }
 
-    public async Task<DashboardStatsDto> GetDashboardStatsAsync()
+    public async Task<DashboardStatsDto> GetDashboardStatsAsync(int ownerUserId)
     {
         return new DashboardStatsDto
         {
-            RoomStats = await GetRoomStatsAsync(),
-            RevenueStats = await GetRevenueStatsAsync(),
-            DebtStats = await GetDebtStatsAsync(),
-            ResidentStats = await GetResidentStatsAsync(),
-            VehicleStats = await GetVehicleStatsAsync(),
-            MaintenanceStats = await GetMaintenanceStatsAsync()
+            RoomStats = await GetRoomStatsAsync(ownerUserId),
+            RevenueStats = await GetRevenueStatsAsync(ownerUserId),
+            DebtStats = await GetDebtStatsAsync(ownerUserId),
+            ResidentStats = await GetResidentStatsAsync(ownerUserId),
+            VehicleStats = await GetVehicleStatsAsync(ownerUserId),
+            MaintenanceStats = await GetMaintenanceStatsAsync(ownerUserId)
         };
     }
 
-    public async Task<List<MonthlyRevenueDto>> GetMonthlyRevenueAsync(int year)
+    public async Task<List<MonthlyRevenueDto>> GetMonthlyRevenueAsync(int year, int ownerUserId)
     {
-        var invoices = await _hoaDonRepository.GetAllAsync();
-        var payments = await _thanhToanRepository.GetAllAsync();
+        var invoices = await InvoicesForOwner(ownerUserId)
+            .AsNoTracking()
+            .Include(invoice => invoice.ChiTietHoaDons)
+            .ToListAsync();
+        var payments = await PaymentsForOwner(ownerUserId)
+            .AsNoTracking()
+            .ToListAsync();
 
         var monthlyRevenue = new List<MonthlyRevenueDto>();
 
-        for (int month = 1; month <= 12; month++)
+        for (var month = 1; month <= 12; month++)
         {
-            var monthInvoices = invoices.Where(i => i.Year == year && i.Month == month).ToList();
+            var monthInvoices = invoices.Where(invoice => invoice.Year == year && invoice.Month == month).ToList();
             var monthPayments = payments
-                .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == year && p.PaidAt.Value.Month == month && p.InvoiceId != null)
+                .Where(payment => payment.PaidAt.HasValue
+                    && payment.PaidAt.Value.Year == year
+                    && payment.PaidAt.Value.Month == month
+                    && payment.InvoiceId != null)
                 .ToList();
 
-            // Compute line item breakdown from invoices of this billing period
-            var lineItems = monthInvoices.SelectMany(i => i.ChiTietHoaDons).ToList();
+            var lineItems = monthInvoices.SelectMany(invoice => invoice.ChiTietHoaDons).ToList();
 
-            decimal roomRent = lineItems
-                .Where(li => li.ItemType == "TienPhong")
-                .Sum(li => (li.Quantity ?? 1m) * (li.UnitPrice ?? 0m));
+            var roomRent = lineItems
+                .Where(item => item.ItemType == "TienPhong")
+                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m));
 
-            decimal serviceFee = lineItems
-                .Where(li => li.ItemType == "Dien" || li.ItemType == "Nuoc" || li.ItemType == "DichVu")
-                .Sum(li => (li.Quantity ?? 1m) * (li.UnitPrice ?? 0m));
+            var serviceFee = lineItems
+                .Where(item => item.ItemType == "Dien" || item.ItemType == "Nuoc" || item.ItemType == "DichVu")
+                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m));
 
-            decimal other = lineItems
-                .Where(li => li.ItemType == "PhatSinh" || li.ItemType == "KhauTru")
-                .Sum(li => (li.Quantity ?? 1m) * (li.UnitPrice ?? 0m));
+            var other = lineItems
+                .Where(item => item.ItemType == "PhatSinh" || item.ItemType == "KhauTru")
+                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m));
 
             monthlyRevenue.Add(new MonthlyRevenueDto
             {
@@ -97,13 +86,13 @@ public class ReportService : IReportService
         return monthlyRevenue;
     }
 
-    public async Task<RoomStatsDto> GetRoomStatsAsync()
+    public async Task<RoomStatsDto> GetRoomStatsAsync(int ownerUserId)
     {
-        var rooms = await _roomRepository.GetAllAsync();
-        var totalRooms = rooms.Count();
-        var occupiedRooms = rooms.Count(r => r.Status == "Đã thuê");
-        var availableRooms = rooms.Count(r => r.Status == "Trống");
-        var maintenanceRooms = rooms.Count(r => r.Status == "Bảo trì");
+        var rooms = await RoomsForOwner(ownerUserId).AsNoTracking().ToListAsync();
+        var totalRooms = rooms.Count;
+        var occupiedRooms = rooms.Count(room => room.Status == "Đã thuê" || room.Status == "ÄÃ£ thuÃª");
+        var availableRooms = rooms.Count(room => room.Status == "Trống" || room.Status == "Trá»‘ng");
+        var maintenanceRooms = rooms.Count(room => room.Status == "Bảo trì" || room.Status == "Báº£o trÃ¬");
 
         return new RoomStatsDto
         {
@@ -115,26 +104,32 @@ public class ReportService : IReportService
         };
     }
 
-    public async Task<RevenueStatsDto> GetRevenueStatsAsync()
+    public async Task<RevenueStatsDto> GetRevenueStatsAsync(int ownerUserId)
     {
-        var payments = await _thanhToanRepository.GetAllAsync();
+        var payments = await PaymentsForOwner(ownerUserId).AsNoTracking().ToListAsync();
         var now = DateTime.UtcNow;
 
         var currentMonthPayments = payments
-            .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == now.Year && p.PaidAt.Value.Month == now.Month && p.InvoiceId != null)
-            .Sum(p => p.Amount);
+            .Where(payment => payment.PaidAt.HasValue
+                && payment.PaidAt.Value.Year == now.Year
+                && payment.PaidAt.Value.Month == now.Month
+                && payment.InvoiceId != null)
+            .Sum(payment => payment.Amount);
 
         var lastMonth = now.AddMonths(-1);
         var lastMonthPayments = payments
-            .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == lastMonth.Year && p.PaidAt.Value.Month == lastMonth.Month && p.InvoiceId != null)
-            .Sum(p => p.Amount);
+            .Where(payment => payment.PaidAt.HasValue
+                && payment.PaidAt.Value.Year == lastMonth.Year
+                && payment.PaidAt.Value.Month == lastMonth.Month
+                && payment.InvoiceId != null)
+            .Sum(payment => payment.Amount);
 
         var yearToDatePayments = payments
-            .Where(p => p.PaidAt.HasValue && p.PaidAt.Value.Year == now.Year && p.InvoiceId != null)
-            .Sum(p => p.Amount);
+            .Where(payment => payment.PaidAt.HasValue && payment.PaidAt.Value.Year == now.Year && payment.InvoiceId != null)
+            .Sum(payment => payment.Amount);
 
-        var growthRate = lastMonthPayments > 0 
-            ? ((currentMonthPayments - lastMonthPayments) / lastMonthPayments) * 100 
+        var growthRate = lastMonthPayments > 0
+            ? ((currentMonthPayments - lastMonthPayments) / lastMonthPayments) * 100
             : 0;
 
         return new RevenueStatsDto
@@ -147,63 +142,95 @@ public class ReportService : IReportService
         };
     }
 
-    public async Task<DebtStatsDto> GetDebtStatsAsync()
+    public async Task<DebtStatsDto> GetDebtStatsAsync(int ownerUserId)
     {
-        var invoices = await _hoaDonRepository.GetAllAsync();
+        var invoices = await InvoicesForOwner(ownerUserId).AsNoTracking().ToListAsync();
         var now = DateTime.UtcNow;
 
-        var unpaidInvoices = invoices.Where(i => 
-            i.Status == "Chưa thanh toán" || i.Status == "Đã thanh toán một phần").ToList();
+        var unpaidInvoices = invoices.Where(invoice =>
+            invoice.Status == "Chưa thanh toán"
+            || invoice.Status == "ChÆ°a thanh toÃ¡n"
+            || invoice.Status == "Đã thanh toán một phần"
+            || invoice.Status == "ÄÃ£ thanh toÃ¡n má»™t pháº§n").ToList();
 
-        var overdueInvoices = unpaidInvoices.Where(i => 
-            i.DueDate.HasValue && i.DueDate.Value < now).ToList();
+        var overdueInvoices = unpaidInvoices.Where(invoice =>
+            invoice.DueDate.HasValue && invoice.DueDate.Value < now).ToList();
 
         return new DebtStatsDto
         {
-            TotalOutstanding = unpaidInvoices.Sum(i => i.TotalAmount),
+            TotalOutstanding = unpaidInvoices.Sum(invoice => invoice.TotalAmount),
             OverdueInvoicesCount = overdueInvoices.Count,
-            OverdueAmount = overdueInvoices.Sum(i => i.TotalAmount),
+            OverdueAmount = overdueInvoices.Sum(invoice => invoice.TotalAmount),
             UnpaidInvoicesCount = unpaidInvoices.Count
         };
     }
 
-    private async Task<ResidentStatsDto> GetResidentStatsAsync()
+    private async Task<ResidentStatsDto> GetResidentStatsAsync(int ownerUserId)
     {
-        var residents = await _residentRepository.GetAllAsync();
-        var contracts = await _hopDongRepository.GetActiveContractsAsync();
+        var activeResidencies = await _context.ChiTietOs
+            .AsNoTracking()
+            .Where(residency => residency.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId
+                && (residency.ToDate == null || residency.ToDate > DateTime.UtcNow))
+            .ToListAsync();
 
         return new ResidentStatsDto
         {
-            TotalResidents = residents.Count(),
-            ActiveContracts = contracts.Count(),
-            NewResidentsThisMonth = 0 // Resident model doesn't have CreatedAt
+            TotalResidents = activeResidencies.Select(residency => residency.ResidentId).Distinct().Count(),
+            ActiveContracts = activeResidencies.Select(residency => residency.ContractId).Distinct().Count(),
+            NewResidentsThisMonth = 0
         };
     }
 
-    private async Task<VehicleStatsDto> GetVehicleStatsAsync()
+    private async Task<VehicleStatsDto> GetVehicleStatsAsync(int ownerUserId)
     {
-        var vehicles = await _xeRepository.GetAllAsync();
+        var vehicles = await _context.Xes
+            .AsNoTracking()
+            .Where(vehicle => vehicle.Resident.ChiTietOs.Any(residency =>
+                residency.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId
+                && (residency.ToDate == null || residency.ToDate > DateTime.UtcNow)))
+            .ToListAsync();
 
         return new VehicleStatsDto
         {
-            TotalVehicles = vehicles.Count(),
-            Cars = vehicles.Count(v => v.VehicleType == "Ô tô"),
-            Motorcycles = vehicles.Count(v => v.VehicleType == "Xe máy"),
-            Bicycles = vehicles.Count(v => v.VehicleType == "Xe đạp")
+            TotalVehicles = vehicles.Count,
+            Cars = vehicles.Count(vehicle => vehicle.VehicleType == "Ô tô" || vehicle.VehicleType == "Ã” tÃ´"),
+            Motorcycles = vehicles.Count(vehicle => vehicle.VehicleType == "Xe máy" || vehicle.VehicleType == "Xe mÃ¡y"),
+            Bicycles = vehicles.Count(vehicle => vehicle.VehicleType == "Xe đạp" || vehicle.VehicleType == "Xe Ä‘áº¡p")
         };
     }
 
-    private async Task<MaintenanceStatsDto> GetMaintenanceStatsAsync()
+    private async Task<MaintenanceStatsDto> GetMaintenanceStatsAsync(int ownerUserId)
     {
-        var requests = await _yeuCauRepository.GetAllAsync();
+        var requests = await _context.YeuCauSuaChuas
+            .AsNoTracking()
+            .Where(request => request.Room.Floor.Building.OwnerUserId == ownerUserId)
+            .ToListAsync();
 
         return new MaintenanceStatsDto
         {
-            TotalRequests = requests.Count(),
-            PendingRequests = requests.Count(r => r.Status == "Chờ xử lý"),
-            InProgressRequests = requests.Count(r => r.Status == "Đang xử lý"),
-            CompletedRequests = requests.Count(r => r.Status == "Hoàn thành"),
-            RejectedRequests = requests.Count(r => r.Status == "Từ chối")
+            TotalRequests = requests.Count,
+            PendingRequests = requests.Count(request => request.Status == "Chờ xử lý" || request.Status == "Chá» xá»­ lÃ½"),
+            InProgressRequests = requests.Count(request => request.Status == "Đang xử lý" || request.Status == "Äang xá»­ lÃ½"),
+            CompletedRequests = requests.Count(request => request.Status == "Hoàn thành" || request.Status == "HoÃ n thÃ nh"),
+            RejectedRequests = requests.Count(request => request.Status == "Từ chối" || request.Status == "Tá»« chá»‘i")
         };
+    }
+
+    private IQueryable<Room> RoomsForOwner(int ownerUserId)
+    {
+        return _context.Rooms.Where(room => room.Floor.Building.OwnerUserId == ownerUserId);
+    }
+
+    private IQueryable<HoaDon> InvoicesForOwner(int ownerUserId)
+    {
+        return _context.HoaDons.Where(invoice => invoice.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId);
+    }
+
+    private IQueryable<ThanhToan> PaymentsForOwner(int ownerUserId)
+    {
+        return _context.ThanhToans.Where(payment =>
+            payment.InvoiceId != null
+            && payment.HoaDon != null
+            && payment.HoaDon.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId);
     }
 }

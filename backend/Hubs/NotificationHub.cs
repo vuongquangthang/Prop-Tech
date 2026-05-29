@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace backend.Hubs;
 
@@ -13,16 +14,23 @@ public class NotificationHub : Hub
         _logger = logger;
     }
 
+    public static string UserGroup(int userId) => $"user_{userId}";
+    public static string OwnerGroup(int ownerUserId) => $"owner_{ownerUserId}";
+
     public override async Task OnConnectedAsync()
     {
-        var userId = Context.User?.FindFirst("sub")?.Value 
-                     ?? Context.User?.FindFirst("id")?.Value
-                     ?? Context.User?.Identity?.Name;
+        var userId = GetCurrentUserId();
+        var ownerUserId = GetCurrentOwnerUserId();
 
-        if (!string.IsNullOrEmpty(userId))
+        if (userId.HasValue)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
+            await Groups.AddToGroupAsync(Context.ConnectionId, UserGroup(userId.Value));
             _logger.LogInformation($"User {userId} connected to NotificationHub. ConnectionId: {Context.ConnectionId}");
+        }
+
+        if (ownerUserId.HasValue)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, OwnerGroup(ownerUserId.Value));
         }
 
         await base.OnConnectedAsync();
@@ -30,17 +38,42 @@ public class NotificationHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userId = Context.User?.FindFirst("sub")?.Value 
-                     ?? Context.User?.FindFirst("id")?.Value
-                     ?? Context.User?.Identity?.Name;
+        var userId = GetCurrentUserId();
+        var ownerUserId = GetCurrentOwnerUserId();
 
-        if (!string.IsNullOrEmpty(userId))
+        if (userId.HasValue)
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId}");
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, UserGroup(userId.Value));
             _logger.LogInformation($"User {userId} disconnected from NotificationHub. ConnectionId: {Context.ConnectionId}");
         }
 
+        if (ownerUserId.HasValue)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, OwnerGroup(ownerUserId.Value));
+        }
+
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var claim = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? Context.User?.FindFirstValue("UserId")
+            ?? Context.User?.FindFirstValue("id")
+            ?? Context.User?.FindFirstValue("sub")
+            ?? Context.User?.Identity?.Name;
+
+        return int.TryParse(claim, out var userId) ? userId : null;
+    }
+
+    private int? GetCurrentOwnerUserId()
+    {
+        var claim = Context.User?.FindFirstValue("OwnerUserId")
+            ?? Context.User?.FindFirstValue("ownerUserId");
+
+        return int.TryParse(claim, out var ownerUserId)
+            ? ownerUserId
+            : GetCurrentUserId();
     }
 
     // Client can send test message
@@ -63,9 +96,10 @@ public class NotificationHub : Hub
 
         public static async Task SendMaintenanceUpdate(
             IHubContext<NotificationHub> hubContext,
+            int ownerUserId,
             object maintenance)
         {
-            await hubContext.Clients.All
+            await hubContext.Clients.Group(OwnerGroup(ownerUserId))
                 .SendAsync("MaintenanceUpdated", maintenance);
         }
 
@@ -80,10 +114,11 @@ public class NotificationHub : Hub
 
         public static async Task SendBroadcast(
             IHubContext<NotificationHub> hubContext,
+            int ownerUserId,
             string eventName,
             object data)
         {
-            await hubContext.Clients.All
+            await hubContext.Clients.Group(OwnerGroup(ownerUserId))
                 .SendAsync(eventName, data);
         }
     }

@@ -20,7 +20,7 @@ public interface IHoaDonService
     Task<HoaDonDto?> GetByIdAsync(int id);
     Task<HoaDonDto> CreateAsync(CreateHoaDonDto dto);
     Task<HoaDonDto> PayInvoiceAsync(int id, PayHoaDonDto dto);
-    Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month);
+    Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month, int ownerUserId);
     Task<HoaDonDto> EditDraftAsync(int id, EditDraftInvoiceDto dto);
     Task<HoaDonDto> ApproveAsync(int id, int approvedByUserId);
     Task<BatchReadingResultDto> BatchApproveAsync(List<int> invoiceIds, int approvedByUserId);
@@ -132,15 +132,18 @@ public class HoaDonService : IHoaDonService
     /// <summary>
     /// Tính toán hóa đơn nháp từ chỉ số điện/nước đã chốt và công thức tính hóa đơn của hợp đồng
     /// </summary>
-    public async Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month)
+    public async Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month, int ownerUserId)
     {
         var result = new CalculateInvoiceResultDto();
 
         // Lấy tất cả hợp đồng đang active (có cư dân)
         var contracts = await _context.HopDongs
             .Include(hd => hd.Room).ThenInclude(r => r.ChiTietSuDungDichVus).ThenInclude(u => u.Service)
+            .Include(hd => hd.Room).ThenInclude(r => r.Floor).ThenInclude(f => f.Building)
             .Include(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
-            .Where(hd => hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= new DateTime(year, month, 1)))
+            .Where(hd =>
+                hd.Room.Floor.Building.OwnerUserId == ownerUserId &&
+                hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= new DateTime(year, month, 1)))
             .ToListAsync();
 
         using var transaction = await _context.Database.BeginTransactionAsync();

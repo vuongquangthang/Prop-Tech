@@ -10,14 +10,14 @@ namespace backend.Services;
 
 public interface IRoomService
 {
-    Task<List<RoomDto>> GetAllAsync();
-    Task<List<RoomDto>> GetByFloorIdAsync(int floorId);
-    Task<List<RoomDto>> GetByStatusAsync(string status);
-    Task<RoomDetailDto?> GetByIdAsync(int id);
+    Task<List<RoomDto>> GetAllAsync(int ownerUserId);
+    Task<List<RoomDto>> GetByFloorIdAsync(int floorId, int ownerUserId);
+    Task<List<RoomDto>> GetByStatusAsync(string status, int ownerUserId);
+    Task<RoomDetailDto?> GetByIdAsync(int id, int? ownerUserId = null);
     Task<MyRoomDto?> GetMyRoomAsync(int userId);
-    Task<RoomDto> CreateAsync(CreateRoomDto dto);
-    Task<RoomDto> UpdateAsync(int id, UpdateRoomDto dto);
-    Task DeleteAsync(int id);
+    Task<RoomDto> CreateAsync(CreateRoomDto dto, int ownerUserId);
+    Task<RoomDto> UpdateAsync(int id, UpdateRoomDto dto, int ownerUserId);
+    Task DeleteAsync(int id, int ownerUserId);
 }
 
 public class RoomService : IRoomService
@@ -63,9 +63,22 @@ public class RoomService : IRoomService
         _dbContext = dbContext;
     }
 
-    public async Task<List<RoomDto>> GetAllAsync()
+    private IQueryable<Room> RoomsForOwner(int ownerUserId)
     {
-        var rooms = await _roomRepository.GetAllAsync();
+        return _dbContext.Rooms
+            .AsNoTracking()
+            .Include(room => room.Floor)
+                .ThenInclude(floor => floor.Building)
+            .Include(room => room.ChiTietTaiSanPhongs)
+                .ThenInclude(detail => detail.TaiSan)
+            .Where(room => room.Floor.Building.OwnerUserId == ownerUserId);
+    }
+
+    public async Task<List<RoomDto>> GetAllAsync(int ownerUserId)
+    {
+        var rooms = await RoomsForOwner(ownerUserId)
+            .OrderBy(room => room.RoomCode)
+            .ToListAsync();
         var roomDtos = new List<RoomDto>();
         foreach (var room in rooms)
         {
@@ -74,9 +87,12 @@ public class RoomService : IRoomService
         return roomDtos;
     }
 
-    public async Task<List<RoomDto>> GetByFloorIdAsync(int floorId)
+    public async Task<List<RoomDto>> GetByFloorIdAsync(int floorId, int ownerUserId)
     {
-        var rooms = await _roomRepository.GetByFloorIdAsync(floorId);
+        var rooms = await RoomsForOwner(ownerUserId)
+            .Where(room => room.FloorId == floorId)
+            .OrderBy(room => room.RoomCode)
+            .ToListAsync();
         var roomDtos = new List<RoomDto>();
         foreach (var room in rooms)
         {
@@ -85,9 +101,12 @@ public class RoomService : IRoomService
         return roomDtos;
     }
 
-    public async Task<List<RoomDto>> GetByStatusAsync(string status)
+    public async Task<List<RoomDto>> GetByStatusAsync(string status, int ownerUserId)
     {
-        var rooms = await _roomRepository.GetByStatusAsync(status);
+        var rooms = await RoomsForOwner(ownerUserId)
+            .Where(room => room.Status == status)
+            .OrderBy(room => room.RoomCode)
+            .ToListAsync();
         var roomDtos = new List<RoomDto>();
         foreach (var room in rooms)
         {
@@ -96,9 +115,24 @@ public class RoomService : IRoomService
         return roomDtos;
     }
 
-    public async Task<RoomDetailDto?> GetByIdAsync(int id)
+    public async Task<RoomDetailDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var room = await _roomRepository.GetWithDetailsAsync(id);
+        var query = _dbContext.Rooms
+            .Include(room => room.Floor)
+                .ThenInclude(floor => floor.Building)
+            .Include(room => room.HopDongs)
+                .ThenInclude(contract => contract.ChiTietOs)
+                    .ThenInclude(residency => residency.Resident)
+            .Include(room => room.ChiTietTaiSanPhongs)
+                .ThenInclude(detail => detail.TaiSan)
+            .Where(room => room.Id == id);
+
+        if (ownerUserId.HasValue)
+        {
+            query = query.Where(room => room.Floor.Building.OwnerUserId == ownerUserId.Value);
+        }
+
+        var room = await query.FirstOrDefaultAsync();
         if (room == null) return null;
 
         var floor = await _floorRepository.GetByIdAsync(room.FloorId);
@@ -216,28 +250,33 @@ public class RoomService : IRoomService
         };
     }
 
-    public async Task<RoomDto> CreateAsync(CreateRoomDto dto)
+    public async Task<RoomDto> CreateAsync(CreateRoomDto dto, int ownerUserId)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
         // Validate floor exists
-        var floor = await _floorRepository.GetByIdAsync(dto.FloorId);
+        var floor = await _dbContext.Floors
+            .Include(item => item.Building)
+            .FirstOrDefaultAsync(item => item.Id == dto.FloorId && item.Building.OwnerUserId == ownerUserId);
         if (floor == null)
         {
             throw new InvalidOperationException("Tầng không tồn tại");
         }
 
         // Check for duplicate room code
-        var existing = await _roomRepository.GetByRoomCodeAsync(dto.RoomCode);
+        var roomCode = dto.RoomCode.Trim();
+        var existing = await _dbContext.Rooms
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.FloorId == dto.FloorId && item.RoomCode == roomCode);
         if (existing != null)
         {
-            throw new InvalidOperationException($"Mã phòng '{dto.RoomCode}' đã tồn tại");
+            throw new InvalidOperationException($"Mã phòng '{roomCode}' đã tồn tại");
         }
 
         var room = new Room
         {
             FloorId = dto.FloorId,
-            RoomCode = dto.RoomCode,
+            RoomCode = roomCode,
             Area = dto.Area,
             MaxOccupants = dto.MaxOccupants,
             DefaultRentPrice = dto.DefaultRentPrice,
@@ -257,7 +296,7 @@ public class RoomService : IRoomService
         await _roomRepository.AddAsync(room);
         await _roomRepository.SaveChangesAsync();
 
-        await SyncRoomAssetsAsync(room.Id, dto.Amenities);
+        await SyncRoomAssetsAsync(room.Id, dto.Amenities, ownerUserId);
         await _roomRepository.SaveChangesAsync();
 
         await transaction.CommitAsync();
@@ -271,25 +310,31 @@ public class RoomService : IRoomService
         return await MapToDto(createdRoom);
     }
 
-    public async Task<RoomDto> UpdateAsync(int id, UpdateRoomDto dto)
+    public async Task<RoomDto> UpdateAsync(int id, UpdateRoomDto dto, int ownerUserId)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-        var room = await _roomRepository.GetByIdAsync(id);
+        var room = await _dbContext.Rooms
+            .Include(item => item.Floor)
+                .ThenInclude(item => item.Building)
+            .FirstOrDefaultAsync(item => item.Id == id && item.Floor.Building.OwnerUserId == ownerUserId);
         if (room == null)
         {
             throw new InvalidOperationException("Phòng không tồn tại");
         }
 
         // Check for duplicate room code (if changed)
-        if (dto.RoomCode != null && dto.RoomCode != room.RoomCode)
+        var nextRoomCode = string.IsNullOrWhiteSpace(dto.RoomCode) ? null : dto.RoomCode.Trim();
+        if (nextRoomCode != null && nextRoomCode != room.RoomCode)
         {
-            var existing = await _roomRepository.GetByRoomCodeAsync(dto.RoomCode);
+            var existing = await _dbContext.Rooms
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.FloorId == room.FloorId && item.RoomCode == nextRoomCode);
             if (existing != null)
             {
-                throw new InvalidOperationException($"Mã phòng '{dto.RoomCode}' đã tồn tại");
+                throw new InvalidOperationException($"Mã phòng '{nextRoomCode}' đã tồn tại");
             }
-            room.RoomCode = dto.RoomCode;
+            room.RoomCode = nextRoomCode;
         }
 
         if (dto.Area.HasValue) room.Area = dto.Area;
@@ -312,7 +357,7 @@ public class RoomService : IRoomService
 
         if (dto.Amenities != null)
         {
-            await SyncRoomAssetsAsync(room.Id, dto.Amenities);
+            await SyncRoomAssetsAsync(room.Id, dto.Amenities, ownerUserId);
             await _roomRepository.SaveChangesAsync();
         }
 
@@ -327,9 +372,13 @@ public class RoomService : IRoomService
         return await MapToDto(updatedRoom);
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int ownerUserId)
     {
-        var room = await _roomRepository.GetByIdAsync(id);
+        var room = await _dbContext.Rooms
+            .Include(item => item.Floor)
+                .ThenInclude(item => item.Building)
+            .Include(item => item.HopDongs)
+            .FirstOrDefaultAsync(item => item.Id == id && item.Floor.Building.OwnerUserId == ownerUserId);
         if (room == null)
         {
             throw new InvalidOperationException("Phòng không tồn tại");
@@ -389,7 +438,7 @@ public class RoomService : IRoomService
         };
     }
 
-    private async Task SyncRoomAssetsAsync(int roomId, List<string>? amenityNames)
+    private async Task SyncRoomAssetsAsync(int roomId, List<string>? amenityNames, int ownerUserId)
     {
         var selectedAmenityNames = (amenityNames ?? new List<string>())
             .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -397,7 +446,7 @@ public class RoomService : IRoomService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var allAssets = (await _taiSanRepository.GetAllAsync()).ToList();
+        var allAssets = (await _taiSanRepository.GetAllAsync(ownerUserId)).ToList();
         var selectedAssets = new List<TaiSan>();
 
         foreach (var amenityName in selectedAmenityNames)
@@ -411,13 +460,13 @@ public class RoomService : IRoomService
             selectedAssets.Add(asset);
         }
 
-        var existingDetails = (await _chiTietTaiSanPhongRepository.GetByRoomIdAsync(roomId)).ToList();
+        var existingDetails = (await _chiTietTaiSanPhongRepository.GetByRoomIdAsync(roomId, ownerUserId)).ToList();
         var existingByAssetId = existingDetails.ToDictionary(x => x.AssetId);
         var selectedAssetIds = selectedAssets.Select(x => x.Id).ToHashSet();
 
         foreach (var detail in existingDetails.Where(x => !selectedAssetIds.Contains(x.AssetId)).ToList())
         {
-            await _chiTietTaiSanPhongRepository.DeleteAsync(detail.RoomId, detail.AssetId);
+            await _chiTietTaiSanPhongRepository.DeleteAsync(detail.RoomId, detail.AssetId, ownerUserId);
         }
 
         foreach (var asset in selectedAssets)

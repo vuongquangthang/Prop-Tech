@@ -19,6 +19,7 @@ const routeTitles: Record<string, string> = {
   '/maintenance-request': 'Vận hành & Sự cố - Quản lý Yêu cầu sửa chữa',
   '/post-management': 'Đăng bài tìm phòng - Quản lý bài đăng',
   '/post-management/create': 'Đăng bài tìm phòng - Tạo bài đăng',
+  '/messages': 'Đăng bài tìm phòng - Tin nhắn',
   '/knowledge-base': 'Trợ lý ảo AI - Quản lý Kho tri thức',
   '/chat-history': 'Trợ lý ảo AI - Lịch sử hội thoại',
   '/revenue-report': 'Báo cáo & Thống kê - Báo cáo Doanh thu',

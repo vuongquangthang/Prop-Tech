@@ -10,15 +10,15 @@ namespace backend.Services;
 
 public interface IYeuCauSuaChuaService
 {
-    Task<List<YeuCauSuaChuaDto>> GetAllAsync();
-    Task<List<YeuCauSuaChuaDto>> GetByStatusAsync(string status);
-    Task<List<YeuCauSuaChuaDto>> GetByRoomIdAsync(int roomId);
+    Task<List<YeuCauSuaChuaDto>> GetAllAsync(int ownerUserId);
+    Task<List<YeuCauSuaChuaDto>> GetByStatusAsync(string status, int ownerUserId);
+    Task<List<YeuCauSuaChuaDto>> GetByRoomIdAsync(int roomId, int ownerUserId);
     Task<List<YeuCauSuaChuaDto>> GetByUserIdAsync(int userId);
-    Task<YeuCauSuaChuaDto?> GetByIdAsync(int id);
+    Task<YeuCauSuaChuaDto?> GetByIdAsync(int id, int? ownerUserId = null);
     Task<YeuCauSuaChuaDto> CreateAsync(int userId, CreateYeuCauSuaChuaDto dto);
-    Task<YeuCauSuaChuaDto> UpdateAsync(int id, UpdateYeuCauSuaChuaDto dto);
-    Task<YeuCauSuaChuaDto> CloseAsync(int id, CloseYeuCauSuaChuaDto dto);
-    Task DeleteAsync(int id);
+    Task<YeuCauSuaChuaDto> UpdateAsync(int id, UpdateYeuCauSuaChuaDto dto, int? ownerUserId = null);
+    Task<YeuCauSuaChuaDto> CloseAsync(int id, CloseYeuCauSuaChuaDto dto, int? ownerUserId = null);
+    Task DeleteAsync(int id, int ownerUserId);
 }
 
 public class YeuCauSuaChuaService : IYeuCauSuaChuaService
@@ -60,10 +60,10 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         _notificationService = notificationService;
     }
 
-    public async Task<List<YeuCauSuaChuaDto>> GetAllAsync()
+    public async Task<List<YeuCauSuaChuaDto>> GetAllAsync(int ownerUserId)
     {
-        var requests = await _yeuCauRepository.GetAllAsync();
-        var requestsList = requests.ToList();
+        var requests = await _yeuCauRepository.FindAsync(request => request.Room.Floor.Building.OwnerUserId == ownerUserId);
+        var requestsList = requests.OrderByDescending(request => request.CreatedAt).ToList();
         var result = new List<YeuCauSuaChuaDto>();
         foreach (var request in requestsList)
         {
@@ -74,9 +74,11 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         return result;
     }
 
-    public async Task<List<YeuCauSuaChuaDto>> GetByStatusAsync(string status)
+    public async Task<List<YeuCauSuaChuaDto>> GetByStatusAsync(string status, int ownerUserId)
     {
-        var requests = await _yeuCauRepository.GetByStatusAsync(status);
+        var requests = (await _yeuCauRepository.FindAsync(request =>
+            request.Status == status && request.Room.Floor.Building.OwnerUserId == ownerUserId))
+            .OrderByDescending(request => request.CreatedAt);
         
         var result = new List<YeuCauSuaChuaDto>();
         foreach (var request in requests)
@@ -88,9 +90,11 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         return result;
     }
 
-    public async Task<List<YeuCauSuaChuaDto>> GetByRoomIdAsync(int roomId)
+    public async Task<List<YeuCauSuaChuaDto>> GetByRoomIdAsync(int roomId, int ownerUserId)
     {
-        var requests = await _yeuCauRepository.GetByRoomIdAsync(roomId);
+        var requests = (await _yeuCauRepository.FindAsync(request =>
+            request.RoomId == roomId && request.Room.Floor.Building.OwnerUserId == ownerUserId))
+            .OrderByDescending(request => request.CreatedAt);
         var room = await _roomRepository.GetByIdAsync(roomId);
         
         var result = new List<YeuCauSuaChuaDto>();
@@ -117,9 +121,12 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         return result;
     }
 
-    public async Task<YeuCauSuaChuaDto?> GetByIdAsync(int id)
+    public async Task<YeuCauSuaChuaDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var request = await _yeuCauRepository.GetByIdAsync(id);
+        var request = ownerUserId.HasValue
+            ? (await _yeuCauRepository.FindAsync(item =>
+                item.Id == id && item.Room.Floor.Building.OwnerUserId == ownerUserId.Value)).FirstOrDefault()
+            : await _yeuCauRepository.GetByIdAsync(id);
         if (request == null) return null;
         
         var room = await _roomRepository.GetByIdAsync(request.RoomId);
@@ -167,7 +174,8 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             roomId = dto.RoomId.Value;
             
             // Validate room exists
-            var room = await _roomRepository.GetByIdAsync(roomId);
+            var room = (await _roomRepository.FindAsync(item =>
+                item.Id == roomId && item.Floor.Building.OwnerUserId == user.OwnerUserId)).FirstOrDefault();
             if (room == null)
             {
                 throw new InvalidOperationException("Phòng không tồn tại");
@@ -192,11 +200,12 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         var created = await _yeuCauRepository.GetByIdAsync(request.Id);
         var room2 = await _roomRepository.GetByIdAsync(created!.RoomId);
         var user2 = await _userRepository.GetByIdAsync(created.UserId);
+        var createdOwnerUserId = await ResolveOwnerUserIdForRoomAsync(created.RoomId);
         
         // Send SignalR notification to all admins/managers
         try
         {
-            await _hubContext.Clients.All.SendAsync("NewMaintenanceRequest", new
+            await _hubContext.Clients.Group(NotificationHub.OwnerGroup(createdOwnerUserId)).SendAsync("NewMaintenanceRequest", new
             {
                 id = created.Id,
                 roomCode = room2?.RoomCode,
@@ -218,16 +227,20 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             await _notificationService.CreateAdminNotificationAsync(
                 $"Sự cố mới - {(room2 != null ? $"Phòng {room2.RoomCode}" : $"Phòng #{roomId}")}",
                 $"{(room2 != null ? $"Phòng {room2.RoomCode}" : "Cư dân")} đã gửi yêu cầu sửa chữa: {created.IssueType}.",
-                "COMPLAINT");
+                "COMPLAINT",
+                createdOwnerUserId);
         }
         catch { /* Không block flow chính */ }
 
         return MapToDto(created, room2, user2);
     }
 
-    public async Task<YeuCauSuaChuaDto> UpdateAsync(int id, UpdateYeuCauSuaChuaDto dto)
+    public async Task<YeuCauSuaChuaDto> UpdateAsync(int id, UpdateYeuCauSuaChuaDto dto, int? ownerUserId = null)
     {
-        var request = await _yeuCauRepository.GetByIdAsync(id);
+        var request = ownerUserId.HasValue
+            ? (await _yeuCauRepository.FindAsync(item =>
+                item.Id == id && item.Room.Floor.Building.OwnerUserId == ownerUserId.Value)).FirstOrDefault()
+            : await _yeuCauRepository.GetByIdAsync(id);
         if (request == null)
         {
             throw new InvalidOperationException("Yêu cầu không tồn tại");
@@ -272,11 +285,12 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         var closed = await _yeuCauRepository.GetByIdAsync(id);
         var room = await _roomRepository.GetByIdAsync(closed!.RoomId);
         var user = await _userRepository.GetByIdAsync(closed.UserId);
+        var updatedOwnerUserId = await ResolveOwnerUserIdForRoomAsync(closed.RoomId);
         
         // Send SignalR notification for status update
         try
         {
-            await _hubContext.Clients.All.SendAsync("MaintenanceRequestUpdated", new
+            await _hubContext.Clients.Group(NotificationHub.OwnerGroup(updatedOwnerUserId)).SendAsync("MaintenanceRequestUpdated", new
             {
                 id = closed.Id,
                 roomCode = room?.RoomCode,
@@ -307,9 +321,12 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         return MapToDto(closed, room, user);
     }
 
-    public async Task<YeuCauSuaChuaDto> CloseAsync(int id, CloseYeuCauSuaChuaDto dto)
+    public async Task<YeuCauSuaChuaDto> CloseAsync(int id, CloseYeuCauSuaChuaDto dto, int? ownerUserId = null)
     {
-        var request = await _yeuCauRepository.GetByIdAsync(id);
+        var request = ownerUserId.HasValue
+            ? (await _yeuCauRepository.FindAsync(item =>
+                item.Id == id && item.Room.Floor.Building.OwnerUserId == ownerUserId.Value)).FirstOrDefault()
+            : await _yeuCauRepository.GetByIdAsync(id);
         if (request == null)
         {
             throw new InvalidOperationException("Yêu cầu không tồn tại");
@@ -356,11 +373,12 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         var updated = await _yeuCauRepository.GetByIdAsync(id);
         var room = await _roomRepository.GetByIdAsync(updated!.RoomId);
         var user = await _userRepository.GetByIdAsync(updated.UserId);
+        var closedOwnerUserId = await ResolveOwnerUserIdForRoomAsync(updated.RoomId);
         
         // Send SignalR notification for request closure
         try
         {
-            await _hubContext.Clients.All.SendAsync("MaintenanceRequestClosed", new
+            await _hubContext.Clients.Group(NotificationHub.OwnerGroup(closedOwnerUserId)).SendAsync("MaintenanceRequestClosed", new
             {
                 id = updated.Id,
                 roomCode = room?.RoomCode,
@@ -385,16 +403,18 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             await _notificationService.CreateAdminNotificationAsync(
                 $"Phản hồi nghiệm thu - {roomLabel}",
                 feedbackMsg,
-                "COMPLAINT");
+                "COMPLAINT",
+                closedOwnerUserId);
         }
         catch { /* Không block flow chính */ }
 
         return MapToDto(updated, room, user);
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int ownerUserId)
     {
-        var request = await _yeuCauRepository.GetByIdAsync(id);
+        var request = (await _yeuCauRepository.FindAsync(item =>
+            item.Id == id && item.Room.Floor.Building.OwnerUserId == ownerUserId)).FirstOrDefault();
         if (request == null)
         {
             throw new InvalidOperationException("Yêu cầu không tồn tại");
@@ -402,6 +422,16 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
 
         _yeuCauRepository.Remove(request);
         await _yeuCauRepository.SaveChangesAsync();
+    }
+
+    private async Task<int> ResolveOwnerUserIdForRoomAsync(int roomId)
+    {
+        var ownerUserId = await _context.Rooms
+            .Where(room => room.Id == roomId)
+            .Select(room => room.Floor.Building.OwnerUserId)
+            .FirstOrDefaultAsync();
+
+        return ownerUserId ?? throw new InvalidOperationException("Khong the xac dinh chu nha cua phong");
     }
 
     private static YeuCauSuaChuaDto MapToDto(YeuCauSuaChua request, Room? room, User? user)

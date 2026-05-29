@@ -27,7 +27,7 @@ public class AuditLogsController : ControllerBase
     {
         try
         {
-            var logs = await _service.GetRecentAsync(limit);
+            var logs = await _service.GetRecentAsync(User.GetOwnerUserId(), limit);
             return Ok(logs);
         }
         catch (Exception ex)
@@ -58,7 +58,7 @@ public class AuditLogsController : ControllerBase
                 }
             }
 
-            var logs = await _service.GetByUserIdAsync(userId, limit);
+            var logs = await _service.GetByUserIdAsync(userId, User.GetOwnerUserId(), limit);
             return Ok(logs);
         }
         catch (Exception ex)
@@ -79,7 +79,7 @@ public class AuditLogsController : ControllerBase
     {
         try
         {
-            var logs = await _service.GetByEntityAsync(entityType, entityId, limit);
+            var logs = await _service.GetByEntityAsync(entityType, User.GetOwnerUserId(), entityId, limit);
             return Ok(logs);
         }
         catch (Exception ex)
@@ -97,7 +97,7 @@ public class AuditLogsController : ControllerBase
     {
         try
         {
-            var logs = await _service.GetByActionAsync(action, limit);
+            var logs = await _service.GetByActionAsync(action, User.GetOwnerUserId(), limit);
             return Ok(logs);
         }
         catch (Exception ex)

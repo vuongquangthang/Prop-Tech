@@ -8,13 +8,13 @@ namespace backend.Services
 {
     public interface ITatToanService
     {
-        Task<IEnumerable<TatToanDto>> GetAllAsync();
-        Task<TatToanDto?> GetByIdAsync(int id);
-        Task<IEnumerable<TatToanDto>> GetByResidencyIdAsync(int residencyId);
-        Task<IEnumerable<TatToanDto>> GetByStatusAsync(string status);
-        Task<TatToanDto> CreateAsync(CreateTatToanDto dto);
-        Task<TatToanDto> UpdateAsync(int id, UpdateTatToanDto dto);
-        Task<bool> DeleteAsync(int id);
+        Task<IEnumerable<TatToanDto>> GetAllAsync(int ownerUserId);
+        Task<TatToanDto?> GetByIdAsync(int id, int ownerUserId);
+        Task<IEnumerable<TatToanDto>> GetByResidencyIdAsync(int residencyId, int ownerUserId);
+        Task<IEnumerable<TatToanDto>> GetByStatusAsync(string status, int ownerUserId);
+        Task<TatToanDto> CreateAsync(CreateTatToanDto dto, int ownerUserId);
+        Task<TatToanDto> UpdateAsync(int id, UpdateTatToanDto dto, int ownerUserId);
+        Task<bool> DeleteAsync(int id, int ownerUserId);
     }
 
     public class TatToanService : ITatToanService
@@ -45,34 +45,40 @@ namespace backend.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<TatToanDto>> GetAllAsync()
+        public async Task<IEnumerable<TatToanDto>> GetAllAsync(int ownerUserId)
         {
-            var tatToans = await _tatToanRepository.GetAllAsync();
+            var tatToans = await _tatToanRepository.GetAllAsync(ownerUserId);
             return tatToans.Select(MapToDto);
         }
 
-        public async Task<TatToanDto?> GetByIdAsync(int id)
+        public async Task<TatToanDto?> GetByIdAsync(int id, int ownerUserId)
         {
-            var tatToan = await _tatToanRepository.GetByIdAsync(id);
+            var tatToan = await _tatToanRepository.GetByIdAsync(id, ownerUserId);
             return tatToan == null ? null : MapToDto(tatToan);
         }
 
-        public async Task<IEnumerable<TatToanDto>> GetByResidencyIdAsync(int residencyId)
+        public async Task<IEnumerable<TatToanDto>> GetByResidencyIdAsync(int residencyId, int ownerUserId)
         {
-            var tatToans = await _tatToanRepository.GetByResidencyIdAsync(residencyId);
+            var tatToans = await _tatToanRepository.GetByResidencyIdAsync(residencyId, ownerUserId);
             return tatToans.Select(MapToDto);
         }
 
-        public async Task<IEnumerable<TatToanDto>> GetByStatusAsync(string status)
+        public async Task<IEnumerable<TatToanDto>> GetByStatusAsync(string status, int ownerUserId)
         {
-            var tatToans = await _tatToanRepository.GetByStatusAsync(status);
+            var tatToans = await _tatToanRepository.GetByStatusAsync(status, ownerUserId);
             return tatToans.Select(MapToDto);
         }
 
-        public async Task<TatToanDto> CreateAsync(CreateTatToanDto dto)
+        public async Task<TatToanDto> CreateAsync(CreateTatToanDto dto, int ownerUserId)
         {
             // Validate residency exists
-            var residency = await _hopDongRepository.GetByIdAsync(dto.ResidencyId);
+            var residency = await _context.HopDongs
+                .Include(contract => contract.Room)
+                    .ThenInclude(room => room.Floor)
+                        .ThenInclude(floor => floor.Building)
+                .FirstOrDefaultAsync(contract =>
+                    contract.Id == dto.ResidencyId &&
+                    contract.Room.Floor.Building.OwnerUserId == ownerUserId);
             if (residency == null)
             {
                 throw new Exception("Hợp đồng không tồn tại");
@@ -125,13 +131,13 @@ namespace backend.Services
             }
 
             // Reload to get details
-            var result = await _tatToanRepository.GetByIdAsync(created.Id);
+            var result = await _tatToanRepository.GetByIdAsync(created.Id, ownerUserId);
             return MapToDto(result!);
         }
 
-        public async Task<TatToanDto> UpdateAsync(int id, UpdateTatToanDto dto)
+        public async Task<TatToanDto> UpdateAsync(int id, UpdateTatToanDto dto, int ownerUserId)
         {
-            var tatToan = await _tatToanRepository.GetByIdAsync(id);
+            var tatToan = await _tatToanRepository.GetByIdAsync(id, ownerUserId);
             if (tatToan == null)
             {
                 throw new Exception("Phiếu tất toán không tồn tại");
@@ -192,13 +198,13 @@ namespace backend.Services
             }
             
             // Reload to get details
-            var result = await _tatToanRepository.GetByIdAsync(updated.Id);
+            var result = await _tatToanRepository.GetByIdAsync(updated.Id, ownerUserId);
             return MapToDto(result!);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task<bool> DeleteAsync(int id, int ownerUserId)
         {
-            return await _tatToanRepository.DeleteAsync(id);
+            return await _tatToanRepository.DeleteAsync(id, ownerUserId);
         }
 
         private decimal CalculateTotalSettlement(

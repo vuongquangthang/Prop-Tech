@@ -6,13 +6,13 @@ namespace backend.Services
 {
     public interface IChiTietTaiSanPhongService
     {
-        Task<IEnumerable<ChiTietTaiSanPhongDto>> GetAllAsync();
-        Task<ChiTietTaiSanPhongDto?> GetByRoomAndAssetAsync(int roomId, int assetId);
-        Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByRoomIdAsync(int roomId);
-        Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByAssetIdAsync(int assetId);
-        Task<ChiTietTaiSanPhongDto> CreateAsync(CreateChiTietTaiSanPhongDto dto);
-        Task<ChiTietTaiSanPhongDto> UpdateAsync(int roomId, int assetId, UpdateChiTietTaiSanPhongDto dto);
-        Task<bool> DeleteAsync(int roomId, int assetId);
+        Task<IEnumerable<ChiTietTaiSanPhongDto>> GetAllAsync(int ownerUserId);
+        Task<ChiTietTaiSanPhongDto?> GetByRoomAndAssetAsync(int roomId, int assetId, int ownerUserId);
+        Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByRoomIdAsync(int roomId, int ownerUserId);
+        Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByAssetIdAsync(int assetId, int ownerUserId);
+        Task<ChiTietTaiSanPhongDto> CreateAsync(CreateChiTietTaiSanPhongDto dto, int ownerUserId);
+        Task<ChiTietTaiSanPhongDto> UpdateAsync(int roomId, int assetId, UpdateChiTietTaiSanPhongDto dto, int ownerUserId);
+        Task<bool> DeleteAsync(int roomId, int assetId, int ownerUserId);
     }
 
     public class ChiTietTaiSanPhongService : IChiTietTaiSanPhongService
@@ -31,48 +31,49 @@ namespace backend.Services
             _taiSanRepository = taiSanRepository;
         }
 
-        public async Task<IEnumerable<ChiTietTaiSanPhongDto>> GetAllAsync()
+        public async Task<IEnumerable<ChiTietTaiSanPhongDto>> GetAllAsync(int ownerUserId)
         {
-            var details = await _detailRepository.GetAllAsync();
+            var details = await _detailRepository.GetAllAsync(ownerUserId);
             return details.Select(MapToDto);
         }
 
-        public async Task<ChiTietTaiSanPhongDto?> GetByRoomAndAssetAsync(int roomId, int assetId)
+        public async Task<ChiTietTaiSanPhongDto?> GetByRoomAndAssetAsync(int roomId, int assetId, int ownerUserId)
         {
-            var detail = await _detailRepository.GetByRoomAndAssetAsync(roomId, assetId);
+            var detail = await _detailRepository.GetByRoomAndAssetAsync(roomId, assetId, ownerUserId);
             return detail == null ? null : MapToDto(detail);
         }
 
-        public async Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByRoomIdAsync(int roomId)
+        public async Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByRoomIdAsync(int roomId, int ownerUserId)
         {
-            var details = await _detailRepository.GetByRoomIdAsync(roomId);
+            var details = await _detailRepository.GetByRoomIdAsync(roomId, ownerUserId);
             return details.Select(MapToDto);
         }
 
-        public async Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByAssetIdAsync(int assetId)
+        public async Task<IEnumerable<ChiTietTaiSanPhongDto>> GetByAssetIdAsync(int assetId, int ownerUserId)
         {
-            var details = await _detailRepository.GetByAssetIdAsync(assetId);
+            var details = await _detailRepository.GetByAssetIdAsync(assetId, ownerUserId);
             return details.Select(MapToDto);
         }
 
-        public async Task<ChiTietTaiSanPhongDto> CreateAsync(CreateChiTietTaiSanPhongDto dto)
+        public async Task<ChiTietTaiSanPhongDto> CreateAsync(CreateChiTietTaiSanPhongDto dto, int ownerUserId)
         {
             // Validate room exists
-            var room = await _roomRepository.GetByIdAsync(dto.RoomId);
+            var room = (await _roomRepository.FindAsync(room =>
+                room.Id == dto.RoomId && room.Floor.Building.OwnerUserId == ownerUserId)).FirstOrDefault();
             if (room == null)
             {
                 throw new Exception("Phòng không tồn tại");
             }
 
             // Validate asset exists
-            var taiSan = await _taiSanRepository.GetByIdAsync(dto.AssetId);
+            var taiSan = await _taiSanRepository.GetByIdAsync(dto.AssetId, ownerUserId);
             if (taiSan == null)
             {
                 throw new Exception("Tài sản không tồn tại");
             }
 
             // Check if already exists
-            var existing = await _detailRepository.GetByRoomAndAssetAsync(dto.RoomId, dto.AssetId);
+            var existing = await _detailRepository.GetByRoomAndAssetAsync(dto.RoomId, dto.AssetId, ownerUserId);
             if (existing != null)
             {
                 throw new Exception("Tài sản đã được gán cho phòng này");
@@ -90,13 +91,13 @@ namespace backend.Services
             var created = await _detailRepository.CreateAsync(detail);
             
             // Reload to get navigation properties
-            var result = await _detailRepository.GetByRoomAndAssetAsync(created.RoomId, created.AssetId);
+            var result = await _detailRepository.GetByRoomAndAssetAsync(created.RoomId, created.AssetId, ownerUserId);
             return MapToDto(result!);
         }
 
-        public async Task<ChiTietTaiSanPhongDto> UpdateAsync(int roomId, int assetId, UpdateChiTietTaiSanPhongDto dto)
+        public async Task<ChiTietTaiSanPhongDto> UpdateAsync(int roomId, int assetId, UpdateChiTietTaiSanPhongDto dto, int ownerUserId)
         {
-            var detail = await _detailRepository.GetByRoomAndAssetAsync(roomId, assetId);
+            var detail = await _detailRepository.GetByRoomAndAssetAsync(roomId, assetId, ownerUserId);
             if (detail == null)
             {
                 throw new Exception("Tài sản phòng không tồn tại");
@@ -113,13 +114,13 @@ namespace backend.Services
             var updated = await _detailRepository.UpdateAsync(detail);
             
             // Reload to get navigation properties
-            var result = await _detailRepository.GetByRoomAndAssetAsync(updated.RoomId, updated.AssetId);
+            var result = await _detailRepository.GetByRoomAndAssetAsync(updated.RoomId, updated.AssetId, ownerUserId);
             return MapToDto(result!);
         }
 
-        public async Task<bool> DeleteAsync(int roomId, int assetId)
+        public async Task<bool> DeleteAsync(int roomId, int assetId, int ownerUserId)
         {
-            return await _detailRepository.DeleteAsync(roomId, assetId);
+            return await _detailRepository.DeleteAsync(roomId, assetId, ownerUserId);
         }
 
         private ChiTietTaiSanPhongDto MapToDto(ChiTietTaiSanPhong detail)

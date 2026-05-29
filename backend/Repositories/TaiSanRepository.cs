@@ -13,26 +13,27 @@ namespace backend.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<TaiSan>> GetAllAsync()
+        public async Task<IEnumerable<TaiSan>> GetAllAsync(int ownerUserId)
         {
             return await _context.TaiSans
                 .Include(t => t.ChiTietTaiSanPhongs)
+                .Where(t => t.OwnerUserId == ownerUserId)
                 .OrderBy(t => t.AssetName)
                 .ToListAsync();
         }
 
-        public async Task<TaiSan?> GetByIdAsync(int id)
+        public async Task<TaiSan?> GetByIdAsync(int id, int ownerUserId)
         {
             return await _context.TaiSans
                 .Include(t => t.ChiTietTaiSanPhongs)
-                .FirstOrDefaultAsync(t => t.Id == id);
+                .FirstOrDefaultAsync(t => t.Id == id && t.OwnerUserId == ownerUserId);
         }
 
-        public async Task<TaiSan?> GetByCodeAsync(string assetCode)
+        public async Task<TaiSan?> GetByCodeAsync(string assetCode, int ownerUserId)
         {
             return await _context.TaiSans
                 .Include(t => t.ChiTietTaiSanPhongs)
-                .FirstOrDefaultAsync(t => t.AssetCode == assetCode);
+                .FirstOrDefaultAsync(t => t.AssetCode == assetCode && t.OwnerUserId == ownerUserId);
         }
 
         public async Task<TaiSan> CreateAsync(TaiSan taiSan)
@@ -49,9 +50,10 @@ namespace backend.Repositories
             return taiSan;
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task<bool> DeleteAsync(int id, int ownerUserId)
         {
-            var taiSan = await _context.TaiSans.FindAsync(id);
+            var taiSan = await _context.TaiSans
+                .FirstOrDefaultAsync(t => t.Id == id && t.OwnerUserId == ownerUserId);
             if (taiSan == null) return false;
 
             _context.TaiSans.Remove(taiSan);
@@ -59,9 +61,9 @@ namespace backend.Repositories
             return true;
         }
 
-        public async Task<bool> ExistsByCodeAsync(string assetCode)
+        public async Task<bool> ExistsByCodeAsync(string assetCode, int ownerUserId)
         {
-            return await _context.TaiSans.AnyAsync(t => t.AssetCode == assetCode);
+            return await _context.TaiSans.AnyAsync(t => t.AssetCode == assetCode && t.OwnerUserId == ownerUserId);
         }
     }
 }

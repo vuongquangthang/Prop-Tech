@@ -62,7 +62,7 @@ export function LoginPage() {
                 type="text" 
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="Số điện thoại" 
+                placeholder="Số điện thoại hoặc email" 
                 className="w-full bg-transparent border-0 border-b border-white/50 py-3 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
                 required
               />

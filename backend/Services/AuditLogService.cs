@@ -7,9 +7,13 @@ namespace backend.Services;
 public interface IAuditLogService
 {
     Task<List<AuditLogDto>> GetByUserIdAsync(int userId, int limit = 100);
+    Task<List<AuditLogDto>> GetByUserIdAsync(int userId, int ownerUserId, int limit = 100);
     Task<List<AuditLogDto>> GetByEntityAsync(string entityType, int? entityId = null, int limit = 100);
+    Task<List<AuditLogDto>> GetByEntityAsync(string entityType, int ownerUserId, int? entityId = null, int limit = 100);
     Task<List<AuditLogDto>> GetByActionAsync(string action, int limit = 100);
+    Task<List<AuditLogDto>> GetByActionAsync(string action, int ownerUserId, int limit = 100);
     Task<List<AuditLogDto>> GetRecentAsync(int limit = 100);
+    Task<List<AuditLogDto>> GetRecentAsync(int ownerUserId, int limit = 100);
     Task LogAsync(int? userId, string action, string entityType, int? entityId = null, string? details = null, string? ipAddress = null, string? userAgent = null);
 }
 
@@ -28,9 +32,21 @@ public class AuditLogService : IAuditLogService
         return logs.Select(MapToDto).ToList();
     }
 
+    public async Task<List<AuditLogDto>> GetByUserIdAsync(int userId, int ownerUserId, int limit = 100)
+    {
+        var logs = await _repository.GetByUserIdAsync(userId, ownerUserId, limit);
+        return logs.Select(MapToDto).ToList();
+    }
+
     public async Task<List<AuditLogDto>> GetByEntityAsync(string entityType, int? entityId = null, int limit = 100)
     {
         var logs = await _repository.GetByEntityAsync(entityType, entityId, limit);
+        return logs.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<AuditLogDto>> GetByEntityAsync(string entityType, int ownerUserId, int? entityId = null, int limit = 100)
+    {
+        var logs = await _repository.GetByEntityAsync(entityType, ownerUserId, entityId, limit);
         return logs.Select(MapToDto).ToList();
     }
 
@@ -40,9 +56,21 @@ public class AuditLogService : IAuditLogService
         return logs.Select(MapToDto).ToList();
     }
 
+    public async Task<List<AuditLogDto>> GetByActionAsync(string action, int ownerUserId, int limit = 100)
+    {
+        var logs = await _repository.GetByActionAsync(action, ownerUserId, limit);
+        return logs.Select(MapToDto).ToList();
+    }
+
     public async Task<List<AuditLogDto>> GetRecentAsync(int limit = 100)
     {
         var logs = await _repository.GetRecentAsync(limit);
+        return logs.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<AuditLogDto>> GetRecentAsync(int ownerUserId, int limit = 100)
+    {
+        var logs = await _repository.GetRecentAsync(ownerUserId, limit);
         return logs.Select(MapToDto).ToList();
     }
 

@@ -24,6 +24,16 @@ public class UserRepository : Repository<User>, IUserRepository
             .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber);
     }
 
+    public async Task<User?> GetByPhoneOrEmailAsync(string identity)
+    {
+        var normalized = identity.Trim().ToLower();
+        return await _dbSet
+            .Include(u => u.Resident)
+            .FirstOrDefaultAsync(u =>
+                u.PhoneNumber == normalized ||
+                (u.Email != null && u.Email.ToLower() == normalized));
+    }
+
     public async Task<User?> GetByRefreshTokenAsync(string refreshToken)
     {
         return await _dbSet

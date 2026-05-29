@@ -6,6 +6,7 @@ namespace backend.DTOs;
 public class NotificationResponseDto
 {
     public int Id { get; set; }
+    public int? OwnerUserId { get; set; }
     public string Title { get; set; } = null!;
     public string Content { get; set; } = null!;
     public string NotificationType { get; set; } = null!;

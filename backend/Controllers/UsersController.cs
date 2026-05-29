@@ -2,6 +2,7 @@ using backend.DTOs;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace backend.Controllers
 {
@@ -23,7 +24,7 @@ namespace backend.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
         {
-            var users = await _userService.GetAllAsync();
+            var users = await _userService.GetAllAsync(GetCurrentOwnerUserId());
             return Ok(users);
         }
 
@@ -33,7 +34,7 @@ namespace backend.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetById(int id)
         {
-            var user = await _userService.GetByIdAsync(id);
+            var user = await _userService.GetByIdAsync(id, GetCurrentOwnerUserId());
             if (user == null)
             {
                 return NotFound(new { message = "Người dùng không tồn tại" });
@@ -47,7 +48,7 @@ namespace backend.Controllers
         [HttpGet("role/{role}")]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetByRole(string role)
         {
-            var users = await _userService.GetByRoleAsync(role);
+            var users = await _userService.GetByRoleAsync(role, GetCurrentOwnerUserId());
             return Ok(users);
         }
 
@@ -59,7 +60,7 @@ namespace backend.Controllers
         {
             try
             {
-                var user = await _userService.CreateAsync(dto);
+                var user = await _userService.CreateAsync(dto, GetCurrentOwnerUserId());
                 return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
             }
             catch (Exception ex)
@@ -76,7 +77,7 @@ namespace backend.Controllers
         {
             try
             {
-                var user = await _userService.UpdateAsync(id, dto);
+                var user = await _userService.UpdateAsync(id, dto, GetCurrentOwnerUserId());
                 return Ok(user);
             }
             catch (Exception ex)
@@ -91,7 +92,7 @@ namespace backend.Controllers
         [HttpPost("{id}/lock")]
         public async Task<ActionResult> Lock(int id)
         {
-            var success = await _userService.LockUserAsync(id);
+            var success = await _userService.LockUserAsync(id, GetCurrentOwnerUserId());
             if (!success)
             {
                 return NotFound(new { message = "Người dùng không tồn tại" });
@@ -105,7 +106,7 @@ namespace backend.Controllers
         [HttpPost("{id}/unlock")]
         public async Task<ActionResult> Unlock(int id)
         {
-            var success = await _userService.UnlockUserAsync(id);
+            var success = await _userService.UnlockUserAsync(id, GetCurrentOwnerUserId());
             if (!success)
             {
                 return NotFound(new { message = "Người dùng không tồn tại" });
@@ -119,7 +120,7 @@ namespace backend.Controllers
         [HttpPost("{id}/reset-password")]
         public async Task<ActionResult> ResetPassword(int id, [FromBody] AdminResetPasswordDto dto)
         {
-            var success = await _userService.ResetPasswordAsync(id, dto.NewPassword);
+            var success = await _userService.ResetPasswordAsync(id, dto.NewPassword, GetCurrentOwnerUserId());
             if (!success)
             {
                 return NotFound(new { message = "Người dùng không tồn tại" });
@@ -133,12 +134,24 @@ namespace backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
         {
-            var success = await _userService.DeleteAsync(id);
+            var success = await _userService.DeleteAsync(id, GetCurrentOwnerUserId());
             if (!success)
             {
                 return NotFound(new { message = "Người dùng không tồn tại" });
             }
             return NoContent();
+        }
+
+        private int GetCurrentUserId()
+        {
+            var claim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("UserId") ?? User.FindFirstValue("id");
+            return int.TryParse(claim, out var id) ? id : 0;
+        }
+
+        private int GetCurrentOwnerUserId()
+        {
+            var claim = User.FindFirstValue("OwnerUserId");
+            return int.TryParse(claim, out var id) ? id : GetCurrentUserId();
         }
     }
 }

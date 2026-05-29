@@ -41,7 +41,13 @@ public class KnowledgeBase
     [Column("UPDATED_BY")]
     public int? UpdatedBy { get; set; }
 
+    [Column("OWNER_USER_ID")]
+    public int? OwnerUserId { get; set; }
+
     // Navigation properties
     [ForeignKey("UpdatedBy")]
     public User? UpdatedByUser { get; set; }
+
+    [ForeignKey(nameof(OwnerUserId))]
+    public User? OwnerUser { get; set; }
 }

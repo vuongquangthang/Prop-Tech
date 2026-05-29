@@ -10,10 +10,10 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
     {
     }
 
-    public async Task<List<Notification>> GetByRecipientIdAsync(int recipientId, bool unreadOnly = false, int limit = 100)
+    public async Task<List<Notification>> GetByRecipientIdAsync(int recipientId, int ownerUserId, bool unreadOnly = false, int limit = 100)
     {
         var query = _context.Notifications
-            .Where(n => n.RecipientId == recipientId || n.ScopeType == "ALL");
+            .Where(n => n.OwnerUserId == ownerUserId && (n.RecipientId == recipientId || n.ScopeType == "ALL"));
 
         if (unreadOnly)
             query = query.Where(n => !n.IsRead);
@@ -24,10 +24,10 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
             .ToListAsync();
     }
 
-    public async Task<int> GetUnreadCountAsync(int recipientId)
+    public async Task<int> GetUnreadCountAsync(int recipientId, int ownerUserId)
     {
         return await _context.Notifications
-            .CountAsync(n => (n.RecipientId == recipientId || n.ScopeType == "ALL") && !n.IsRead);
+            .CountAsync(n => n.OwnerUserId == ownerUserId && (n.RecipientId == recipientId || n.ScopeType == "ALL") && !n.IsRead);
     }
 
     public async Task<Notification?> GetByIdWithUserAsync(int id)
@@ -48,10 +48,12 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
         }
     }
 
-    public async Task MarkAllAsReadAsync(int recipientId, bool includeAdmin = false)
+    public async Task MarkAllAsReadAsync(int recipientId, int ownerUserId, bool includeAdmin = false)
     {
         var unread = await _context.Notifications
-            .Where(n => ((n.RecipientId == recipientId || n.ScopeType == "ALL") || (includeAdmin && n.ScopeType == "ADMIN")) && !n.IsRead)
+            .Where(n => n.OwnerUserId == ownerUserId
+                && ((n.RecipientId == recipientId || n.ScopeType == "ALL") || (includeAdmin && n.ScopeType == "ADMIN"))
+                && !n.IsRead)
             .ToListAsync();
 
         foreach (var n in unread)
@@ -73,10 +75,20 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
             .ToListAsync();
     }
 
-    public async Task<int> GetAdminUnreadCountAsync()
+    public async Task<List<Notification>> GetAllRecentAsync(int ownerUserId, int limit = 200)
     {
         return await _context.Notifications
-            .CountAsync(n => n.ScopeType == "ADMIN" && !n.IsRead);
+            .Include(n => n.User)
+            .Where(n => n.OwnerUserId == ownerUserId && n.ScopeType == "ADMIN")
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetAdminUnreadCountAsync(int ownerUserId)
+    {
+        return await _context.Notifications
+            .CountAsync(n => n.OwnerUserId == ownerUserId && n.ScopeType == "ADMIN" && !n.IsRead);
     }
 
 }

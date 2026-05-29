@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using backend.DTOs;
 using backend.Services;
-using System.Security.Claims;
 
 namespace backend.Controllers;
 
@@ -27,7 +26,7 @@ public class UtilityReadingsController : ControllerBase
     {
         try
         {
-            var readings = await _service.GetMonthReadingsAsync(year, month);
+            var readings = await _service.GetMonthReadingsAsync(year, month, User.GetOwnerUserId());
             return Ok(readings);
         }
         catch (Exception ex)
@@ -45,19 +44,15 @@ public class UtilityReadingsController : ControllerBase
     {
         try
         {
-            var userId = GetCurrentUserId();
-            var result = await _service.RecordBatchAsync(readings, userId);
+            var result = await _service.RecordBatchAsync(
+                readings,
+                User.GetAuthenticatedUserId(),
+                User.GetOwnerUserId());
             return Ok(result);
         }
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
-    }
-
-    private int GetCurrentUserId()
-    {
-        var claim = User.FindFirst("id") ?? User.FindFirst(ClaimTypes.NameIdentifier);
-        return int.TryParse(claim?.Value, out var id) ? id : 0;
     }
 }

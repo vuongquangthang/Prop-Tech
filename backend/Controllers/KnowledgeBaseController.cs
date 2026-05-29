@@ -30,7 +30,7 @@ public class KnowledgeBaseController : ControllerBase
             // Admin/QuanLy có thể xem cả inactive entries
             var canViewAll = role == "Admin" || role == "QuanLy";
             
-            var items = await _service.GetAllAsync(activeOnly || !canViewAll);
+            var items = await _service.GetAllAsync(User.GetOwnerUserId(), activeOnly || !canViewAll);
             return Ok(items);
         }
         catch (Exception ex)
@@ -52,7 +52,7 @@ public class KnowledgeBaseController : ControllerBase
                 return BadRequest(new { message = "Vui lòng nhập từ khóa tìm kiếm" });
             }
 
-            var items = await _service.SearchAsync(keyword);
+            var items = await _service.SearchAsync(keyword, User.GetOwnerUserId());
             return Ok(items);
         }
         catch (Exception ex)
@@ -69,7 +69,7 @@ public class KnowledgeBaseController : ControllerBase
     {
         try
         {
-            var items = await _service.GetByCategoryAsync(category);
+            var items = await _service.GetByCategoryAsync(category, User.GetOwnerUserId());
             return Ok(items);
         }
         catch (Exception ex)
@@ -86,7 +86,7 @@ public class KnowledgeBaseController : ControllerBase
     {
         try
         {
-            var item = await _service.GetByIdAsync(id);
+            var item = await _service.GetByIdAsync(id, User.GetOwnerUserId());
             if (item == null)
             {
                 return NotFound(new { message = "Không tìm thấy kiến thức này" });
@@ -114,7 +114,7 @@ public class KnowledgeBaseController : ControllerBase
                 return Unauthorized(new { message = "Không xác định được người dùng" });
             }
 
-            var item = await _service.CreateAsync(dto, userId);
+            var item = await _service.CreateAsync(dto, userId, User.GetOwnerUserId());
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
         }
         catch (Exception ex)
@@ -138,7 +138,7 @@ public class KnowledgeBaseController : ControllerBase
                 return Unauthorized(new { message = "Không xác định được người dùng" });
             }
 
-            var item = await _service.UpdateAsync(id, dto, userId);
+            var item = await _service.UpdateAsync(id, dto, userId, User.GetOwnerUserId());
             return Ok(item);
         }
         catch (InvalidOperationException ex)
@@ -160,7 +160,7 @@ public class KnowledgeBaseController : ControllerBase
     {
         try
         {
-            await _service.DeleteAsync(id);
+            await _service.DeleteAsync(id, User.GetOwnerUserId());
             return Ok(new { message = "Xóa kiến thức thành công" });
         }
         catch (InvalidOperationException ex)
@@ -178,8 +178,9 @@ public class KnowledgeBaseController : ControllerBase
     /// </summary>
     [HttpPost("upload-document")]
     [Authorize(Roles = "Admin,QuanLy")]
+    [Consumes("multipart/form-data")]
     public async Task<ActionResult<DocumentUploadResultDto>> UploadDocument(
-        [FromForm] IFormFile file,
+        IFormFile file,
         [FromForm] string category = "Khác",
         [FromForm] bool autoActivate = true)
     {
@@ -200,7 +201,7 @@ public class KnowledgeBaseController : ControllerBase
             if (file.Length > 10 * 1024 * 1024)
                 return BadRequest(new { message = "Kích thước file không được vượt quá 10MB" });
 
-            var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId);
+            var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, User.GetOwnerUserId());
             return Ok(result);
         }
         catch (InvalidOperationException ex)

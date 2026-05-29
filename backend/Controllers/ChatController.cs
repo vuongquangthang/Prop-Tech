@@ -73,7 +73,7 @@ public class ChatController : ControllerBase
     {
         try
         {
-            var history = await _chatService.GetAllUsersHistoryAsync(limit);
+            var history = await _chatService.GetAllUsersHistoryAsync(User.GetOwnerUserId(), limit);
             return Ok(history);
         }
         catch (Exception ex)
@@ -91,7 +91,7 @@ public class ChatController : ControllerBase
     {
         try
         {
-            var items = await _chatService.GetUnansweredChatsAsync(limit);
+            var items = await _chatService.GetUnansweredChatsAsync(User.GetOwnerUserId(), limit);
             return Ok(items);
         }
         catch (Exception ex)
@@ -120,7 +120,7 @@ public class ChatController : ControllerBase
                 return BadRequest(new { message = "Nội dung trả lời không được để trống" });
             }
 
-            var created = await _chatService.ResolveUnansweredAsync(assistantMessageId, dto, userId);
+            var created = await _chatService.ResolveUnansweredAsync(assistantMessageId, dto, userId, User.GetOwnerUserId());
             return Ok(created);
         }
         catch (InvalidOperationException ex)

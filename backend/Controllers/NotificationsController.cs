@@ -27,7 +27,7 @@ public class NotificationsController : ControllerBase
     [HttpGet("my-notifications")]
     public async Task<IActionResult> GetMy([FromQuery] bool unreadOnly = false)
     {
-        var items = await _service.GetMyNotificationsAsync(GetUserId(), unreadOnly);
+        var items = await _service.GetMyNotificationsAsync(GetUserId(), User.GetOwnerUserId(), unreadOnly);
         return Ok(items);
     }
 
@@ -35,10 +35,11 @@ public class NotificationsController : ControllerBase
     [HttpGet("unread-count")]
     public async Task<IActionResult> GetUnreadCount()
     {
-        var count = await _service.GetUnreadCountAsync(GetUserId());
+        var ownerUserId = User.GetOwnerUserId();
+        var count = await _service.GetUnreadCountAsync(GetUserId(), ownerUserId);
         if (User.IsInRole("Admin") || User.IsInRole("QuanLy") || User.IsInRole("KeToan"))
         {
-            count += await _service.GetAdminUnreadCountAsync();
+            count += await _service.GetAdminUnreadCountAsync(ownerUserId);
         }
         return Ok(new { count });
     }
@@ -48,7 +49,7 @@ public class NotificationsController : ControllerBase
     public async Task<IActionResult> MarkAsRead(int id)
     {
         var canManageAdmin = User.IsInRole("Admin") || User.IsInRole("QuanLy") || User.IsInRole("KeToan");
-        await _service.MarkAsReadAsync(id, GetUserId(), canManageAdmin);
+        await _service.MarkAsReadAsync(id, GetUserId(), User.GetOwnerUserId(), canManageAdmin);
         return NoContent();
     }
 
@@ -57,7 +58,7 @@ public class NotificationsController : ControllerBase
     public async Task<IActionResult> MarkAllAsRead()
     {
         var includeAdmin = User.IsInRole("Admin") || User.IsInRole("QuanLy") || User.IsInRole("KeToan");
-        await _service.MarkAllAsReadAsync(GetUserId(), includeAdmin);
+        await _service.MarkAllAsReadAsync(GetUserId(), User.GetOwnerUserId(), includeAdmin);
         return NoContent();
     }
 
@@ -68,7 +69,7 @@ public class NotificationsController : ControllerBase
     [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> GetAllRecent([FromQuery] int limit = 200)
     {
-        var items = await _service.GetAllRecentAsync(limit);
+        var items = await _service.GetAllRecentAsync(User.GetOwnerUserId(), limit);
         return Ok(items);
     }
 

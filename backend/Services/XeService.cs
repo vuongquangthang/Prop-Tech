@@ -7,14 +7,14 @@ namespace backend.Services;
 
 public interface IXeService
 {
-    Task<List<XeDto>> GetAllAsync();
-    Task<List<XeDto>> GetActiveVehiclesAsync();
-    Task<List<XeDto>> GetByResidentIdAsync(int residentId);
-    Task<XeDto?> GetByIdAsync(int id);
-    Task<XeDto> CreateAsync(CreateXeDto dto);
-    Task<XeDto> UpdateAsync(int id, UpdateXeDto dto);
-    Task CancelAsync(int id, CancelXeDto dto);
-    Task DeleteAsync(int id);
+    Task<List<XeDto>> GetAllAsync(int ownerUserId);
+    Task<List<XeDto>> GetActiveVehiclesAsync(int ownerUserId);
+    Task<List<XeDto>> GetByResidentIdAsync(int residentId, int ownerUserId);
+    Task<XeDto?> GetByIdAsync(int id, int ownerUserId);
+    Task<XeDto> CreateAsync(CreateXeDto dto, int ownerUserId);
+    Task<XeDto> UpdateAsync(int id, UpdateXeDto dto, int ownerUserId);
+    Task CancelAsync(int id, CancelXeDto dto, int ownerUserId);
+    Task DeleteAsync(int id, int ownerUserId);
 }
 
 public class XeService : IXeService
@@ -30,9 +30,9 @@ public class XeService : IXeService
         _residentRepository = residentRepository;
     }
 
-    public async Task<List<XeDto>> GetAllAsync()
+    public async Task<List<XeDto>> GetAllAsync(int ownerUserId)
     {
-        var vehicles = await _xeRepository.GetAllAsync();
+        var vehicles = await _xeRepository.FindAsync(v => v.Resident.OwnerUserId == ownerUserId);
         var vehiclesList = vehicles.ToList();
         var result = new List<XeDto>();
         foreach (var vehicle in vehiclesList)
@@ -43,9 +43,9 @@ public class XeService : IXeService
         return result;
     }
 
-    public async Task<List<XeDto>> GetActiveVehiclesAsync()
+    public async Task<List<XeDto>> GetActiveVehiclesAsync(int ownerUserId)
     {
-        var vehicles = await _xeRepository.FindAsync(v => v.CancellationDate == null);
+        var vehicles = await _xeRepository.FindAsync(v => v.CancellationDate == null && v.Resident.OwnerUserId == ownerUserId);
         var result = new List<XeDto>();
         foreach (var vehicle in vehicles)
         {
@@ -55,26 +55,32 @@ public class XeService : IXeService
         return result;
     }
 
-    public async Task<List<XeDto>> GetByResidentIdAsync(int residentId)
+    public async Task<List<XeDto>> GetByResidentIdAsync(int residentId, int ownerUserId)
     {
-        var vehicles = await _xeRepository.GetByResidentIdAsync(residentId);
         var resident = await _residentRepository.GetByIdAsync(residentId);
+        if (resident?.OwnerUserId != ownerUserId)
+        {
+            return new List<XeDto>();
+        }
+
+        var vehicles = await _xeRepository.GetByResidentIdAsync(residentId);
         return vehicles.Select(v => MapToDto(v, resident)).ToList();
     }
 
-    public async Task<XeDto?> GetByIdAsync(int id)
+    public async Task<XeDto?> GetByIdAsync(int id, int ownerUserId)
     {
         var vehicle = await _xeRepository.GetByIdAsync(id);
         if (vehicle == null) return null;
         var resident = await _residentRepository.GetByIdAsync(vehicle.ResidentId);
+        if (resident?.OwnerUserId != ownerUserId) return null;
         return MapToDto(vehicle, resident);
     }
 
-    public async Task<XeDto> CreateAsync(CreateXeDto dto)
+    public async Task<XeDto> CreateAsync(CreateXeDto dto, int ownerUserId)
     {
         // Validate resident exists
         var resident = await _residentRepository.GetByIdAsync(dto.ResidentId);
-        if (resident == null)
+        if (resident == null || resident.OwnerUserId != ownerUserId)
         {
             throw new InvalidOperationException("Cư dân không tồn tại");
         }
@@ -101,12 +107,18 @@ public class XeService : IXeService
         return MapToDto(created!, resident);
     }
 
-    public async Task<XeDto> UpdateAsync(int id, UpdateXeDto dto)
+    public async Task<XeDto> UpdateAsync(int id, UpdateXeDto dto, int ownerUserId)
     {
         var vehicle = await _xeRepository.GetByIdAsync(id);
         if (vehicle == null)
         {
             throw new InvalidOperationException("Xe không tồn tại");
+        }
+
+        var resident = await _residentRepository.GetByIdAsync(vehicle.ResidentId);
+        if (resident?.OwnerUserId != ownerUserId)
+        {
+            throw new InvalidOperationException("Xe khong ton tai");
         }
 
         if (vehicle.CancellationDate.HasValue)
@@ -132,16 +144,21 @@ public class XeService : IXeService
         await _xeRepository.SaveChangesAsync();
 
         var updated = await _xeRepository.GetByIdAsync(id);
-        var resident = await _residentRepository.GetByIdAsync(updated!.ResidentId);
         return MapToDto(updated!, resident);
     }
 
-    public async Task CancelAsync(int id, CancelXeDto dto)
+    public async Task CancelAsync(int id, CancelXeDto dto, int ownerUserId)
     {
         var vehicle = await _xeRepository.GetByIdAsync(id);
         if (vehicle == null)
         {
             throw new InvalidOperationException("Xe không tồn tại");
+        }
+
+        var resident = await _residentRepository.GetByIdAsync(vehicle.ResidentId);
+        if (resident?.OwnerUserId != ownerUserId)
+        {
+            throw new InvalidOperationException("Xe khong ton tai");
         }
 
         if (vehicle.CancellationDate.HasValue)
@@ -154,12 +171,18 @@ public class XeService : IXeService
         await _xeRepository.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int ownerUserId)
     {
         var vehicle = await _xeRepository.GetByIdAsync(id);
         if (vehicle == null)
         {
             throw new InvalidOperationException("Xe không tồn tại");
+        }
+
+        var resident = await _residentRepository.GetByIdAsync(vehicle.ResidentId);
+        if (resident?.OwnerUserId != ownerUserId)
+        {
+            throw new InvalidOperationException("Xe khong ton tai");
         }
 
         // Check if vehicle is used in service usage

@@ -24,8 +24,9 @@ public class FileController : ControllerBase
     }
 
     [HttpPost("upload")]
+    [Consumes("multipart/form-data")]
     [RequestSizeLimit(50 * 1024 * 1024)] // allow up to 50MB at server layer but enforce app-level 5MB below
-    public async Task<ActionResult<object>> UploadFile([FromForm] IFormFile file)
+    public async Task<ActionResult<object>> UploadFile(IFormFile file)
     {
         try
         {

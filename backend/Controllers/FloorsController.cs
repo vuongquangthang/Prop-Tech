@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using backend.DTOs;
 using backend.Services;
@@ -17,6 +18,16 @@ public class FloorsController : ControllerBase
         _floorService = floorService;
     }
 
+    private int GetUserId()
+    {
+        var claim = User.GetOwnerUserId().ToString();
+        if (!int.TryParse(claim, out var userId) || userId <= 0)
+        {
+            throw new InvalidOperationException("Không thể xác thực người dùng");
+        }
+        return userId;
+    }
+
     /// <summary>
     /// Lấy danh sách tất cả tầng
     /// </summary>
@@ -25,7 +36,7 @@ public class FloorsController : ControllerBase
     {
         try
         {
-            var floors = await _floorService.GetAllAsync();
+            var floors = await _floorService.GetAllAsync(GetUserId());
             return Ok(floors);
         }
         catch (Exception ex)
@@ -42,7 +53,7 @@ public class FloorsController : ControllerBase
     {
         try
         {
-            var floors = await _floorService.GetByBuildingIdAsync(buildingId);
+            var floors = await _floorService.GetByBuildingIdAsync(buildingId, GetUserId());
             return Ok(floors);
         }
         catch (Exception ex)
@@ -59,7 +70,7 @@ public class FloorsController : ControllerBase
     {
         try
         {
-            var floor = await _floorService.GetByIdAsync(id);
+            var floor = await _floorService.GetByIdAsync(id, GetUserId());
             if (floor == null)
             {
                 return NotFound(new { message = "Tầng không tồn tại" });
@@ -81,7 +92,7 @@ public class FloorsController : ControllerBase
     {
         try
         {
-            var floor = await _floorService.CreateAsync(dto);
+            var floor = await _floorService.CreateAsync(dto, GetUserId());
             return CreatedAtAction(nameof(GetById), new { id = floor.Id }, floor);
         }
         catch (InvalidOperationException ex)
@@ -103,7 +114,7 @@ public class FloorsController : ControllerBase
     {
         try
         {
-            await _floorService.DeleteAsync(id);
+            await _floorService.DeleteAsync(id, GetUserId());
             return Ok(new { message = "Xóa tầng thành công" });
         }
         catch (InvalidOperationException ex)

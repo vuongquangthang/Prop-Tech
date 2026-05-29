@@ -8,7 +8,7 @@ namespace backend.Models;
 /// Tài sản - Quản lý danh mục tài sản
 /// </summary>
 [Table("TAI_SAN")]
-[Index(nameof(AssetCode), IsUnique = true)]
+[Index(nameof(OwnerUserId), nameof(AssetCode), IsUnique = true)]
 public class TaiSan
 {
     [Key]
@@ -25,6 +25,12 @@ public class TaiSan
     [Column("MA_TAI_SAN")]
     public string AssetCode { get; set; } = null!;
 
+    [Column("OWNER_USER_ID")]
+    public int? OwnerUserId { get; set; }
+
     // Navigation properties
+    [ForeignKey(nameof(OwnerUserId))]
+    public User? OwnerUser { get; set; }
+
     public ICollection<ChiTietTaiSanPhong> ChiTietTaiSanPhongs { get; set; } = new List<ChiTietTaiSanPhong>();
 }

@@ -15,6 +15,7 @@ public class ResidentDto
     public string? Hometown { get; set; }
     public string? IdCardFrontUrl { get; set; }
     public string? IdCardBackUrl { get; set; }
+    public int? OwnerUserId { get; set; }
 }
 
 /// <summary>

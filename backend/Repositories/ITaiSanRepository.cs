@@ -4,12 +4,12 @@ namespace backend.Repositories
 {
     public interface ITaiSanRepository
     {
-        Task<IEnumerable<TaiSan>> GetAllAsync();
-        Task<TaiSan?> GetByIdAsync(int id);
-        Task<TaiSan?> GetByCodeAsync(string assetCode);
+        Task<IEnumerable<TaiSan>> GetAllAsync(int ownerUserId);
+        Task<TaiSan?> GetByIdAsync(int id, int ownerUserId);
+        Task<TaiSan?> GetByCodeAsync(string assetCode, int ownerUserId);
         Task<TaiSan> CreateAsync(TaiSan taiSan);
         Task<TaiSan> UpdateAsync(TaiSan taiSan);
-        Task<bool> DeleteAsync(int id);
-        Task<bool> ExistsByCodeAsync(string assetCode);
+        Task<bool> DeleteAsync(int id, int ownerUserId);
+        Task<bool> ExistsByCodeAsync(string assetCode, int ownerUserId);
     }
 }
