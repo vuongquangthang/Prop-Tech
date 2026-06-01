@@ -163,7 +163,7 @@ export function OccupancyReportContent() {
                 labelLine={true}
                 label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
                 outerRadius={80}
-                fill="#8884d8"
+                fill="#1E4E8C"
                 dataKey="value"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '15px' }}
               >
@@ -174,8 +174,8 @@ export function OccupancyReportContent() {
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#fff', 
-                  border: '1px solid #d1d5db',
-                  borderRadius: '4px',
+                  border: '1px solid #d7e0ea',
+                  borderRadius: '8px',
                   fontSize: '15px',
                   fontFamily: 'Inter, sans-serif'
                 }}
@@ -185,8 +185,8 @@ export function OccupancyReportContent() {
         </div>
         
         {/* Building Stats Table */}
-        <div className="bg-white border-2 border-gray-300 rounded">
-          <div className="border-b border-gray-300 px-6 py-4">
+        <div className="app-card">
+          <div className="border-b border-surface-border px-6 py-4">
             <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thống kê theo tòa nhà</h2>
           </div>
           

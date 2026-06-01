@@ -6,11 +6,11 @@ const placeholderImage =
   'data:image/svg+xml;charset=UTF-8,' +
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" fill="none">
-      <rect width="960" height="640" rx="36" fill="#E5EEF9"/>
+      <rect width="960" height="640" rx="36" fill="#F4F7FB"/>
       <rect x="64" y="64" width="832" height="512" rx="28" fill="#FFFFFF" stroke="#C7D2E5" stroke-width="4" stroke-dasharray="18 14"/>
-      <path d="M180 392L312 272L436 356L556 236L768 392" stroke="#1D4ED8" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="282" cy="248" r="34" fill="#60A5FA"/>
-      <text x="480" y="476" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" fill="#475569">Phòng đang chờ đăng tin</text>
+      <path d="M180 392L312 272L436 356L556 236L768 392" stroke="#1E4E8C" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="282" cy="248" r="34" fill="#93C5FD"/>
+      <text x="480" y="476" text-anchor="middle" font-family="Inter, sans-serif" font-size="36" fill="#475569">Phòng đang chờ đăng tin</text>
     </svg>`
   );
 

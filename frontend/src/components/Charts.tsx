@@ -33,9 +33,9 @@ export function Charts() {
         setRevenueData(bars);
 
         setOccupancyData([
-          { name: 'Đã thuê', value: roomStats?.occupiedRooms || 0, color: '#1f2937' },
-          { name: 'Trống', value: roomStats?.availableRooms || 0, color: '#d1d5db' },
-          { name: 'Bảo trì', value: roomStats?.maintenanceRooms || 0, color: '#9ca3af' },
+          { name: 'Đã thuê', value: roomStats?.occupiedRooms || 0, color: '#1E4E8C' },
+          { name: 'Trống', value: roomStats?.availableRooms || 0, color: '#CBD5E1' },
+          { name: 'Bảo trì', value: roomStats?.maintenanceRooms || 0, color: '#94A3B8' },
         ]);
       })
       .catch(() => {
@@ -52,24 +52,24 @@ export function Charts() {
   return (
     <div className="grid grid-cols-3 gap-6 mb-8">
       {/* Bar Chart - 70% */}
-      <div className="col-span-2 bg-white border-2 border-gray-300 rounded p-6">
+      <div className="col-span-2 app-card p-6">
         <h2 style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '24px' }}>Biến động doanh thu 6 tháng gần nhất</h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={revenueData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="month" stroke="#6b7280" />
-            <YAxis stroke="#6b7280" tickFormatter={(value) => `${value / 1000000}M`} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="month" stroke="#64748b" />
+            <YAxis stroke="#64748b" tickFormatter={(value) => `${value / 1000000}M`} />
             <Tooltip 
               formatter={(value: number) => `${value.toLocaleString()} VNĐ`}
-              contentStyle={{ border: '1px solid #d1d5db', borderRadius: '4px' }}
+              contentStyle={{ border: '1px solid #d7e0ea', borderRadius: '8px' }}
             />
-            <Bar dataKey="revenue" fill="#1f2937" />
+            <Bar dataKey="revenue" fill="#1E4E8C" />
           </BarChart>
         </ResponsiveContainer>
       </div>
       
       {/* Pie Chart - 30% */}
-      <div className="bg-white border-2 border-gray-300 rounded p-6">
+      <div className="app-card p-6">
         <h2 style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '24px' }}>Tỷ lệ lấp đầy phòng</h2>
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
@@ -80,7 +80,7 @@ export function Charts() {
               labelLine={false}
               label={({ name, value }) => `${name}: ${value}`}
               outerRadius={80}
-              fill="#8884d8"
+              fill="#1E4E8C"
               dataKey="value"
             >
               {occupancyLabelData.map((entry, index) => (
