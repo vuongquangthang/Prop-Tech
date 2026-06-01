@@ -126,13 +126,15 @@ export function RevenueReportContent() {
             <title>Báo cáo Doanh thu</title>
             <style>
               body { 
-                font-family: Inter, Arial, sans-serif; 
+                font-family: Inter, sans-serif; 
                 padding: 20px; 
                 margin: 0;
+                color: #0F172A;
+                background: #F4F7FB;
               }
               h1 { 
                 text-align: center; 
-                color: #1A4B84; 
+                color: #1E4E8C; 
                 margin-bottom: 10px;
                 font-size: 24px;
               }

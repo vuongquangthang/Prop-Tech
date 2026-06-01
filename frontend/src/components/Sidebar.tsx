@@ -123,7 +123,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       {/* Backdrop overlay for tablet/small screens */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40"
+          className="fixed inset-0 z-40 bg-slate-950/35"
           style={{ display: 'none' }}
           id="sidebar-backdrop"
           onClick={onClose}
@@ -137,8 +137,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             top: 0; left: 0; bottom: 0;
             z-index: 50;
             transform: translateX(-100%);
-            transition: transform 0.25s ease;
-            box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+            transition: transform 0.22s ease;
+            box-shadow: 16px 0 40px rgba(15, 23, 42, 0.12);
           }
           .admin-sidebar.open {
             transform: translateX(0);
@@ -154,53 +154,54 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       `}</style>
       <aside
         className={`admin-sidebar flex flex-col${isOpen ? ' open' : ''}`}
-        style={{ width: '320px', minWidth: '320px', backgroundColor: 'var(--surface-card)', borderRight: '1px solid var(--surface-border)' }}>
+        style={{ width: '288px', minWidth: '288px', backgroundColor: 'rgba(255,255,255,0.92)', borderRight: '1px solid var(--surface-border)' }}>
       {/* Logo */}
-      <div className="h-16 flex items-center" style={{ borderBottom: '1px solid var(--surface-border)', paddingLeft: '24px', gap: '12px' }}>
+      <div className="h-16 flex items-center" style={{ borderBottom: '1px solid var(--surface-border)', paddingLeft: '20px', gap: '12px' }}>
         {/* Icon Box */}
         <div 
           className="flex items-center justify-center"
           style={{ 
-            width: '48px', 
-            height: '48px', 
-            backgroundColor: '#FF5733',
+            width: '40px', 
+            height: '40px', 
+            backgroundColor: 'var(--brand-primary)',
             borderRadius: '12px'
           }}
         >
           <Home size={28} style={{ color: 'white', strokeWidth: 2 }} />
         </div>
         {/* Text */}
-        <span style={{ fontSize: '24px', fontWeight: 700, color: '#000000' }}>
+        <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
           SmartHome Hub
         </span>
       </div>
       
       {/* Menu Items */}
-      <nav className="flex-1 overflow-y-auto" style={{ padding: '20px', paddingTop: '50px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <nav className="flex-1 overflow-y-auto" style={{ padding: '16px 14px 20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {menuItems.map((item, index) => (
             <div key={index}>
               <button
                 onClick={() => handleItemClick(item)}
                 className="w-full flex items-center justify-between transition-colors"
                 style={{
-                  padding: '16px 20px',
+                  padding: '12px 14px',
                   borderRadius: '12px',
                   border: 'none',
-                  backgroundColor: isParentActive(item) && !item.subItems ? 'var(--brand-primary)' : '#F3F4F6',
-                  color: isParentActive(item) && !item.subItems ? 'white' : 'var(--text-primary)',
-                  fontSize: '18px',
+                  backgroundColor: isParentActive(item) ? 'rgba(30, 78, 140, 0.1)' : 'transparent',
+                  color: isParentActive(item) ? 'var(--brand-primary)' : 'var(--text-primary)',
+                  fontSize: '14px',
                   fontWeight: 500,
-                  textAlign: 'left'
+                  textAlign: 'left',
+                  boxShadow: isParentActive(item) ? 'inset 0 0 0 1px rgba(30, 78, 140, 0.15)' : 'none'
                 }}
               >
-                <div className="flex items-center" style={{ gap: '12px' }}>
-                  <item.icon size={24} />
+                <div className="flex items-center" style={{ gap: '10px' }}>
+                  <item.icon size={18} />
                   <span>{item.label}</span>
                 </div>
                 {item.subItems && (
                   <ChevronDown 
-                    size={20} 
+                    size={16} 
                     className="transition-transform"
                     style={{
                       transform: expandedItem === item.label ? 'rotate(180deg)' : 'rotate(0deg)'
@@ -211,7 +212,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               
               {/* Sub Items */}
               {item.subItems && expandedItem === item.label && (
-                <div style={{ marginTop: '8px', paddingLeft: '36px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ marginTop: '6px', paddingLeft: '28px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {item.subItems.map((subItem: any, subIndex: number) => (
                     <button
                       key={subIndex}
@@ -221,13 +222,13 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                       }}
                       className="w-full transition-colors"
                       style={{
-                        padding: '14px 20px',
-                        borderRadius: '12px',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
                         border: 'none',
-                        backgroundColor: isActive(subItem.path) ? 'var(--brand-primary)' : '#F3F4F6',
-                        color: isActive(subItem.path) ? 'white' : 'var(--text-primary)',
-                        fontSize: '16px',
-                        fontWeight: isActive(subItem.path) ? 600 : 400,
+                        backgroundColor: isActive(subItem.path) ? 'rgba(30, 78, 140, 0.12)' : 'transparent',
+                        color: isActive(subItem.path) ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                        fontSize: '13px',
+                        fontWeight: isActive(subItem.path) ? 600 : 500,
                         textAlign: 'left'
                       }}
                     >

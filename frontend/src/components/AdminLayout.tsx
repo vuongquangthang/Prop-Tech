@@ -40,19 +40,21 @@ export function AdminLayout() {
   const currentTitle = routeTitles[location.pathname] || 'Bảng điều khiển';
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--surface-bg)' }}>
-      <div className="flex" style={{ minHeight: '100vh' }}>
+    <div className="min-h-screen bg-surface-bg text-text-primary">
+      <div className="flex min-h-screen">
         {/* Sidebar */}
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Topbar */}
           <Topbar title={currentTitle} onMenuToggle={() => setSidebarOpen(o => !o)} />
           
           {/* Content Area */}
-          <main className="flex-1 overflow-y-auto overflow-x-auto" style={{ padding: needsPadding ? 'var(--space-layout)' : '0' }}>
-            <Outlet />
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className={needsPadding ? 'app-page-shell app-section' : ''}>
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>

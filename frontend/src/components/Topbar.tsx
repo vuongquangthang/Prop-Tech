@@ -35,25 +35,20 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
   };
 
   return (
-    <header className="h-16 flex items-center justify-between" style={{ 
-      backgroundColor: 'var(--surface-card)', 
-      borderBottom: '1px solid var(--surface-border)',
-      padding: '0 16px',
-      flexShrink: 0,
-    }}>
+    <header className="app-navbar h-16 flex items-center justify-between px-4 flex-shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.04)]" style={{ backgroundColor: 'rgba(255,255,255,0.9)' }}>
       {/* Left: hamburger (visible only on <1280px) + title */}
       <div className="flex items-center" style={{ gap: '12px', minWidth: 0 }}>
         <style>{`
           .topbar-hamburger { display: none; }
           @media (max-width: 1279px) { .topbar-hamburger { display: flex; } }
-          .topbar-search { width: 240px; }
-          @media (max-width: 1439px) { .topbar-search { width: 200px; } }
+          .topbar-search { width: min(28vw, 260px); }
+          @media (max-width: 1439px) { .topbar-search { width: min(24vw, 220px); } }
           @media (max-width: 1023px) { .topbar-search { width: 160px; } }
           .topbar-label { display: inline; }
           @media (max-width: 1023px) { .topbar-label { display: none; } }
         `}</style>
         <button
-          className="topbar-hamburger items-center justify-center rounded transition-colors hover:bg-[var(--brand-surface)]"
+          className="topbar-hamburger items-center justify-center rounded-xl transition-colors hover:bg-[var(--brand-surface)]"
           style={{ padding: '8px', border: 'none', background: 'transparent', cursor: 'pointer' }}
           onClick={onMenuToggle}
         >
@@ -61,7 +56,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
         </button>
         <span
           className="topbar-label font-semibold truncate"
-          style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', maxWidth: '320px' }}
+          style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', maxWidth: '320px', letterSpacing: '0.01em' }}
         >
           {title}
         </span>
@@ -75,17 +70,13 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
           <input
             type="text"
             placeholder="Tìm kiếm nhanh..."
-            className="topbar-search focus:outline-none"
+            className="topbar-search app-input focus:outline-none"
             style={{
               paddingLeft: '36px',
               paddingRight: '12px',
-              paddingTop: '10px',
-              paddingBottom: '10px',
-              border: '1px solid var(--surface-border)',
-              borderRadius: 'var(--radius-button)',
-              backgroundColor: 'var(--surface-bg)',
-              fontSize: 'var(--type-caption)',
-              color: 'var(--text-primary)'
+              height: '40px',
+              backgroundColor: 'var(--surface-card-2)',
+              fontSize: 'var(--type-caption)'
             }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -93,7 +84,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
         </div>
         
         {/* Notification */}
-        <button className="relative rounded transition-colors hover:bg-[var(--brand-surface)]" style={{ padding: '10px' }} onClick={() => setShowNotifications(!showNotifications)}>
+        <button className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]" style={{ padding: '10px' }} onClick={() => setShowNotifications(!showNotifications)}>
           <Bell size={18} style={{ color: 'var(--text-primary)' }} />
           {unreadCount > 0 && (
             <span className="absolute rounded-full" style={{
@@ -107,7 +98,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
         </button>
         
         {/* User Avatar */}
-        <button className="flex items-center rounded transition-colors hover:bg-[var(--brand-surface)]" style={{
+        <button className="flex items-center rounded-xl transition-colors hover:bg-[var(--brand-surface)]" style={{
           gap: '8px',
           padding: '6px 10px'
         }}>
@@ -122,7 +113,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
         </button>
 
         {/* Logout Button */}
-        <button className="flex items-center rounded transition-colors hover:bg-[var(--brand-surface)]" style={{
+        <button className="flex items-center rounded-xl transition-colors hover:bg-[var(--brand-surface)]" style={{
           gap: '8px',
           padding: '6px 10px'
         }} onClick={handleExitAdmin}>

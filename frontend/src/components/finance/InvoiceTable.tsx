@@ -505,19 +505,19 @@ export function InvoiceTable() {
 
       {/* Confirm batch approve dialog */}
       {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.18)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.16)', border: '1px solid var(--surface-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <CheckCircle size={24} style={{ color: '#16a34a' }} />
+              <CheckCircle size={24} style={{ color: 'var(--success)' }} />
               <h3 style={{ fontSize: '17px', fontWeight: 700 }}>Xác nhận phê duyệt hàng loạt</h3>
             </div>
-            <p style={{ fontSize: '14px', color: '#374151' }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
               Bạn có chắc muốn phê duyệt và gửi <strong>{selectedIds.size > 0 ? selectedIds.size : filteredInvoices.length} hóa đơn</strong> cho cư dân?
               Sau khi phê duyệt, cư dân sẽ nhận thông báo qua app.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '8px 20px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', background: 'white' }}>Hủy</button>
-              <button onClick={handleBatchApprove} disabled={approving} style={{ padding: '8px 20px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', opacity: approving ? 0.6 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--surface-border)' }}>
+              <button onClick={() => setShowConfirm(false)} style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: '12px', fontSize: '14px', cursor: 'pointer', background: 'white', color: 'var(--text-primary)' }}>Hủy</button>
+              <button onClick={handleBatchApprove} disabled={approving} style={{ padding: '8px 20px', backgroundColor: 'var(--success)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', opacity: approving ? 0.6 : 1 }}>
                 {approving ? 'Đang phê duyệt...' : 'Xác nhận phê duyệt'}
               </button>
             </div>

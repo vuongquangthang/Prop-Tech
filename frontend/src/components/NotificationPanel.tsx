@@ -21,17 +21,17 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const getTypeColor = (type: string) => {
     switch (type?.toUpperCase()) {
       case 'INVOICE':
-        return { bg: '#E8F0F8', text: '#1A4B84', icon: '💰' };
+        return { bg: 'rgba(30, 78, 140, 0.12)', text: 'var(--brand-primary)', icon: '💰' };
       case 'PAYMENT':
-        return { bg: '#E8F5E9', text: '#1E7E34', icon: '✅' };
+        return { bg: 'rgba(21, 128, 61, 0.12)', text: 'var(--success)', icon: '✅' };
       case 'COMPLAINT':
-        return { bg: '#FEF3E8', text: '#E67E22', icon: '⚠️' };
+        return { bg: 'rgba(180, 83, 9, 0.12)', text: 'var(--warning)', icon: '⚠️' };
       case 'SYSTEM':
-        return { bg: '#F3E5F5', text: '#7B1FA2', icon: 'ℹ️' };
+        return { bg: 'rgba(3, 105, 161, 0.12)', text: 'var(--info)', icon: 'ℹ️' };
       case 'ANNOUNCEMENT':
-        return { bg: '#FEF3E8', text: '#E67E22', icon: '📢' };
+        return { bg: 'rgba(51, 65, 85, 0.12)', text: 'var(--brand-secondary)', icon: '📢' };
       default:
-        return { bg: '#F5F5F5', text: '#666', icon: 'ℹ️' };
+        return { bg: 'rgba(100, 116, 139, 0.12)', text: 'var(--text-secondary)', icon: 'ℹ️' };
     }
   };
 
@@ -101,10 +101,10 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
 
       {/* Panel */}
       <div 
-        className="absolute right-8 top-20 bg-white rounded-2xl shadow-2xl"
+        className="absolute right-8 top-20 bg-white rounded-2xl shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
         style={{ 
-          width: '420px',
-          maxHeight: '600px',
+          width: 'min(420px, calc(100vw - 2rem))',
+          maxHeight: 'min(600px, calc(100vh - 6rem))',
           border: '1px solid var(--surface-border)',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -116,7 +116,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
         >
           <div>
             <h3 style={{ 
-              fontSize: 'var(--type-h4)', 
+              fontSize: '1rem', 
               fontWeight: 700, 
               color: 'var(--text-primary)',
               marginBottom: '4px',
@@ -131,7 +131,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
             {adminNotifications.some(n => !n.isRead) && (
               <button
                 onClick={handleMarkAllRead}
-                className="p-2 rounded-lg transition-colors hover:bg-gray-100"
+                className="p-2 rounded-lg transition-colors hover:bg-slate-100"
                 title="Đánh dấu tất cả đã đọc"
               >
                 <CheckCheck size={20} color="var(--brand-primary)" />
@@ -139,7 +139,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
             )}
             <button
               onClick={onClose}
-              className="p-2 rounded-lg transition-colors hover:bg-gray-100"
+              className="p-2 rounded-lg transition-colors hover:bg-slate-100"
             >
               <X size={20} color="var(--text-primary)" />
             </button>
@@ -171,10 +171,10 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
                   <button
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className="w-full text-left p-4 transition-colors hover:bg-gray-50"
+                    className="w-full text-left p-4 transition-colors hover:bg-slate-50"
                     style={{
                       borderLeft: notification.isRead ? 'none' : '4px solid var(--brand-primary)',
-                      opacity: notification.isRead ? 0.6 : 1,
+                      opacity: notification.isRead ? 0.7 : 1,
                     }}
                   >
                     <div className="flex items-start gap-3">
@@ -183,7 +183,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
                         className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: typeColor.bg }}
                       >
-                        <span style={{ fontSize: '20px' }}>{typeColor.icon}</span>
+                        <span style={{ fontSize: '18px' }}>{typeColor.icon}</span>
                       </div>
 
                       {/* Content */}

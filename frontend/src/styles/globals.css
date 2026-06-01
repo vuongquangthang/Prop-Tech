@@ -1,219 +1,378 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Color Tokens */
-  --brand-primary: #1A4B84;
-  --brand-surface: #E8F0F8;
-  --success: #1E7E34;
-  --error: #D32F2F;
-  --warning: #E67E22;
-  --text-primary: #121212;
-  --text-secondary: #4A4A4A;
+  --brand-primary: #1E4E8C;
+  --brand-secondary: #334155;
+  --brand-surface: #EAF1F8;
+  --success: #15803D;
+  --error: #B42318;
+  --warning: #B45309;
+  --info: #0369A1;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
   --text-on-color: #FFFFFF;
-  --surface-bg: #F5F7FA;
+  --surface-bg: #F4F7FB;
   --surface-card: #FFFFFF;
-  --surface-border: #D1D5DB;
-  
-  /* Typography Tokens */
-  --type-display: 44px;
-  --type-page-title: 35px;
-  --type-section-title: 28px;
-  --type-body-bold: 18px;
-  --type-body: 18px;
-  --type-caption: 15px;
-  
-  /* Size & Spacing Tokens */
-  --button-height: 56px;
-  --input-height: 52px;
-  --space-between: 16px;
-  --space-card: 24px;
-  --space-layout: 32px;
-  
-  /* Radius Tokens */
-  --radius-button: 8px;
+  --surface-card-2: #F8FAFC;
+  --surface-border: #D7E0EA;
+  --surface-border-strong: #B8C4D2;
+
+  --type-display: clamp(2.25rem, 4vw, 3.5rem);
+  --type-page-title: clamp(1.75rem, 2.5vw, 2.5rem);
+  --type-section-title: clamp(1.25rem, 1.8vw, 1.75rem);
+  --type-body-bold: 1rem;
+  --type-body: 0.9375rem;
+  --type-caption: 0.8125rem;
+
+  --button-height: 44px;
+  --input-height: 44px;
+  --space-between: 12px;
+  --space-card: 20px;
+  --space-layout: 24px;
+
+  --radius-button: 12px;
   --radius-card: 16px;
   --radius-large: 24px;
-  
-  /* Legacy mappings for compatibility */
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px rgba(15, 23, 42, 0.06);
+  --shadow-strong: 0 12px 40px rgba(15, 23, 42, 0.12);
+
   --font-size: 16px;
   --background: var(--surface-bg);
   --foreground: var(--text-primary);
   --card: var(--surface-card);
   --border: var(--surface-border);
   --primary: var(--brand-primary);
+  --secondary: var(--brand-secondary);
   --destructive: var(--error);
+  --ring: rgba(30, 78, 140, 0.24);
 }
 
 @theme inline {
+  --font-sans: 'Inter', sans-serif;
   --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
   --color-brand-surface: var(--brand-surface);
   --color-success: var(--success);
   --color-error: var(--error);
   --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
   --color-text-on-color: var(--text-on-color);
   --color-surface-bg: var(--surface-bg);
   --color-surface-card: var(--surface-card);
+  --color-surface-card-2: var(--surface-card-2);
   --color-surface-border: var(--surface-border);
+  --color-surface-border-strong: var(--surface-border-strong);
 }
 
 @layer base {
-  * {
-    @apply border-surface-border;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--surface-border);
+    font-family: 'Inter', sans-serif !important;
+  }
+
+  html {
+    font-size: var(--font-size);
+    color: var(--text-primary);
+    background: var(--surface-bg);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
   }
 
   body {
-    @apply bg-surface-bg text-text-primary;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    min-width: 0;
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(30, 78, 140, 0.08), transparent 32%),
+      radial-gradient(circle at top right, rgba(3, 105, 161, 0.05), transparent 28%),
+      var(--surface-bg);
+    color: var(--text-primary);
     font-size: var(--type-body);
-    line-height: 1.5;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  button, input, textarea, select {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  ::selection {
+    background: rgba(30, 78, 140, 0.16);
+    color: var(--text-primary);
   }
-}
 
-@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+
   h1 {
     font-size: var(--type-page-title);
     font-weight: 700;
-    line-height: 1.5;
-    color: var(--text-primary);
+    line-height: 1.15;
   }
 
   h2 {
     font-size: var(--type-section-title);
-    font-weight: 600;
-    line-height: 1.5;
-    color: var(--text-primary);
+    font-weight: 700;
+    line-height: 1.2;
   }
 
   h3 {
-    font-size: var(--type-body-bold);
-    font-weight: 700;
-    line-height: 1.5;
-    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.25;
   }
 
-  h4 {
-    font-size: var(--type-body);
-    font-weight: 600;
-    line-height: 1.5;
-    color: var(--text-primary);
+  p,
+  label,
+  button,
+  input,
+  textarea,
+  select,
+  table,
+  th,
+  td {
+    font-family: 'Inter', sans-serif !important;
   }
 
   p {
-    font-size: var(--type-body);
-    font-weight: 400;
-    line-height: 1.5;
     color: var(--text-primary);
   }
 
   label {
     font-size: var(--type-body);
     font-weight: 600;
-    line-height: 1.5;
     color: var(--text-primary);
   }
 
   button {
     font-size: var(--type-body);
     font-weight: 600;
-    line-height: 1.5;
+    line-height: 1.4;
   }
 
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     font-size: var(--type-body);
-    font-weight: 400;
-    line-height: 1.5;
     color: var(--text-primary);
   }
 
-  small, .caption {
-    font-size: var(--type-caption);
-    font-weight: 400;
-    line-height: 1.5;
+  input,
+  textarea,
+  select,
+  button {
+    transition-property: color, background-color, border-color, box-shadow, transform;
+    transition-duration: 160ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible,
+  a:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  table {
+    border-collapse: collapse;
+    background: var(--surface-card);
+  }
+
+  th {
     color: var(--text-secondary);
+    font-size: var(--type-caption);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    color: var(--text-primary);
+  }
+}
+
+@layer components {
+  .app-card {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .app-card-subtle {
+    background: var(--surface-card-2);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-card);
+  }
+
+  .app-button-primary,
+  .app-button-secondary,
+  .app-button-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--button-height);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-button);
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+
+  .app-button-primary {
+    background: var(--brand-primary);
+    color: var(--text-on-color);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .app-button-primary:hover {
+    background: #184478;
+  }
+
+  .app-button-secondary {
+    background: var(--surface-card);
+    color: var(--text-primary);
+    border-color: var(--surface-border);
+  }
+
+  .app-button-secondary:hover {
+    border-color: var(--surface-border-strong);
+    background: var(--surface-card-2);
+  }
+
+  .app-button-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .app-input,
+  .app-select,
+  .app-textarea {
+    width: 100%;
+    min-height: var(--input-height);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-button);
+    border: 1px solid var(--surface-border);
+    background: var(--surface-card);
+    color: var(--text-primary);
+  }
+
+  .app-input::placeholder,
+  .app-textarea::placeholder {
+    color: var(--text-muted);
+  }
+
+  .app-input:focus,
+  .app-select:focus,
+  .app-textarea:focus {
+    border-color: rgba(30, 78, 140, 0.5);
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .app-navbar,
+  .app-toolbar,
+  .app-sidebar,
+  .app-modal {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(18px);
+    border-color: var(--surface-border);
+  }
+
+  .app-surface {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-card);
+  }
+
+  .app-section {
+    padding: clamp(1.25rem, 2vw, 2rem);
+  }
+
+  .app-page-shell {
+    width: min(100%, 1600px);
+    margin-inline: auto;
+  }
+
+  .app-text-muted {
+    color: var(--text-muted);
+  }
+
+  .app-divider {
+    border-color: var(--surface-border);
   }
 }
 
 html {
-  font-size: var(--font-size);
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
-body {
-  min-width: 0;
-  overflow-x: auto;
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }
 
-/* ─── Responsive Design Tokens ───────────────────────────── */
-/* 1280–1439px: slightly condensed desktop */
-@media (max-width: 1439px) {
-  :root {
-    --type-display: 36px;
-    --type-page-title: 28px;
-    --type-section-title: 22px;
-    --type-body-bold: 16px;
-    --type-body: 16px;
-    --type-caption: 13px;
-    --button-height: 48px;
-    --input-height: 46px;
-    --space-card: 20px;
-    --space-layout: 24px;
-  }
+.text-xs,
+.text-sm,
+.text-base,
+.text-lg,
+.text-xl,
+.text-2xl,
+.text-3xl {
+  font-family: 'Inter', sans-serif !important;
 }
 
-/* 1024–1279px: small desktop / large tablet landscape */
+.text-xs,
+.text-sm {
+  font-size: var(--type-caption) !important;
+}
+
+.text-base {
+  font-size: var(--type-body) !important;
+}
+
+.text-lg {
+  font-size: var(--type-body-bold) !important;
+}
+
+.text-xl,
+.text-2xl {
+  font-size: var(--type-section-title) !important;
+}
+
+.text-3xl {
+  font-size: var(--type-page-title) !important;
+}
+
 @media (max-width: 1279px) {
   :root {
-    --type-display: 30px;
-    --type-page-title: 24px;
-    --type-section-title: 19px;
-    --type-body-bold: 15px;
-    --type-body: 15px;
-    --type-caption: 12px;
-    --button-height: 44px;
-    --input-height: 42px;
-    --space-between: 12px;
-    --space-card: 16px;
+    --space-card: 18px;
     --space-layout: 20px;
-    --radius-card: 12px;
   }
 }
 
-/* 768–1023px: tablet */
 @media (max-width: 1023px) {
   :root {
-    --type-section-title: 17px;
-    --type-body-bold: 14px;
-    --type-body: 14px;
-    --type-caption: 12px;
-    --button-height: 40px;
-    --input-height: 38px;
-    --space-card: 14px;
+    --type-page-title: clamp(1.5rem, 3vw, 2rem);
+    --type-section-title: 1.125rem;
+    --button-height: 42px;
+    --input-height: 42px;
+    --space-card: 16px;
     --space-layout: 16px;
-    --radius-card: 10px;
   }
 }
-
-/* Force Inter font for all text size utilities */
-.text-xs, .text-sm, .text-base, .text-lg, .text-xl, .text-2xl, .text-3xl {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-}
-
-/* Override Tailwind text sizes with design tokens */
-.text-xs { font-size: var(--type-caption) !important; }
-.text-sm { font-size: var(--type-caption) !important; }
-.text-base { font-size: var(--type-body) !important; }
-.text-lg { font-size: var(--type-body-bold) !important; }
-.text-xl { font-size: var(--type-section-title) !important; }
-.text-2xl { font-size: var(--type-section-title) !important; }
-.text-3xl { font-size: var(--type-page-title) !important; }

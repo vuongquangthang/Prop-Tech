@@ -5,82 +5,63 @@ export function PlatformSelector() {
   const navigate = useNavigate();
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-8"
-      style={{ background: 'linear-gradient(135deg, #1A4B84 0%, #2563A8 100%)' }}
+    <div
+      className="min-h-screen flex items-center justify-center px-6 py-10"
+      style={{
+        background: 'radial-gradient(circle at top, rgba(30, 78, 140, 0.18), transparent 36%), linear-gradient(180deg, #F7FAFD 0%, #EDF3F9 100%)',
+      }}
     >
       <div className="max-w-4xl w-full">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div 
-            className="w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center"
-            style={{ backgroundColor: '#FF5733' }}
+        <div className="text-center mb-10 sm:mb-12">
+          <div
+            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
           >
-            <Home size={48} color="#FFF" />
+            <Home size={42} color="#FFF" />
           </div>
-          <h1 style={{ fontSize: '44px', fontWeight: 700, color: '#FFF', marginBottom: '16px' }}>
+          <h1 style={{ fontSize: 'var(--type-page-title)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
             SmartHome Hub
           </h1>
-          <p style={{ fontSize: '20px', color: '#E8F0F8' }}>
+          <p style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)' }}>
             Hệ thống Quản lý Chung cư
           </p>
         </div>
 
-        {/* Platform Selection Cards */}
         <div className="max-w-2xl mx-auto">
-          {/* Admin Web Card */}
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-white rounded-3xl p-8 hover:shadow-2xl transition-all hover:scale-105 text-left group"
-            style={{ border: '3px solid transparent' }}
+            className="app-card w-full text-left p-6 sm:p-8 hover:-translate-y-1 transition-all group"
+            style={{ border: '1px solid var(--surface-border)' }}
           >
-            <div 
-              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"
-              style={{ backgroundColor: '#E8F0F8' }}
+            <div
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform"
+              style={{ backgroundColor: 'var(--brand-surface)' }}
             >
-              <Monitor size={40} color="#1A4B84" />
+              <Monitor size={36} color="var(--brand-primary)" />
             </div>
-            
-            <h2 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
-              🖥️ Web Admin
+
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
+              Web Admin
             </h2>
-            <p style={{ fontSize: '17px', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-              Giao diện desktop 1440×1024px dành cho Ban quản lý
+            <p style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              Giao diện desktop dành cho Ban quản lý với các tác vụ vận hành, tài chính và báo cáo.
             </p>
 
             <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1A4B84' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Quản lý tài khoản
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1A4B84' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Xử lý sự cố
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1A4B84' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Thống kê báo cáo
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1A4B84' }} />
-                <span style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-                  Quản lý hóa đơn
-                </span>
-              </div>
+              {['Quản lý tài khoản', 'Xử lý sự cố', 'Thống kê báo cáo', 'Quản lý hóa đơn'].map((item) => (
+                <div key={item} className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--brand-primary)' }} />
+                  <span style={{ fontSize: 'var(--type-body)', color: 'var(--text-primary)' }}>{item}</span>
+                </div>
+              ))}
             </div>
 
-            <div 
+            <div
               className="mt-6 py-3 px-6 rounded-xl text-center"
-              style={{ 
-                backgroundColor: '#1A4B84',
+              style={{
+                backgroundColor: 'var(--brand-primary)',
                 color: '#FFF',
-                fontSize: '17px',
+                fontSize: 'var(--type-body-bold)',
                 fontWeight: 700,
               }}
             >
@@ -89,18 +70,16 @@ export function PlatformSelector() {
           </button>
         </div>
 
-        {/* Demo Info */}
         <div className="mt-12 text-center">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 inline-block">
-            <p style={{ fontSize: '13px', color: '#D1E7F8' }}>
+          <div className="app-card-subtle px-5 py-4 inline-block">
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               App cư dân đã được tách riêng tại thư mục mobile
             </p>
           </div>
         </div>
 
-        {/* Version */}
         <div className="mt-8 text-center">
-          <p style={{ fontSize: '13px', color: '#B8D4E8' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
             Version 1.0.0 • Desktop 1440×1024
           </p>
         </div>
