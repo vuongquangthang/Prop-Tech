@@ -1,10 +1,12 @@
-import { LayoutDashboard, Building2, Users, FileText, Wrench, Bot, BarChart3, ChevronDown, UserCog, Home, LogOut, Megaphone } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, FileText, Wrench, Bot, BarChart3, ChevronDown, ChevronLeft, ChevronRight, UserCog, Home, Megaphone } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 
 interface SidebarProps {
   isOpen?: boolean;
+  isCollapsed?: boolean;
   onClose?: () => void;
+  onToggleCollapsed?: () => void;
 }
 
 const menuItems = [
@@ -79,7 +81,7 @@ const menuItems = [
   },
 ];
 
-export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
+export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggleCollapsed }: SidebarProps) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -96,6 +98,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   }, [location.pathname]);
 
   const handleItemClick = (item: any) => {
+    if (isCollapsed && item.subItems) {
+      onToggleCollapsed?.();
+      setExpandedItem(item.label);
+      return;
+    }
+
     if (item.subItems) {
       setExpandedItem(expandedItem === item.label ? null : item.label);
     } else if (item.path) {
@@ -130,12 +138,18 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         />
       )}
       <style>{`
+        .admin-sidebar {
+          top: 0 !important;
+          height: 100vh !important;
+          transition: width 0.2s ease, min-width 0.2s ease, transform 0.22s ease;
+        }
+
         @media (max-width: 1279px) {
-          #sidebar-backdrop { display: block !important; }
+          #sidebar-backdrop { display: block !important; top: 0 !important; }
           .admin-sidebar {
             position: fixed !important;
-            top: 0; left: 0; bottom: 0;
-            z-index: 50;
+            left: 0; bottom: 0;
+            z-index: 70;
             transform: translateX(-100%);
             transition: transform 0.22s ease;
             box-shadow: 16px 0 40px rgba(15, 23, 42, 0.12);
@@ -147,33 +161,65 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         @media (min-width: 1280px) {
           #sidebar-backdrop { display: none !important; }
           .admin-sidebar {
-            position: relative !important;
+            position: fixed !important;
+            top: 0; left: 0; bottom: 0;
+            height: 100vh !important;
+            z-index: 70;
             transform: none !important;
           }
         }
+
+        .admin-sidebar.collapsed .sidebar-logo-text,
+        .admin-sidebar.collapsed .sidebar-item-label,
+        .admin-sidebar.collapsed .sidebar-chevron {
+          display: none;
+        }
+
+        .admin-sidebar.collapsed .sidebar-logo-toggle {
+          justify-content: center;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+        .admin-sidebar.collapsed .sidebar-menu-button {
+          justify-content: center !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
       `}</style>
       <aside
-        className={`admin-sidebar flex flex-col${isOpen ? ' open' : ''}`}
-        style={{ width: '288px', minWidth: '288px', backgroundColor: 'rgba(255,255,255,0.92)', borderRight: '1px solid var(--surface-border)' }}>
+        className={`admin-sidebar flex flex-col${isOpen ? ' open' : ''}${isCollapsed ? ' collapsed' : ''}`}
+        style={{ width: isCollapsed ? '80px' : '288px', minWidth: isCollapsed ? '80px' : '288px', height: '100vh', backgroundColor: 'rgba(255,255,255,0.92)', borderRight: '1px solid var(--surface-border)' }}>
       {/* Logo */}
-      <div className="h-16 flex items-center" style={{ borderBottom: '1px solid var(--surface-border)', paddingLeft: '20px', gap: '12px' }}>
-        {/* Icon Box */}
-        <div 
-          className="flex items-center justify-center"
-          style={{ 
-            width: '40px', 
-            height: '40px', 
-            backgroundColor: 'var(--brand-primary)',
-            borderRadius: '12px'
-          }}
+        <button
+          type="button"
+          className="sidebar-logo-toggle h-16 flex w-full items-center justify-between transition-colors hover:bg-[var(--brand-surface)]"
+          style={{ border: 'none', borderBottom: '1px solid var(--surface-border)', background: 'transparent', cursor: 'pointer', paddingLeft: '20px', paddingRight: '12px', gap: '12px' }}
+          onClick={onToggleCollapsed}
+          title={isCollapsed ? 'Mo rong sidebar' : 'Thu gon sidebar'}
         >
-          <Home size={28} style={{ color: 'white', strokeWidth: 2 }} />
-        </div>
-        {/* Text */}
-        <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-          SmartHome Hub
-        </span>
-      </div>
+          <div className="flex min-w-0 items-center" style={{ gap: '12px' }}>
+            {/* Icon Box */}
+            <div 
+              className="flex shrink-0 items-center justify-center"
+              style={{ 
+                width: '40px', 
+                height: '40px', 
+                backgroundColor: 'var(--brand-primary)',
+                borderRadius: '12px'
+              }}
+            >
+              <Home size={28} style={{ color: 'white', strokeWidth: 2 }} />
+            </div>
+            {/* Text */}
+            <span className="sidebar-logo-text truncate" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              SmartHome Hub
+            </span>
+          </div>
+          <span className="sidebar-logo-text flex shrink-0 items-center justify-center rounded-lg" style={{ width: '32px', height: '32px', color: 'var(--text-secondary)' }}>
+            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </span>
+        </button>
       
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto" style={{ padding: '16px 14px 20px' }}>
@@ -182,7 +228,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             <div key={index}>
               <button
                 onClick={() => handleItemClick(item)}
-                className="w-full flex items-center justify-between transition-colors"
+                className="sidebar-menu-button w-full flex items-center justify-between transition-colors"
                 style={{
                   padding: '12px 14px',
                   borderRadius: '12px',
@@ -194,15 +240,16 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                   textAlign: 'left',
                   boxShadow: isParentActive(item) ? 'inset 0 0 0 1px rgba(30, 78, 140, 0.15)' : 'none'
                 }}
+                title={item.label}
               >
                 <div className="flex items-center" style={{ gap: '10px' }}>
-                  <item.icon size={18} />
-                  <span>{item.label}</span>
+                  <item.icon size={18} className="shrink-0" />
+                  <span className="sidebar-item-label">{item.label}</span>
                 </div>
                 {item.subItems && (
                   <ChevronDown 
                     size={16} 
-                    className="transition-transform"
+                    className="sidebar-chevron transition-transform"
                     style={{
                       transform: expandedItem === item.label ? 'rotate(180deg)' : 'rotate(0deg)'
                     }}
@@ -211,7 +258,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               </button>
               
               {/* Sub Items */}
-              {item.subItems && expandedItem === item.label && (
+              {!isCollapsed && item.subItems && expandedItem === item.label && (
                 <div style={{ marginTop: '6px', paddingLeft: '28px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {item.subItems.map((subItem: any, subIndex: number) => (
                     <button
@@ -227,7 +274,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                         border: 'none',
                         backgroundColor: isActive(subItem.path) ? 'rgba(30, 78, 140, 0.12)' : 'transparent',
                         color: isActive(subItem.path) ? 'var(--brand-primary)' : 'var(--text-secondary)',
-                        fontSize: '13px',
+                        fontSize: 'var(--type-caption)',
                         fontWeight: isActive(subItem.path) ? 600 : 500,
                         textAlign: 'left'
                       }}

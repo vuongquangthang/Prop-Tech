@@ -1,4 +1,4 @@
-﻿import { Plus, Edit2, Trash2, X, AlertTriangle, Tag } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, Tag } from 'lucide-react';
 import { useState } from 'react';
 
 interface Amenity {
@@ -141,7 +141,7 @@ export function AmenityManager() {
 
       {/* Add Amenity Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -221,7 +221,7 @@ export function AmenityManager() {
 
       {/* Edit Amenity Modal */}
       {showEditModal && selectedAmenity && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -298,7 +298,7 @@ export function AmenityManager() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedAmenity && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Xác nhận xóa</h3>

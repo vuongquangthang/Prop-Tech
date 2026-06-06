@@ -1,4 +1,4 @@
-﻿import { Send, AlertCircle, X, ChevronRight } from 'lucide-react';
+import { Send, AlertCircle, X, ChevronRight } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSignalRRefresh } from '../lib/useSignalRRefresh';
 import { useNavigate } from 'react-router';
@@ -377,7 +377,7 @@ export function QuickAccessTables() {
       {/* Modals */}
       {/* Reminder Modal */}
       {reminderModal && selectedInvoice && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)' }}>
+        <div className="admin-content-modal-overlay" style={{ backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-surface-card" style={{ 
             borderRadius: 'var(--radius-large)', 
             width: '600px',

@@ -22,6 +22,9 @@ public interface IRoomService
 
 public class RoomService : IRoomService
 {
+    private const string ActivePostStatus = "active";
+    private const string PausedPostStatus = "paused";
+
     private readonly IRoomRepository _roomRepository;
     private readonly IFloorRepository _floorRepository;
     private readonly IBuildingRepository _buildingRepository;
@@ -337,6 +340,18 @@ public class RoomService : IRoomService
             room.RoomCode = nextRoomCode;
         }
 
+        var shouldLockRoomPosts = dto.Status != null && IsOccupiedRoomStatus(dto.Status);
+        var shouldUnlockRoomPosts = dto.Status != null && IsAvailableRoomStatus(dto.Status);
+        if (shouldLockRoomPosts && !await HasActiveRoomContractAsync(room.Id))
+        {
+            throw new InvalidOperationException("Không thể chuyển phòng sang Đã thuê khi chưa có hợp đồng");
+        }
+
+        if (shouldUnlockRoomPosts && await HasActiveRoomContractAsync(room.Id))
+        {
+            throw new InvalidOperationException("Không thể chuyển phòng về Trống khi vẫn còn hợp đồng");
+        }
+
         if (dto.Area.HasValue) room.Area = dto.Area;
         if (dto.MaxOccupants.HasValue) room.MaxOccupants = dto.MaxOccupants;
         if (dto.DefaultRentPrice.HasValue) room.DefaultRentPrice = dto.DefaultRentPrice;
@@ -351,6 +366,15 @@ public class RoomService : IRoomService
         if (dto.ImageUrls != null) room.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
         if (dto.Amenities != null) room.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
         if (dto.ServiceIds != null) room.ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds, JsonOptions);
+
+        if (shouldLockRoomPosts)
+        {
+            await LockRoomPostsAsync(room.Id, room.Status);
+        }
+        else if (shouldUnlockRoomPosts)
+        {
+            await UnlockRoomPostsAsync(room.Id, room.Status);
+        }
 
         _roomRepository.Update(room);
         await _roomRepository.SaveChangesAsync();
@@ -395,6 +419,72 @@ public class RoomService : IRoomService
 
         _roomRepository.Remove(room);
         await _roomRepository.SaveChangesAsync();
+    }
+
+    private async Task LockRoomPostsAsync(int roomId, string roomStatus)
+    {
+        var posts = await _dbContext.BaiDangTimPhongs
+            .Where(post => post.RoomId == roomId)
+            .ToListAsync();
+
+        foreach (var post in posts)
+        {
+            post.IsLocked = true;
+            post.Status = PausedPostStatus;
+            post.RoomStatus = roomStatus;
+        }
+    }
+
+    private async Task UnlockRoomPostsAsync(int roomId, string roomStatus)
+    {
+        var posts = await _dbContext.BaiDangTimPhongs
+            .Where(post => post.RoomId == roomId)
+            .ToListAsync();
+
+        foreach (var post in posts)
+        {
+            post.IsLocked = false;
+            post.Status = ActivePostStatus;
+            post.RoomStatus = roomStatus;
+        }
+    }
+
+    private static bool IsOccupiedRoomStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return false;
+        }
+
+        var normalized = status.Trim().ToLowerInvariant();
+        return normalized == "đã thuê"
+            || normalized == "ÄÃ£ thuÃª"
+            || normalized == "da thue"
+            || normalized == "rented"
+            || normalized == "occupied";
+    }
+
+    private static bool IsAvailableRoomStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return false;
+        }
+
+        var normalized = status.Trim().ToLowerInvariant();
+        return normalized == "trống"
+            || normalized == "trá»‘ng"
+            || normalized == "trong"
+            || normalized == "available"
+            || normalized == "empty";
+    }
+
+    private Task<bool> HasActiveRoomContractAsync(int roomId)
+    {
+        var now = DateTime.UtcNow;
+        return _dbContext.HopDongs.AnyAsync(contract =>
+            contract.RoomId == roomId
+            && (contract.ExpectedEndDate == null || contract.ExpectedEndDate > now));
     }
 
     private async Task<RoomDto> MapToDto(Room room)

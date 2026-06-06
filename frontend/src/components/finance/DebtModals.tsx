@@ -1,4 +1,4 @@
-﻿import { X, Eye, Send, Ban, User, Home, DollarSign, Calendar, AlertTriangle, Check, FileText, Users, Clock, Bell, Lock, Unlock } from 'lucide-react';
+import { X, Eye, Send, Ban, User, Home, DollarSign, Calendar, AlertTriangle, Check, FileText, Users, Clock, Bell, Lock, Unlock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -88,7 +88,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
 
   return (
     <>
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[920px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -245,7 +245,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
 // Contract Detail Modal Component
 function ContractDetailModal({ debt, onClose }: DebtModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60]">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center space-x-2">
@@ -406,7 +406,7 @@ function ContractDetailModal({ debt, onClose }: DebtModalProps) {
 // Invoice Detail Modal Component
 function InvoiceDetailModal({ debt, onClose }: DebtModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60]">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[800px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center space-x-2">
@@ -596,7 +596,7 @@ function InvoiceDetailModal({ debt, onClose }: DebtModalProps) {
 // Transaction History Modal Component
 function TransactionHistoryModal({ debt, onClose }: DebtModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60]">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center space-x-2">
@@ -1011,7 +1011,7 @@ Trân trọng,\nBan quản lý`,
 
   if (showSuccess) {
     return (
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="admin-content-modal-overlay">
         <div className="bg-white rounded-lg w-[500px]">
           <div className="p-6 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1043,7 +1043,7 @@ Trân trọng,\nBan quản lý`,
   }
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -1163,7 +1163,7 @@ Trân trọng,\nBan quản lý`,
 
 export function BlockAccountModal({ debt, onClose }: DebtModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -1344,7 +1344,7 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
 
   if (showSuccess) {
     return (
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="admin-content-modal-overlay">
         <div className="bg-white rounded-lg w-[600px]">
           <div className="p-6 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1389,7 +1389,7 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
   }
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">

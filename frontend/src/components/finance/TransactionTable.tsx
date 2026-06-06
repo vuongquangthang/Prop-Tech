@@ -1,4 +1,4 @@
-﻿import { CheckCircle, AlertCircle, Link2, Filter, X, Loader2, AlertTriangle, FileText } from 'lucide-react';
+import { CheckCircle, AlertCircle, Link2, Filter, X, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { paymentService } from '../../services/api.service';
@@ -315,7 +315,7 @@ export function TransactionTable() {
 
       {/* Match Modal */}
       {showMatchModal && selectedTransaction && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
               <div className="flex items-center space-x-2">

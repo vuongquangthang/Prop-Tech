@@ -1,4 +1,4 @@
-﻿import { Plus, ChevronRight, ChevronDown, X, Loader2, Building2 } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, X, Loader2, Building2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { buildingService, floorService } from '../../services/api.service';
 
@@ -277,7 +277,7 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
 
       {/* Add Building/Floor Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Thêm Tòa nhà/Tầng mới</h3>

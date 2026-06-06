@@ -126,7 +126,7 @@ export function RevenueReportContent() {
             <title>Báo cáo Doanh thu</title>
             <style>
               body { 
-                font-family: Inter, sans-serif; 
+                font-family: Roboto, Arial, sans-serif; 
                 padding: 20px; 
                 margin: 0;
                 color: #0F172A;
@@ -153,7 +153,7 @@ export function RevenueReportContent() {
                 border: 1px solid #ddd; 
                 padding: 12px; 
                 text-align: left;
-                font-size: 13px;
+                font-size: 14px;
               }
               th { 
                 background-color: #f5f5f5; 
@@ -182,7 +182,7 @@ export function RevenueReportContent() {
                 margin-top: 30px;
                 text-align: right;
                 color: #666;
-                font-size: 12px;
+                font-size: 14px;
               }
               @media print {
                 button { display: none; }
@@ -385,18 +385,18 @@ export function RevenueReportContent() {
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="#6b7280" />
-              <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+              <XAxis dataKey="period" tick={{ fontSize: 14 }} stroke="#6b7280" />
+              <YAxis tick={{ fontSize: 14 }} stroke="#6b7280" />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#fff', 
                   border: '1px solid #d1d5db',
                   borderRadius: '4px',
-                  fontSize: '12px'
+                  fontSize: 'var(--type-caption)'
                 }}
                 formatter={(value: number) => `${value.toFixed(0)} triệu`}
               />
-              <Legend wrapperStyle={{ fontSize: '12px' }} />
+              <Legend wrapperStyle={{ fontSize: 'var(--type-caption)' }} />
               <Bar dataKey="Tiền phòng" fill="#1f2937" />
               <Bar dataKey="Phí dịch vụ" fill="#f59e0b" />
               <Bar dataKey="Doanh thu khác" fill="#3b82f6" />

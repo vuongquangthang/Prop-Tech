@@ -1,4 +1,4 @@
-﻿import { ArrowRight, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
+import { ArrowRight, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { fileService } from '../../services/feature.service';
@@ -70,7 +70,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
   };
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+    <div className="admin-content-modal-overlay" onClick={onClose}>
       <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl text-gray-900">Gửi kết quả sửa chữa cho cư dân</h2>

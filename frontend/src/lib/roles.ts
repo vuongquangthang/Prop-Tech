@@ -85,6 +85,7 @@ export function getDefaultRoute(role: string): string {
     case UserRole.ADMIN:
       return '/dashboard';
     case UserRole.MANAGER:
+      return '/post-management';
     case UserRole.ACCOUNTANT:
     case UserRole.STAFF:
     case UserRole.RESIDENT:
@@ -110,6 +111,9 @@ export const ROUTE_ACCESS = {
   '/settlement': [UserRole.ADMIN],
   '/utility-reading': [UserRole.ADMIN],
   '/maintenance-request': [UserRole.ADMIN],
+  '/post-management': [UserRole.ADMIN, UserRole.MANAGER],
+  '/post-management/create': [UserRole.ADMIN, UserRole.MANAGER],
+  '/messages': [UserRole.ADMIN, UserRole.MANAGER],
   '/knowledge-base': [UserRole.ADMIN],
   '/chat-history': [UserRole.ADMIN],
   '/revenue-report': [UserRole.ADMIN],

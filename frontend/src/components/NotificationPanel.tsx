@@ -13,6 +13,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     notificationService.getAdminAll(100).then(data => {
       setAdminNotifications(data);
     }).catch(() => {}).finally(() => setLoading(false));
@@ -93,7 +94,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-50"
+      className="fixed inset-0 z-30"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -148,7 +149,17 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
 
         {/* Notifications List */}
         <div className="overflow-y-auto" style={{ maxHeight: '500px' }}>
-          {adminNotifications.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12 px-6">
+              <div
+                className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-[var(--brand-primary)]"
+                aria-hidden="true"
+              />
+              <p style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)' }}>
+                Dang tai thong bao...
+              </p>
+            </div>
+          ) : adminNotifications.length === 0 ? (
             <div className="text-center py-12 px-6">
               <div 
                 className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"

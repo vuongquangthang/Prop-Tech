@@ -27,6 +27,11 @@ public interface IHopDongService
 
 public class HopDongService : IHopDongService
 {
+    private const string ActivePostStatus = "active";
+    private const string PausedPostStatus = "paused";
+    private const string OccupiedRoomStatus = "Đã thuê";
+    private const string AvailableRoomStatus = "Trống";
+
     private readonly IHopDongRepository _hopDongRepository;
     private readonly IRoomRepository _roomRepository;
     private readonly IResidentRepository _residentRepository;
@@ -254,9 +259,10 @@ public class HopDongService : IHopDongService
                     }
                 }
 
-                // Update room status to "Đã thuê" - THIS IS NOW ATOMIC WITH CONTRACT CREATION
-                room.Status = "Đã thuê";
+                // Update room status and related listings atomically with contract creation.
+                room.Status = OccupiedRoomStatus;
                 _roomRepository.Update(room);
+                await LockRoomPostsAsync(room.Id, room.Status);
 
                 // SINGLE SaveChangesAsync at the end - either all succeed or all rollback
                 await _hopDongRepository.SaveChangesAsync();
@@ -470,12 +476,13 @@ public class HopDongService : IHopDongService
             throw new InvalidOperationException("Không thể xóa hợp đồng đã có hóa đơn");
         }
 
-        // Update room status back to "Trống"
+        var shouldReleaseRoom = !await HasActiveRoomContractAsync(contract.RoomId, contract.Id);
         var room = await _roomRepository.GetByIdAsync(contract.RoomId);
-        if (room != null)
+        if (room != null && shouldReleaseRoom)
         {
-            room.Status = "Trống";
+            room.Status = AvailableRoomStatus;
             _roomRepository.Update(room);
+            await UnlockRoomPostsAsync(room.Id, room.Status);
         }
 
         _hopDongRepository.Remove(contract);
@@ -1226,5 +1233,42 @@ public class HopDongService : IHopDongService
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
+    }
+
+    private async Task LockRoomPostsAsync(int roomId, string roomStatus)
+    {
+        var posts = await _context.BaiDangTimPhongs
+            .Where(post => post.RoomId == roomId)
+            .ToListAsync();
+
+        foreach (var post in posts)
+        {
+            post.IsLocked = true;
+            post.Status = PausedPostStatus;
+            post.RoomStatus = roomStatus;
+        }
+    }
+
+    private async Task UnlockRoomPostsAsync(int roomId, string roomStatus)
+    {
+        var posts = await _context.BaiDangTimPhongs
+            .Where(post => post.RoomId == roomId)
+            .ToListAsync();
+
+        foreach (var post in posts)
+        {
+            post.IsLocked = false;
+            post.Status = ActivePostStatus;
+            post.RoomStatus = roomStatus;
+        }
+    }
+
+    private Task<bool> HasActiveRoomContractAsync(int roomId, int? excludingContractId = null)
+    {
+        var now = DateTime.UtcNow;
+        return _context.HopDongs.AnyAsync(contract =>
+            contract.RoomId == roomId
+            && (!excludingContractId.HasValue || contract.Id != excludingContractId.Value)
+            && (contract.ExpectedEndDate == null || contract.ExpectedEndDate > now));
     }
 }

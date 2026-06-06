@@ -1,4 +1,4 @@
-﻿import { Plus, Edit2, Trash2, X, AlertTriangle, Package, Link2, Loader2, Pencil, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, Package, Link2, Loader2, Pencil, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -318,7 +318,7 @@ export function AssetTable() {
 
       {/* Add Asset Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -376,7 +376,7 @@ export function AssetTable() {
 
       {/* Edit Asset Modal */}
       {showEditModal && selectedAsset && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -431,7 +431,7 @@ export function AssetTable() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedAsset && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Xác nhận xóa tài sản</h3>
@@ -478,7 +478,7 @@ export function AssetTable() {
 
       {/* Assign to Room Modal */}
       {showAssignModal && assignAsset && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[700px] max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between flex-shrink-0">

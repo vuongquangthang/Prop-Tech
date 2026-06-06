@@ -1,5 +1,6 @@
-import { ArrowLeft, Check, Edit2, Image as ImageIcon, X } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Check, Edit2, Image as ImageIcon, Megaphone, X } from 'lucide-react';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { postService, type RoomOption, type PostRecord, type PostServiceLineItem } from '../services/postService';
@@ -14,6 +15,9 @@ interface AssetOption {
   assetName: string;
   assetCode: string;
 }
+
+const POST_IMAGE_LIMIT = 6;
+type RoomStatusFilter = 'all' | 'empty' | 'rented';
 
 const resolveImageUrl = (url?: string) => {
   if (!url) return '';
@@ -49,6 +53,9 @@ export function CreatePostPage() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
+  const [postPreviewImage, setPostPreviewImage] = useState<{ src: string; title: string } | null>(null);
+  const [showPostFormModal, setShowPostFormModal] = useState(false);
+  const [roomStatusFilter, setRoomStatusFilter] = useState<RoomStatusFilter>('all');
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
   const getRoomLocation = (room: RoomOption | any) => {
@@ -64,7 +71,25 @@ export function CreatePostPage() {
       ? `${numericRent.toLocaleString('vi-VN')} VNĐ/tháng`
       : `${rent} VNĐ/tháng`;
   };
-  const isAvailableRoom = (room: RoomOption | any) => room?.status === 'Trống' || room?.status === 'available';
+  const normalizeRoomStatus = (status?: string) => String(status ?? '').trim().toLowerCase();
+  const isAvailableRoom = (room: RoomOption | any) => {
+    const status = normalizeRoomStatus(room?.status);
+    return status === 'trống' || status === 'trong' || status === 'available' || status === 'empty' || status === 'vacant';
+  };
+  const isRentedRoom = (room: RoomOption | any) => {
+    const status = normalizeRoomStatus(room?.status);
+    return status === 'đã thuê' || status === 'da thue' || status === 'rented' || status === 'occupied';
+  };
+  const getRoomStatusLabel = (room: RoomOption | any) => {
+    if (isAvailableRoom(room)) return 'Trống';
+    if (isRentedRoom(room)) return 'Đã thuê';
+    return room?.status || 'Không rõ';
+  };
+  const getRoomStatusBadgeClass = (room: RoomOption | any) => {
+    if (isAvailableRoom(room)) return 'bg-green-100 text-green-800';
+    if (isRentedRoom(room)) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-700';
+  };
   const currentAccountName = user?.displayName || user?.fullName || user?.residentName || user?.phoneNumber || '';
   const currentAccountPhone = user?.phoneNumber || '';
   const currentAccountLabel = currentAccountName && currentAccountPhone
@@ -76,6 +101,39 @@ export function CreatePostPage() {
     !localServices.some((service) => String(service.key ?? '').toLowerCase() === String(catalogItem.key).toLowerCase())
   );
   const availableAssetAmenities = assetCatalog.filter((asset) => !selectedAmenities.includes(asset.assetName));
+  const postedRoomIds = useMemo(() => {
+    return new Set(
+      existingPosts
+        .map((post) => Number(post.roomId))
+        .filter((roomId) => Number.isFinite(roomId) && roomId > 0)
+    );
+  }, [existingPosts]);
+  const roomsWithoutPosts = useMemo(() => {
+    return rooms.filter((room) => !postedRoomIds.has(Number(room.id)));
+  }, [rooms, postedRoomIds]);
+  const roomFilterCounts = useMemo(() => ({
+    all: roomsWithoutPosts.length,
+    empty: roomsWithoutPosts.filter(isAvailableRoom).length,
+    rented: roomsWithoutPosts.filter(isRentedRoom).length,
+  }), [roomsWithoutPosts]);
+  const availableRoomsForNewPost = useMemo(() => {
+    if (roomStatusFilter === 'empty') return roomsWithoutPosts.filter(isAvailableRoom);
+    if (roomStatusFilter === 'rented') return roomsWithoutPosts.filter(isRentedRoom);
+    return roomsWithoutPosts;
+  }, [roomsWithoutPosts, roomStatusFilter]);
+  const roomStatusFilterOptions: { value: RoomStatusFilter; label: string; count: number }[] = [
+    { value: 'all', label: 'Tất cả', count: roomFilterCounts.all },
+    { value: 'empty', label: 'Phòng trống', count: roomFilterCounts.empty },
+    { value: 'rented', label: 'Đã thuê', count: roomFilterCounts.rented },
+  ];
+
+  const closePostFormModal = () => {
+    if (isEditing) {
+      navigate('/post-management');
+    } else {
+      setShowPostFormModal(false);
+    }
+  };
 
   // Normalize services for the selected room and initialize servicePrices so prices show immediately
   useEffect(() => {
@@ -196,6 +254,7 @@ export function CreatePostPage() {
         if (!post) return;
         setEditingPostId(post.id);
         setSelectedRoomId(post.roomId);
+        setShowPostFormModal(true);
         setTitle(post.title ?? '');
         setMoveInType(post.moveInType ?? 'immediate');
         setMoveInDateInput(post.moveInDate ?? '');
@@ -217,7 +276,7 @@ export function CreatePostPage() {
         });
         // initialize image previews
         if (Array.isArray(post.imageUrls) && post.imageUrls.length) {
-          const previews = post.imageUrls.slice(0, 6);
+          const previews = post.imageUrls.slice(0, POST_IMAGE_LIMIT);
           setImagePreviews(previews);
           setImageFiles(previews.map(() => null));
         }
@@ -239,15 +298,23 @@ export function CreatePostPage() {
     setServicePrices({ ...servicePrices, [`${selectedRoomId}-${index}`]: value });
   };
 
-  const handleFilesSelected = (files: FileList | null) => {
+  const handleFilesSelected = (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
-    const remaining = Math.max(0, 6 - imagePreviews.length);
-    if (remaining <= 0) {
-      toast.error('Bạn chỉ được tải tối đa 6 ảnh');
+    const incomingFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    if (incomingFiles.length === 0) {
+      toast.error('Vui lòng chọn file ảnh');
       return;
     }
+    const remaining = Math.max(0, POST_IMAGE_LIMIT - imagePreviews.length);
+    if (remaining <= 0) {
+      toast.error(`Bạn chỉ được tải tối đa ${POST_IMAGE_LIMIT} ảnh`);
+      return;
+    }
+    if (incomingFiles.length > remaining) {
+      toast.info(`Chỉ thêm ${remaining} ảnh còn lại. Mỗi bài đăng tối đa ${POST_IMAGE_LIMIT} ảnh.`);
+    }
     const MAX_BYTES = 5 * 1024 * 1024; // 5MB client-side limit
-    const arr = Array.from(files).slice(0, remaining);
+    const arr = incomingFiles.slice(0, remaining);
     const allowed: File[] = [];
     const rejected: string[] = [];
     for (const f of arr) {
@@ -269,11 +336,11 @@ export function CreatePostPage() {
     void Promise.all(readers).then((results) => {
       const good = results.filter(Boolean);
       setImagePreviews((prev) => {
-        const next = [...prev, ...good].slice(0, 6);
+        const next = [...prev, ...good].slice(0, POST_IMAGE_LIMIT);
         return next;
       });
       setImageFiles((prev) => {
-        const next = [...prev, ...allowed].slice(0, 6);
+        const next = [...prev, ...allowed].slice(0, POST_IMAGE_LIMIT);
         return next;
       });
     });
@@ -283,7 +350,16 @@ export function CreatePostPage() {
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (e.dataTransfer?.files) {
+    e.stopPropagation();
+    if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.items)
+        .filter((item) => item.kind === 'file')
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file));
+      handleFilesSelected(droppedFiles);
+      return;
+    }
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       handleFilesSelected(e.dataTransfer.files);
     }
   };
@@ -449,44 +525,72 @@ export function CreatePostPage() {
           <div className="space-y-4">
             {!isEditing ? (
               <>
-                <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Chọn phòng muốn đăng</h4>
-                <div className="grid grid-cols-1 gap-3">
-                  {rooms.map((room) => (
-                    <div
-                      key={room.id}
-                      onClick={() => setSelectedRoomId(room.id)}
-                      className={`cursor-pointer rounded border-2 p-4 transition-all ${
-                        selectedRoomId === room.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex flex-1 items-start space-x-3">
-                          <div
-                            className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border-2 ${
-                              selectedRoomId === room.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                            }`}
-                          >
-                            {selectedRoomId === room.id && <Check size={14} className="text-white" />}
-                          </div>
-                          <div className="flex-1">
-                            <div className="mb-1 flex items-center space-x-3">
-                              <span className="font-semibold text-gray-800">{(room as any).roomCode ?? (room as any).code}</span>
-                              <span className="text-sm text-gray-500">{getRoomLocation(room)}</span>
-                              <span className={`rounded px-2 py-1 text-xs font-medium ${isAvailableRoom(room) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                {isAvailableRoom(room) ? 'Trống' : 'Đã thuê'}
-                              </span>
+                <div className="flex flex-col gap-3 border-b pb-3 md:flex-row md:items-center md:justify-between">
+                  <h4 className="text-base font-semibold text-gray-800">Chọn phòng muốn đăng</h4>
+                  <div className="inline-flex w-fit rounded border border-gray-300 bg-gray-50 p-1">
+                    {roomStatusFilterOptions.map((option) => {
+                      const active = roomStatusFilter === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setRoomStatusFilter(option.value)}
+                          className={`rounded px-3 py-1.5 text-sm font-semibold transition ${
+                            active ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-700 hover:bg-white hover:text-gray-900'
+                          }`}
+                        >
+                          {option.label} ({option.count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {availableRoomsForNewPost.length === 0 ? (
+                  <div className="rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                    Không có phòng phù hợp với bộ lọc hiện tại.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {availableRoomsForNewPost.map((room) => (
+                      <div
+                        key={room.id}
+                        onClick={() => {
+                          setSelectedRoomId(room.id);
+                          setShowPostFormModal(true);
+                        }}
+                        className={`cursor-pointer rounded border-2 p-4 transition-all ${
+                          selectedRoomId === room.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex flex-1 items-start space-x-3">
+                            <div
+                              className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border-2 ${
+                                selectedRoomId === room.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                              }`}
+                            >
+                              {selectedRoomId === room.id && <Check size={14} className="text-white" />}
                             </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
-                              <span>{room.area ?? 0} m²</span>
-                              <span>Tối đa {room.maxOccupants ?? (room as any).maxPeople ?? 0} người</span>
-                              <span>{getRoomRentText(room)}</span>
+                            <div className="flex-1">
+                              <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="font-semibold text-gray-800">{(room as any).roomCode ?? (room as any).code}</span>
+                                <span className="text-sm text-gray-500">{getRoomLocation(room)}</span>
+                                <span className={`rounded px-2 py-1 text-xs font-medium ${getRoomStatusBadgeClass(room)}`}>
+                                  {getRoomStatusLabel(room)}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                                <span>{room.area ?? 0} m²</span>
+                                <span>Tối đa {room.maxOccupants ?? (room as any).maxPeople ?? 0} người</span>
+                                <span>{getRoomRentText(room)}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </>
             ) : selectedRoom ? (
               <div className="rounded border border-blue-200 bg-blue-50 p-4">
@@ -503,9 +607,39 @@ export function CreatePostPage() {
             )}
           </div>
 
-          {selectedRoom && (
-            <div className="space-y-6">
-              <div className="space-y-4">
+          {selectedRoom && showPostFormModal && createPortal(
+            <div className="admin-content-modal-overlay">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-post-modal-title"
+                className="admin-content-modal-panel"
+              >
+                <div className="admin-content-modal-header flex items-start justify-between border-b border-gray-300 px-5 py-3">
+                  <div className="flex items-start space-x-2">
+                    <Megaphone size={20} className="mt-0.5 text-gray-800" />
+                    <div>
+                      <h3 id="create-post-modal-title" className="text-lg font-semibold text-gray-800">
+                        {isEditing ? 'Đăng bài tìm phòng - Chỉnh sửa bài đăng' : 'Đăng bài tìm phòng - Tạo bài đăng'}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-600">
+                        {(selectedRoom as any).roomCode ?? (selectedRoom as any).code} • {getRoomLocation(selectedRoom)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closePostFormModal}
+                    className="rounded p-1 text-gray-600 hover:bg-gray-100"
+                    title="Đóng"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Tiêu đề bài đăng</h4>
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Nhập tiêu đề bài đăng *</label>
@@ -522,10 +656,10 @@ export function CreatePostPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin phòng</h4>
 
-                <div className="rounded border border-gray-300 bg-gray-50 p-4 space-y-4">
+                <div className="rounded border border-gray-300 bg-gray-50 p-3 space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Mã phòng</p>
@@ -556,22 +690,17 @@ export function CreatePostPage() {
                   <div className="border-t border-gray-300 pt-4">
                     <p className="mb-2 text-sm text-gray-600">Ảnh phòng</p>
                     {Array.isArray(selectedRoom.imageUrls) && selectedRoom.imageUrls.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                        {selectedRoom.imageUrls.slice(0, 6).map((url, idx) => (
-                          <div key={idx} className="aspect-[4/3] overflow-hidden rounded border border-gray-300 bg-white">
-                            <img
-                              src={resolveImageUrl(url)}
-                              alt={`Ảnh phòng ${idx + 1}`}
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
+                      <PostImagePreviewStrip
+                        images={selectedRoom.imageUrls.map((url) => resolveImageUrl(url))}
+                        altPrefix="Ảnh phòng"
+                        onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                      />
                     ) : (
-                      <div className="flex items-center gap-2 rounded border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-500">
-                        <ImageIcon size={18} className="text-gray-400" />
-                        Chưa có ảnh phòng
-                      </div>
+                      <PostImagePreviewStrip
+                        images={[]}
+                        altPrefix="Ảnh phòng"
+                        onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                      />
                     )}
                   </div>
 
@@ -727,7 +856,7 @@ export function CreatePostPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thời gian vào ở</h4>
                 <div>
                   <label className="mb-3 block text-sm text-gray-700">Có thể vào ở *</label>
@@ -773,7 +902,7 @@ export function CreatePostPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin bổ sung</h4>
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Có nằm trong khu vực dễ ngập lụt *</label>
@@ -794,7 +923,7 @@ export function CreatePostPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin liên hệ</h4>
                 <div>
                   <label className="mb-3 block text-sm text-gray-700">Chọn thông tin liên hệ *</label>
@@ -823,46 +952,198 @@ export function CreatePostPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Ảnh minh họa</h4>
                 <div>
-                  <label className="mb-2 block text-sm text-gray-700">Thêm ảnh (tối đa 6 ảnh)</label>
-                  <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} role="button" tabIndex={0} className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-gray-300 p-6 text-center hover:bg-gray-50">
-                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFilesSelected(e.target.files)} className="hidden" />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16l5-5 5 5M12 11v10" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    </svg>
-                    <div className="text-sm font-medium text-gray-700">Kéo thả ảnh vào đây hoặc bấm để chọn</div>
-                    <div className="text-xs text-gray-500">PNG, JPG, JPEG — tối đa {6} ảnh. Bạn còn {Math.max(0, 6 - imagePreviews.length)} ảnh có thể thêm.</div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {imagePreviews.map((src, idx) => (
-                      <div key={idx} className="relative h-20 w-28 overflow-hidden rounded border">
-                        <img src={src} alt={`preview-${idx}`} className="h-full w-full object-cover" />
-                        <button type="button" onClick={() => removeImage(idx)} className="absolute right-1 top-1 rounded bg-white/90 px-1 py-0.5 text-xs">X</button>
-                      </div>
-                    ))}
-                  </div>
+                  <label className="mb-2 block text-sm text-gray-700">Thêm ảnh (tối đa {POST_IMAGE_LIMIT} ảnh)</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      handleFilesSelected(e.target.files);
+                      e.currentTarget.value = '';
+                    }}
+                    className="hidden"
+                  />
+                  <PostImageGrid
+                    previews={imagePreviews}
+                    onAdd={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onRemove={removeImage}
+                    onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh bài đăng ${index + 1}` })}
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    PNG, JPG, JPEG — tối đa {POST_IMAGE_LIMIT} ảnh. Bạn còn {Math.max(0, POST_IMAGE_LIMIT - imagePreviews.length)} ảnh có thể thêm.
+                  </p>
                 </div>
               </div>
             </div>
+                  </div>
+
+                <div className="admin-content-modal-footer flex items-center justify-end space-x-3 border-t border-gray-300 px-5 py-3">
+                  <button
+                    onClick={closePostFormModal}
+                    className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!selectedRoomId}
+                    className={`rounded px-4 py-2 text-sm text-white ${selectedRoomId ? 'bg-gray-800 hover:bg-gray-700' : 'cursor-not-allowed bg-gray-400'}`}
+                  >
+                    {isEditing ? 'Lưu thay đổi' : 'Đăng bài'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
           )}
         </div>
-
-        <div className="flex items-center justify-end space-x-3 border-t border-gray-300 px-6 py-4">
-          <button onClick={() => navigate('/post-management')} className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            Hủy
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!selectedRoomId}
-            className={`rounded px-4 py-2 text-sm text-white ${selectedRoomId ? 'bg-gray-800 hover:bg-gray-700' : 'cursor-not-allowed bg-gray-400'}`}
-          >
-            {isEditing ? 'Lưu thay đổi' : 'Đăng bài'}
-          </button>
-        </div>
       </div>
+      {postPreviewImage && typeof document !== 'undefined' && createPortal((
+        <div
+          className="fixed inset-0 flex items-center justify-center p-6"
+          style={{
+            zIndex: 2147483647,
+            backgroundColor: 'rgba(15, 23, 42, 0.78)',
+            backdropFilter: 'blur(8px)',
+          }}
+          onClick={() => setPostPreviewImage(null)}
+        >
+          <div
+            className="relative flex items-center justify-center"
+            style={{ maxHeight: '72vh', maxWidth: '78vw' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img
+              src={postPreviewImage.src}
+              alt={postPreviewImage.title}
+              className="rounded bg-white object-contain shadow-2xl"
+              style={{
+                maxHeight: 'min(72vh, 560px)',
+                maxWidth: 'min(78vw, 720px)',
+                width: 'auto',
+                height: 'auto',
+              }}
+            />
+          </div>
+        </div>
+      ), document.body)}
+    </div>
+  );
+}
+
+function PostImageGrid({
+  previews,
+  onAdd,
+  onDrop,
+  onRemove,
+  onPreview,
+}: {
+  previews: string[];
+  onAdd: () => void;
+  onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
+  onRemove: (index: number) => void;
+  onPreview: (src: string, index: number) => void;
+}) {
+  return (
+    <div
+      className="flex w-full items-start gap-2 overflow-x-auto pb-1"
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onDrop={onDrop}
+    >
+      <button
+        type="button"
+        onClick={onAdd}
+        className="flex h-24 w-24 shrink-0 flex-col items-center justify-center gap-1 rounded border-2 border-dashed border-gray-300 bg-gray-50 text-center transition-colors hover:border-gray-400 hover:bg-gray-100"
+        title="Bấm để chọn ảnh bài đăng"
+      >
+        <ImageIcon size={22} className="text-gray-400" />
+        <span className="w-full px-1 text-[11px] font-medium leading-tight text-gray-500">Add image</span>
+      </button>
+
+      {Array.from({ length: POST_IMAGE_LIMIT }).map((_, index) => {
+        const preview = previews[index];
+
+        if (preview) {
+          return (
+            <div key={`${preview}-${index}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded border border-gray-300 bg-white">
+              <button
+                type="button"
+                onClick={() => onPreview(preview, index)}
+                className="block h-full w-full"
+                title="Xem chi tiết ảnh"
+              >
+                <img src={preview} alt={`Ảnh bài đăng ${index + 1}`} className="h-full w-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                className="absolute right-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-xs font-semibold text-red-600 shadow hover:bg-red-50"
+                title="Bỏ ảnh"
+              >
+                X
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={`empty-post-image-${index}`}
+            className="h-24 w-24 shrink-0 rounded border border-gray-300 bg-white"
+            aria-label={`Ô ảnh bài đăng trống ${index + 1}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function PostImagePreviewStrip({
+  images,
+  altPrefix,
+  onPreview,
+}: {
+  images: string[];
+  altPrefix: string;
+  onPreview: (src: string, index: number) => void;
+}) {
+  const normalizedImages = images.slice(0, POST_IMAGE_LIMIT);
+
+  return (
+    <div className="flex w-full items-start gap-2 overflow-x-auto pb-1">
+      {Array.from({ length: POST_IMAGE_LIMIT }).map((_, index) => {
+        const src = normalizedImages[index];
+
+        if (!src) {
+          return (
+            <div
+              key={`empty-${altPrefix}-${index}`}
+              className="h-24 w-24 shrink-0 rounded border border-gray-300 bg-white"
+              aria-label={`Ô ${altPrefix.toLowerCase()} trống ${index + 1}`}
+            />
+          );
+        }
+
+        return (
+          <button
+            key={`${src}-${index}`}
+            type="button"
+            onClick={() => onPreview(src, index)}
+            className="h-24 w-24 shrink-0 overflow-hidden rounded border border-gray-300 bg-white"
+            title="Xem chi tiết ảnh"
+          >
+            <img src={src} alt={`${altPrefix} ${index + 1}`} className="h-full w-full object-cover" />
+          </button>
+        );
+      })}
     </div>
   );
 }

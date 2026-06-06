@@ -1,5 +1,6 @@
 import { Plus, Edit2, Trash2, Filter, X, AlertTriangle, Loader2, Home, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { roomService, floorService, serviceService } from '../../services/api.service';
 import type { Floor } from '../../services/api.service';
 import type { Service } from '../../services/api.service';
@@ -53,6 +54,9 @@ const getStatusConfig = (status: string) => {
   return (statusConfig as any)[status] || statusConfig['Trống'];
 };
 
+const ROOM_IMAGE_LIMIT = 6;
+const ROOM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
 const resolveRoomImageUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
@@ -91,8 +95,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [addBathroomCount, setAddBathroomCount] = useState('');
   const [addAmenities, setAddAmenities] = useState<string[]>([]);
   const [addServiceIds, setAddServiceIds] = useState<number[]>([]);
-  const [addImagePreview, setAddImagePreview] = useState<string | null>(null);
-  const [addImageFile, setAddImageFile] = useState<File | null>(null);
+  const [addImagePreviews, setAddImagePreviews] = useState<string[]>([]);
+  const [addImageFiles, setAddImageFiles] = useState<File[]>([]);
   const [addDescription, setAddDescription] = useState<string>('');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -113,8 +117,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [editKitchenCount, setEditKitchenCount] = useState('');
   const [editBathroomCount, setEditBathroomCount] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
-  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [editImageFiles, setEditImageFiles] = useState<(File | null)[]>([]);
   const [editAmenities, setEditAmenities] = useState<string[]>([]);
   const [editServiceIds, setEditServiceIds] = useState<number[]>([]);
   const [editLoading, setEditLoading] = useState(false);
@@ -126,6 +130,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showCannotDeleteModal, setShowCannotDeleteModal] = useState(false);
   const [blockedDeleteRoom, setBlockedDeleteRoom] = useState<RoomData | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ src: string; title: string } | null>(null);
 
   const isRentedRoomStatus = (status: string) => {
     const s = (status || '').trim().toLowerCase();
@@ -246,30 +251,88 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setAddServiceIds(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
   };
 
-  const handleAddImageChange = (file?: File | null) => {
-    if (!file) {
-      setAddImageFile(null);
-      setAddImagePreview(null);
+  const handleAddImageChange = (files?: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const remaining = Math.max(0, ROOM_IMAGE_LIMIT - addImageFiles.length);
+    if (remaining === 0) {
+      setAddError(`Chỉ được tải tối đa ${ROOM_IMAGE_LIMIT} ảnh cho một phòng`);
       return;
     }
 
-    setAddImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setAddImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
+    const selectedFiles = Array.from(files).slice(0, remaining);
+    const validFiles = selectedFiles.filter((file) => file.size <= ROOM_IMAGE_MAX_BYTES);
+    const rejectedFiles = selectedFiles.filter((file) => file.size > ROOM_IMAGE_MAX_BYTES);
+
+    if (files.length > remaining) {
+      setAddError(`Chỉ thêm ${remaining} ảnh còn lại. Mỗi phòng tối đa ${ROOM_IMAGE_LIMIT} ảnh.`);
+    } else if (rejectedFiles.length > 0) {
+      setAddError(`Một số ảnh vượt quá 5MB: ${rejectedFiles.map((file) => file.name).join(', ')}`);
+    } else {
+      setAddError(null);
+    }
+
+    if (validFiles.length === 0) return;
+
+    const previewTasks = validFiles.map((file) => new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    }));
+
+    void Promise.all(previewTasks).then((previews) => {
+      const validPreviews = previews.filter(Boolean);
+      setAddImageFiles((current) => [...current, ...validFiles].slice(0, ROOM_IMAGE_LIMIT));
+      setAddImagePreviews((current) => [...current, ...validPreviews].slice(0, ROOM_IMAGE_LIMIT));
+    });
   };
 
-  const handleEditImageChange = (file?: File | null) => {
-    if (!file) {
-      setEditImageFile(null);
-      setEditImagePreview(selectedRoom?.imageUrls?.[0] ? resolveRoomImageUrl(selectedRoom.imageUrls[0]) : null);
+  const removeAddImage = (index: number) => {
+    setAddImageFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setAddImagePreviews((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const handleEditImageChange = (files?: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const remaining = Math.max(0, ROOM_IMAGE_LIMIT - editImagePreviews.length);
+    if (remaining === 0) {
+      setEditError(`Chỉ được tải tối đa ${ROOM_IMAGE_LIMIT} ảnh cho một phòng`);
       return;
     }
 
-    setEditImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setEditImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
+    const selectedFiles = Array.from(files).slice(0, remaining);
+    const validFiles = selectedFiles.filter((file) => file.size <= ROOM_IMAGE_MAX_BYTES);
+    const rejectedFiles = selectedFiles.filter((file) => file.size > ROOM_IMAGE_MAX_BYTES);
+
+    if (files.length > remaining) {
+      setEditError(`Chỉ thêm ${remaining} ảnh còn lại. Mỗi phòng tối đa ${ROOM_IMAGE_LIMIT} ảnh.`);
+    } else if (rejectedFiles.length > 0) {
+      setEditError(`Một số ảnh vượt quá 5MB: ${rejectedFiles.map((file) => file.name).join(', ')}`);
+    } else {
+      setEditError(null);
+    }
+
+    if (validFiles.length === 0) return;
+
+    const previewTasks = validFiles.map((file) => new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    }));
+
+    void Promise.all(previewTasks).then((previews) => {
+      const validPreviews = previews.filter(Boolean);
+      setEditImageFiles((current) => [...current, ...validFiles].slice(0, ROOM_IMAGE_LIMIT));
+      setEditImagePreviews((current) => [...current, ...validPreviews].slice(0, ROOM_IMAGE_LIMIT));
+    });
+  };
+
+  const removeEditImage = (index: number) => {
+    setEditImageFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setEditImagePreviews((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
 
@@ -299,8 +362,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setAddKitchenCount('');
     setAddBathroomCount('');
     setAddServiceIds([]);
-    setAddImagePreview(null);
-    setAddImageFile(null);
+    setAddImagePreviews([]);
+    setAddImageFiles([]);
     setAddDescription('');
     setAddError(null);
     await loadReferenceData();
@@ -323,11 +386,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setAddLoading(true); setAddError(null);
     try {
       const maxPeopleValue = parseInt(addMaxPeople, 10);
-      const imageUrls: string[] = [];
-      if (addImageFile) {
-        const uploadedUrl = await fileService.upload(addImageFile);
-        imageUrls.push(uploadedUrl);
-      }
+      const imageUrls = await Promise.all(addImageFiles.map((file) => fileService.upload(file)));
 
       await roomService.create({
         floorId: addFloorId,
@@ -368,8 +427,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setEditKitchenCount(room.rooms?.kitchen != null ? String(room.rooms.kitchen) : '');
     setEditBathroomCount(room.rooms?.bathroom != null ? String(room.rooms.bathroom) : '');
     setEditDescription(room.description ?? '');
-    setEditImagePreview((room.imageUrls && room.imageUrls.length > 0) ? resolveRoomImageUrl(room.imageUrls[0]) : null);
-    setEditImageFile(null);
+    const roomImagePreviews = (room.imageUrls ?? []).slice(0, ROOM_IMAGE_LIMIT).map((url) => resolveRoomImageUrl(url)).filter(Boolean);
+    setEditImagePreviews(roomImagePreviews);
+    setEditImageFiles(roomImagePreviews.map(() => null));
     setEditAmenities(room.amenities ?? []);
     setEditServiceIds(room.serviceIds ?? []);
     setEditError(null);
@@ -384,10 +444,15 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setEditLoading(true); setEditError(null);
     try {
       const maxPeopleValue = editMaxPeople ? parseInt(editMaxPeople, 10) : 0;
-      const imageUrls: string[] = selectedRoom.imageUrls ? [...selectedRoom.imageUrls] : [];
-      if (editImageFile) {
-        const uploaded = await fileService.upload(editImageFile);
-        if (uploaded) imageUrls.unshift(uploaded);
+      const imageUrls: string[] = [];
+      for (let index = 0; index < editImagePreviews.length; index++) {
+        const file = editImageFiles[index];
+        const preview = editImagePreviews[index];
+        if (file) {
+          imageUrls.push(await fileService.upload(file));
+        } else if (preview) {
+          imageUrls.push(preview);
+        }
       }
       await roomService.update(selectedRoom.id, {
         roomCode: editRoomCode.trim(),
@@ -530,50 +595,52 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-[900px] max-h-[90vh] overflow-y-auto">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h3 className="text-lg text-gray-800">Thêm Phòng mới</h3>
+        <div className="admin-content-modal-overlay">
+          <div className="admin-content-modal-panel admin-content-modal-panel--narrow">
+            <div className="admin-content-modal-header flex items-center justify-between border-b border-gray-300 px-5 py-3">
+              <div className="flex items-center space-x-2">
+                <Home size={20} className="text-gray-800" />
+                <h3 className="text-lg text-gray-800">Thêm Phòng mới</h3>
+              </div>
               <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <X size={20} className="text-gray-600" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-5 space-y-4">
               <div className="bg-blue-50 border border-blue-300 rounded p-4">
                 <p className="text-sm text-blue-800">
                   <strong>Vị trí:</strong> {addLocationLabel}
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Thông tin cơ bản</h4>
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Ảnh phòng</label>
-                  <div className="flex items-start gap-4">
-                    <label
-                      htmlFor="add-room-image"
-                      title="Bấm vào ô này để chọn ảnh"
-                      className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden cursor-pointer hover:border-gray-400 transition-colors"
-                    >
-                      {addImagePreview ? (
-                        <img src={addImagePreview} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <Upload size={32} className="text-gray-400" />
-                      )}
-                    </label>
-                    <div className="flex-1">
-                      <input
-                        id="add-room-image"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleAddImageChange(e.target.files?.[0] ?? null)}
-                        className="hidden"
-                      />
-                      <p className="text-sm text-gray-700">Bấm vào ô biểu tượng để chọn ảnh từ máy</p>
-                      <p className="text-xs text-gray-500 mt-1">Hỗ trợ: JPG, PNG. Dung lượng tối đa 5MB</p>
-                    </div>
+                  <input
+                    id="add-room-image"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      handleAddImageChange(e.target.files);
+                      e.currentTarget.value = '';
+                    }}
+                    className="hidden"
+                  />
+                  <RoomImageGrid
+                    inputId="add-room-image"
+                    previews={addImagePreviews}
+                    onRemove={removeAddImage}
+                    onPreview={(src, index) => {
+                      setPreviewImage({ src, title: `Ảnh phòng ${index + 1}` });
+                    }}
+                  />
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-gray-500">Đã chọn {addImagePreviews.length}/{ROOM_IMAGE_LIMIT} ảnh</p>
+                    <p className="text-xs text-gray-500">Có thể chọn tối đa 6 ảnh cùng lúc. JPG, PNG, tối đa 5MB/ảnh.</p>
                   </div>
                 </div>
 
@@ -653,7 +720,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Chi tiết phòng</h4>
                 {addRoomType === 'single' ? (
                   <div className="flex items-center space-x-2">
@@ -682,7 +749,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 )}
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4>
 
                 <div>
@@ -692,7 +759,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                       💡 Danh sách dịch vụ được lấy từ <strong>Quản lý Hạ tầng → Quản lý dịch vụ</strong>
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded">
                     {serviceCatalog.length === 0 ? (
                       <span className="text-xs text-gray-500">Chưa có dịch vụ nào</span>
                     ) : (
@@ -716,7 +783,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded">
                     {assetCatalog.length === 0 ? (
                       <span className="text-xs text-gray-500">Chưa có tài sản nào trong kho</span>
                     ) : (
@@ -754,7 +821,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
               )}
             </div>
 
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
+            <div className="admin-content-modal-footer flex items-center justify-end space-x-3 border-t border-gray-300 px-5 py-3">
               <button onClick={() => setShowAddModal(false)} disabled={addLoading} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50">
                 Hủy
               </button>
@@ -767,7 +834,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       )}
 
       {showEditModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-full max-w-[900px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
               <h3 className="text-lg text-gray-800">Chỉnh sửa Phòng - {selectedRoom.code}</h3>
@@ -786,29 +853,28 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Ảnh phòng</label>
-                  <div className="flex items-start gap-4">
-                    <label
-                      htmlFor="edit-room-image"
-                      title="Bấm vào ô này để chọn ảnh"
-                      className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden cursor-pointer hover:border-gray-400 transition-colors"
-                    >
-                      {editImagePreview ? (
-                        <img src={editImagePreview} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <Upload size={32} className="text-gray-400" />
-                      )}
-                    </label>
-                    <div className="flex-1">
-                      <input
-                        id="edit-room-image"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleEditImageChange(e.target.files?.[0] ?? null)}
-                        className="hidden"
-                      />
-                      <p className="text-sm text-gray-700">Bấm vào ô biểu tượng để chọn ảnh từ máy</p>
-                      <p className="text-xs text-gray-500 mt-1">Hỗ trợ: JPG, PNG. Dung lượng tối đa 5MB</p>
-                    </div>
+                  <input
+                    id="edit-room-image"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      handleEditImageChange(e.target.files);
+                      e.currentTarget.value = '';
+                    }}
+                    className="hidden"
+                  />
+                  <RoomImageGrid
+                    inputId="edit-room-image"
+                    previews={editImagePreviews}
+                    onRemove={removeEditImage}
+                    onPreview={(src, index) => {
+                      setPreviewImage({ src, title: `Ảnh phòng ${index + 1}` });
+                    }}
+                  />
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-gray-500">Đã chọn {editImagePreviews.length}/{ROOM_IMAGE_LIMIT} ảnh</p>
+                    <p className="text-xs text-gray-500">Có thể chọn tối đa 6 ảnh cùng lúc. JPG, PNG, tối đa 5MB/ảnh.</p>
                   </div>
                 </div>
 
@@ -961,8 +1027,38 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         </div>
       )}
 
+      {previewImage && typeof document !== 'undefined' && createPortal((
+        <div
+          className="fixed inset-0 flex items-center justify-center p-6"
+          style={{
+            zIndex: 2147483647,
+            backgroundColor: 'rgba(15, 23, 42, 0.78)',
+            backdropFilter: 'blur(8px)',
+          }}
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative flex items-center justify-center"
+            style={{ maxHeight: '72vh', maxWidth: '78vw' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img
+              src={previewImage.src}
+              alt={previewImage.title}
+              className="rounded bg-white object-contain shadow-2xl"
+              style={{
+                maxHeight: 'min(72vh, 560px)',
+                maxWidth: 'min(78vw, 720px)',
+                width: 'auto',
+                height: 'auto',
+              }}
+            />
+          </div>
+        </div>
+      ), document.body)}
+
       {showDeleteModal && deleteRoom && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Xác nhận xóa</h3>
@@ -1000,7 +1096,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       )}
 
       {showCannotDeleteModal && blockedDeleteRoom && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Không thể xóa phòng</h3>
@@ -1025,6 +1121,66 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function RoomImageGrid({
+  inputId,
+  previews,
+  onRemove,
+  onPreview,
+}: {
+  inputId: string;
+  previews: string[];
+  onRemove: (index: number) => void;
+  onPreview: (src: string, index: number) => void;
+}) {
+  return (
+    <div className="flex w-full items-start gap-3 overflow-x-auto pb-1">
+      <label
+        htmlFor={inputId}
+        className="flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded border-2 border-dashed border-gray-300 bg-gray-50 text-center transition-colors hover:border-gray-400 hover:bg-gray-100"
+        title="Bấm để chọn ảnh phòng"
+      >
+        <Upload size={22} className="text-gray-400" />
+        <span className="px-2 text-xs font-medium text-gray-500">Add room image</span>
+      </label>
+
+      {Array.from({ length: ROOM_IMAGE_LIMIT }).map((_, index) => {
+        const preview = previews[index];
+
+        if (preview) {
+          return (
+            <div key={`${preview}-${index}`} className="group relative h-24 w-24 shrink-0 overflow-hidden rounded border border-gray-300 bg-white">
+              <button
+                type="button"
+                onClick={() => onPreview(preview, index)}
+                className="block h-full w-full"
+                title="Xem ảnh gốc"
+              >
+                <img src={preview} alt={`Ảnh phòng ${index + 1}`} className="h-full w-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                className="absolute right-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-xs font-semibold text-red-600 shadow hover:bg-red-50"
+                title="Bỏ ảnh"
+              >
+                X
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={`empty-${index}`}
+            className="h-24 w-24 shrink-0 rounded border border-gray-300 bg-white"
+            aria-label={`Ô ảnh phòng trống ${index + 1}`}
+          />
+        );
+      })}
     </div>
   );
 }

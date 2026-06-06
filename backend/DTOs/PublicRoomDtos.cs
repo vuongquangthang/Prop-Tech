@@ -38,6 +38,9 @@ public class PublicRoomDto
     public string Source { get; set; } = null!;
     public int RoomId { get; set; }
     public int? PostId { get; set; }
+    public bool IsLocked { get; set; }
+    public string Status { get; set; } = "active";
+    public string RoomStatus { get; set; } = "";
     public string Type { get; set; } = null!;
     public string UnitType { get; set; } = null!;
     public string RoomType { get; set; } = null!;

@@ -21,16 +21,29 @@ public class PublicRoomsController : ControllerBase
     };
 
     private readonly ApplicationDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public PublicRoomsController(ApplicationDbContext context)
+    public PublicRoomsController(ApplicationDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpGet]
     public async Task<ActionResult<List<PublicRoomDto>>> GetRooms()
     {
         return Ok(await LoadPublicRoomsAsync());
+    }
+
+    [HttpGet("/api/internal/public/rooms")]
+    public async Task<ActionResult<List<PublicRoomDto>>> GetRoomsForModeration()
+    {
+        if (!IsValidInternalKey())
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Invalid internal API key" });
+        }
+
+        return Ok(await LoadPublicRoomsAsync(includeLockedPosts: true, includeAutoRoomListings: false));
     }
 
     [HttpGet("search")]
@@ -57,7 +70,7 @@ public class PublicRoomsController : ControllerBase
         return Ok(ranked);
     }
 
-    private async Task<List<PublicRoomDto>> LoadPublicRoomsAsync()
+    private async Task<List<PublicRoomDto>> LoadPublicRoomsAsync(bool includeLockedPosts = false, bool includeAutoRoomListings = true)
     {
         var posts = await _context.BaiDangTimPhongs
             .AsNoTracking()
@@ -68,13 +81,23 @@ public class PublicRoomsController : ControllerBase
                 .ThenInclude(user => user!.Resident)
             .Include(item => item.CreatedByUser)
                 .ThenInclude(user => user!.OwnerUser)
-            .Where(item => !item.IsLocked && item.Status == "active")
+            .Where(item => includeLockedPosts
+                ? item.Status == "active" || item.Status == "paused" || item.IsLocked
+                : !item.IsLocked && item.Status == "active")
             .OrderByDescending(item => item.CreatedAt)
             .ToListAsync();
 
+        if (!includeLockedPosts)
+        {
+            posts = posts
+                .Where(item => !IsOccupiedStatus(item.Room?.Status ?? item.RoomStatus))
+                .ToList();
+        }
+
         var postedRoomIds = posts.Select(item => item.RoomId).ToHashSet();
 
-        var rooms = await _context.Rooms
+        var rooms = includeAutoRoomListings
+            ? await _context.Rooms
             .AsNoTracking()
             .Include(item => item.Floor)
                 .ThenInclude(item => item.Building)
@@ -84,7 +107,8 @@ public class PublicRoomsController : ControllerBase
                 (item.Status == "Trống" || item.Status == "Trong" || item.Status == "available")
                 && !postedRoomIds.Contains(item.Id))
             .OrderBy(item => item.RoomCode)
-            .ToListAsync();
+            .ToListAsync()
+            : new List<Room>();
 
         var serviceMap = await LoadServiceMapAsync(posts, rooms);
 
@@ -157,6 +181,21 @@ public class PublicRoomsController : ControllerBase
             .ToDictionaryAsync(service => service.Id);
     }
 
+    private bool IsValidInternalKey()
+    {
+        var configured = _configuration["InternalApiKey"] ?? "dev-internal-key";
+        return Request.Headers.TryGetValue("X-Internal-Api-Key", out var apiKey)
+            && apiKey == configured;
+    }
+
+    private static bool IsOccupiedStatus(string? status)
+    {
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized.Contains("thu")
+            || normalized.Contains("thue")
+            || normalized is "rented" or "occupied";
+    }
+
     private static PublicRoomDto MapPost(BaiDangTimPhong post)
     {
         var room = post.Room;
@@ -200,6 +239,9 @@ public class PublicRoomsController : ControllerBase
             Source = "post",
             RoomId = post.RoomId,
             PostId = post.Id,
+            IsLocked = post.IsLocked,
+            Status = post.Status,
+            RoomStatus = room?.Status ?? post.RoomStatus,
             Type = isShared ? "shared" : availableNow ? "whole" : "available-from",
             UnitType = unitType,
             RoomType = unitType == "apartment" ? "apartment" : "single-room",
@@ -260,6 +302,9 @@ public class PublicRoomsController : ControllerBase
             Id = $"room-{room.Id}",
             Source = "room",
             RoomId = room.Id,
+            IsLocked = false,
+            Status = "active",
+            RoomStatus = room.Status,
             Type = "whole",
             UnitType = unitType,
             RoomType = unitType == "apartment" ? "apartment" : "single-room",
@@ -400,12 +445,14 @@ public class PublicRoomsController : ControllerBase
             }
         }
 
-        if (query.MinPrice is > 0 && room.Price < query.MinPrice.Value)
+        var searchPrice = GetSearchPrice(room);
+
+        if (query.MinPrice is > 0 && searchPrice < query.MinPrice.Value)
         {
             return false;
         }
 
-        if (query.MaxPrice is > 0 && room.Price > query.MaxPrice.Value)
+        if (query.MaxPrice is > 0 && searchPrice > query.MaxPrice.Value)
         {
             return false;
         }
@@ -535,17 +582,31 @@ public class PublicRoomsController : ControllerBase
             return 1;
         }
 
-        if (query.MinPrice is > 0 && room.Price < query.MinPrice.Value)
+        var searchPrice = GetSearchPrice(room);
+
+        if (query.MinPrice is > 0 && searchPrice < query.MinPrice.Value)
         {
             return 0;
         }
 
-        if (query.MaxPrice is > 0 && room.Price > query.MaxPrice.Value)
+        if (query.MaxPrice is > 0 && searchPrice > query.MaxPrice.Value)
         {
             return 0;
         }
 
         return 1;
+    }
+
+    private static decimal GetSearchPrice(PublicRoomDto room)
+    {
+        if (string.Equals(room.Type, "shared", StringComparison.OrdinalIgnoreCase)
+            && room.Shared is not null
+            && room.Shared.SharedPrice > 0)
+        {
+            return room.Shared.SharedPrice;
+        }
+
+        return room.Price;
     }
 
     private static double ScoreHygiene(int roomScore, int? minHygiene)

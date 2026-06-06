@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, X, ChevronRight, Filter, FileText, AlertTriangle, Edit2 } from 'lucide-react';
 import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
@@ -199,7 +199,7 @@ export function DraftInvoicesPage() {
               <div style={{ color: '#b45309', marginTop: '4px' }}>
                 ⚠️ Bỏ qua <strong>{calcResult.skipped}</strong> hợp đồng đã có hóa đơn tháng này.
                 {calcResult.skippedReasons.length > 0 && (
-                  <ul style={{ marginTop: '4px', paddingLeft: '16px', fontSize: '12px' }}>
+                  <ul style={{ marginTop: '4px', paddingLeft: '16px', fontSize: 'var(--type-caption)' }}>
                     {calcResult.skippedReasons.map((r, i) => <li key={i}>{r}</li>)}
                   </ul>
                 )}
@@ -337,7 +337,7 @@ export function DraftInvoicesPage() {
                   <div key={item.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                     <div>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>{ITEM_TYPE_LABELS[item.itemType] || item.itemType}</div>
-                      {item.description && <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.description}</div>}
+                      {item.description && <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{item.description}</div>}
                     </div>
                     <div style={{ fontSize: '14px', fontWeight: 700, textAlign: 'right', flexShrink: 0, marginLeft: '8px' }}>
                       {item.subtotal.toLocaleString('vi-VN')} đ
@@ -377,7 +377,7 @@ export function DraftInvoicesPage() {
                 </button>
               </div>
 
-              <div style={{ padding: '10px', backgroundColor: '#fef9c3', border: '1px solid #fde047', borderRadius: '8px', fontSize: '12px', color: '#854d0e' }}>
+              <div style={{ padding: '10px', backgroundColor: '#fef9c3', border: '1px solid #fde047', borderRadius: '8px', fontSize: 'var(--type-caption)', color: '#854d0e' }}>
                 <AlertTriangle size={12} className="inline mr-1" />
                 Sau khi phê duyệt, cư dân sẽ nhận thông báo và thấy hóa đơn này trên app.
               </div>
@@ -388,7 +388,7 @@ export function DraftInvoicesPage() {
 
       {/* Confirm batch approve dialog */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[420px] p-6 space-y-4">
             <div className="flex items-center gap-3">
               <CheckCircle size={24} className="text-green-600" />
