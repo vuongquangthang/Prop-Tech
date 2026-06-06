@@ -32,6 +32,7 @@ const routeTitles: Record<string, string> = {
 export function AdminLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   // Check if we're on pages that need padding
   const needsPadding = !['/building-management'].includes(location.pathname);
@@ -40,24 +41,51 @@ export function AdminLayout() {
   const currentTitle = routeTitles[location.pathname] || 'Bảng điều khiển';
 
   return (
-    <div className="min-h-screen bg-surface-bg text-text-primary">
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div
+      className={`min-h-screen bg-surface-bg text-text-primary ${sidebarCollapsed ? 'sidebar-is-collapsed' : 'sidebar-is-expanded'}`}
+    >
+      <style>{`
+        .admin-main-content {
+          margin-top: 64px;
+          min-height: calc(100vh - 64px);
+          transition: margin-left 0.2s ease;
+        }
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          {/* Topbar */}
-          <Topbar title={currentTitle} onMenuToggle={() => setSidebarOpen(o => !o)} />
-          
-          {/* Content Area */}
-          <main className="flex-1 overflow-y-auto overflow-x-hidden">
-            <div className={needsPadding ? 'app-page-shell app-section' : ''}>
-              <Outlet />
-            </div>
-          </main>
+        .admin-topbar {
+          transition: left 0.2s ease;
+        }
+
+        @media (min-width: 1280px) {
+          .sidebar-is-expanded .admin-topbar {
+            left: 288px !important;
+          }
+
+          .sidebar-is-collapsed .admin-topbar {
+            left: 80px !important;
+          }
+
+          .sidebar-is-expanded .admin-main-content {
+            margin-left: 288px;
+          }
+
+          .sidebar-is-collapsed .admin-main-content {
+            margin-left: 80px;
+          }
+        }
+      `}</style>
+      <Topbar title={currentTitle} onMenuToggle={() => setSidebarOpen(o => !o)} />
+      <Sidebar
+        isOpen={sidebarOpen}
+        isCollapsed={sidebarCollapsed}
+        onClose={() => setSidebarOpen(false)}
+        onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+      />
+
+      <main className="admin-main-content overflow-x-hidden">
+        <div className={needsPadding ? 'app-page-shell app-section' : ''}>
+          <Outlet />
         </div>
-      </div>
+      </main>
     </div>
   );
 }

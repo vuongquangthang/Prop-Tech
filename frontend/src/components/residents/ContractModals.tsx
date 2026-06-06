@@ -1,4 +1,4 @@
-﻿
+
 export function EditContractModal({ contract, onClose, onSuccess }: ContractModalProps) {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -212,7 +212,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   };
 
   if (loading) {
-    return (<div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    return (<div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[400px] p-10 flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
         <p className="text-gray-600">Đang tải thông tin hợp đồng...</p>
@@ -223,7 +223,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const mainResident = tenantList?.find((r: any) => r.residencyRole === 'Người thuê chính');
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -839,7 +839,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -1342,7 +1342,7 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60]">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center space-x-2">
@@ -1565,7 +1565,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="admin-content-modal-overlay">
         <div className="bg-white rounded-lg w-[400px] p-10 flex flex-col items-center justify-center">
           <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
           <p className="text-gray-600">Đang tải chi tiết hợp đồng...</p>
@@ -1575,7 +1575,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -1942,7 +1942,7 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
   const getResidentEmail = (r: any) => r?.email || '---';
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[800px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">

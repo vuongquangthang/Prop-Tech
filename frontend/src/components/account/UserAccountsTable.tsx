@@ -1,4 +1,4 @@
-﻿import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, Phone, UserRound, Shield, KeyRound } from 'lucide-react';
+import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, Phone, UserRound, Shield, KeyRound } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
 
@@ -354,7 +354,7 @@ export function UserAccountsTable() {
       </div>
 
       {showViewModal && viewUser && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-xl w-[980px] max-w-[96vw] max-h-[88vh] shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
             <div className="px-6 py-4 flex items-center justify-between bg-gradient-to-r from-gray-900 to-gray-700">
               <div className="flex items-center gap-3">
@@ -363,7 +363,7 @@ export function UserAccountsTable() {
                 </div>
                 <div className="text-left leading-tight">
                   <h3 className="text-white" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin tài khoản</h3>
-                  <p className="text-white/95 text-left mt-0.5" style={{ fontSize: '13px', fontWeight: 500 }}>Xem nhanh và sao chép thông tin đăng nhập</p>
+                  <p className="text-white/95 text-left mt-0.5" style={{ fontSize: 'var(--type-caption)', fontWeight: 500 }}>Xem nhanh và sao chép thông tin đăng nhập</p>
                 </div>
               </div>
               <button onClick={() => setShowViewModal(false)} className="p-1 hover:bg-white/15 rounded">
@@ -448,7 +448,7 @@ export function UserAccountsTable() {
       
       {/* Lock/Unlock Confirmation Modal */}
       {showLockModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>
@@ -534,7 +534,7 @@ export function UserAccountsTable() {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[600px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>

@@ -289,7 +289,8 @@ export const notificationService = {
       );
       return response.data;
     } catch (error) {
-      throw new Error(handleApiError(error));
+      console.warn('Notification list is unavailable:', handleApiError(error));
+      return [];
     }
   },
 
@@ -325,7 +326,8 @@ export const notificationService = {
       );
       return response.data;
     } catch (error) {
-      throw new Error(handleApiError(error));
+      console.warn('Admin notifications are unavailable:', handleApiError(error));
+      return [];
     }
   },
 

@@ -1,4 +1,4 @@
-﻿import { X, AlertTriangle, Lock, UserCheck, User, Phone } from 'lucide-react';
+import { X, AlertTriangle, Lock, UserCheck, User, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { residentService, userService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
@@ -38,7 +38,7 @@ export function AddResidentModal({ onClose, onSuccess }: ModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center space-x-2">
@@ -143,7 +143,7 @@ export function EditResidentModal({ resident, onClose, onSuccess }: ModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center space-x-2">
@@ -247,7 +247,7 @@ export function LockAccountModal({ resident, onClose, onSuccess }: ModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[550px]">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -306,7 +306,7 @@ export function UnlockAccountModal({ resident, onClose, onSuccess }: ModalProps)
   };
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[550px]">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">

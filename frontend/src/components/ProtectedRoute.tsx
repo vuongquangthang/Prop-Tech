@@ -67,6 +67,15 @@ export function AdminRoute({ children }: { children: ReactNode }) {
   );
 }
 
+// Wrapper for post listing/message routes used by owners and managers
+export function PostOwnerRoute({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER]}>
+      {children}
+    </ProtectedRoute>
+  );
+}
+
 // Wrapper for Accountant routes
 export function AccountantRoute({ children }: { children: ReactNode }) {
   return (
@@ -86,11 +95,17 @@ export function StaffRoute({ children }: { children: ReactNode }) {
 }
 
 // Public route - accessible without authentication
-export function PublicRoute({ children }: { children: ReactNode }) {
+export function PublicRoute({
+  children,
+  redirectAuthenticated = true,
+}: {
+  children: ReactNode;
+  redirectAuthenticated?: boolean;
+}) {
   const { isAuthenticated, user } = useAuth();
 
   // If already authenticated, redirect to default route
-  if (isAuthenticated && user) {
+  if (redirectAuthenticated && isAuthenticated && user) {
     const defaultRoute = getDefaultRoute(user.role);
     return <Navigate to={defaultRoute} replace />;
   }

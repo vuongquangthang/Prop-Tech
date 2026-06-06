@@ -18,7 +18,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (phoneNumber: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }
@@ -97,21 +97,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    try {
-      // Call logout endpoint if needed
-      await api.post(API_ENDPOINTS.AUTH.LOGOUT);
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // Clear local storage
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+    // Clear local auth immediately so navigation is not blocked by a slow logout API.
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
 
-      // Clear state
-      setToken(null);
-      setUser(null);
-    }
+    void api.post(API_ENDPOINTS.AUTH.LOGOUT).catch((error) => {
+      console.error('Logout error:', error);
+    });
   };
 
   const register = async (data: RegisterRequest) => {

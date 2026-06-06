@@ -154,3 +154,22 @@ Nếu Swagger không mở:
 - Đảm bảo chạy bằng `dotnet run --launch-profile http`.
 - Kiểm tra console có dòng app đang listen trên `http://0.0.0.0:5052`.
 
+## 8. Sau khi pull code moi
+
+Neu pull co thay doi trong `backend/`, khong chi chay lai frontend. Hay restart backend de `Program.cs` chay lai phan ensure schema/seed data.
+
+Luong dev khuyen nghi:
+
+```powershell
+cd D:\Web_TroUyTin\Prop-Tech\Prop-Tech\backend
+dotnet run --launch-profile http
+```
+
+Neu frontend bao loi:
+
+```text
+GET http://localhost:5052/api/Notifications/unread-count 500
+GET http://localhost:5052/api/Notifications/my-notifications?unreadOnly=false 500
+```
+
+nguyen nhan thuong la database dev chua duoc va schema `notifications.owner_user_id`. Restart backend de backend tu ensure schema. Neu van loi, kiem tra DB `apartment_management_dev` co cot `notifications.owner_user_id` chua.

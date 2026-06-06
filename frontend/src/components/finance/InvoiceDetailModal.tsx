@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Send, CheckCircle, AlertTriangle, User, Clock, ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -122,7 +122,7 @@ function InfoCard({ title, headerRight, children }: { title: string; headerRight
   return (
     <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' }}>
       <div style={{ backgroundColor: '#f9fafb', padding: '10px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontWeight: 600, fontSize: '13px', color: '#374151' }}>{title}</span>
+        <span style={{ fontWeight: 600, fontSize: 'var(--type-caption)', color: '#374151' }}>{title}</span>
         {headerRight}
       </div>
       <div style={{ padding: '12px 16px' }}>{children}</div>
@@ -132,7 +132,7 @@ function InfoCard({ title, headerRight, children }: { title: string; headerRight
 
 function InfoRow({ label, value, bold }: { label: string; value: React.ReactNode; bold?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '13px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 'var(--type-caption)' }}>
       <span style={{ color: '#6b7280' }}>{label}:</span>
       <span style={{ fontWeight: bold ? 700 : 500, color: '#111827' }}>{value}</span>
     </div>
@@ -152,10 +152,10 @@ function LineItemCard({ item }: { item: LineItem }) {
         </span>
       </div>
       {lines.map((ln, i) => (
-        <div key={i} style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px', lineHeight: 1.5 }}>{ln}</div>
+        <div key={i} style={{ fontSize: 'var(--type-caption)', color: '#6b7280', marginTop: '2px', lineHeight: 1.5 }}>{ln}</div>
       ))}
       {item.unit && (
-        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{item.unit}</div>
+        <div style={{ fontSize: 'var(--type-caption)', color: '#6b7280', marginTop: '2px' }}>{item.unit}</div>
       )}
     </div>
   );
@@ -253,10 +253,10 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                     value={<span style={{ fontWeight: 700, color: detail.dueDate && new Date(detail.dueDate) < new Date() && detail.status !== 'Đã thanh toán' ? '#dc2626' : '#111827' }}>{fmtDate(detail.dueDate)}</span>}
                     bold
                   />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 'var(--type-caption)' }}>
                     <span style={{ color: '#6b7280' }}>Trạng thái:</span>
                     {statusInfo && (
-                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, backgroundColor: statusInfo.bg, color: statusInfo.color }}>
+                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: 'var(--type-caption)', fontWeight: 600, backgroundColor: statusInfo.bg, color: statusInfo.color }}>
                         {statusInfo.label}
                       </span>
                     )}
@@ -273,13 +273,13 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                 <InfoCard
                   title="Thành viên trong hộ"
                   headerRight={members.length > 0 ? (
-                    <span style={{ fontSize: '12px', fontWeight: 600, backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '12px' }}>
+                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '12px' }}>
                       {members.length} người
                     </span>
                   ) : undefined}
                 >
                   {members.length === 0 ? (
-                    <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>
                       Không có dữ liệu thành viên
                     </div>
                   ) : (
@@ -289,11 +289,11 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                           <User size={16} style={{ color: '#9ca3af' }} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{m.fullName || '—'}</div>
-                          {m.phoneNumber && <div style={{ fontSize: '12px', color: '#6b7280' }}>{m.phoneNumber}</div>}
+                          <div style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: '#111827' }}>{m.fullName || '—'}</div>
+                          {m.phoneNumber && <div style={{ fontSize: 'var(--type-caption)', color: '#6b7280' }}>{m.phoneNumber}</div>}
                         </div>
                         <span style={{
-                          fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid',
+                          fontSize: 'var(--type-caption)', padding: '2px 8px', borderRadius: '4px', border: '1px solid',
                           flexShrink: 0,
                           backgroundColor: (m.residencyRole === 'Người thuê chính' || m.residencyRole === 'Người thuê') ? 'rgba(30, 78, 140, 0.08)' : 'white',
                           borderColor: (m.residencyRole === 'Người thuê chính' || m.residencyRole === 'Người thuê') ? 'rgba(30, 78, 140, 0.28)' : 'var(--surface-border)',
@@ -305,7 +305,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                     ))
                   )}
                   {members.length > 0 && (
-                    <div style={{ marginTop: '10px', padding: '8px 10px', backgroundColor: 'rgba(21, 128, 61, 0.08)', border: '1px solid rgba(21, 128, 61, 0.18)', borderRadius: '8px', fontSize: '12px', color: 'var(--success)' }}>
+                    <div style={{ marginTop: '10px', padding: '8px 10px', backgroundColor: 'rgba(21, 128, 61, 0.08)', border: '1px solid rgba(21, 128, 61, 0.18)', borderRadius: '8px', fontSize: 'var(--type-caption)', color: 'var(--success)' }}>
                       Tất cả {members.length} người đã nhận thông báo qua App cư dân. Chỉ chủ hộ có quyền thanh toán.
                     </div>
                   )}
@@ -314,21 +314,21 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                 {/* Lịch sử thông báo */}
                 <InfoCard title="Lịch sử thông báo">
                   {detail.approvedAt ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--type-caption)' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)', flexShrink: 0 }} />
                       <span style={{ color: 'var(--text-secondary)', flex: 1 }}>Gửi hóa đơn lần đầu</span>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>
                         {fmtDate(detail.approvedAt)} {detail.approvedAt ? new Date(detail.approvedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''} — Đã gửi cho {sendCount} thành viên ✅
                       </span>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                       <Clock size={14} />
                       <span>Chưa gửi thông báo</span>
                     </div>
                   )}
                   <button
-                    style={{ marginTop: '10px', fontSize: '12px', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}
+                    style={{ marginTop: '10px', fontSize: 'var(--type-caption)', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}
                   >
                     <ChevronRight size={13} />
                     Xem chi tiết trong <strong>Công nợ &amp; Nhắc nợ</strong>
@@ -338,12 +338,12 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
 
               {/* RIGHT column — Chi tiết khoản thu */}
               <div>
-                <div style={{ marginBottom: '12px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>Chi tiết các khoản thu</div>
+                <div style={{ marginBottom: '12px', fontSize: 'var(--type-caption)', fontWeight: 600, color: '#374151' }}>Chi tiết các khoản thu</div>
 
                 {(detail.lineItems ?? []).length > 0 ? (
                   (detail.lineItems ?? []).map(item => <LineItemCard key={item.id} item={item} />)
                 ) : (
-                  <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '24px 0' }}>Không có chi tiết khoản thu</div>
+                  <div style={{ fontSize: 'var(--type-caption)', color: '#9ca3af', textAlign: 'center', padding: '24px 0' }}>Không có chi tiết khoản thu</div>
                 )}
 
                 {/* Tổng cộng */}
@@ -356,7 +356,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
 
                 {/* Draft warning */}
                 {isDraft && (
-                  <div style={{ marginTop: '12px', padding: '10px 12px', backgroundColor: 'rgba(180, 83, 9, 0.08)', border: '1px solid rgba(180, 83, 9, 0.18)', borderRadius: '8px', fontSize: '12px', color: 'var(--warning)', display: 'flex', gap: '6px' }}>
+                  <div style={{ marginTop: '12px', padding: '10px 12px', backgroundColor: 'rgba(180, 83, 9, 0.08)', border: '1px solid rgba(180, 83, 9, 0.18)', borderRadius: '8px', fontSize: 'var(--type-caption)', color: 'var(--warning)', display: 'flex', gap: '6px' }}>
                     <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
                     <span>Sau khi phê duyệt, cư dân sẽ nhận thông báo và thấy hóa đơn này trên app.</span>
                   </div>
@@ -369,21 +369,21 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
         {/* Footer */}
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
-            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
             onClick={() => window.print()}
           >
             <Printer size={14} />
             In hóa đơn
           </button>
           <button
-            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Send size={14} />
             Gửi lại cho {sendCount > 0 ? `${sendCount} người` : 'cư dân'}
           </button>
           {isDraft && detail && (
             <button
-              style={{ padding: '8px 16px', backgroundColor: 'var(--info)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '8px 16px', backgroundColor: 'var(--info)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
               onClick={() => { onApprove(detail.id); onClose(); }}
             >
               <CheckCircle size={14} />
@@ -393,7 +393,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
           <div style={{ flex: 1 }} />
           <button
             onClick={onClose}
-            style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: '12px', fontSize: '13px', cursor: 'pointer', background: 'white', color: 'var(--text-primary)', fontWeight: 500 }}
+            style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: '12px', fontSize: 'var(--type-caption)', cursor: 'pointer', background: 'white', color: 'var(--text-primary)', fontWeight: 500 }}
           >
             Đóng
           </button>

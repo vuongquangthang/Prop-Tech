@@ -252,7 +252,7 @@ function SettlementDetailModal({ settlement, loading, onClose }: { settlement: a
   const details: any[] = Array.isArray(settlement?.details) ? settlement.details : [];
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="admin-content-modal-overlay">
       <div className="w-full max-w-3xl bg-white rounded-xl border border-gray-300 shadow-lg max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -571,13 +571,13 @@ function CreateSettlementTab() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-gray-700">Công nợ hiện tại</p>
-                    <p className="text-[11px] text-gray-500">Lấy tự động từ hóa đơn chưa thanh toán và thanh toán một phần.</p>
+                    <p className="text-sm text-gray-500">Lấy tự động từ hóa đơn chưa thanh toán và thanh toán một phần.</p>
                   </div>
                   <div className="min-w-40 text-right">
                     <p className="text-sm font-medium text-red-700">
                       {loadingDebt ? 'Đang tải...' : formatAmount(String(outstandingDebt))}
                     </p>
-                    <p className="text-[11px] text-gray-500">VNĐ</p>
+                    <p className="text-sm text-gray-500">VNĐ</p>
                   </div>
                 </div>
               </div>

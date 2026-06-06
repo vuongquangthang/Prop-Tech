@@ -13,6 +13,8 @@ public interface IPostService
     Task<PostDto?> GetByIdAsync(int id, int? ownerUserId = null);
     Task<PostDto?> GetByUserIdAsync(int userId);
     Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null, int? ownerUserId = null);
+    Task<PostDto> RecordViewAsync(int id);
+    Task<PostDto> SyncMessageCountAsync(int id, int messages);
     Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null, int? ownerUserId = null);
     Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null, int? ownerUserId = null);
     Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20, int? ownerUserId = null);
@@ -22,6 +24,8 @@ public interface IPostService
 public class PostService : IPostService
 {
     private const string PostEntityType = nameof(BaiDangTimPhong);
+    private const string ActivePostStatus = "active";
+    private const string PausedPostStatus = "paused";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -120,7 +124,15 @@ public class PostService : IPostService
             }
         }
 
+        var hasExistingPost = await _context.BaiDangTimPhongs
+            .AnyAsync(item => item.RoomId == room.Id);
+        if (hasExistingPost)
+        {
+            throw new InvalidOperationException("Phòng này đã có bài đăng");
+        }
+
         var now = DateTime.UtcNow;
+        var isRoomOccupied = IsRoomOccupiedStatus(room.Status);
         var post = new BaiDangTimPhong
         {
             RoomId = room.Id,
@@ -135,8 +147,8 @@ public class PostService : IPostService
             CreatedAt = now,
             Views = 0,
             Messages = 0,
-            IsLocked = false,
-            Status = "active",
+            IsLocked = isRoomOccupied,
+            Status = isRoomOccupied ? PausedPostStatus : ActivePostStatus,
             RoomStatus = room.Status,
             MoveInType = dto.MoveInType,
             MoveInDate = dto.MoveInDate,
@@ -155,6 +167,46 @@ public class PostService : IPostService
         await _context.BaiDangTimPhongs.AddAsync(post);
         await _context.SaveChangesAsync();
         await LogHistoryAsync(createdByUserId, post.Id, "CREATE", BuildCreateSummary(post), BuildCreateChanges(post));
+
+        return MapToDto(post);
+    }
+
+    public async Task<PostDto> RecordViewAsync(int id)
+    {
+        var post = await _context.BaiDangTimPhongs
+            .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.IsLocked && item.Status == "active");
+
+        if (post == null)
+        {
+            throw new InvalidOperationException("Bài đăng không tồn tại hoặc không đang hiển thị");
+        }
+
+        post.Views += 1;
+        await _context.SaveChangesAsync();
+
+        return MapToDto(post);
+    }
+
+    public async Task<PostDto> SyncMessageCountAsync(int id, int messages)
+    {
+        var post = await _context.BaiDangTimPhongs
+            .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .FirstOrDefaultAsync(item => item.Id == id);
+
+        if (post == null)
+        {
+            throw new InvalidOperationException("Bài đăng không tồn tại");
+        }
+
+        post.Messages = Math.Max(0, messages);
+        await _context.SaveChangesAsync();
 
         return MapToDto(post);
     }
@@ -182,8 +234,9 @@ public class PostService : IPostService
         var oldIsLocked = post.IsLocked;
         var oldStatus = post.Status;
 
+        post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
         post.IsLocked = isLocked;
-        post.Status = isLocked ? "paused" : "active";
+        post.Status = post.IsLocked ? PausedPostStatus : ActivePostStatus;
         await _context.SaveChangesAsync();
         if (oldIsLocked != post.IsLocked || oldStatus != post.Status)
         {
@@ -395,6 +448,15 @@ public class PostService : IPostService
         await _context.SaveChangesAsync();
     }
 
+    private static bool IsRoomOccupiedStatus(string? status)
+    {
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized.Contains("thuê")
+            || normalized.Contains("thuÃª")
+            || normalized.Contains("thue")
+            || normalized is "rented" or "occupied";
+    }
+
     private static PostDto MapToDto(BaiDangTimPhong post)
     {
         return new PostDto
@@ -415,7 +477,7 @@ public class PostService : IPostService
             Messages = post.Messages,
             IsLocked = post.IsLocked,
             Status = post.Status,
-            RoomStatus = post.RoomStatus,
+            RoomStatus = post.Room?.Status ?? post.RoomStatus,
             MoveInType = post.MoveInType,
             MoveInDate = post.MoveInDate,
             FloodProne = post.FloodProne,

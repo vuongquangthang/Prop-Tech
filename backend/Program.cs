@@ -228,7 +228,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Seed demo users on startup
+// Ensure database schema and compatibility fixes on startup
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -240,7 +240,7 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("🔨 Creating new database...");
         context.Database.EnsureCreated();
 
-        // Ensure posts table exists before any later seed/query touches it.
+        // Ensure posts table exists before any later query touches it.
         // Some existing databases may have the rest of the schema but be missing this table.
         try
         {
@@ -325,6 +325,10 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE LICH_SU_CHAT ADD IS_KNOWLEDGE_GAP BIT NOT NULL CONSTRAINT DF_LICH_SU_CHAT_IS_KNOWLEDGE_GAP DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'TIEN_NGHI_JSON')
                     ALTER TABLE BAI_DANG_TIM_PHONG ADD TIEN_NGHI_JSON NVARCHAR(MAX) NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_TIEN_NGHI_JSON DEFAULT('[]');
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'LUOT_XEM')
+                    ALTER TABLE BAI_DANG_TIM_PHONG ADD LUOT_XEM INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_LUOT_XEM DEFAULT(0);
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'TIN_NHAN')
+                    ALTER TABLE BAI_DANG_TIM_PHONG ADD TIN_NHAN INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_TIN_NHAN DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'SO_NGUOI_DANG_O')
                     ALTER TABLE BAI_DANG_TIM_PHONG ADD SO_NGUOI_DANG_O INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('YEU_CAU_SUA_CHUA') AND name = 'UPDATED_AT')
@@ -341,6 +345,64 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE CHI_SO_NUOC ADD ANOMALY_NOTE NVARCHAR(500) NULL;
             """);
             Console.WriteLine("✅ HOA_DON columns ensured");
+
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('dbo.BAI_DANG_TIM_PHONG', 'U') IS NOT NULL
+                   AND OBJECT_ID('dbo.PHONG', 'U') IS NOT NULL
+                BEGIN
+                    IF OBJECT_ID('dbo.HOP_DONG', 'U') IS NOT NULL
+                    BEGIN
+                        UPDATE p
+                        SET TRANG_THAI = N'Đã thuê'
+                        FROM PHONG p
+                        WHERE EXISTS (
+                            SELECT 1
+                            FROM HOP_DONG hd
+                            WHERE hd.PHONG_ID = p.PHONG_ID
+                              AND (hd.NGAY_KET_THUC_DU_KIEN IS NULL OR hd.NGAY_KET_THUC_DU_KIEN > SYSUTCDATETIME())
+                        );
+
+                        UPDATE p
+                        SET TRANG_THAI = N'Trống'
+                        FROM PHONG p
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM HOP_DONG hd
+                            WHERE hd.PHONG_ID = p.PHONG_ID
+                              AND (hd.NGAY_KET_THUC_DU_KIEN IS NULL OR hd.NGAY_KET_THUC_DU_KIEN > SYSUTCDATETIME())
+                        )
+                        AND (
+                            LOWER(LTRIM(RTRIM(p.TRANG_THAI))) LIKE N'%thuê%'
+                            OR LOWER(LTRIM(RTRIM(p.TRANG_THAI))) LIKE N'%thuÃª%'
+                            OR LOWER(LTRIM(RTRIM(p.TRANG_THAI))) LIKE N'%thue%'
+                            OR LOWER(LTRIM(RTRIM(p.TRANG_THAI))) IN ('rented', 'occupied')
+                        );
+
+                        UPDATE bd
+                        SET IS_LOCKED = CASE WHEN active_room.PHONG_ID IS NULL THEN 0 ELSE 1 END,
+                            TRANG_THAI_BAI_DANG = CASE WHEN active_room.PHONG_ID IS NULL THEN 'active' ELSE 'paused' END,
+                            TRANG_THAI_PHONG = p.TRANG_THAI
+                        FROM BAI_DANG_TIM_PHONG bd
+                        INNER JOIN PHONG p ON p.PHONG_ID = bd.PHONG_ID
+                        OUTER APPLY (
+                            SELECT TOP 1 hd.PHONG_ID
+                            FROM HOP_DONG hd
+                            WHERE hd.PHONG_ID = bd.PHONG_ID
+                              AND (hd.NGAY_KET_THUC_DU_KIEN IS NULL OR hd.NGAY_KET_THUC_DU_KIEN > SYSUTCDATETIME())
+                        ) active_room;
+                    END
+                    ELSE
+                    BEGIN
+                        UPDATE bd
+                        SET IS_LOCKED = 0,
+                            TRANG_THAI_BAI_DANG = 'active',
+                            TRANG_THAI_PHONG = p.TRANG_THAI
+                        FROM BAI_DANG_TIM_PHONG bd
+                        INNER JOIN PHONG p ON p.PHONG_ID = bd.PHONG_ID;
+                    END
+                END;
+            """);
+            Console.WriteLine("Post lock and room status consistency ensured");
 
             context.Database.ExecuteSqlRaw("""
                 DECLARE @DefaultOwnerUserId INT = (
@@ -437,21 +499,34 @@ using (var scope = app.Services.CreateScope())
                 BEGIN
                     IF COL_LENGTH('notifications', 'owner_user_id') IS NULL
                         ALTER TABLE notifications ADD owner_user_id INT NULL;
+                END;
+            """);
 
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('notifications', 'U') IS NOT NULL
+                BEGIN
                     IF NOT EXISTS (
                         SELECT 1 FROM sys.indexes
                         WHERE name = 'IX_notifications_owner_user_id'
                           AND object_id = OBJECT_ID('notifications')
                     )
                         CREATE INDEX IX_notifications_owner_user_id ON notifications(owner_user_id);
+                END;
+            """);
 
-                    UPDATE n
-                    SET owner_user_id = COALESCE(recipient.OWNER_USER_ID, sender.OWNER_USER_ID, sender.USER_ID)
-                    FROM notifications n
-                    LEFT JOIN [USER] recipient ON recipient.USER_ID = n.recipient_id
-                    LEFT JOIN [USER] sender ON sender.USER_ID = n.user_id
-                    WHERE n.owner_user_id IS NULL
-                      AND COALESCE(recipient.OWNER_USER_ID, sender.OWNER_USER_ID, sender.USER_ID) IS NOT NULL;
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('notifications', 'U') IS NOT NULL
+                   AND COL_LENGTH('notifications', 'owner_user_id') IS NOT NULL
+                BEGIN
+                    EXEC(N'
+                        UPDATE n
+                        SET owner_user_id = COALESCE(recipient.OWNER_USER_ID, sender.OWNER_USER_ID, sender.USER_ID)
+                        FROM notifications n
+                        LEFT JOIN [USER] recipient ON recipient.USER_ID = n.recipient_id
+                        LEFT JOIN [USER] sender ON sender.USER_ID = n.user_id
+                        WHERE n.owner_user_id IS NULL
+                          AND COALESCE(recipient.OWNER_USER_ID, sender.OWNER_USER_ID, sender.USER_ID) IS NOT NULL;
+                    ');
                 END;
             """);
             Console.WriteLine("Notification owner scope ensured");
@@ -472,199 +547,16 @@ using (var scope = app.Services.CreateScope())
             ");
             Console.WriteLine("✅ Resident emails ensured");
 
-            // Upgrade legacy sample assets (common-area) to in-room assets for existing databases
-            context.Database.ExecuteSqlRaw(@"
-                DELETE FROM CHI_TIET_TAI_SAN_PHONG
-                WHERE TAI_SAN_ID IN (
-                    SELECT TAI_SAN_ID FROM TAI_SAN
-                    WHERE MA_TAI_SAN IN ('THANGMAY-01', 'DIEUHOA-SANH', 'MAYPHATSONG-WIFI', 'CAMERA-SANH-01', 'BANGHEXUONG')
-                );
-
-                DELETE FROM TAI_SAN
-                WHERE MA_TAI_SAN IN ('THANGMAY-01', 'DIEUHOA-SANH', 'MAYPHATSONG-WIFI', 'CAMERA-SANH-01', 'BANGHEXUONG');
-
-                DECLARE @AssetOwnerUserId INT = (
-                    SELECT TOP 1 USER_ID
-                    FROM [USER]
-                    WHERE VAI_TRO IN (N'Admin', N'QuanLy')
-                    ORDER BY CASE WHEN SO_DIEN_THOAI = 'propadmin173852' THEN 0 ELSE 1 END, USER_ID
-                );
-
-                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-DIEUHOA')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Điều hòa', 'TS-PHONG-DIEUHOA', @AssetOwnerUserId);
-                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-MAYGIAT')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Máy giặt', 'TS-PHONG-MAYGIAT', @AssetOwnerUserId);
-                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-GIUONG')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Giường', 'TS-PHONG-GIUONG', @AssetOwnerUserId);
-                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TULANH')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Tủ lạnh', 'TS-PHONG-TULANH', @AssetOwnerUserId);
-                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TUQUANAO')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Tủ quần áo', 'TS-PHONG-TUQUANAO', @AssetOwnerUserId);
-                IF NOT EXISTS (SELECT 1 FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-BINHNONG')
-                    INSERT INTO TAI_SAN (TEN_TAI_SAN, MA_TAI_SAN, OWNER_USER_ID) VALUES (N'Bình nóng lạnh', 'TS-PHONG-BINHNONG', @AssetOwnerUserId);
-
-                DECLARE @Room101Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '101');
-                DECLARE @Room201Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '201');
-                DECLARE @Room301Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '301');
-
-                DECLARE @AssetDieuHoa INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-DIEUHOA');
-                DECLARE @AssetMayGiat INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-MAYGIAT');
-                DECLARE @AssetGiuong INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-GIUONG');
-                DECLARE @AssetTuLanh INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TULANH');
-                DECLARE @AssetTuQuanAo INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-TUQUANAO');
-                DECLARE @AssetBinhNong INT = (SELECT TOP 1 TAI_SAN_ID FROM TAI_SAN WHERE MA_TAI_SAN = 'TS-PHONG-BINHNONG');
-
-                IF @Room101Id IS NOT NULL AND @AssetDieuHoa IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room101Id AND TAI_SAN_ID = @AssetDieuHoa)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room101Id, @AssetDieuHoa, 1, N'Tốt', N'Điều hòa phòng khách');
-                IF @Room101Id IS NOT NULL AND @AssetGiuong IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room101Id AND TAI_SAN_ID = @AssetGiuong)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room101Id, @AssetGiuong, 2, N'Tốt', N'Giường phòng ngủ');
-                IF @Room101Id IS NOT NULL AND @AssetTuLanh IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room101Id AND TAI_SAN_ID = @AssetTuLanh)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room101Id, @AssetTuLanh, 1, N'Tốt', N'Tủ lạnh 2 cánh');
-
-                IF @Room201Id IS NOT NULL AND @AssetDieuHoa IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room201Id AND TAI_SAN_ID = @AssetDieuHoa)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room201Id, @AssetDieuHoa, 1, N'Tốt', N'Điều hòa inverter');
-                IF @Room201Id IS NOT NULL AND @AssetMayGiat IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room201Id AND TAI_SAN_ID = @AssetMayGiat)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room201Id, @AssetMayGiat, 1, N'Tốt', N'Máy giặt cửa ngang');
-                IF @Room201Id IS NOT NULL AND @AssetTuQuanAo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room201Id AND TAI_SAN_ID = @AssetTuQuanAo)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room201Id, @AssetTuQuanAo, 1, N'Tốt', N'Tủ quần áo gỗ');
-
-                IF @Room301Id IS NOT NULL AND @AssetDieuHoa IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room301Id AND TAI_SAN_ID = @AssetDieuHoa)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room301Id, @AssetDieuHoa, 1, N'Tốt', N'Điều hòa phòng ngủ');
-                IF @Room301Id IS NOT NULL AND @AssetBinhNong IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room301Id AND TAI_SAN_ID = @AssetBinhNong)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room301Id, @AssetBinhNong, 1, N'Tốt', N'Bình nóng lạnh phòng tắm');
-                IF @Room301Id IS NOT NULL AND @AssetGiuong IS NOT NULL AND NOT EXISTS (SELECT 1 FROM CHI_TIET_TAI_SAN_PHONG WHERE PHONG_ID = @Room301Id AND TAI_SAN_ID = @AssetGiuong)
-                    INSERT INTO CHI_TIET_TAI_SAN_PHONG (PHONG_ID, TAI_SAN_ID, SO_LUONG, TINH_TRANG, GHI_CHU) VALUES (@Room301Id, @AssetGiuong, 1, N'Tốt', N'Giường đôi');
-            ");
-            context.Database.ExecuteSqlRaw("""
-                IF OBJECT_ID('BAI_DANG_TIM_PHONG', 'U') IS NULL
-                BEGIN
-                    CREATE TABLE BAI_DANG_TIM_PHONG (
-                        BAI_DANG_ID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                        PHONG_ID INT NOT NULL,
-                        MA_PHONG NVARCHAR(50) NOT NULL,
-                        TEN_TOA_NHA NVARCHAR(200) NOT NULL,
-                        SO_TANG INT NOT NULL,
-                        DIEN_TICH DECIMAL(10,2) NULL,
-                        SO_NGUOI_TOI_DA INT NULL,
-                        TIEU_DE NVARCHAR(300) NOT NULL,
-                        GIA_THUE DECIMAL(18,2) NOT NULL,
-                        NGAY_DANG DATETIME2 NOT NULL,
-                        NGAY_TAO DATETIME2 NOT NULL,
-                        LUOT_XEM INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_LUOT_XEM DEFAULT(0),
-                        TIN_NHAN INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_TIN_NHAN DEFAULT(0),
-                        IS_LOCKED BIT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_IS_LOCKED DEFAULT(0),
-                        TRANG_THAI_BAI_DANG NVARCHAR(50) NOT NULL,
-                        TRANG_THAI_PHONG NVARCHAR(50) NOT NULL,
-                        KIEU_VAO_O NVARCHAR(20) NOT NULL,
-                        NGAY_CO_THE_VAO_O DATETIME2 NULL,
-                        CO_VUNG_NGAP_LUT BIT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_CO_VUNG_NGAP_LUT DEFAULT(0),
-                        YEU_CAU_CHU_NHA NVARCHAR(MAX) NULL,
-                        KIEU_LIEN_HE NVARCHAR(20) NOT NULL,
-                        TEN_LIEN_HE NVARCHAR(200) NOT NULL,
-                        SO_DIEN_THOAI NVARCHAR(20) NOT NULL,
-                        DICH_VU_JSON NVARCHAR(MAX) NOT NULL,
-                        ANH_JSON NVARCHAR(MAX) NOT NULL,
-                        ANH_BIA_URL NVARCHAR(1000) NULL,
-                        TAO_BOI_ID INT NULL,
-                        CONSTRAINT FK_BAI_DANG_TIM_PHONG_PHONG FOREIGN KEY (PHONG_ID) REFERENCES PHONG(PHONG_ID) ON DELETE CASCADE,
-                        CONSTRAINT FK_BAI_DANG_TIM_PHONG_USER FOREIGN KEY (TAO_BOI_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL
-                    );
-                END;
-
-                IF NOT EXISTS (SELECT 1 FROM BAI_DANG_TIM_PHONG)
-                BEGIN
-                    DECLARE @Room101Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '101');
-                    DECLARE @Room201Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '201');
-                    DECLARE @Room301Id INT = (SELECT TOP 1 PHONG_ID FROM PHONG WHERE MA_PHONG = '301');
-                    DECLARE @AdminUserId INT = (SELECT TOP 1 USER_ID FROM [USER] WHERE VAI_TRO = N'Admin');
-
-                    IF @Room101Id IS NOT NULL
-                    BEGIN
-                        INSERT INTO BAI_DANG_TIM_PHONG (
-                            PHONG_ID, MA_PHONG, TEN_TOA_NHA, SO_TANG, DIEN_TICH, SO_NGUOI_TOI_DA,
-                            TIEU_DE, GIA_THUE, NGAY_DANG, NGAY_TAO, LUOT_XEM, TIN_NHAN, IS_LOCKED,
-                            TRANG_THAI_BAI_DANG, TRANG_THAI_PHONG, KIEU_VAO_O, NGAY_CO_THE_VAO_O,
-                            CO_VUNG_NGAP_LUT, YEU_CAU_CHU_NHA, KIEU_LIEN_HE, TEN_LIEN_HE, SO_DIEN_THOAI,
-                            DICH_VU_JSON, ANH_JSON, ANH_BIA_URL, TAO_BOI_ID
-                        ) VALUES (
-                            @Room101Id, '101', N'Tòa A', 1, 75.50, 4,
-                            N'Phòng đẹp thoáng mát giá rẻ gần trường ĐH', 8000000,
-                            DATEADD(MINUTE, -30, GETUTCDATE()), DATEADD(MINUTE, -30, GETUTCDATE()), 234, 12, 0,
-                            N'active', N'Trống', N'immediate', NULL,
-                            0, N'Không nuôi thú cưng, không hút thuốc trong phòng', N'current', N'Nguyễn Văn A', N'0912345678',
-                            N'[{"key":"electricity","name":"Tiền điện","unit":"kWh","price":3500},{"key":"water","name":"Tiền nước","unit":"m³","price":25000},{"key":"management","name":"Phí quản lý","unit":"Tháng","price":500000},{"key":"cleaning","name":"Phí dọn rác","unit":"Tháng","price":50000}]',
-                            N'[]', NULL, @AdminUserId
-                        );
-                    END;
-
-                    IF @Room301Id IS NOT NULL
-                    BEGIN
-                        INSERT INTO BAI_DANG_TIM_PHONG (
-                            PHONG_ID, MA_PHONG, TEN_TOA_NHA, SO_TANG, DIEN_TICH, SO_NGUOI_TOI_DA,
-                            TIEU_DE, GIA_THUE, NGAY_DANG, NGAY_TAO, LUOT_XEM, TIN_NHAN, IS_LOCKED,
-                            TRANG_THAI_BAI_DANG, TRANG_THAI_PHONG, KIEU_VAO_O, NGAY_CO_THE_VAO_O,
-                            CO_VUNG_NGAP_LUT, YEU_CAU_CHU_NHA, KIEU_LIEN_HE, TEN_LIEN_HE, SO_DIEN_THOAI,
-                            DICH_VU_JSON, ANH_JSON, ANH_BIA_URL, TAO_BOI_ID
-                        ) VALUES (
-                            @Room301Id, '301', N'Tòa C', 3, 60.00, 6,
-                            N'Căn hộ 2PN full nội thất sang trọng', 12000000,
-                            DATEADD(MINUTE, -120, GETUTCDATE()), DATEADD(MINUTE, -120, GETUTCDATE()), 189, 8, 1,
-                            N'paused', N'Trống', N'from-date', CONVERT(date, DATEADD(DAY, 14, GETUTCDATE())),
-                            0, N'Ưu tiên gia đình trẻ, giữ gìn nội thất', N'other', N'Trần Thị B', N'0987654321',
-                            N'[{"key":"electricity","name":"Tiền điện","unit":"kWh","price":3500},{"key":"water","name":"Tiền nước","unit":"m³","price":25000},{"key":"management","name":"Phí quản lý","unit":"Tháng","price":500000},{"key":"internet","name":"Internet","unit":"Tháng","price":200000}]',
-                            N'[]', NULL, @AdminUserId
-                        );
-                    END;
-
-                    IF @Room201Id IS NOT NULL
-                    BEGIN
-                        INSERT INTO BAI_DANG_TIM_PHONG (
-                            PHONG_ID, MA_PHONG, TEN_TOA_NHA, SO_TANG, DIEN_TICH, SO_NGUOI_TOI_DA,
-                            TIEU_DE, GIA_THUE, NGAY_DANG, NGAY_TAO, LUOT_XEM, TIN_NHAN, IS_LOCKED,
-                            TRANG_THAI_BAI_DANG, TRANG_THAI_PHONG, KIEU_VAO_O, NGAY_CO_THE_VAO_O,
-                            CO_VUNG_NGAP_LUT, YEU_CAU_CHU_NHA, KIEU_LIEN_HE, TEN_LIEN_HE, SO_DIEN_THOAI,
-                            DICH_VU_JSON, ANH_JSON, ANH_BIA_URL, TAO_BOI_ID
-                        ) VALUES (
-                            @Room201Id, '201', N'Tòa B', 2, 42.00, 3,
-                            N'Phòng trọ giá sinh viên gần siêu thị', 7800000,
-                            DATEADD(MINUTE, -180, GETUTCDATE()), DATEADD(MINUTE, -180, GETUTCDATE()), 312, 15, 0,
-                            N'active', N'Trống', N'immediate', NULL,
-                            0, N'Không nuôi thú cưng', N'current', N'Nguyễn Văn C', N'0900000001',
-                            N'[{"key":"electricity","name":"Tiền điện","unit":"kWh","price":3500},{"key":"water","name":"Tiền nước","unit":"m³","price":25000},{"key":"management","name":"Phí quản lý","unit":"Tháng","price":500000}]',
-                            N'[]', NULL, @AdminUserId
-                        );
-                    END;
-                END;
-            """);
-
-            Console.WriteLine("✅ Room assets sample data ensured");
-
-            // Fix seeded invoices: move from current month to 2 months ago so draft workflow is available
-            // Only moves invoices with no line items and no payments (pure seeded data)
-            context.Database.ExecuteSqlRaw(@"
-                UPDATE HOA_DON
-                SET THANG = MONTH(DATEADD(MONTH, -2, GETDATE())),
-                    NAM   = YEAR(DATEADD(MONTH, -2, GETDATE())),
-                    DUE_DATE = DATEADD(DAY, 15, DATEADD(MONTH, DATEDIFF(MONTH, 0, DATEADD(MONTH, -1, GETDATE())), 0))
-                WHERE THANG = MONTH(GETDATE())
-                  AND NAM   = YEAR(GETDATE())
-                  AND TRANG_THAI IN (N'Chưa thanh toán', N'Đã thanh toán')
-                  AND HOA_DON_ID NOT IN (SELECT DISTINCT HOA_DON_ID FROM CHI_TIET_HOA_DON)
-                  AND HOA_DON_ID NOT IN (SELECT DISTINCT HOA_DON_ID FROM THANH_TOAN WHERE HOA_DON_ID IS NOT NULL)
-            ");
-            Console.WriteLine("✅ Seeded invoices migrated to past month (if any)");
         } catch (Exception colEx) {
             Console.WriteLine($"⚠️ Column migration note: {colEx.Message}");
         }
         
-        // Seed complete demo data with all tables
-        DatabaseSeeder.SeedCompleteData(context);
-        PublicRoomDemoSeeder.EnsurePublicRooms(context);
-        FinanceDemoDataSeeder.EnsureProptechAdminFinanceDemo(context);
+        // Runtime data must come from real user actions, API integrations,
+        // or explicit migration scripts.
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ Error seeding database: {ex.Message}");
+        Console.WriteLine($"❌ Error ensuring database schema: {ex.Message}");
     }
 }
 

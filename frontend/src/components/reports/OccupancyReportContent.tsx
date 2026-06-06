@@ -165,7 +165,7 @@ export function OccupancyReportContent() {
                 outerRadius={80}
                 fill="#1E4E8C"
                 dataKey="value"
-                style={{ fontFamily: 'Inter, sans-serif', fontSize: '15px' }}
+                style={{ fontFamily: 'Roboto, Arial, sans-serif', fontSize: '15px' }}
               >
                 {occupancyData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
@@ -177,7 +177,7 @@ export function OccupancyReportContent() {
                   border: '1px solid #d7e0ea',
                   borderRadius: '8px',
                   fontSize: '15px',
-                  fontFamily: 'Inter, sans-serif'
+                  fontFamily: 'Roboto, Arial, sans-serif'
                 }}
               />
             </PieChart>

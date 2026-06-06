@@ -72,14 +72,14 @@ export function PlatformSelector() {
 
         <div className="mt-12 text-center">
           <div className="app-card-subtle px-5 py-4 inline-block">
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
               App cư dân đã được tách riêng tại thư mục mobile
             </p>
           </div>
         </div>
 
         <div className="mt-8 text-center">
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
             Version 1.0.0 • Desktop 1440×1024
           </p>
         </div>

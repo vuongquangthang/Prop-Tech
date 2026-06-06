@@ -19,6 +19,9 @@ namespace backend.Services
 
     public class TatToanService : ITatToanService
     {
+        private const string ActivePostStatus = "active";
+        private const string AvailableRoomStatus = "Trống";
+
         private readonly ITatToanRepository _tatToanRepository;
         private readonly IChiTietPhieuTatToanRepository _detailRepository;
         private readonly IHopDongRepository _hopDongRepository;
@@ -263,11 +266,13 @@ namespace backend.Services
             contract.ExpectedEndDate = endDate;
             _hopDongRepository.Update(contract);
 
+            var shouldReleaseRoom = !await HasActiveRoomContractAsync(contract.RoomId, contract.Id);
             var room = await _roomRepository.GetByIdAsync(contract.RoomId);
-            if (room != null)
+            if (room != null && shouldReleaseRoom)
             {
-                room.Status = "Trống";
+                room.Status = AvailableRoomStatus;
                 _roomRepository.Update(room);
+                await UnlockRoomPostsAsync(room.Id, room.Status);
             }
 
             var occupancies = await _chiTietORepository.GetByContractIdAsync(contract.Id);
@@ -291,6 +296,29 @@ namespace backend.Services
             }
 
             await _hopDongRepository.SaveChangesAsync();
+        }
+
+        private async Task UnlockRoomPostsAsync(int roomId, string roomStatus)
+        {
+            var posts = await _context.BaiDangTimPhongs
+                .Where(post => post.RoomId == roomId)
+                .ToListAsync();
+
+            foreach (var post in posts)
+            {
+                post.IsLocked = false;
+                post.Status = ActivePostStatus;
+                post.RoomStatus = roomStatus;
+            }
+        }
+
+        private Task<bool> HasActiveRoomContractAsync(int roomId, int? excludingContractId = null)
+        {
+            var now = DateTime.UtcNow;
+            return _context.HopDongs.AnyAsync(contract =>
+                contract.RoomId == roomId
+                && (!excludingContractId.HasValue || contract.Id != excludingContractId.Value)
+                && (contract.ExpectedEndDate == null || contract.ExpectedEndDate > now));
         }
 
         private TatToanDto MapToDto(TatToan tatToan)

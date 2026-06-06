@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Eye, Send, Filter, CheckCircle, X, FileText, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { api } from '../../lib/api-client';
@@ -342,7 +342,7 @@ export function InvoiceTable() {
             </button>
           </div>
           {calcResult && (
-            <div style={{ marginTop: '10px', fontSize: '13px' }}>
+            <div style={{ marginTop: '10px', fontSize: 'var(--type-caption)' }}>
               {calcResult.totalInvoices > 0 && <div style={{ color: '#15803d' }}>✅ Đã tạo <strong>{calcResult.totalInvoices}</strong> hóa đơn nháp, tổng <strong>{calcResult.totalAmount.toLocaleString('vi-VN')} đ</strong></div>}
               {calcResult.skipped > 0 && <div style={{ color: '#b45309', marginTop: '2px' }}>⚠️ Bỏ qua <strong>{calcResult.skipped}</strong> hợp đồng đã có hóa đơn tháng này.</div>}
               {calcResult.errors.length > 0 && <div style={{ color: '#b45309', marginTop: '2px' }}>⚠️ {calcResult.errors.length} phòng chưa có chỉ số điện/nước</div>}
@@ -397,13 +397,13 @@ export function InvoiceTable() {
                         <input type="checkbox" checked={selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0} onChange={toggleSelectAll} />
                       </th>
                     )}
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Mã hóa đơn</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Phòng</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Chủ hộ</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Kỳ thanh toán</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Tổng tiền (VND)</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Trạng thái</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Thao tác</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Mã hóa đơn</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Phòng</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Chủ hộ</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Kỳ thanh toán</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Tổng tiền (VND)</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Trạng thái</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -447,7 +447,7 @@ export function InvoiceTable() {
                         {inv.totalAmount.toLocaleString('vi-VN')}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 10px', fontSize: '12px', borderRadius: '4px', border: '1px solid' }}
+                        <span style={{ display: 'inline-block', padding: '2px 10px', fontSize: 'var(--type-caption)', borderRadius: '4px', border: '1px solid' }}
                           className={STATUS_DISPLAY[inv.status]?.color || 'bg-gray-100 text-gray-800 border-gray-300'}
                         >
                           {STATUS_DISPLAY[inv.status]?.label || inv.status}

@@ -26,7 +26,7 @@ import { OccupancyReportPage } from "./pages/OccupancyReportPage";
 import { UserAccountsPage } from "./pages/UserAccountsPage";
 import { MyProfilePage } from "./pages/MyProfilePage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
-import { ProtectedRoute, PublicRoute, AdminRoute, AccountantRoute, StaffRoute } from "./components/ProtectedRoute";
+import { ProtectedRoute, PublicRoute, AdminRoute, PostOwnerRoute, AccountantRoute, StaffRoute } from "./components/ProtectedRoute";
 import { UserRole } from "./lib/roles";
 import { PostManagementPage } from "./pages/PostManagementPage";
 import { CreatePostPage } from "./pages/CreatePostPage";
@@ -35,7 +35,7 @@ import { MessagesPage } from "./pages/MessagesPage";
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <PublicRoute><LandingPage /></PublicRoute>,
+    element: <PublicRoute redirectAuthenticated={false}><LandingPage /></PublicRoute>,
   },
   {
     path: "/login",
@@ -61,7 +61,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+      <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER]}>
         <AdminLayout />
       </ProtectedRoute>
     ),
@@ -124,15 +124,15 @@ export const router = createBrowserRouter([
       },
       {
         path: "post-management",
-        element: <AdminRoute><PostManagementPage /></AdminRoute>,
+        element: <PostOwnerRoute><PostManagementPage /></PostOwnerRoute>,
       },
       {
         path: "post-management/create",
-        element: <AdminRoute><CreatePostPage /></AdminRoute>,
+        element: <PostOwnerRoute><CreatePostPage /></PostOwnerRoute>,
       },
       {
         path: "messages",
-        element: <AdminRoute><MessagesPage /></AdminRoute>,
+        element: <PostOwnerRoute><MessagesPage /></PostOwnerRoute>,
       },
       {
         path: "knowledge-base",

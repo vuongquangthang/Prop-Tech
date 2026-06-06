@@ -1,10 +1,9 @@
 import { api, handleApiError } from '../lib/api-client';
 import { API_CONFIG, API_ENDPOINTS } from '../lib/api-config';
-import { createMockPost, deleteMockPost, getMockPosts, getMockRooms, toggleMockPostLock, replaceMockPosts } from '../mocks/postsMock';
 
 const POST_AMENITIES_CACHE_KEY = 'prop-tech-post-amenities-cache';
 const PLACEHOLDER_IMAGE_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720"><rect width="960" height="720" fill="#f4f7fb"/><rect x="120" y="150" width="720" height="420" rx="24" fill="#e2e8f0"/><path d="M230 500l145-150 110 105 88-85 155 130H230z" fill="#cbd5e1"/><circle cx="660" cy="280" r="52" fill="#94a3b8"/><text x="480" y="630" text-anchor="middle" font-family="Inter, sans-serif" font-size="34" fill="#475569">Không có ảnh</text></svg>'
+  '<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720"><rect width="960" height="720" fill="#f4f7fb"/><rect x="120" y="150" width="720" height="420" rx="24" fill="#e2e8f0"/><path d="M230 500l145-150 110 105 88-85 155 130H230z" fill="#cbd5e1"/><circle cx="660" cy="280" r="52" fill="#94a3b8"/><text x="480" y="630" text-anchor="middle" font-family="Roboto, Arial, sans-serif" font-size="34" fill="#475569">Không có ảnh</text></svg>'
 )}`;
 
 export interface RoomOption {
@@ -423,16 +422,16 @@ export const postService = {
       const response = await api.get(API_ENDPOINTS.ROOMS.BASE);
       const rooms = Array.isArray(response.data) ? response.data : [];
       return rooms.map(mapRoomDto);
-    } catch {
-      return getMockRooms();
+    } catch (error) {
+      throw new Error(handleApiError(error));
     }
   },
 
   getPosts: async (): Promise<PostRecord[]> => {
     try {
       const [roomsResp, postsResp] = await Promise.all([
-        api.get(API_ENDPOINTS.ROOMS.BASE).catch(() => ({ data: getMockRooms() })),
-        api.get(API_ENDPOINTS.POSTS.BASE).catch(() => ({ data: getMockPosts() })),
+        api.get(API_ENDPOINTS.ROOMS.BASE),
+        api.get(API_ENDPOINTS.POSTS.BASE),
       ]);
 
       const rooms = Array.isArray(roomsResp.data) ? roomsResp.data : [];
@@ -468,8 +467,8 @@ export const postService = {
       });
 
       return normalized.filter(isManagedPost).map(applyCachedAmenities);
-    } catch {
-      return getMockPosts().filter(isManagedPost).map(applyCachedAmenities);
+    } catch (error) {
+      throw new Error(handleApiError(error));
     }
   },
 
@@ -503,17 +502,7 @@ export const postService = {
         amenities: normalized.amenities?.length ? normalized.amenities : inputAmenities,
       });
     } catch (error) {
-      if (error) {
-        void handleApiError(error);
-      }
-
-      const mock = createMockPost(input);
-      try {
-        // eslint-disable-next-line no-console
-        console.log('[postService] createPost fallback mock:', { id: mock.id, roomId: mock.roomId, roomCode: mock.roomCode, buildingName: mock.buildingName });
-      } catch {}
-
-      return mock;
+      throw new Error(handleApiError(error));
     }
   },
 
@@ -522,16 +511,7 @@ export const postService = {
       const response = await api.patch(API_ENDPOINTS.POSTS.LOCK(id), { isLocked });
       return normalizePostRecord(response.data);
     } catch (error) {
-      if (error) {
-        void handleApiError(error);
-      }
-
-      const updated = toggleMockPostLock(id, isLocked);
-      if (updated) {
-        return updated;
-      }
-
-      throw error;
+      throw new Error(handleApiError(error));
     }
   },
 
@@ -557,51 +537,7 @@ export const postService = {
         amenities: normalized.amenities?.length ? normalized.amenities : payloadAmenities,
       });
     } catch (error) {
-      if (error) {
-        void handleApiError(error);
-      }
-
-      // Fallback to updating mock storage so UI works offline
-      try {
-        const posts = getMockPosts();
-        const index = posts.findIndex((p) => p.id === id);
-        if (index >= 0) {
-          const updated = { ...posts[index], ...payload, id } as any;
-
-          // If updated lacks roomCode but has roomId, map from mock rooms
-          if (!updated.roomCode && updated.roomId) {
-            try {
-              const rooms = getMockRooms();
-              const room = rooms.find((r) => Number(r.id) === Number(updated.roomId));
-              if (room) {
-                updated.roomCode = room.roomCode ?? room.code;
-                updated.buildingName = room.buildingName ?? room.building;
-                updated.floorNumber = updated.floorNumber ?? room.floorNumber ?? room.floor;
-              }
-            } catch {}
-          }
-
-          posts[index] = updated;
-          replaceMockPosts(posts);
-          try {
-            // eslint-disable-next-line no-console
-            console.log('[postService] updatePost fallback updated:', { id: updated.id, roomId: updated.roomId, roomCode: updated.roomCode });
-          } catch {}
-          const normalized = normalizePostRecord(updated);
-          const payloadAmenities = normalizeAmenityStrings((payload as any).amenities);
-          if (payloadAmenities.length > 0) {
-            persistPostAmenities(normalized.id || id, payloadAmenities);
-          }
-          return applyCachedAmenities({
-            ...normalized,
-            amenities: normalized.amenities?.length ? normalized.amenities : payloadAmenities,
-          });
-        }
-      } catch {
-        // ignore
-      }
-
-      throw error;
+      throw new Error(handleApiError(error));
     }
   },
 
@@ -609,14 +545,7 @@ export const postService = {
     try {
       await api.delete(API_ENDPOINTS.POSTS.BY_ID(id));
     } catch (error) {
-      if (error) {
-        void handleApiError(error);
-      }
-
-      const deleted = deleteMockPost(id);
-      if (!deleted) {
-        throw error;
-      }
+      throw new Error(handleApiError(error));
     }
   },
 };

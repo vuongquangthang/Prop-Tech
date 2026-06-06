@@ -74,6 +74,19 @@ export function usePosts() {
     }
   }, []);
 
+  const toggleLock = useCallback(async (id: number, isLocked: boolean) => {
+    setError(null);
+    try {
+      const updated = await postService.toggleLock(id, isLocked);
+      setPosts((current) => current.map((p) => (p.id === id ? updated : p)));
+      return updated;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể cập nhật trạng thái bài đăng';
+      setError(message);
+      throw err;
+    }
+  }, []);
+
   return {
     rooms,
     posts,
@@ -83,5 +96,6 @@ export function usePosts() {
     refresh,
     createPost,
     updatePost,
+    toggleLock,
   };
 }

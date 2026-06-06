@@ -1,4 +1,4 @@
-﻿import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { serviceService, ServicePriceHistory } from '../../services/api.service';
 import { formatLocalDateInput, toLocalIsoString } from '../../lib/date-utils';
@@ -315,7 +315,7 @@ export function ServiceTable() {
 
       {/* Add Service Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
               <div className="flex items-center space-x-2">
@@ -426,7 +426,7 @@ export function ServiceTable() {
 
       {/* Update Price Modal */}
       {showUpdatePriceModal && selectedService && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[600px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -526,7 +526,7 @@ export function ServiceTable() {
 
       {/* Price History Modal */}
       {showHistoryModal && selectedService && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
               <div className="flex items-center space-x-2">
@@ -595,7 +595,7 @@ export function ServiceTable() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedService && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Xác nhận xóa</h3>

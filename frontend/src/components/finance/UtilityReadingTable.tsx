@@ -1,4 +1,4 @@
-﻿import { Save, Calculator, Upload, Filter, CheckCircle, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Save, Calculator, Upload, Filter, CheckCircle, X, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -292,7 +292,7 @@ export function UtilityReadingTable() {
                       <tr key={room.roomId} style={{ borderBottom: '1px solid var(--surface-border)' }} className="hover:bg-[var(--surface-bg)] transition-colors">
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{room.roomCode}</span>
-                          {room.buildingName && <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{room.buildingName} - Tầng {room.floorName}</div>}
+                          {room.buildingName && <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{room.buildingName} - Tầng {room.floorName}</div>}
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: 'var(--type-body)', color: 'var(--text-secondary)' }}>{room.residentName || '-'}</td>
 
@@ -361,7 +361,7 @@ export function UtilityReadingTable() {
 
       {/* Calculate Result Modal */}
       {calculateModal && calcResult && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[520px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">

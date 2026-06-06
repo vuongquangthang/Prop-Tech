@@ -1,4 +1,4 @@
-﻿import { X, Eye, FileText, User, Home, DollarSign, Calendar, AlertTriangle, Check, Download, Printer, Mail, Send, Users, Clock } from 'lucide-react';
+import { X, Eye, FileText, User, Home, DollarSign, Calendar, AlertTriangle, Check, Download, Printer, Mail, Send, Users, Clock } from 'lucide-react';
 import { useState } from 'react';
 
 interface InvoiceModalProps {
@@ -8,7 +8,7 @@ interface InvoiceModalProps {
 
 export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -417,7 +417,7 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
 
 export function PrintInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[800px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
@@ -640,7 +640,7 @@ export function PrintInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
 
 export function SendInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="admin-content-modal-overlay">
       <div className="bg-white rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">

@@ -1,4 +1,4 @@
-import { Home, Search, Building2, DollarSign, Clock, MessageSquare, Grid3x3, CreditCard, CheckCircle, Shield, Bell, BarChart3, ArrowRight, Play, RotateCcw } from 'lucide-react';
+import { Home, Search, Building2, DollarSign, Clock, MessageSquare, Grid3x3, CreditCard, CheckCircle, Shield, Bell, BarChart3, ArrowRight, Play } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
@@ -9,24 +9,8 @@ export function LandingPage() {
   const [searchCity, setSearchCity] = useState('');
   const [searchDistrict, setSearchDistrict] = useState('');
 
-  const handleResetData = () => {
-    if (window.confirm('Bạn có chắc muốn reset toàn bộ dữ liệu demo về ban đầu?')) {
-      localStorage.clear();
-      window.location.reload();
-    }
-  };
-
   return (
     <div className="min-h-screen bg-white">
-      {/* Reset Button - Fixed Position */}
-      <button
-        onClick={handleResetData}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-[#FF5733] hover:bg-[#E64A2E] text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group"
-        title="Reset dữ liệu demo"
-      >
-        <RotateCcw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
-      </button>
-
       {/* Header / Navigation */}
       <header className="bg-[#2C3E50] shadow-lg relative z-50">
         <nav className="max-w-7xl mx-auto px-6 py-5">
@@ -100,7 +84,7 @@ export function LandingPage() {
                 </button>
                 <button className="px-10 py-4 bg-transparent text-[#2C3E50] rounded-xl hover:bg-gray-50 transition-all font-semibold border-2 border-gray-300 text-[15px] flex items-center gap-2">
                   <Play size={18} />
-                  Xem demo
+                  Xem tổng quan
                 </button>
               </div>
 
@@ -149,7 +133,7 @@ export function LandingPage() {
                       <Grid3x3 size={26} className="text-white" strokeWidth={2.5} />
                     </div>
                     <h4 className="text-white font-bold mb-3 text-[14px] tracking-wide">QUẢN LÝ TẬP TRUNG</h4>
-                    <p className="text-gray-400 text-[13px] leading-relaxed font-normal">
+                    <p className="text-gray-400 text-sm leading-relaxed font-normal">
                       Tất cả chức năng quản lý tài chính, cư dân, tài sản trên một nền tảng
                     </p>
                   </div>
@@ -160,7 +144,7 @@ export function LandingPage() {
                       <CreditCard size={26} className="text-white" strokeWidth={2.5} />
                     </div>
                     <h4 className="text-white font-bold mb-3 text-[14px] tracking-wide">THANH TOÁN TỰ ĐỘNG</h4>
-                    <p className="text-gray-400 text-[13px] leading-relaxed font-normal">
+                    <p className="text-gray-400 text-sm leading-relaxed font-normal">
                       Thanh toán qua QR code, tích hợp cổng thanh toán trực tuyến
                     </p>
                   </div>
@@ -171,7 +155,7 @@ export function LandingPage() {
                       <Clock size={26} className="text-white" strokeWidth={2.5} />
                     </div>
                     <h4 className="text-white font-bold mb-3 text-[14px] tracking-wide">BÁO CÁO SỰ CỐ 24/7</h4>
-                    <p className="text-gray-400 text-[13px] leading-relaxed font-normal">
+                    <p className="text-gray-400 text-sm leading-relaxed font-normal">
                       Gửi phản ánh sự cố mọi lúc, theo dõi tiến độ xử lý real-time
                     </p>
                   </div>
@@ -182,7 +166,7 @@ export function LandingPage() {
                       <MessageSquare size={26} className="text-white" strokeWidth={2.5} />
                     </div>
                     <h4 className="text-white font-bold mb-3 text-[14px] tracking-wide">AI CHATBOT</h4>
-                    <p className="text-gray-400 text-[13px] leading-relaxed font-normal">
+                    <p className="text-gray-400 text-sm leading-relaxed font-normal">
                       Trợ lý ảo thông minh hỗ trợ 24/7, giải đáp thắc mắc nhanh chóng
                     </p>
                   </div>

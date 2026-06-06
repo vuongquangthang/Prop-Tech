@@ -64,6 +64,11 @@ public class UpdatePostLockDto
     public bool IsLocked { get; set; }
 }
 
+public class UpdatePostMessageCountDto
+{
+    public int Messages { get; set; }
+}
+
 public class UpdatePostDto
 {
     public string? Title { get; set; }

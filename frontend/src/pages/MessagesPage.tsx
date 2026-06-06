@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCheck, MessageSquare, RefreshCw, Search, Send } from 'lucide-react';
+import { ArrowLeft, CheckCheck, ExternalLink, MessageSquare, Search, Send } from 'lucide-react';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
@@ -7,15 +7,23 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   buildPropTechPartnerUserId,
   loadRoomConversations,
+  markRoomConversationRead,
   sendRoomConversationMessage,
   type RoomConversation,
 } from '../services/roomConversationService';
 import { connectPropTechConversationSocket } from '../services/trouytinConversationSocket';
 import { postService } from '../services/postService';
 
+const TROUYTIN_WEB_BASE_URL = (import.meta.env.VITE_TROUYTIN_WEB_BASE_URL || 'http://localhost:3002').replace(/\/+$/, '');
+
 function canViewManagedConversations(role?: string): boolean {
   const normalized = String(role ?? '').trim().toLowerCase();
-  return normalized === 'admin' || normalized === 'quanly';
+  return normalized === 'admin' || normalized === 'quanly' || normalized === 'manager';
+}
+
+function getTrouytinRoomUrl(roomId: string): string {
+  const value = roomId.trim();
+  return value ? `${TROUYTIN_WEB_BASE_URL}/rooms/${encodeURIComponent(value)}` : '';
 }
 
 function getConversationTime(conversation: RoomConversation): number {
@@ -37,6 +45,12 @@ function mergeConversation(current: RoomConversation[], incoming: RoomConversati
   ]);
 }
 
+function matchesRoomParam(conversation: RoomConversation, roomParam: string): boolean {
+  return conversation.roomId === roomParam ||
+    conversation.roomInquiry === roomParam ||
+    conversation.messages.some((message) => message.text.includes(roomParam));
+}
+
 export function MessagesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -46,12 +60,13 @@ export function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<RoomConversation[]>([]);
   const [conversationPartnerIds, setConversationPartnerIds] = useState<string[]>([]);
-  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [, setRealtimeConnected] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const partnerUserId = user?.id ? buildPropTechPartnerUserId(user.id) : '';
   const canSeeManagedConversations = canViewManagedConversations(user?.role);
+  const roomParam = searchParams.get('room');
 
   const loadConversationList = async () => {
     const partnerIds = new Set<string>();
@@ -87,13 +102,8 @@ export function MessagesPage() {
       setConversations(nextConversations);
       setConversationPartnerIds(partnerIds);
 
-      const roomParam = searchParams.get('room');
       if (roomParam) {
-        const matchedConversation = nextConversations.find(
-          (conversation) =>
-            conversation.roomInquiry === roomParam ||
-            conversation.messages.some((message) => message.text.includes(roomParam))
-        );
+        const matchedConversation = nextConversations.find((conversation) => matchesRoomParam(conversation, roomParam));
         if (matchedConversation) {
           setSelectedConversation(matchedConversation.id);
         } else if (nextConversations.length > 0 && selectedConversation === null) {
@@ -168,10 +178,63 @@ export function MessagesPage() {
   const activeMessages = [...(activeConversation?.messages ?? [])].sort(
     (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
   );
+  const activeRoomUrl = activeConversation ? getTrouytinRoomUrl(activeConversation.roomId) : '';
+  const activeRoomTitle = activeConversation?.roomInquiry || activeConversation?.roomId || 'Bài đăng';
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: 'end' });
   }, [activeConversation?.id, activeMessages.length]);
+
+  useEffect(() => {
+    if (!roomParam || conversations.length === 0) return;
+
+    let cancelled = false;
+    const targets = conversations.filter((conversation) => conversation.unread > 0 && matchesRoomParam(conversation, roomParam));
+    if (targets.length === 0) return;
+
+    void Promise.all(
+      targets.map((conversation) =>
+        markRoomConversationRead(conversation.id, conversation.partnerUserId || partnerUserId)
+      )
+    )
+      .then((updatedConversations) => {
+        if (cancelled) return;
+        setConversations((current) =>
+          current.map((conversation) =>
+            updatedConversations.find((updated) => updated.id === conversation.id) ?? conversation
+          )
+        );
+      })
+      .catch(() => {
+        // Viewing messages should not be blocked by a transient read-sync failure.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomParam, conversations.map((conversation) => `${conversation.id}:${conversation.unread}`).join('|'), partnerUserId]);
+
+  useEffect(() => {
+    if (roomParam || !activeConversation || activeConversation.unread <= 0) return;
+
+    let cancelled = false;
+    void markRoomConversationRead(activeConversation.id, activeConversation.partnerUserId || partnerUserId)
+      .then((updatedConversation) => {
+        if (cancelled) return;
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === updatedConversation.id ? updatedConversation : conversation
+          )
+        );
+      })
+      .catch(() => {
+        // Keep the conversation usable even if read-state sync is temporarily unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomParam, activeConversation?.id, activeConversation?.unread, activeConversation?.partnerUserId, partnerUserId]);
 
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !activeConversation) return;
@@ -180,9 +243,7 @@ export function MessagesPage() {
     try {
       await sendRoomConversationMessage(activeConversation.id, activeConversation.partnerUserId || partnerUserId, text);
       setMessageInput('');
-      if (!realtimeConnected) {
-        await refresh();
-      }
+      await refresh();
       toast.success('Đã gửi tin nhắn');
     } catch (sendError) {
       toast.error(sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn');
@@ -195,26 +256,8 @@ export function MessagesPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-128px)] min-h-[680px] flex-col space-y-4 overflow-hidden">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Đăng bài tìm phòng</p>
-          <h1 className="text-2xl font-bold text-gray-800">Tin nhắn</h1>
-          <p className="text-sm text-gray-600">Quản lý hội thoại với người thuê phòng từ TroUyTin</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          Tải lại
-        </button>
-      </div>
-
-      <div className="flex items-end gap-8 border-b border-gray-300">
+    <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
+      <div className="flex shrink-0 items-end gap-8 border-b border-gray-300">
         <button
           type="button"
           onClick={() => navigate('/post-management')}
@@ -232,20 +275,23 @@ export function MessagesPage() {
       </div>
 
       {error && (
-        <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="shrink-0 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+      <div className="proptech-message-layout">
         <aside
-          className="flex min-h-0 w-96 shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-gray-300 bg-white"
+          className={cn(
+            'proptech-conversation-sidebar',
+            activeConversation && 'is-active'
+          )}
         >
-          <div className="border-b border-gray-300 px-4 py-3">
+          <div className="shrink-0 border-b border-gray-300 px-4 py-3">
             <h2 className="text-base font-bold text-gray-800">Tin nhắn</h2>
           </div>
 
-          <div className="border-b border-gray-300 px-3 py-2">
+          <div className="shrink-0 border-b border-gray-300 px-3 py-2">
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -259,7 +305,7 @@ export function MessagesPage() {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="proptech-conversation-list">
             {loading ? (
               <div className="p-6 text-center text-sm text-gray-500">Đang tải hội thoại...</div>
             ) : filteredConversations.length === 0 ? (
@@ -281,15 +327,18 @@ export function MessagesPage() {
         </aside>
 
         <section
-          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 border-gray-300 bg-white"
+          className={cn(
+            'proptech-chat-panel',
+            activeConversation && 'is-active'
+          )}
         >
           {activeConversation ? (
             <>
-              <header className="flex items-center gap-3 border-b border-gray-300 bg-white px-4 py-3">
+              <header className="proptech-chat-header">
                 <button
                   type="button"
                   onClick={() => setSelectedConversation(null)}
-                  className="hidden rounded p-2 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800"
+                  className="proptech-chat-back-button rounded text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800"
                   aria-label="Quay lại danh sách"
                 >
                   <ArrowLeft size={20} />
@@ -299,19 +348,35 @@ export function MessagesPage() {
                   avatar={activeConversation.avatar}
                   online={activeConversation.online}
                 />
-                <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-base font-semibold text-gray-800">{activeConversation.userName}</h2>
+                <div className="proptech-chat-title">
+                  <h2 className="truncate text-sm font-semibold text-gray-800">{activeConversation.userName}</h2>
                   <p
-                    className="text-xs"
-                    style={{ color: activeConversation.online ? 'var(--success)' : 'var(--text-secondary)' }}
+                    className="truncate text-[11px]"
+                    style={{ color: 'var(--text-secondary)' }}
                   >
-                    {activeConversation.online ? 'Đang hoạt động' : 'Tin nhắn từ TroUyTin'}
+                    Tin nhắn từ TroUyTin
                   </p>
                 </div>
+                {activeRoomUrl ? (
+                  <a
+                    href={activeRoomUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="proptech-room-pill hover:border-gray-400 hover:bg-gray-200"
+                    title={`Mở bài đăng TroUyTin: ${activeRoomTitle}`}
+                  >
+                    <span className="min-w-0 truncate">#{activeRoomTitle}</span>
+                    <ExternalLink size={13} className="hidden shrink-0 md:block" />
+                  </a>
+                ) : (
+                  <span className="proptech-room-pill bg-gray-50 text-gray-700">
+                    #{activeRoomTitle}
+                  </span>
+                )}
               </header>
 
               <div
-                className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4"
+                className="proptech-message-log"
                 role="log"
                 aria-live="polite"
               >
@@ -320,7 +385,7 @@ export function MessagesPage() {
                     <EmptyState title="Chưa có tin nhắn" description="Hội thoại này chưa có nội dung" />
                   </div>
                 ) : (
-                  <div className="flex min-h-full flex-col justify-end gap-2">
+                  <div className="proptech-message-stack">
                     {activeMessages.map((message, index) => {
                       const previousMessage = index > 0 ? activeMessages[index - 1] : null;
                       const showAvatar = message.sender !== 'me' && message.sender !== previousMessage?.sender;
@@ -340,20 +405,27 @@ export function MessagesPage() {
 
               <form
                 onSubmit={handleSubmit}
-                className="flex items-center gap-2 border-t border-gray-300 bg-white px-4 py-3"
+                className="proptech-message-form"
               >
-                <input
-                  type="text"
+                <textarea
+                  rows={1}
                   value={messageInput}
                   onChange={(event) => setMessageInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.nativeEvent.isComposing) return;
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleSendMessage();
+                    }
+                  }}
                   placeholder="Nhập tin nhắn..."
-                  className="h-10 flex-1 rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm text-gray-800 focus:outline-none"
+                  className="proptech-message-input"
                   aria-label="Tin nhắn của bạn"
                 />
                 <button
                   type="submit"
                   disabled={!messageInput.trim()}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white transition-colors disabled:cursor-not-allowed disabled:bg-gray-300"
+                  className="proptech-message-send text-white transition-colors disabled:cursor-not-allowed disabled:bg-gray-300"
                   style={messageInput.trim() ? { backgroundColor: 'var(--brand-primary)' } : undefined}
                   aria-label="Gửi tin nhắn"
                 >
@@ -362,7 +434,7 @@ export function MessagesPage() {
               </form>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center">
+            <div className="flex min-h-0 flex-1 items-center justify-center">
               <EmptyState title="Chọn cuộc hội thoại để bắt đầu" description="Nội dung tin nhắn sẽ hiển thị ở khung bên phải" />
             </div>
           )}
@@ -381,44 +453,55 @@ function ConversationItem({
   active: boolean;
   onClick: () => void;
 }) {
+  const itemRef = useRef<HTMLDivElement>(null);
   const preview = conversation.lastMessage || conversation.messages[conversation.messages.length - 1]?.text || 'Chưa có tin nhắn';
 
+  useEffect(() => {
+    if (active) {
+      itemRef.current?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [active]);
+
   return (
-    <button
-      type="button"
+    <div
+      ref={itemRef}
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if ((event.target as HTMLElement).closest('a')) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
       className={cn(
-        'w-full border-b border-gray-100 px-4 py-3 text-left transition-colors',
-        !active && 'hover:bg-gray-50'
+        'proptech-conversation-item',
+        active ? 'is-active' : 'hover:bg-gray-50'
       )}
-      style={active ? { backgroundColor: 'rgba(26, 75, 132, 0.08)' } : undefined}
     >
       <div className="flex items-center gap-3">
         <ConversationAvatar name={conversation.userName} avatar={conversation.avatar} online={conversation.online} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-start justify-between gap-2">
             <p
-              className={cn('truncate text-sm', active ? 'font-bold' : 'font-semibold text-gray-800')}
-              style={active ? { color: 'var(--brand-primary)' } : undefined}
+              className={cn('min-w-0 flex-1 truncate text-sm', active ? 'text-[15px] font-extrabold text-gray-950' : 'font-semibold text-gray-800')}
             >
               {conversation.userName}
             </p>
-            <span className="shrink-0 text-xs text-gray-500">{conversation.timestamp}</span>
+            <span className={cn('shrink-0 text-xs', active ? 'font-semibold text-gray-700' : 'text-gray-500')}>{conversation.timestamp}</span>
           </div>
-          <p className="mt-1 truncate text-xs text-gray-500">{preview}</p>
+          <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs text-gray-500">{preview}</p>
+          </div>
           <div className="mt-2 flex items-center gap-2">
             <span
-              className="rounded border px-2 py-0.5 text-xs font-medium"
-              style={{
-                borderColor: 'rgba(26, 75, 132, 0.18)',
-                backgroundColor: 'rgba(26, 75, 132, 0.08)',
-                color: 'var(--brand-primary)',
-              }}
+              className={cn(
+                'inline-flex min-w-[116px] shrink-0 items-center justify-center whitespace-nowrap rounded border px-3 py-0.5 text-xs font-medium',
+                active ? 'border-gray-400 bg-gray-300 text-gray-900' : 'border-gray-300 bg-white text-gray-600'
+              )}
             >
-              Khách thuê
-            </span>
-            <span className="truncate rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-500">
-              #{conversation.roomInquiry}
+              {conversation.roleLabel}
             </span>
             {conversation.unread > 0 && (
               <span
@@ -431,7 +514,7 @@ function ConversationItem({
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -447,7 +530,7 @@ function MessageBubble({
   const mine = message.sender === 'me';
 
   return (
-    <div className={cn('flex items-end gap-3', mine ? 'justify-end' : 'justify-start')}>
+    <div className={cn('proptech-message-bubble-row', mine ? 'is-mine' : 'is-user')}>
       {!mine && (
         showAvatar ? (
           <ConversationAvatar name={conversation.userName} avatar={conversation.avatar} online={false} size="sm" />
@@ -455,11 +538,11 @@ function MessageBubble({
           <div className="h-8 w-8 shrink-0" />
         )
       )}
-      <div className={cn('flex max-w-md flex-col', mine ? 'items-end' : 'items-start')}>
+      <div className={cn('proptech-message-bubble-content', mine ? 'is-mine' : 'is-user')}>
         <div
           className={cn(
-            'rounded-2xl px-4 py-2 text-sm leading-relaxed shadow-sm',
-            mine ? 'text-white' : 'border border-gray-200 bg-white text-gray-800'
+            'proptech-message-bubble',
+            mine ? 'is-mine text-white' : 'is-user'
           )}
           style={mine ? { backgroundColor: 'var(--brand-primary)' } : undefined}
         >
