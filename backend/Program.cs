@@ -529,6 +529,48 @@ using (var scope = app.Services.CreateScope())
                     ');
                 END;
             """);
+            
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('notifications', 'U') IS NOT NULL
+                BEGIN
+                    EXEC(N'
+                        UPDATE notifications
+                        SET scope_type = ''USER''
+                        WHERE scope_type IS NULL OR LTRIM(RTRIM(scope_type)) = '''';
+
+                        UPDATE notifications
+                        SET priority = ''NORMAL''
+                        WHERE priority IS NULL OR LTRIM(RTRIM(priority)) = '''';
+
+                        UPDATE notifications
+                        SET notification_type = ''SYSTEM''
+                        WHERE notification_type IS NULL OR LTRIM(RTRIM(notification_type)) = '''';
+
+                        UPDATE notifications
+                        SET title = N''Thong bao''
+                        WHERE title IS NULL OR LTRIM(RTRIM(title)) = '''';
+
+                        UPDATE notifications
+                        SET content = N''''
+                        WHERE content IS NULL;
+
+                        UPDATE notifications
+                        SET sent_at = COALESCE(sent_at, created_at, SYSUTCDATETIME())
+                        WHERE sent_at IS NULL;
+
+                        UPDATE notifications
+                        SET created_at = COALESCE(created_at, sent_at, SYSUTCDATETIME())
+                        WHERE created_at IS NULL;
+
+                        IF COL_LENGTH(''notifications'', ''is_read'') IS NOT NULL
+                        BEGIN
+                            UPDATE notifications
+                            SET is_read = 0
+                            WHERE is_read IS NULL;
+                        END
+                    ');
+                END;
+            """);
             Console.WriteLine("Notification owner scope ensured");
 
             context.Database.ExecuteSqlRaw("""

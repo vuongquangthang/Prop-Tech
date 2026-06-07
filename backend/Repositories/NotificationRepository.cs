@@ -13,6 +13,7 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
     public async Task<List<Notification>> GetByRecipientIdAsync(int recipientId, int ownerUserId, bool unreadOnly = false, int limit = 100)
     {
         var query = _context.Notifications
+            .Include(n => n.User)
             .Where(n => n.OwnerUserId == ownerUserId && (n.RecipientId == recipientId || n.ScopeType == "ALL"));
 
         if (unreadOnly)

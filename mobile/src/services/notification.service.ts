@@ -26,7 +26,7 @@ class NotificationService {
       );
       return response || [];
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.warn('Unable to fetch notifications:', error);
       return [];
     }
   }

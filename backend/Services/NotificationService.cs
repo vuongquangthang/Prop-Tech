@@ -183,13 +183,13 @@ public class NotificationService : INotificationService
     {
         Id = n.Id,
         OwnerUserId = n.OwnerUserId,
-        Title = n.Title,
-        Content = n.Content,
-        NotificationType = n.NotificationType,
+        Title = string.IsNullOrWhiteSpace(n.Title) ? "Thong bao" : n.Title,
+        Content = n.Content ?? string.Empty,
+        NotificationType = string.IsNullOrWhiteSpace(n.NotificationType) ? "SYSTEM" : n.NotificationType,
         RelatedId = n.RelatedId,
         LinkUrl = n.LinkUrl,
         IsRead = n.IsRead,
-        CreatedAt = n.CreatedAt,
+        CreatedAt = n.CreatedAt == default ? DateTime.UtcNow : n.CreatedAt,
         SenderPhone = n.User?.PhoneNumber,
     };
 
