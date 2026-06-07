@@ -1,8 +1,9 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
+  LayoutChangeEvent,
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -38,6 +39,9 @@ export default function RoommateDetailScreen() {
   const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
   const [currentOccupants, setCurrentOccupants] = useState<number>(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [heroWidth, setHeroWidth] = useState(0);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
 
@@ -81,7 +85,16 @@ export default function RoommateDetailScreen() {
   const mergedImages = Array.from(
     new Set([...(roomDetail?.imageUrls ?? []).filter(Boolean), ...(post?.imageUrls ?? []).filter(Boolean)])
   );
-  const heroImageWidth = Dimensions.get('window').width - 32;
+  const heroImageWidth = heroWidth || 1;
+
+  const handleHeroLayout = (event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    if (!nextWidth || nextWidth === heroWidth) return;
+    setHeroWidth(nextWidth);
+    requestAnimationFrame(() => {
+      heroScrollRef.current?.scrollTo({ x: currentImageIndex * nextWidth, animated: false });
+    });
+  };
 
   const scrollToImage = (nextIndex: number) => {
     if (!mergedImages.length) return;
@@ -89,6 +102,13 @@ export default function RoommateDetailScreen() {
     heroScrollRef.current?.scrollTo({ x: safeIndex * heroImageWidth, animated: true });
     setCurrentImageIndex(safeIndex);
   };
+
+  const openPreview = (index: number) => {
+    setPreviewIndex(index);
+    setPreviewVisible(true);
+  };
+
+  const previewImage = mergedImages[previewIndex];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -110,21 +130,32 @@ export default function RoommateDetailScreen() {
         ) : post ? (
           <>
             <View style={styles.postCard}>
-              <View style={styles.postHero}>
+              <View style={styles.postHero} onLayout={handleHeroLayout}>
                 {mergedImages.length ? (
                   <>
                   <ScrollView
                     ref={heroScrollRef}
                     horizontal
                     pagingEnabled
+                    decelerationRate="fast"
                     showsHorizontalScrollIndicator={false}
+                    scrollEventThrottle={16}
                     onMomentumScrollEnd={(event) => {
                       const nextIndex = Math.round(event.nativeEvent.contentOffset.x / heroImageWidth);
                       setCurrentImageIndex(nextIndex);
                     }}
                   >
                     {mergedImages.map((url, idx) => (
-                      <Image key={`${url}-${idx}`} source={{ uri: resolveImageUrl(url) }} style={styles.heroImage} />
+                      <TouchableOpacity
+                        key={`${url}-${idx}`}
+                        activeOpacity={0.95}
+                        onPress={() => openPreview(idx)}
+                      >
+                        <Image
+                          source={{ uri: resolveImageUrl(url) }}
+                          style={[styles.heroImage, { width: heroImageWidth }]}
+                        />
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                   {mergedImages.length > 1 ? (
@@ -312,6 +343,39 @@ export default function RoommateDetailScreen() {
           <Text style={styles.primaryText}>Chỉnh sửa</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={previewVisible} transparent animationType="fade" onRequestClose={() => setPreviewVisible(false)}>
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity style={styles.previewCloseButton} onPress={() => setPreviewVisible(false)}>
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          {previewImage ? (
+            <>
+              <Image source={{ uri: resolveImageUrl(previewImage) }} style={styles.previewImage} resizeMode="contain" />
+              {mergedImages.length > 1 ? (
+                <>
+                  <TouchableOpacity
+                    style={[styles.previewNavButton, styles.previewNavLeft]}
+                    onPress={() => setPreviewIndex((prev) => Math.max(0, prev - 1))}
+                  >
+                    <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.previewNavButton, styles.previewNavRight]}
+                    onPress={() => setPreviewIndex((prev) => Math.min(mergedImages.length - 1, prev + 1))}
+                  >
+                    <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </>
+              ) : null}
+              <View style={styles.previewFooter}>
+                <Text style={styles.previewCounter}>{previewIndex + 1}/{mergedImages.length}</Text>
+              </View>
+            </>
+          ) : null}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -583,4 +647,55 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  previewCloseButton: {
+    position: 'absolute',
+    top: 56,
+    right: 20,
+    zIndex: 2,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  previewImage: {
+    width: '100%',
+    height: '72%',
+  },
+  previewNavButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewNavLeft: {
+    left: 16,
+  },
+  previewNavRight: {
+    right: 16,
+  },
+  previewFooter: {
+    position: 'absolute',
+    bottom: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewCounter: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });
