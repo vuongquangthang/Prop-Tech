@@ -397,14 +397,26 @@ export default function RoommateEditScreen() {
         Alert.alert('Quyền truy cập bị từ chối', 'Vui lòng cho phép ứng dụng truy cập ảnh để có thể thêm ảnh.');
         return;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
+      });
       if (result.canceled || !result.assets || result.assets.length === 0) return;
-      const asset = result.assets[0];
-      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+
+      const oversizedAsset = result.assets.find((asset) => asset.fileSize && asset.fileSize > 5 * 1024 * 1024);
+      if (oversizedAsset) {
         Alert.alert('Ảnh quá lớn', 'Kích thước ảnh không được vượt quá 5MB');
         return;
       }
-      setImages((prev) => [...prev, { uri: asset.uri, name: asset.fileName || `photo_${Date.now()}.jpg` }]);
+
+      const nextImages = result.assets.map((asset, index) => ({
+        uri: asset.uri,
+        name: asset.fileName || `photo_${Date.now()}_${index}.jpg`,
+      }));
+
+      setImages((prev) => [...prev, ...nextImages]);
     } catch (err: any) {
       console.error(err);
       Alert.alert('Lỗi', 'Không thể chọn ảnh');
@@ -417,6 +429,14 @@ export default function RoommateEditScreen() {
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 120);
+  };
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('RoommatePost');
   };
 
   return (
@@ -434,7 +454,7 @@ export default function RoommateEditScreen() {
         automaticallyAdjustKeyboardInsets
       >
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Ionicons name="chevron-back" size={24} color="#4B5563" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Chỉnh sửa bài đăng</Text>
@@ -657,7 +677,7 @@ export default function RoommateEditScreen() {
             </View>
 
             <View style={styles.footerRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()} disabled={saving}>
+              <TouchableOpacity style={styles.cancelButton} onPress={handleBack} disabled={saving}>
                 <Text style={styles.cancelButtonText}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitButton} onPress={handleSave} disabled={saving}>

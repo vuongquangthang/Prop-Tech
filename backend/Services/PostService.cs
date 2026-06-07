@@ -152,7 +152,6 @@ public class PostService : IPostService
         }
 
         var now = DateTime.UtcNow;
-        var isRoomOccupied = IsRoomOccupiedStatus(room.Status);
         var post = new BaiDangTimPhong
         {
             RoomId = room.Id,
@@ -167,8 +166,8 @@ public class PostService : IPostService
             CreatedAt = now,
             Views = 0,
             Messages = 0,
-            IsLocked = isRoomOccupied,
-            Status = isRoomOccupied ? PausedPostStatus : ActivePostStatus,
+            IsLocked = false,
+            Status = ActivePostStatus,
             RoomStatus = room.Status,
             MoveInType = dto.MoveInType,
             MoveInDate = dto.MoveInDate,
@@ -477,15 +476,6 @@ public class PostService : IPostService
             _context.BaiDangTimPhongs.Remove(post);
         }
         await _context.SaveChangesAsync();
-    }
-
-    private static bool IsRoomOccupiedStatus(string? status)
-    {
-        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
-        return normalized.Contains("thuê")
-            || normalized.Contains("thuÃª")
-            || normalized.Contains("thue")
-            || normalized is "rented" or "occupied";
     }
 
     private static PostDto MapToDto(BaiDangTimPhong post)

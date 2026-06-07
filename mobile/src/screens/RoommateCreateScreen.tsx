@@ -375,15 +375,26 @@ export default function RoommateCreateScreen() {
         Alert.alert('Quyền truy cập bị từ chối', 'Vui lòng cho phép ứng dụng truy cập ảnh để có thể thêm ảnh.');
         return;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
+      });
       if (result.canceled || !result.assets || result.assets.length === 0) return;
-      const asset = result.assets[0];
-      // file size check if available
-      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+
+      const oversizedAsset = result.assets.find((asset) => asset.fileSize && asset.fileSize > 5 * 1024 * 1024);
+      if (oversizedAsset) {
         Alert.alert('Ảnh quá lớn', 'Kích thước ảnh không được vượt quá 5MB');
         return;
       }
-      setImages((prev) => [...prev, { uri: asset.uri, name: asset.fileName || `photo_${Date.now()}.jpg` }]);
+
+      const nextImages = result.assets.map((asset, index) => ({
+        uri: asset.uri,
+        name: asset.fileName || `photo_${Date.now()}_${index}.jpg`,
+      }));
+
+      setImages((prev) => [...prev, ...nextImages]);
     } catch (err: any) {
       console.error(err);
       Alert.alert('Lỗi', 'Không thể chọn ảnh');

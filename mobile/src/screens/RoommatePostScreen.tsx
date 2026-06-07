@@ -133,11 +133,19 @@ export default function RoommatePostScreen() {
     );
   };
 
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('Home');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#4B5563" />
           </TouchableOpacity>
           <View>
@@ -230,7 +238,7 @@ export default function RoommatePostScreen() {
 
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => navigation.replace('RoommateEdit')}
+                    onPress={() => navigation.navigate('RoommateEdit')}
                   >
                     <Ionicons name="create-outline" size={16} color="#374151" />
                     <Text style={styles.actionButtonText}>Sửa</Text>

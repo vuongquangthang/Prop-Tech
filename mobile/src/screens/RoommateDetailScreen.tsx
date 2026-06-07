@@ -339,7 +339,7 @@ export default function RoommateDetailScreen() {
           <Ionicons name="chatbubble-ellipses-outline" size={16} color="#374151" />
           <Text style={styles.outlineText}>Tin nhắn ({post?.messages ?? 0})</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.replace('RoommateEdit')}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('RoommateEdit')}>
           <Text style={styles.primaryText}>Chỉnh sửa</Text>
         </TouchableOpacity>
       </View>
