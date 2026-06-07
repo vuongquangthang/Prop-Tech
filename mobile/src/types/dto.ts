@@ -172,6 +172,8 @@ export interface PostDto {
   createdAt: string;
   views: number;
   messages: number;
+  totalViews?: number;
+  totalMessages?: number;
   isLocked: boolean;
   status: string;
   roomStatus: string;

@@ -2,12 +2,14 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
+import RoommatePostScreen from '../screens/RoommatePostScreen';
 import BillsScreen from '../screens/BillsScreen';
 import IssuesScreen from '../screens/IssuesScreen';
 import AccountScreen from '../screens/AccountScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
+  Roommate: undefined;
   Bills: undefined;
   Issues: undefined;
   Profile: undefined;
@@ -25,6 +27,8 @@ export const MainTabs = () => {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Roommate') {
+            iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Bills') {
             iconName = focused ? 'receipt' : 'receipt-outline';
           } else if (route.name === 'Issues') {
@@ -59,6 +63,11 @@ export const MainTabs = () => {
         name="Bills"
         component={BillsScreen}
         options={{ tabBarLabel: 'Hóa đơn' }}
+      />
+      <Tab.Screen
+        name="Roommate"
+        component={RoommatePostScreen}
+        options={{ tabBarLabel: 'Ở ghép' }}
       />
       <Tab.Screen
         name="Issues"

@@ -265,24 +265,6 @@ export default function RoommateDetailScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Điều kiện vào ở</Text>
-              <View style={styles.conditionRow}>
-                <Ionicons name="time-outline" size={16} color="#6B7280" />
-                <Text style={styles.itemText}>
-                  {post.moveInType === 'from-date' ? `Có thể vào ở từ ${formatDate(post.moveInDate)}` : 'Có thể vào ở ngay'}
-                </Text>
-              </View>
-              <View style={styles.conditionRow}>
-                <Ionicons name="water-outline" size={16} color="#6B7280" />
-                <Text style={styles.itemText}>Khu vực ngập lụt: {post.floodProne ? 'Có' : 'Không'}</Text>
-              </View>
-              <View style={styles.conditionRow}>
-                <Ionicons name="document-text-outline" size={16} color="#6B7280" />
-                <Text style={styles.itemText}>Yêu cầu từ chủ phòng: {post.landlordRequirements || 'Không có'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.card}>
               <Text style={styles.cardTitle}>Chi phí & dịch vụ</Text>
               <View style={styles.rentHighlight}>
                 <Text style={styles.rentHighlightLabel}>Giá thuê sau chia</Text>
@@ -313,6 +295,24 @@ export default function RoommateDetailScreen() {
               ) : (
                 <Text style={styles.itemText}>Chưa có tiện nghi.</Text>
               )}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Điều kiện vào ở</Text>
+              <View style={styles.conditionRow}>
+                <Ionicons name="time-outline" size={16} color="#6B7280" />
+                <Text style={styles.itemText}>
+                  {post.moveInType === 'from-date' ? `Có thể vào ở từ ${formatDate(post.moveInDate)}` : 'Có thể vào ở ngay'}
+                </Text>
+              </View>
+              <View style={styles.conditionRow}>
+                <Ionicons name="water-outline" size={16} color="#6B7280" />
+                <Text style={styles.itemText}>Khu vực ngập lụt: {post.floodProne ? 'Có' : 'Không'}</Text>
+              </View>
+              <View style={styles.conditionRow}>
+                <Ionicons name="document-text-outline" size={16} color="#6B7280" />
+                <Text style={styles.itemText}>Yêu cầu từ chủ phòng: {post.landlordRequirements || 'Không có'}</Text>
+              </View>
             </View>
 
             <View style={styles.card}>

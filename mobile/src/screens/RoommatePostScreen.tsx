@@ -158,12 +158,12 @@ export default function RoommatePostScreen() {
           <>
             <View style={styles.topStatsRow}>
               <View style={styles.topStatCard}>
-                <Text style={styles.topStatNumber}>{post.views}</Text>
-                <Text style={styles.topStatLabel}>Lượt xem</Text>
+                <Text style={styles.topStatNumber}>{post.totalViews ?? post.views}</Text>
+                <Text style={styles.topStatLabel}>Tổng lượt xem</Text>
               </View>
               <View style={styles.topStatCard}>
-                <Text style={styles.topStatNumber}>{post.messages}</Text>
-                <Text style={styles.topStatLabel}>Tin nhắn chờ</Text>
+                <Text style={styles.topStatNumber}>{post.totalMessages ?? post.messages}</Text>
+                <Text style={styles.topStatLabel}>Tổng tin nhắn</Text>
               </View>
             </View>
 
