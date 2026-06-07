@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -86,6 +88,11 @@ export default function ContractChangeApprovalScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -94,7 +101,11 @@ export default function ContractChangeApprovalScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <View style={styles.card}>
           <Text style={styles.title}>Hợp đồng {detail.contractCode || `#${detail.contractId}`}</Text>
           <Text style={styles.sub}>Phòng: {detail.roomNumber || detail.roomId}</Text>
@@ -151,6 +162,7 @@ export default function ContractChangeApprovalScreen() {
           <Text style={styles.primaryText}>Xác nhận thay đổi hợp đồng</Text>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

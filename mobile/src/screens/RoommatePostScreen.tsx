@@ -23,6 +23,7 @@ export default function RoommatePostScreen() {
   const navigation = useNavigation<any>();
   const [post, setPost] = useState<PostDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentOccupants, setCurrentOccupants] = useState<number | null>(null);
   const [needMore, setNeedMore] = useState<number | null>(null);
@@ -97,6 +98,39 @@ export default function RoommatePostScreen() {
       .then((updated) => setPost(updated))
       .catch(() => Alert.alert('Lỗi', 'Không thể cập nhật trạng thái bài đăng'))
       .finally(() => setShowStatusDialog(false));
+  };
+
+  const confirmDelete = () => {
+    if (!post || deleting) return;
+
+    Alert.alert(
+      'Xóa bài đăng?',
+      'Bài đăng sẽ bị xóa khỏi ứng dụng cư dân và không thể khôi phục.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await postService.delete(post.id);
+              setPost(null);
+              setCurrentOccupants(null);
+              setNeedMore(null);
+              Alert.alert('Thành công', 'Đã xóa bài đăng.');
+            } catch (err) {
+              const message = axios.isAxiosError(err)
+                ? err.response?.data?.message || 'Không thể xóa bài đăng'
+                : 'Không thể xóa bài đăng';
+              Alert.alert('Lỗi', message);
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -211,6 +245,15 @@ export default function RoommatePostScreen() {
                     <Text style={styles.actionButtonText}>{post.isLocked ? 'Mở' : 'Khóa'}</Text>
                   </TouchableOpacity>
                 </View>
+
+                <TouchableOpacity
+                  style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+                  onPress={confirmDelete}
+                  disabled={deleting}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                  <Text style={styles.deleteButtonText}>{deleting ? 'Đang xóa...' : 'Xóa bài đăng'}</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.historyButton}
@@ -466,6 +509,26 @@ const styles = StyleSheet.create({
   historyButtonText: {
     fontSize: 13,
     color: '#6B7280',
+  },
+  deleteButton: {
+    marginTop: 8,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  deleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  deleteButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   errorCard: {
     backgroundColor: '#FEF2F2',

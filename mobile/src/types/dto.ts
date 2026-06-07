@@ -235,3 +235,52 @@ export interface PostEditHistoryDto {
   isCurrent: boolean;
   changes: string[];
 }
+
+export interface PostMessageParticipantDto {
+  userId: string;
+  displayName: string;
+  phoneNumber: string;
+  avatarUrl?: string | null;
+}
+
+export interface PostConversationDto {
+  conversationId: string;
+  postId: number;
+  postTitle: string;
+  roomCode: string;
+  otherUserId: string;
+  otherUserName: string;
+  otherUserPhone: string;
+  otherUserAvatarUrl?: string | null;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastSenderUserId: number;
+  unreadCount: number;
+  isUnread: boolean;
+}
+
+export interface PostMessageDto {
+  id: string | number;
+  conversationId: string;
+  postId: number;
+  content: string;
+  createdAt: string;
+  readAt?: string | null;
+  isMine: boolean;
+  status: string;
+}
+
+export interface PostConversationDetailDto {
+  conversationId: string;
+  postId: number;
+  postTitle: string;
+  roomCode: string;
+  me: PostMessageParticipantDto;
+  otherUser: PostMessageParticipantDto;
+  messages: PostMessageDto[];
+}
+
+export interface SendPostMessageDto {
+  conversationId: string;
+  content: string;
+}

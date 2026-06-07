@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
   Image,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,29 +12,71 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { conversations } from './roommateData';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { postMessageService } from '../services/post-message.service';
+import { PostConversationDto } from '../types/dto';
+
+const formatRelativeTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Vừa xong';
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'Vừa xong';
+  if (minutes < 60) return `${minutes} phút`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Hôm qua';
+  if (days < 7) return `${days} ngày`;
+  return date.toLocaleDateString('vi-VN');
+};
 
 export default function RoommateMessagesScreen() {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<PostConversationDto[]>([]);
 
-  const pendingMessages = useMemo(() => conversations.filter((item) => item.unread), []);
-  const oldMessages = useMemo(() => conversations.filter((item) => !item.unread), []);
-  const totalPending = useMemo(
-    () => pendingMessages.reduce((sum, item) => sum + item.unreadCount, 0),
-    [pendingMessages]
+  const loadConversations = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    setError(null);
+    try {
+      const items = await postMessageService.getConversations();
+      setConversations(items);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Không thể tải danh sách tin nhắn');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadConversations();
+    }, [loadConversations])
   );
 
-  const filterConversations = (items: typeof conversations) =>
-    items.filter(
+  const filteredConversations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return conversations;
+    return conversations.filter(
       (item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+        item.otherUserName.toLowerCase().includes(query) ||
+        item.roomCode.toLowerCase().includes(query) ||
+        item.postTitle.toLowerCase().includes(query) ||
+        item.lastMessage.toLowerCase().includes(query)
     );
+  }, [conversations, searchQuery]);
 
-  const filteredPending = filterConversations(pendingMessages);
-  const filteredOld = filterConversations(oldMessages);
+  const pendingMessages = filteredConversations.filter((item) => item.isUnread);
+  const oldMessages = filteredConversations.filter((item) => !item.isUnread);
+  const totalPending = pendingMessages.reduce((sum, item) => sum + item.unreadCount, 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -62,77 +105,115 @@ export default function RoommateMessagesScreen() {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {filteredPending.length > 0 && (
-          <View>
-            <View style={styles.pendingSectionHeader}>
-              <Text style={styles.pendingSectionTitle}>Tin nhắn chờ ({filteredPending.length})</Text>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#1A4B84" />
+        </View>
+      ) : error ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => loadConversations()}>
+            <Text style={styles.retryText}>Tải lại</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            loadConversations(true);
+          }} />}
+        >
+          {pendingMessages.length > 0 && (
+            <View>
+              <View style={styles.pendingSectionHeader}>
+                <Text style={styles.pendingSectionTitle}>Tin nhắn chờ ({pendingMessages.length})</Text>
+              </View>
+              {pendingMessages.map((conversation) => (
+                <ConversationItem
+                  key={`${conversation.postId}-${conversation.otherUserId}`}
+                  item={conversation}
+                  onPress={() =>
+                    navigation.navigate('RoommateConversation', {
+                      conversationId: conversation.conversationId,
+                    })
+                  }
+                />
+              ))}
             </View>
-            {filteredPending.map((conversation) => (
-              <ConversationItem key={conversation.id} onPress={() => Alert.alert('Tin nhắn', 'Đang mở hội thoại...')} {...conversation} />
-            ))}
-          </View>
-        )}
+          )}
 
-        {filteredOld.length > 0 && (
-          <View>
-            <View style={styles.oldSectionHeader}>
-              <Text style={styles.oldSectionTitle}>Tin nhắn cũ</Text>
+          {oldMessages.length > 0 && (
+            <View>
+              <View style={styles.oldSectionHeader}>
+                <Text style={styles.oldSectionTitle}>Tin nhắn cũ</Text>
+              </View>
+              {oldMessages.map((conversation) => (
+                <ConversationItem
+                  key={`${conversation.postId}-${conversation.otherUserId}`}
+                  item={conversation}
+                  onPress={() =>
+                    navigation.navigate('RoommateConversation', {
+                      conversationId: conversation.conversationId,
+                    })
+                  }
+                />
+              ))}
             </View>
-            {filteredOld.map((conversation) => (
-              <ConversationItem key={conversation.id} onPress={() => Alert.alert('Tin nhắn', 'Đang mở hội thoại...')} {...conversation} />
-            ))}
-          </View>
-        )}
+          )}
 
-        {filteredPending.length === 0 && filteredOld.length === 0 && (
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>{searchQuery ? 'Không tìm thấy tin nhắn' : 'Chưa có tin nhắn nào'}</Text>
-          </View>
-        )}
-      </ScrollView>
+          {filteredConversations.length === 0 && (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>{searchQuery ? 'Không tìm thấy tin nhắn' : 'Chưa có tin nhắn nào'}</Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
-type ConversationItemProps = (typeof conversations)[number] & {
-  onPress: () => void;
-};
-
 function ConversationItem({
-  name,
-  avatar,
-  lastMessage,
-  time,
-  unread,
-  unreadCount,
-  isOnline,
+  item,
   onPress,
-}: ConversationItemProps) {
+}: {
+  item: PostConversationDto;
+  onPress: () => void;
+}) {
+  const initials = item.otherUserName.trim().slice(0, 1).toUpperCase();
+
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.conversationCard, unread && styles.unreadCard]}>
+    <TouchableOpacity onPress={onPress} style={[styles.conversationCard, item.isUnread && styles.unreadCard]}>
       <View style={styles.avatarWrap}>
-        <Image source={{ uri: avatar }} style={styles.avatar} />
-        {isOnline && <View style={styles.onlineDot} />}
+        {item.otherUserAvatarUrl ? (
+          <Image source={{ uri: item.otherUserAvatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarFallbackText}>{initials}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.conversationContent}>
         <View style={styles.conversationTop}>
-          <Text style={[styles.nameText, unread && styles.nameTextUnread]} numberOfLines={1}>
-            {name}
+          <Text style={[styles.nameText, item.isUnread && styles.nameTextUnread]} numberOfLines={1}>
+            {item.otherUserName}
           </Text>
-          <Text style={[styles.timeText, unread && styles.timeTextUnread]}>{time}</Text>
+          <Text style={[styles.timeText, item.isUnread && styles.timeTextUnread]}>
+            {formatRelativeTime(item.lastMessageAt)}
+          </Text>
         </View>
+        <Text style={styles.postMeta} numberOfLines={1}>
+          {item.roomCode} · {item.postTitle}
+        </Text>
         <View style={styles.conversationBottom}>
-          <Text style={[styles.messageText, unread && styles.messageTextUnread]} numberOfLines={1}>
-            {lastMessage}
+          <Text style={[styles.messageText, item.isUnread && styles.messageTextUnread]} numberOfLines={1}>
+            {item.lastMessage}
           </Text>
-          {unread ? (
-            unreadCount > 0 ? (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-              </View>
-            ) : null
+          {item.isUnread ? (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+            </View>
           ) : (
             <Ionicons name="checkmark-done" size={16} color="#1A4B84" />
           )}
@@ -198,6 +279,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
   },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorWrap: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+    gap: 10,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#B91C1C',
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1A4B84',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   pendingSectionHeader: {
     backgroundColor: '#EFF6FF',
     borderTopWidth: 1,
@@ -249,16 +360,18 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
   },
-  onlineDot: {
-    position: 'absolute',
-    right: 1,
-    bottom: 1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#22C55E',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+  avatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+    fontSize: 16,
   },
   conversationContent: {
     flex: 1,
@@ -277,6 +390,11 @@ const styles = StyleSheet.create({
   },
   nameTextUnread: {
     fontWeight: '700',
+  },
+  postMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#6B7280',
   },
   timeText: {
     fontSize: 12,

@@ -151,6 +151,7 @@ builder.Services.AddScoped<backend.Services.IXeService, backend.Services.XeServi
 builder.Services.AddScoped<backend.Services.IYeuCauSuaChuaService, backend.Services.YeuCauSuaChuaService>();
 builder.Services.AddScoped<backend.Services.IChiTietSuDungDichVuService, backend.Services.ChiTietSuDungDichVuService>();
 builder.Services.AddScoped<backend.Services.IPostService, backend.Services.PostService>();
+builder.Services.AddScoped<backend.Services.IPostMessageService, backend.Services.PostMessageService>();
 
 // Phase 4: Meter Readings & Settlement Services
 builder.Services.AddScoped<backend.Services.IChiSoDienService, backend.Services.ChiSoDienService>();
@@ -287,7 +288,7 @@ using (var scope = app.Services.CreateScope())
         {
             Console.WriteLine($"⚠️ Posts table ensure failed: {ex.Message}");
         }
-        
+
         // Apply column additions for existing databases
         try {
             context.Database.ExecuteSqlRaw("""

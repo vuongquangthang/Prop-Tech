@@ -124,11 +124,31 @@ public class PostService : IPostService
             }
         }
 
-        var hasExistingPost = await _context.BaiDangTimPhongs
-            .AnyAsync(item => item.RoomId == room.Id);
-        if (hasExistingPost)
+        var existingPosts = await _context.BaiDangTimPhongs
+            .Where(item => item.RoomId == room.Id)
+            .ToListAsync();
+        if (existingPosts.Count > 0)
         {
-            throw new InvalidOperationException("Phòng này đã có bài đăng");
+            if (createdByUserId.HasValue)
+            {
+                var sameCreatorPosts = existingPosts
+                    .Where(item => item.CreatedByUserId == createdByUserId.Value)
+                    .ToList();
+
+                if (sameCreatorPosts.Count == existingPosts.Count)
+                {
+                    _context.BaiDangTimPhongs.RemoveRange(sameCreatorPosts);
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    throw new InvalidOperationException("Phòng này đã có bài đăng");
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("Phòng này đã có bài đăng");
+            }
         }
 
         var now = DateTime.UtcNow;
@@ -444,7 +464,18 @@ public class PostService : IPostService
             throw new InvalidOperationException("Bài đăng không tồn tại");
         }
 
-        _context.BaiDangTimPhongs.Remove(post);
+        var duplicatePosts = await _context.BaiDangTimPhongs
+            .Where(item => item.RoomId == post.RoomId && item.CreatedByUserId == post.CreatedByUserId)
+            .ToListAsync();
+
+        if (duplicatePosts.Count > 0)
+        {
+            _context.BaiDangTimPhongs.RemoveRange(duplicatePosts);
+        }
+        else
+        {
+            _context.BaiDangTimPhongs.Remove(post);
+        }
         await _context.SaveChangesAsync();
     }
 

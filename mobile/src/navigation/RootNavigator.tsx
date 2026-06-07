@@ -18,6 +18,7 @@ import RoommateDetailScreen from '../screens/RoommateDetailScreen';
 import RoommateEditScreen from '../screens/RoommateEditScreen';
 import RoommateHistoryScreen from '../screens/RoommateHistoryScreen';
 import RoommateMessagesScreen from '../screens/RoommateMessagesScreen';
+import RoommateConversationScreen from '../screens/RoommateConversationScreen';
 import { useAuthStore } from '../store/authStore';
 import signalrService from '../services/signalr.service';
 
@@ -41,6 +42,7 @@ const MainStack = () => {
       <Stack.Screen name="RoommateEdit" component={RoommateEditScreen} />
       <Stack.Screen name="RoommateHistory" component={RoommateHistoryScreen} />
       <Stack.Screen name="RoommateMessages" component={RoommateMessagesScreen} />
+      <Stack.Screen name="RoommateConversation" component={RoommateConversationScreen} />
     </Stack.Navigator>
   );
 };

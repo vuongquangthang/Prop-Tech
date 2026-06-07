@@ -20,6 +20,10 @@ class PostService {
     return apiService.patch<PostDto>(`${this.baseUrl}/${id}/lock`, data);
   }
 
+  async delete(id: number): Promise<void> {
+    return apiService.delete(`${this.baseUrl}/${id}`);
+  }
+
   async getHistory(id: number, limit = 20): Promise<PostEditHistoryDto[]> {
     return apiService.get<PostEditHistoryDto[]>(`${this.baseUrl}/${id}/history?limit=${limit}`);
   }

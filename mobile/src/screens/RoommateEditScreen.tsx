@@ -1,7 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -16,13 +18,12 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { contractService } from '../services/contract.service';
 import { postService } from '../services/post.service';
-import { MyRoom, roomService } from '../services/room.service';
+import { MyRoom, RoomDetail, roomService } from '../services/room.service';
 import { servicesService, type ServiceInRoomDto } from '../services/services.service';
 import * as ImagePicker from 'expo-image-picker';
 import { fileService } from '../services/file.service';
 import { useAuthStore } from '../store/authStore';
 import { resolveImageUrl } from '../utils/image';
-import { DEFAULT_AMENITIES, mergeAmenities } from '../utils/amenities';
 import type { PostDto, PostServiceLineItemDto, UpdatePostDto } from '../types/dto';
 
 type PriceMap = Record<string, string>;
@@ -35,6 +36,63 @@ type RoomFormService = {
 };
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.max(0, Math.round(value || 0)));
+
+const formatRoomType = (value?: string | null) => {
+  if (!value) return 'Chưa cập nhật';
+  return value.trim();
+};
+
+const isApartmentRoomType = (value?: string | null) => {
+  const normalized = (value || '').trim().toLowerCase();
+  return normalized.includes('căn hộ') || normalized.includes('apartment');
+};
+
+const getRoomMeta = (detail?: RoomDetail | null) => {
+  if (!detail) {
+    return {
+      icon: 'information-circle-outline' as const,
+      color: '#9CA3AF',
+      text: 'Chưa cập nhật',
+    };
+  }
+
+  if (isApartmentRoomType(detail.roomType)) {
+    const parts = [
+      `${detail.bedroomCount ?? 0} phòng ngủ`,
+      `${detail.kitchenCount ?? 0} bếp`,
+      `${detail.livingRoomCount ?? 0} khách`,
+      `${detail.bathroomCount ?? 0} vệ sinh`,
+    ];
+
+    return {
+      icon: 'home-outline' as const,
+      color: '#9CA3AF',
+      text: parts.join(' · '),
+    };
+  }
+
+  if (detail.hasPrivateBathroom === true) {
+    return {
+      icon: 'checkmark' as const,
+      color: '#10B981',
+      text: 'Có vệ sinh khép kín',
+    };
+  }
+
+  if (detail.hasPrivateBathroom === false) {
+    return {
+      icon: 'close' as const,
+      color: '#9CA3AF',
+      text: 'Không có vệ sinh khép kín',
+    };
+  }
+
+  return {
+    icon: 'information-circle-outline' as const,
+    color: '#9CA3AF',
+    text: 'Chưa cập nhật',
+  };
+};
 
 const parseMoneyInput = (value: string): number => {
   const normalized = value.replace(/[^\d]/g, '');
@@ -89,6 +147,7 @@ const findServicePrice = (post: PostDto, service: RoomFormService): number => {
 export default function RoommateEditScreen() {
   const navigation = useNavigation<any>();
   const user = useAuthStore((state) => state.user);
+  const scrollRef = useRef<ScrollView>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,6 +155,7 @@ export default function RoommateEditScreen() {
 
   const [post, setPost] = useState<PostDto | null>(null);
   const [room, setRoom] = useState<MyRoom | null>(null);
+  const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
   const [services, setServices] = useState<RoomFormService[]>([]);
   const [currentOccupants, setCurrentOccupants] = useState(0);
 
@@ -113,17 +173,15 @@ export default function RoommateEditScreen() {
   const [customName, setCustomName] = useState('');
   const [customPhone, setCustomPhone] = useState('');
   const [images, setImages] = useState<Array<{ uri: string; uploadedUrl?: string; name?: string }>>([]);
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [amenityCatalog, setAmenityCatalog] = useState<string[]>([]);
-  const [newAmenity, setNewAmenity] = useState('');
-
-  const availableAmenities = amenityCatalog.filter((amenity) => !selectedAmenities.includes(amenity));
+  const [roomAmenities, setRoomAmenities] = useState<string[]>([]);
+  const roomMeta = getRoomMeta(roomDetail);
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setImages([]);
     try {
       const [myPost, myRoom] = await Promise.all([
         postService.getMyPost(),
@@ -193,6 +251,7 @@ export default function RoommateEditScreen() {
       let amenityList: string[] = Array.isArray(myRoom.amenities) ? myRoom.amenities : [];
       try {
         const roomDetail = await roomService.getRoomDetail(myRoom.roomId);
+        setRoomDetail(roomDetail);
         const assets = Array.isArray(roomDetail.assets) ? roomDetail.assets : [];
         const assetNames = assets.map((asset) => asset.assetName).filter(Boolean);
         if (assetNames.length) {
@@ -202,10 +261,7 @@ export default function RoommateEditScreen() {
         console.warn('Không thể tải tiện nghi từ DB', err);
       }
 
-      const postAmenities = Array.isArray(myPost.amenities) ? myPost.amenities : [];
-      const initialAmenities = postAmenities.length ? postAmenities : amenityList;
-      setSelectedAmenities(initialAmenities);
-      setAmenityCatalog(mergeAmenities(DEFAULT_AMENITIES, amenityList.length ? amenityList : initialAmenities));
+      setRoomAmenities(amenityList);
       // preload images from post
       if (myPost.imageUrls?.length) {
         setImages(myPost.imageUrls.map((u, i) => ({ uri: resolveImageUrl(u), uploadedUrl: u, name: `img_${i}` })));
@@ -307,7 +363,7 @@ export default function RoommateEditScreen() {
           return;
         }
       }
-      payload.amenities = selectedAmenities;
+      payload.amenities = roomAmenities;
       payload.imageUrls = uploadedUrls;
 
       await postService.update(post.id, payload);
@@ -357,29 +413,26 @@ export default function RoommateEditScreen() {
 
   const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
 
-  const handleAddAmenity = (amenity: string) => {
-    if (selectedAmenities.includes(amenity)) {
-      Alert.alert('Tiện ích đã có', 'Tiện ích này đã nằm trong danh sách.');
-      return;
-    }
-    setSelectedAmenities((prev) => [...prev, amenity]);
-  };
-
-  const handleRemoveAmenity = (name: string) => {
-    setSelectedAmenities((prev) => prev.filter((item) => item !== name));
-  };
-
-  const addCustomAmenity = () => {
-    const value = (newAmenity || '').trim();
-    if (!value) return;
-    setAmenityCatalog((prev) => (prev.includes(value) ? prev : [...prev, value]));
-    setSelectedAmenities((prev) => (prev.includes(value) ? prev : [...prev, value]));
-    setNewAmenity('');
+  const scrollToRequirementField = () => {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 120);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      >
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={24} color="#4B5563" />
@@ -395,10 +448,56 @@ export default function RoommateEditScreen() {
           <>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Thông tin phòng</Text>
-              <Text style={styles.roomText}>Phòng: {room.roomCode}</Text>
-              <Text style={styles.roomText}>Vị trí: {room.buildingName} - Tầng {room.floorNumber}</Text>
-              <Text style={styles.roomText}>Số người đang ở: {currentOccupants}</Text>
-              <Text style={styles.roomText}>Số người tối đa: {post.maxOccupants ?? room.maxOccupants ?? 'Chưa cập nhật'}</Text>
+              {Array.isArray(roomDetail?.imageUrls) && roomDetail!.imageUrls!.filter(Boolean).length > 0 ? (
+                <View style={styles.roomMediaBlock}>
+                  <Text style={styles.roomSectionLabel}>Ảnh phòng:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomImageRow}>
+                    {roomDetail!.imageUrls!.filter(Boolean).map((u, i) => (
+                      <Image
+                        key={u + i}
+                        source={{ uri: resolveImageUrl(u) }}
+                        style={styles.roomPreviewImage}
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
+
+              <View style={styles.roomInfoPanel}>
+                <View style={styles.roomInfoGrid}>
+                  <View style={styles.roomInfoCell}>
+                    <Text style={styles.roomInfoLabel}>Mã phòng</Text>
+                    <Text style={styles.roomInfoValueAccent}>{room.roomCode}</Text>
+                  </View>
+                  <View style={styles.roomInfoCell}>
+                    <Text style={styles.roomInfoLabel}>Vị trí</Text>
+                    <Text style={styles.roomInfoValue}>{room.buildingName} - Tầng {room.floorNumber}</Text>
+                  </View>
+                  <View style={styles.roomInfoCell}>
+                    <Text style={styles.roomInfoLabel}>Diện tích</Text>
+                    <Text style={styles.roomInfoValue}>{room.area ?? 0} m²</Text>
+                  </View>
+                  <View style={styles.roomInfoCell}>
+                    <Text style={styles.roomInfoLabel}>Số người tối đa</Text>
+                    <Text style={styles.roomInfoValue}>{post.maxOccupants ?? room.maxOccupants ?? 'Chưa cập nhật'} người</Text>
+                  </View>
+                  <View style={styles.roomInfoCell}>
+                    <Text style={styles.roomInfoLabel}>Giá thuê</Text>
+                    <Text style={styles.roomInfoValue}>{formatCurrency(room.rentPrice)} VNĐ/tháng</Text>
+                  </View>
+                  <View style={styles.roomInfoCell}>
+                    <Text style={styles.roomInfoLabel}>Loại phòng</Text>
+                    <Text style={styles.roomInfoValue}>{formatRoomType(roomDetail?.roomType)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.roomInfoDivider} />
+
+                <View style={styles.roomFeatureRow}>
+                  <Ionicons name={roomMeta.icon} size={14} color={roomMeta.color} />
+                  <Text style={styles.roomFeatureText}>{roomMeta.text}</Text>
+                </View>
+              </View>
             </View>
 
             <View style={styles.card}>
@@ -442,17 +541,47 @@ export default function RoommateEditScreen() {
               />
 
               {!!services.length && <Text style={styles.label}>Dịch vụ sau chia</Text>}
-              {services.map((item) => (
-                <View key={item.key} style={styles.serviceRow}>
-                  <Text style={styles.serviceName}>{item.name} ({item.unit || 'đơn vị'})</Text>
-                  <TextInput
-                    style={[styles.input, styles.serviceInput]}
-                    keyboardType="numeric"
-                    value={servicePrices[item.key] ?? ''}
-                    onChangeText={(value) => onChangeServicePrice(item.key, value)}
-                  />
+              {!!services.length && (
+                <View style={styles.serviceTable}>
+                  <View style={styles.serviceTableHeader}>
+                    <Text style={[styles.serviceHeaderText, styles.serviceNameHeader]}>Tên dịch vụ</Text>
+                    <Text style={[styles.serviceHeaderText, styles.servicePriceHeader]}>Giá tiền</Text>
+                  </View>
+                  {services.map((item, index) => (
+                    <View
+                      key={item.key}
+                      style={[
+                        styles.serviceTableRow,
+                        index === services.length - 1 && styles.serviceTableRowLast,
+                      ]}
+                    >
+                      <View style={styles.serviceNameCell}>
+                        <Text style={styles.serviceName}>{item.name}</Text>
+                        <Text style={styles.serviceUnit}>{item.unit || 'đơn vị'}</Text>
+                      </View>
+                      <TextInput
+                        style={[styles.input, styles.serviceInput]}
+                        keyboardType="numeric"
+                        value={servicePrices[item.key] ?? ''}
+                        onChangeText={(value) => onChangeServicePrice(item.key, value)}
+                      />
+                    </View>
+                  ))}
                 </View>
-              ))}
+              )}
+
+              <View style={{ marginTop: 8 }}>
+                <Text style={styles.label}>Tiện nghi</Text>
+                <View style={styles.amenityPickerBox}>
+                  <View style={styles.selectedAmenityList}>
+                    {roomAmenities.length > 0 ? roomAmenities.map((amenity, idx) => (
+                      <View key={`${amenity}-${idx}`} style={styles.selectedAmenityTag}>
+                        <Text style={styles.selectedAmenityText}>{amenity}</Text>
+                      </View>
+                    )) : <Text style={styles.mutedText}>Chưa có tiện nghi</Text>}
+                  </View>
+                </View>
+              </View>
 
               <View style={{ marginTop: 8 }}>
                 <Text style={styles.label}>Ảnh bài đăng</Text>
@@ -469,49 +598,6 @@ export default function RoommateEditScreen() {
                 <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
                   <Text style={{ color: '#1A4B84', fontWeight: '600' }}>Thêm ảnh</Text>
                 </TouchableOpacity>
-              </View>
-
-              <View style={{ marginTop: 8 }}>
-                <Text style={styles.label}>Tiện nghi</Text>
-                <View style={styles.amenityPickerBox}>
-                  {availableAmenities.length > 0 ? (
-                    <View style={styles.amenityList}>
-                      {availableAmenities.map((amenity, idx) => (
-                        <TouchableOpacity
-                          key={`${amenity}-${idx}`}
-                          style={styles.amenityOption}
-                          onPress={() => handleAddAmenity(amenity)}
-                        >
-                          <Text style={styles.amenityOptionText}>{amenity}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.mutedText}>Không còn tiện ích nào để thêm</Text>
-                  )}
-                </View>
-                <View style={styles.selectedAmenityList}>
-                  {selectedAmenities.length > 0 ? selectedAmenities.map((amenity, idx) => (
-                    <View key={`${amenity}-${idx}`} style={styles.selectedAmenityTag}>
-                      <Text style={styles.selectedAmenityText}>{amenity}</Text>
-                      <TouchableOpacity onPress={() => handleRemoveAmenity(amenity)}>
-                        <Ionicons name="close" size={14} color="#DC2626" />
-                      </TouchableOpacity>
-                    </View>
-                  )) : <Text style={styles.mutedText}>Chưa có tiện nghi</Text>}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  <TextInput
-                    style={[styles.input, { flex: 1 }]}
-                    value={newAmenity}
-                    onChangeText={setNewAmenity}
-                    placeholder="Thêm tiện nghi..."
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <TouchableOpacity style={[styles.imageButton, { paddingHorizontal: 12 }]} onPress={addCustomAmenity}>
-                    <Text style={{ color: '#1A4B84' }}>Thêm</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             </View>
 
@@ -545,7 +631,13 @@ export default function RoommateEditScreen() {
               </View>
 
               <Text style={styles.label}>Yêu cầu từ chủ phòng</Text>
-              <TextInput style={[styles.input, styles.textArea]} multiline value={requirements} onChangeText={setRequirements} />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                multiline
+                value={requirements}
+                onChangeText={setRequirements}
+                onFocus={scrollToRequirementField}
+              />
 
               <Text style={styles.label}>Thông tin liên hệ</Text>
               <TouchableOpacity style={styles.radioRow} onPress={() => setContactType('current')}>
@@ -575,6 +667,7 @@ export default function RoommateEditScreen() {
           </>
         ) : null}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -596,6 +689,67 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
   roomText: { fontSize: 14, color: '#374151' },
+  roomMediaBlock: {
+    gap: 8,
+  },
+  roomSectionLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  roomImageRow: {
+    gap: 8,
+  },
+  roomPreviewImage: {
+    width: 80,
+    height: 62,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  roomInfoPanel: {
+    borderWidth: 1,
+    borderColor: '#D9E2F1',
+    borderRadius: 10,
+    backgroundColor: '#FCFDFF',
+    padding: 12,
+    gap: 12,
+  },
+  roomInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 14,
+  },
+  roomInfoCell: {
+    width: '50%',
+    paddingRight: 10,
+    gap: 4,
+  },
+  roomInfoLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  roomInfoValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  roomInfoValueAccent: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  roomInfoDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  roomFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  roomFeatureText: {
+    fontSize: 13,
+    color: '#64748B',
+  },
   label: { fontSize: 13, color: '#374151', marginBottom: 4 },
   input: {
     height: 40,
@@ -613,15 +767,52 @@ const styles = StyleSheet.create({
   radioRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   radioText: { fontSize: 14, color: '#374151' },
   textArea: { height: 90, textAlignVertical: 'top', paddingTop: 10 },
-  serviceRow: { gap: 6 },
-  serviceName: { fontSize: 12, color: '#6B7280' },
-  serviceInput: { height: 36 },
+  serviceTable: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+  },
+  serviceTableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  serviceHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  serviceNameHeader: { flex: 1 },
+  servicePriceHeader: { width: 132, textAlign: 'right' },
+  serviceTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  serviceTableRowLast: {
+    borderBottomWidth: 0,
+  },
+  serviceNameCell: {
+    flex: 1,
+    gap: 2,
+  },
+  serviceName: { fontSize: 13, color: '#111827', fontWeight: '500' },
+  serviceUnit: { fontSize: 11, color: '#6B7280' },
+  serviceInput: { width: 132, height: 36, textAlign: 'right' },
   errorCard: { borderRadius: 12, backgroundColor: '#FEE2E2', padding: 12 },
   errorText: { color: '#B91C1C', fontSize: 14 },
   amenityPickerBox: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 10, backgroundColor: '#FFFFFF' },
-  amenityList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  amenityOption: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#FFFFFF' },
-  amenityOptionText: { fontSize: 12, color: '#374151' },
   selectedAmenityList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   selectedAmenityTag: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#F9FAFB' },
   selectedAmenityText: { fontSize: 12, color: '#374151' },

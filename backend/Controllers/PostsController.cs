@@ -199,11 +199,29 @@ public class PostsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin,QuanLy")]
+    [Authorize(Roles = "Admin,QuanLy,CuDan")]
     public async Task<IActionResult> Delete(int id)
     {
         try
         {
+            if (User.IsInRole("CuDan"))
+            {
+                var userId = GetUserId();
+                var existing = await _postService.GetByIdAsync(id);
+                if (existing == null)
+                {
+                    return NotFound(new { message = "Bài đăng không tồn tại" });
+                }
+
+                if (existing.CreatedByUserId != userId)
+                {
+                    return Forbid();
+                }
+
+                await _postService.DeleteAsync(id, userId);
+                return NoContent();
+            }
+
             await _postService.DeleteAsync(id, GetOwnerUserId());
             return NoContent();
         }
