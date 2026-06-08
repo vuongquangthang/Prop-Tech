@@ -172,6 +172,10 @@ public class NotificationService : INotificationService
         };
         await _repo.AddAsync(notification);
         await _repo.SaveChangesAsync();
+
+        var responseDto = MapToDto(notification);
+        await _hub.Clients.Group(NotificationHub.OwnerGroup(ownerUserId))
+            .SendAsync("ReceiveAdminNotification", responseDto);
     }
 
     public async Task<int> GetAdminUnreadCountAsync(int ownerUserId)

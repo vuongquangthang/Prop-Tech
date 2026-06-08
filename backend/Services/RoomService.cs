@@ -24,6 +24,7 @@ public class RoomService : IRoomService
 {
     private const string ActivePostStatus = "active";
     private const string PausedPostStatus = "paused";
+    private const string DeletedPostStatus = "deleted";
 
     private readonly IRoomRepository _roomRepository;
     private readonly IFloorRepository _floorRepository;
@@ -424,11 +425,27 @@ public class RoomService : IRoomService
     private async Task LockRoomPostsAsync(int roomId, string roomStatus)
     {
         var posts = await _dbContext.BaiDangTimPhongs
+            .Include(post => post.CreatedByUser)
             .Where(post => post.RoomId == roomId)
             .ToListAsync();
 
         foreach (var post in posts)
         {
+            if (IsDeletedPost(post))
+            {
+                post.IsLocked = true;
+                post.RoomStatus = roomStatus;
+                continue;
+            }
+
+            if (IsSharedRoommatePost(post))
+            {
+                post.IsLocked = false;
+                post.Status = ActivePostStatus;
+                post.RoomStatus = roomStatus;
+                continue;
+            }
+
             post.IsLocked = true;
             post.Status = PausedPostStatus;
             post.RoomStatus = roomStatus;
@@ -443,6 +460,13 @@ public class RoomService : IRoomService
 
         foreach (var post in posts)
         {
+            if (IsDeletedPost(post))
+            {
+                post.IsLocked = true;
+                post.RoomStatus = roomStatus;
+                continue;
+            }
+
             post.IsLocked = false;
             post.Status = ActivePostStatus;
             post.RoomStatus = roomStatus;
@@ -462,6 +486,17 @@ public class RoomService : IRoomService
             || normalized == "da thue"
             || normalized == "rented"
             || normalized == "occupied";
+    }
+
+    private static bool IsSharedRoommatePost(BaiDangTimPhong post)
+    {
+        return string.Equals(post.CreatedByUser?.Role, "CuDan", StringComparison.OrdinalIgnoreCase)
+            || (post.CurrentOccupants ?? 0) > 0;
+    }
+
+    private static bool IsDeletedPost(BaiDangTimPhong post)
+    {
+        return string.Equals(post.Status, DeletedPostStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsAvailableRoomStatus(string? status)

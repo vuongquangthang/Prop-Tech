@@ -1,6 +1,6 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from './api.service';
+import { secureStorage } from '../utils/secureStorage';
 
 const API_URL = API_BASE_URL;
 
@@ -46,7 +46,7 @@ export interface PendingPayment {
 
 class PaymentService {
   private async getAuthHeaders() {
-    const token = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    const token = await secureStorage.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',

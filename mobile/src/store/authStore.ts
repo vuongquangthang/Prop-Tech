@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
 import { apiService } from '../services/api.service';
 import { LoginRequest, LoginResponse, UserDto } from '../types/dto';
+import { secureStorage } from '../utils/secureStorage';
 
 interface AuthState {
   user: UserDto | null;
@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await apiService.getUser();
 
       if (accessToken && user) {
-        const activeStr = await SecureStore.getItemAsync('active_contract_id');
+        const activeStr = await secureStorage.getItemAsync('active_contract_id');
         const activeId = activeStr ? parseInt(activeStr, 10) : null;
         set({
           user,
@@ -140,9 +140,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   setActiveContract: async (contractId: number | null) => {
     try {
       if (contractId == null) {
-        await SecureStore.deleteItemAsync('active_contract_id');
+        await secureStorage.deleteItemAsync('active_contract_id');
       } else {
-        await SecureStore.setItemAsync('active_contract_id', String(contractId));
+        await secureStorage.setItemAsync('active_contract_id', String(contractId));
       }
       set({ activeContractId: contractId });
     } catch (err) {

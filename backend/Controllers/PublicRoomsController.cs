@@ -50,7 +50,23 @@ public class PublicRoomsController : ControllerBase
     public async Task<ActionResult<List<PublicRoomSearchResultDto>>> SearchRooms([FromQuery] PublicRoomSearchQueryDto query)
     {
         var rooms = await LoadPublicRoomsAsync();
+        return Ok(BuildSearchResults(rooms, query));
+    }
 
+    [HttpGet("/api/internal/public/rooms/search")]
+    public async Task<ActionResult<List<PublicRoomSearchResultDto>>> SearchRoomsForModeration([FromQuery] PublicRoomSearchQueryDto query)
+    {
+        if (!IsValidInternalKey())
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Invalid internal API key" });
+        }
+
+        var rooms = await LoadPublicRoomsAsync(includeLockedPosts: true, includeAutoRoomListings: false);
+        return Ok(BuildSearchResults(rooms, query));
+    }
+
+    private static List<PublicRoomSearchResultDto> BuildSearchResults(List<PublicRoomDto> rooms, PublicRoomSearchQueryDto query)
+    {
         var ranked = rooms
             .Where(room => MatchesHardFilters(room, query))
             .Select(room => new PublicRoomSearchResultDto
@@ -67,7 +83,7 @@ public class PublicRoomsController : ControllerBase
             ranked = ranked.Take(Math.Min(query.Limit.Value, 100)).ToList();
         }
 
-        return Ok(ranked);
+        return ranked;
     }
 
     private async Task<List<PublicRoomDto>> LoadPublicRoomsAsync(bool includeLockedPosts = false, bool includeAutoRoomListings = true)

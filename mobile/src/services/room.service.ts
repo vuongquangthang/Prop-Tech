@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { API_BASE_URL } from './api.service';
-import * as SecureStore from 'expo-secure-store';
 import { contractService } from './contract.service';
 import { useAuthStore } from '../store/authStore';
+import { secureStorage } from '../utils/secureStorage';
 
 export interface ElectricityTier {
   tierNumber: number;
@@ -78,7 +78,7 @@ class RoomService {
    * Get auth headers for API requests
    */
   private async getAuthHeaders() {
-    const token = await SecureStore.getItemAsync('access_token');
+    const token = await secureStorage.getItemAsync('access_token');
     return {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',

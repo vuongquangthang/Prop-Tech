@@ -5,9 +5,10 @@ import { notificationService, Notification } from '../services/feature.service';
 
 interface NotificationPanelProps {
   onClose: () => void;
+  onNotificationsChanged?: () => void;
 }
 
-export function NotificationPanel({ onClose }: NotificationPanelProps) {
+export function NotificationPanel({ onClose, onNotificationsChanged }: NotificationPanelProps) {
   const navigate = useNavigate();
   const [adminNotifications, setAdminNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const handleMarkAsRead = async (id: number) => {
     await notificationService.markAsRead(id);
     setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    onNotificationsChanged?.();
   };
 
   const resolveNotificationPath = (notification: Notification): string => {
@@ -80,6 +82,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead();
     setAdminNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    onNotificationsChanged?.();
   };
 
   const formatTime = (dateStr: string) => {

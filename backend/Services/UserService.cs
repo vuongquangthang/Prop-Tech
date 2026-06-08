@@ -100,6 +100,11 @@ namespace backend.Services
                 throw new Exception($"So dien thoai '{dto.PhoneNumber}' da duoc su dung");
             }
 
+            if (string.Equals(dto.Role, "CuDan", StringComparison.OrdinalIgnoreCase) && !dto.ResidentId.HasValue)
+            {
+                throw new Exception("Tai khoan cu dan phai lien ket voi cu dan");
+            }
+
             int? assignedOwnerUserId = ownerUserId;
 
             if (dto.ResidentId.HasValue)

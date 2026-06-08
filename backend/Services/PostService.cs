@@ -26,6 +26,7 @@ public class PostService : IPostService
     private const string PostEntityType = nameof(BaiDangTimPhong);
     private const string ActivePostStatus = "active";
     private const string PausedPostStatus = "paused";
+    private const string DeletedPostStatus = "deleted";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -89,6 +90,7 @@ public class PostService : IPostService
             .AsNoTracking()
             .Include(item => item.CreatedByUser)
             .Where(item => item.CreatedByUserId == userId)
+            .Where(item => item.Status != DeletedPostStatus)
             .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefaultAsync();
 
@@ -457,17 +459,31 @@ public class PostService : IPostService
     public async Task DeleteAsync(int id, int ownerUserId)
     {
         var post = await FilterPostsForOwner(_context.BaiDangTimPhongs, ownerUserId)
+            .Include(item => item.CreatedByUser)
             .FirstOrDefaultAsync(item => item.Id == id);
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
         }
 
+        var isResidentOwnedPost = post.CreatedByUserId == ownerUserId
+            && string.Equals(post.CreatedByUser?.Role, "CuDan", StringComparison.OrdinalIgnoreCase);
+
         var duplicatePosts = await _context.BaiDangTimPhongs
             .Where(item => item.RoomId == post.RoomId && item.CreatedByUserId == post.CreatedByUserId)
             .ToListAsync();
 
-        if (duplicatePosts.Count > 0)
+        if (isResidentOwnedPost)
+        {
+            var postsToHide = duplicatePosts.Count > 0 ? duplicatePosts : new List<BaiDangTimPhong> { post };
+            foreach (var item in postsToHide)
+            {
+                item.IsLocked = true;
+                item.Status = DeletedPostStatus;
+                item.RoomStatus = post.RoomStatus;
+            }
+        }
+        else if (duplicatePosts.Count > 0)
         {
             _context.BaiDangTimPhongs.RemoveRange(duplicatePosts);
         }

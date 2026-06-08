@@ -20,6 +20,7 @@ namespace backend.Services
     public class TatToanService : ITatToanService
     {
         private const string ActivePostStatus = "active";
+        private const string DeletedPostStatus = "deleted";
         private const string AvailableRoomStatus = "Trống";
 
         private readonly ITatToanRepository _tatToanRepository;
@@ -306,6 +307,13 @@ namespace backend.Services
 
             foreach (var post in posts)
             {
+                if (string.Equals(post.Status, DeletedPostStatus, StringComparison.OrdinalIgnoreCase))
+                {
+                    post.IsLocked = true;
+                    post.RoomStatus = roomStatus;
+                    continue;
+                }
+
                 post.IsLocked = false;
                 post.Status = ActivePostStatus;
                 post.RoomStatus = roomStatus;
