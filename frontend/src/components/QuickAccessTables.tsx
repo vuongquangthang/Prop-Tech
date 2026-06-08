@@ -2,8 +2,6 @@ import { Send, AlertCircle, X, ChevronRight } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSignalRRefresh } from '../lib/useSignalRRefresh';
 import { useNavigate } from 'react-router';
-import { useSearch } from '../contexts/SearchContext';
-import { HighlightText } from './HighlightText';
 import { invoiceService, Invoice } from '../services/api.service';
 import { maintenanceService, MaintenanceRequest } from '../services/feature.service';
 
@@ -104,24 +102,6 @@ export function QuickAccessTables() {
   };
 
   const navigate = useNavigate();
-  const { searchTerm } = useSearch();
-
-  const filteredOverdueInvoices = useMemo(() => {
-    if (!searchTerm) return overdueInvoices;
-    return overdueInvoices.filter(invoice => 
-      invoice.room.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.tenant.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, overdueInvoices]);
-
-  const filteredNewIssues = useMemo(() => {
-    if (!searchTerm) return newIssues;
-    return newIssues.filter(issue => 
-      issue.room.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      issue.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, newIssues]);
-
   const getDefaultReminderMessage = (invoice: OverdueInvoice) =>
     `Kính gửi ${invoice.tenant},\n\nChúng tôi ghi nhận hóa đơn phòng ${invoice.room} còn nợ ${invoice.amount} VNĐ và đã quá hạn ${invoice.daysLate} ngày.\n\nVui lòng thanh toán trong thời gian sớm nhất để tránh ảnh hưởng các dịch vụ liên quan.\n\nTrân trọng,\nBan quản lý`;
 
@@ -257,7 +237,7 @@ export function QuickAccessTables() {
                 </tr>
               </thead>
               <tbody>
-                {filteredOverdueInvoices.map((invoice, index) => (
+                {overdueInvoices.map((invoice, index) => (
                   <tr key={index} style={{ borderBottom: '1px solid var(--surface-border)' }}>
                     <td style={{ paddingTop: '20px', paddingBottom: '20px' }}>
                       <input 
@@ -268,10 +248,10 @@ export function QuickAccessTables() {
                       />
                     </td>
                     <td style={{ paddingTop: '20px', paddingBottom: '20px', fontSize: 'var(--type-body-bold)', color: 'var(--text-primary)', fontWeight: 700 }}>
-                      <HighlightText text={invoice.room} searchTerm={searchTerm} />
+                      {invoice.room}
                     </td>
                     <td style={{ paddingTop: '20px', paddingBottom: '20px', fontSize: 'var(--type-body)', color: 'var(--text-primary)' }}>
-                      <HighlightText text={invoice.tenant} searchTerm={searchTerm} />
+                      {invoice.tenant}
                     </td>
                     <td style={{ paddingTop: '20px', paddingBottom: '20px', fontSize: 'var(--type-body-bold)', color: 'var(--error)', textAlign: 'right', fontWeight: 700 }}>{invoice.amount} đ</td>
                     <td style={{ paddingTop: '20px', paddingBottom: '20px', textAlign: 'center' }}>
@@ -355,13 +335,13 @@ export function QuickAccessTables() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredNewIssues.map((issue, index) => (
+                  {newIssues.map((issue, index) => (
                     <tr key={index} style={{ borderBottom: '1px solid var(--surface-border)' }}>
                       <td style={{ paddingTop: '16px', paddingBottom: '16px', fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 700, width: '80px' }}>
-                        <HighlightText text={issue.room} searchTerm={searchTerm} />
+                        {issue.room}
                       </td>
                       <td style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '16px', fontSize: 'var(--type-body)', color: 'var(--text-primary)' }}>
-                        <HighlightText text={issue.description} searchTerm={searchTerm} />
+                        {issue.description}
                       </td>
                       <td style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '12px', textAlign: 'center', fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', width: '140px' }}>{issue.time}</td>
                     </tr>

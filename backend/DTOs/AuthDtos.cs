@@ -50,3 +50,8 @@ public class ChangePasswordRequestDto
     public string NewPassword { get; set; } = null!;
 }
 
+public class ForgotPasswordRequestDto
+{
+    public string PhoneNumberOrEmail { get; set; } = null!;
+}
+

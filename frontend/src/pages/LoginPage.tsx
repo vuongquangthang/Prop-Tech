@@ -2,10 +2,12 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router';
 import { getDefaultRoute } from '../lib/roles';
+import { Eye, EyeOff } from 'lucide-react';
 
 export function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,15 +70,23 @@ export function LoginPage() {
               />
             </div>
 
-            <div>
+            <div className="relative">
               <input 
-                type="password" 
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mật khẩu" 
-                className="w-full bg-transparent border-0 border-b border-white/50 py-3 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
+                className="w-full bg-transparent border-0 border-b border-white/50 py-3 pr-12 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-white/75 transition hover:text-white"
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
 
             <div className="flex justify-between items-center pt-2">

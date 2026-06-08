@@ -90,6 +90,38 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+    {
+        try
+        {
+            var user = await _authService.RequestPasswordResetAsync(request);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var ua = Request.Headers["User-Agent"].FirstOrDefault();
+            await _auditLogService.LogAsync(user.Id, "PASSWORD_RESET_REQUEST", "User", user.Id, $"Yêu cầu đặt lại mật khẩu: {request.PhoneNumberOrEmail}", ip, ua);
+            return Ok(new
+            {
+                message = "Tài khoản tồn tại. Vui lòng liên hệ quản trị viên hoặc ban quản lý để được cấp lại mật khẩu.",
+                user = new
+                {
+                    user.Id,
+                    user.PhoneNumber,
+                    user.FullName,
+                    user.Role
+                }
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi gửi yêu cầu đặt lại mật khẩu", error = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Đổi mật khẩu
     /// </summary>

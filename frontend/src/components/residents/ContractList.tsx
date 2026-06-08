@@ -293,13 +293,6 @@ export function ContractList() {
         )}
       </div>
       
-      {/* Warning Box */}
-      <div className="bg-yellow-50 border border-yellow-300 rounded p-4">
-        <p className="text-sm text-yellow-800">
-          <strong>⚠️ Lưu ý:</strong> Các hợp đồng được tô màu vàng nhạt là hợp đồng còn dưới 15 ngày. Hợp đồng tô màu đỏ nhạt là đã quá hạn, cần xử lý ngay.
-        </p>
-      </div>
-      
       {/* Create Contract Button - Opens Modal */}
       <button 
         onClick={() => {/* Open modal */}}

@@ -306,13 +306,6 @@ export function TransactionTable() {
         )}
       </div>
       
-      {/* Info Box */}
-      <div className="bg-green-50 border border-green-300 rounded p-4">
-        <p className="text-sm text-green-800">
-          <strong>✓ Checklist đối soát:</strong> Các giao dịch có nền màu xanh nhạt là đã được hệ thống tự động xử lý thành công. Các giao dịch chưa khớp cần Admin kiểm tra và gạch nợ thủ công.
-        </p>
-      </div>
-
       {/* Match Modal */}
       {showMatchModal && selectedTransaction && (
         <div className="admin-content-modal-overlay">

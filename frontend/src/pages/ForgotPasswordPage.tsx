@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { api } from '../lib/api-client';
+import { API_ENDPOINTS } from '../lib/api-config';
 
 export function ForgotPasswordPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -14,10 +16,14 @@ export function ForgotPasswordPage() {
     setError('');
     setLoading(true);
     try {
-      // TODO: gọi API reset mật khẩu
+      await api.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
+        phoneNumberOrEmail: phoneNumber.trim(),
+      });
       setSubmitted(true);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Có lỗi xảy ra, vui lòng thử lại';
+    } catch (err: any) {
+      const errorMessage =
+        err?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Có lỗi xảy ra, vui lòng thử lại');
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -40,7 +46,7 @@ export function ForgotPasswordPage() {
 
           <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow text-center mb-4">Quên mật khẩu</h1>
           <p className="text-center text-base mb-10" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Nhập số điện thoại để nhận hướng dẫn đặt lại mật khẩu
+            Nhập số điện thoại hoặc email để kiểm tra tài khoản
           </p>
 
           {!submitted ? (
@@ -54,7 +60,7 @@ export function ForgotPasswordPage() {
                   type="text"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="Số điện thoại"
+                  placeholder="Số điện thoại hoặc email"
                   className="w-full bg-transparent border-0 border-b border-white/50 py-3 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
                   required
                 />
@@ -83,10 +89,10 @@ export function ForgotPasswordPage() {
             <div className="space-y-6 text-center">
               <div className="text-6xl mb-4">✉️</div>
               <p className="text-white text-base font-medium">
-                Yêu cầu đã được gửi!
+                Tài khoản đã được xác nhận
               </p>
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Vui lòng liên hệ quản trị viên hoặc ban quản lý để được hỗ trợ đặt lại mật khẩu.
+                Vui lòng liên hệ quản trị viên hoặc ban quản lý để được cấp lại mật khẩu.
               </p>
               <button
                 onClick={() => navigate('/login')}
