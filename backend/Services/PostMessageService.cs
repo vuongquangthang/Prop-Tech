@@ -27,7 +27,20 @@ public class PostMessageService : IPostMessageService
 
     public async Task<List<PostConversationDto>> GetConversationsAsync(int currentUserId, int ownerUserId)
     {
-        var remoteItems = await GetRemoteConversationsAsync(currentUserId);
+        List<TrouytinConversationResponse> remoteItems;
+        try
+        {
+            remoteItems = await GetRemoteConversationsAsync(currentUserId);
+        }
+        catch (HttpRequestException)
+        {
+            return new List<PostConversationDto>();
+        }
+        catch (TaskCanceledException)
+        {
+            return new List<PostConversationDto>();
+        }
+
         var result = new List<PostConversationDto>();
 
         foreach (var item in remoteItems)

@@ -227,13 +227,13 @@ export default function RoommatePostScreen() {
 
               <View style={styles.actionsBlock}>
                 <Text style={styles.actionsTitle}>THAO TÁC</Text>
-                <View style={styles.actionsRow}>
+                <View style={styles.actionsGrid}>
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={[styles.actionButton, styles.actionButtonWide]}
                     onPress={() => navigation.navigate('RoommateDetail')}
                   >
                     <Ionicons name="eye-outline" size={16} color="#374151" />
-                    <Text style={styles.actionButtonText}>Xem</Text>
+                    <Text style={styles.actionButtonText}>Xem bài đăng</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -241,7 +241,7 @@ export default function RoommatePostScreen() {
                     onPress={() => navigation.navigate('RoommateEdit')}
                   >
                     <Ionicons name="create-outline" size={16} color="#374151" />
-                    <Text style={styles.actionButtonText}>Sửa</Text>
+                    <Text style={styles.actionButtonText}>Sửa bài đăng</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.actionButton} onPress={() => setShowStatusDialog(true)}>
@@ -250,26 +250,26 @@ export default function RoommatePostScreen() {
                       size={16}
                       color="#374151"
                     />
-                    <Text style={styles.actionButtonText}>{post.isLocked ? 'Mở' : 'Khóa'}</Text>
+                    <Text style={styles.actionButtonText}>{post.isLocked ? 'Mở bài' : 'Khóa bài'}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('RoommateHistory')}
+                  >
+                    <Ionicons name="time-outline" size={16} color="#374151" />
+                    <Text style={styles.actionButtonText}>Lịch sử</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+                    onPress={confirmDelete}
+                    disabled={deleting}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                    <Text style={styles.deleteButtonText}>{deleting ? 'Đang xóa...' : 'Xóa bài'}</Text>
                   </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
-                  onPress={confirmDelete}
-                  disabled={deleting}
-                >
-                  <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                  <Text style={styles.deleteButtonText}>{deleting ? 'Đang xóa...' : 'Xóa bài đăng'}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.historyButton}
-                  onPress={() => navigation.navigate('RoommateHistory')}
-                >
-                  <Ionicons name="time-outline" size={16} color="#6B7280" />
-                  <Text style={styles.historyButtonText}>Lịch sử chỉnh sửa</Text>
-                </TouchableOpacity>
               </View>
             </View>
           </>
@@ -358,11 +358,16 @@ const styles = StyleSheet.create({
   topStatCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
     paddingVertical: 12,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   topStatNumber: {
     fontSize: 24,
@@ -375,10 +380,15 @@ const styles = StyleSheet.create({
   },
   postCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   postHeader: {
     flexDirection: 'row',
@@ -428,6 +438,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -475,60 +486,45 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   actionsBlock: {
-    padding: 12,
+    padding: 14,
   },
   actionsTitle: {
     fontSize: 11,
     fontWeight: '600',
     color: '#6B7280',
     letterSpacing: 0.6,
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  actionsRow: {
+  actionsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   actionButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '48%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 34,
+    minHeight: 40,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#F3F4F6',
     backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+  },
+  actionButtonWide: {
+    flexBasis: '100%',
+    minHeight: 44,
   },
   actionButtonText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#374151',
   },
-  historyButton: {
-    marginTop: 8,
-    height: 34,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  historyButtonText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
   deleteButton: {
-    marginTop: 8,
-    height: 38,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    borderColor: '#F3F4F6',
   },
   deleteButtonDisabled: {
     opacity: 0.6,
@@ -551,12 +547,17 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
     paddingVertical: 48,
     paddingHorizontal: 20,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   emptyIconWrap: {
     width: 64,

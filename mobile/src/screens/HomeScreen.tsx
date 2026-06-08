@@ -367,7 +367,7 @@ export default function HomeScreen() {
         style={styles.floatingChatButton}
         onPress={() => navigation.navigate('Chatbot' as never)}
       >
-        <Ionicons name="chatbubbles" size={28} color="#FFFFFF" />
+        <Ionicons name="sparkles" size={28} color="#FFFFFF" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -608,10 +608,10 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -707,14 +707,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: 4,
     elevation: 2,
   },
   utilityCardFull: {
