@@ -15,6 +15,7 @@ public interface IPostService
     Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null, int? ownerUserId = null);
     Task<PostDto> RecordViewAsync(int id);
     Task<PostDto> SyncMessageCountAsync(int id, int messages);
+    Task<PostDto> PublishAsync(int id);
     Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null, int? ownerUserId = null);
     Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null, int? ownerUserId = null);
     Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20, int? ownerUserId = null);
@@ -26,6 +27,7 @@ public class PostService : IPostService
     private const string PostEntityType = nameof(BaiDangTimPhong);
     private const string ActivePostStatus = "active";
     private const string PausedPostStatus = "paused";
+    private const string PendingReviewPostStatus = "pending_review";
     private const string DeletedPostStatus = "deleted";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -114,11 +116,14 @@ public class PostService : IPostService
             throw new InvalidOperationException("Phòng không tồn tại");
         }
 
+        User? creator = null;
+        var requiresReview = false;
         if (createdByUserId.HasValue)
         {
-            var creator = await _context.Users
+            creator = await _context.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(item => item.Id == createdByUserId.Value);
+            requiresReview = IsResident(creator);
             var effectiveOwnerUserId = ownerUserId ?? creator?.OwnerUserId ?? createdByUserId.Value;
             if (creator?.Role is "Admin" or "QuanLy" && room.Floor.Building.OwnerUserId != effectiveOwnerUserId)
             {
@@ -127,27 +132,63 @@ public class PostService : IPostService
         }
 
         var existingPosts = await _context.BaiDangTimPhongs
+            .Include(item => item.CreatedByUser)
             .Where(item => item.RoomId == room.Id)
+            .OrderByDescending(item => item.CreatedAt)
             .ToListAsync();
         if (existingPosts.Count > 0)
         {
+            var liveExistingPosts = existingPosts
+                .Where(item => !StringEquals(item.Status, DeletedPostStatus))
+                .ToList();
+
             if (createdByUserId.HasValue)
             {
                 var sameCreatorPosts = existingPosts
                     .Where(item => item.CreatedByUserId == createdByUserId.Value)
                     .ToList();
+                var hasLivePostFromAnotherCreator = liveExistingPosts
+                    .Any(item => item.CreatedByUserId != createdByUserId.Value);
 
-                if (sameCreatorPosts.Count == existingPosts.Count)
+                if (hasLivePostFromAnotherCreator)
                 {
-                    _context.BaiDangTimPhongs.RemoveRange(sameCreatorPosts);
-                    await _context.SaveChangesAsync();
+                    throw new InvalidOperationException("Phòng này đã có bài đăng");
                 }
-                else
+
+                if (sameCreatorPosts.Count > 0)
+                {
+                    var submittedAt = DateTime.UtcNow;
+                    var postToUpdate = sameCreatorPosts
+                        .OrderBy(item => StringEquals(item.Status, DeletedPostStatus) ? 1 : 0)
+                        .ThenByDescending(item => item.CreatedAt)
+                        .First();
+
+                    ApplySubmissionData(postToUpdate, dto, room, submittedAt, requiresReview);
+                    postToUpdate.CreatedByUserId ??= createdByUserId;
+
+                    foreach (var duplicate in sameCreatorPosts.Where(item => item.Id != postToUpdate.Id))
+                    {
+                        duplicate.IsLocked = true;
+                        duplicate.Status = DeletedPostStatus;
+                        duplicate.RoomStatus = room.Status;
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await LogHistoryAsync(
+                        createdByUserId,
+                        postToUpdate.Id,
+                        "UPDATE",
+                        $"Dang lai bai dang cho phong {postToUpdate.RoomCode}",
+                        BuildCreateChanges(postToUpdate));
+
+                    return MapToDto(postToUpdate);
+                }
+                else if (liveExistingPosts.Count > 0)
                 {
                     throw new InvalidOperationException("Phòng này đã có bài đăng");
                 }
             }
-            else
+            else if (liveExistingPosts.Count > 0)
             {
                 throw new InvalidOperationException("Phòng này đã có bài đăng");
             }
@@ -168,8 +209,8 @@ public class PostService : IPostService
             CreatedAt = now,
             Views = 0,
             Messages = 0,
-            IsLocked = false,
-            Status = ActivePostStatus,
+            IsLocked = requiresReview,
+            Status = requiresReview ? PendingReviewPostStatus : ActivePostStatus,
             RoomStatus = room.Status,
             MoveInType = dto.MoveInType,
             MoveInDate = dto.MoveInDate,
@@ -232,6 +273,44 @@ public class PostService : IPostService
         return MapToDto(post);
     }
 
+    public async Task<PostDto> PublishAsync(int id)
+    {
+        var post = await _context.BaiDangTimPhongs
+            .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .FirstOrDefaultAsync(item => item.Id == id);
+
+        if (post == null)
+        {
+            throw new InvalidOperationException("Bài đăng không tồn tại");
+        }
+
+        var oldIsLocked = post.IsLocked;
+        var oldStatus = post.Status;
+
+        post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
+        post.IsLocked = false;
+        post.Status = ActivePostStatus;
+        await _context.SaveChangesAsync();
+
+        if (oldIsLocked != post.IsLocked || oldStatus != post.Status)
+        {
+            await LogHistoryAsync(null, post.Id, "APPROVE", "Duyet hien thi bai dang", new[]
+            {
+                new PostHistoryChangeDto
+                {
+                    Label = "Trang thai bai dang",
+                    Before = DescribeStatus(oldStatus, oldIsLocked),
+                    After = DescribeStatus(post.Status, post.IsLocked),
+                }
+            });
+        }
+
+        return MapToDto(post);
+    }
+
     public async Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null, int? ownerUserId = null)
     {
         var query = _context.BaiDangTimPhongs
@@ -250,6 +329,11 @@ public class PostService : IPostService
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
+        }
+
+        if (IsResidentOwnedPost(post, changedByUserId) && StringEquals(post.Status, PendingReviewPostStatus))
+        {
+            throw new InvalidOperationException("Bai dang dang cho duyet, khong the mo khoa");
         }
 
         var oldIsLocked = post.IsLocked;
@@ -404,6 +488,21 @@ public class PostService : IPostService
             post.AmenitiesJson = nextAmenities;
         }
 
+        if (changes.Count > 0 && IsResidentOwnedPost(post, changedByUserId))
+        {
+            var oldIsLocked = post.IsLocked;
+            var oldStatus = post.Status;
+            post.PostDate = DateTime.UtcNow;
+            post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
+            post.IsLocked = true;
+            post.Status = PendingReviewPostStatus;
+            AddChange(
+                changes,
+                "Trang thai bai dang",
+                DescribeStatus(oldStatus, oldIsLocked),
+                DescribeStatus(post.Status, post.IsLocked));
+        }
+
         await _context.SaveChangesAsync();
         if (changes.Count > 0)
         {
@@ -493,6 +592,41 @@ public class PostService : IPostService
         }
         await _context.SaveChangesAsync();
     }
+
+    private static void ApplySubmissionData(BaiDangTimPhong post, CreatePostDto dto, Room room, DateTime submittedAt, bool requiresReview)
+    {
+        post.RoomId = room.Id;
+        post.RoomCode = room.RoomCode;
+        post.BuildingName = room.Floor.Building.BuildingName;
+        post.FloorNumber = room.Floor.FloorNumber;
+        post.Area = room.Area;
+        post.MaxOccupants = room.MaxOccupants;
+        post.Title = dto.Title.Trim();
+        post.BaseRentPrice = dto.BaseRentPrice;
+        post.PostDate = submittedAt;
+        post.IsLocked = requiresReview;
+        post.Status = requiresReview ? PendingReviewPostStatus : ActivePostStatus;
+        post.RoomStatus = room.Status;
+        post.MoveInType = dto.MoveInType;
+        post.MoveInDate = dto.MoveInDate;
+        post.FloodProne = dto.FloodProne;
+        post.LandlordRequirements = string.IsNullOrWhiteSpace(dto.LandlordRequirements) ? null : dto.LandlordRequirements.Trim();
+        post.ContactType = dto.ContactType;
+        post.ContactName = dto.ContactName.Trim();
+        post.ContactPhone = dto.ContactPhone.Trim();
+        post.ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions);
+        post.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
+        post.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
+        post.CoverImageUrl = dto.ImageUrls.FirstOrDefault();
+    }
+
+    private static bool IsResident(User? user)
+        => string.Equals(user?.Role, "CuDan", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsResidentOwnedPost(BaiDangTimPhong post, int? userId)
+        => userId.HasValue
+            && post.CreatedByUserId == userId.Value
+            && IsResident(post.CreatedByUser);
 
     private static PostDto MapToDto(BaiDangTimPhong post)
     {
@@ -670,6 +804,11 @@ public class PostService : IPostService
 
     private static string DescribeStatus(string status, bool isLocked)
     {
+        if (StringEquals(status, PendingReviewPostStatus))
+        {
+            return "Cho duyet";
+        }
+
         if (isLocked)
         {
             return "Đã khóa";

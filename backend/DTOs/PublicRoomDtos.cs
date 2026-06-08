@@ -58,6 +58,7 @@ public class PublicRoomDto
     public bool AvailableNow { get; set; }
     public DateTime? AvailableFrom { get; set; }
     public DateTime PostedAt { get; set; }
+    public int? Views { get; set; }
     public int HygieneScore { get; set; }
     public int LivingRooms { get; set; }
     public int Bedrooms { get; set; }
