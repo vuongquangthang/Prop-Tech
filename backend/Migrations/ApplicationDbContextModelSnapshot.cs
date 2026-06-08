@@ -788,6 +788,10 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("notification_type");
 
+                    b.Property<int?>("OwnerUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("owner_user_id");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -832,6 +836,8 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("OwnerUserId");
 
                     b.ToTable("notifications");
                 });
@@ -1635,9 +1641,15 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.Notification", b =>
                 {
+                    b.HasOne("backend.Models.User", "OwnerUser")
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId");
+
                     b.HasOne("backend.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId");
+
+                    b.Navigation("OwnerUser");
 
                     b.Navigation("User");
                 });

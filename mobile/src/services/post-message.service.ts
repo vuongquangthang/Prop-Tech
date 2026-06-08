@@ -1,3 +1,4 @@
+import axios from 'axios';
 import apiService from './api.service';
 import {
   PostConversationDetailDto,
@@ -10,7 +11,21 @@ class PostMessageService {
   private baseUrl = '/api/post-messages';
 
   async getConversations(): Promise<PostConversationDto[]> {
-    return apiService.get<PostConversationDto[]>(`${this.baseUrl}/conversations`);
+    try {
+      return await apiService.get<PostConversationDto[]>(`${this.baseUrl}/conversations`);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response && error.response.status !== 401) {
+        const message = error.response.data?.message || '';
+        if (
+          message === 'Đã xảy ra lỗi' ||
+          message.includes('hội thoại') ||
+          message.includes('TroUyTinIntegration')
+        ) {
+          return [];
+        }
+      }
+      throw error;
+    }
   }
 
   async getConversation(conversationId: string): Promise<PostConversationDetailDto> {

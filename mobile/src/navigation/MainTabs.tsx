@@ -2,14 +2,14 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
-import RoommatePostScreen from '../screens/RoommatePostScreen';
+import RoommateMessagesScreen from '../screens/RoommateMessagesScreen';
 import BillsScreen from '../screens/BillsScreen';
 import IssuesScreen from '../screens/IssuesScreen';
 import AccountScreen from '../screens/AccountScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
-  Roommate: undefined;
+  Messages: undefined;
   Bills: undefined;
   Issues: undefined;
   Profile: undefined;
@@ -27,8 +27,8 @@ export const MainTabs = () => {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Roommate') {
-            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Messages') {
+            iconName = focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
           } else if (route.name === 'Bills') {
             iconName = focused ? 'receipt' : 'receipt-outline';
           } else if (route.name === 'Issues') {
@@ -65,9 +65,9 @@ export const MainTabs = () => {
         options={{ tabBarLabel: 'Hóa đơn' }}
       />
       <Tab.Screen
-        name="Roommate"
-        component={RoommatePostScreen}
-        options={{ tabBarLabel: 'Ở ghép' }}
+        name="Messages"
+        component={RoommateMessagesScreen}
+        options={{ tabBarLabel: 'Tin nhắn' }}
       />
       <Tab.Screen
         name="Issues"

@@ -34,6 +34,7 @@ const formatRelativeTime = (value: string) => {
 
 export default function RoommateMessagesScreen() {
   const navigation = useNavigation<any>();
+  const [activeTab, setActiveTab] = useState<'replied' | 'pending'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,13 +76,27 @@ export default function RoommateMessagesScreen() {
   }, [conversations, searchQuery]);
 
   const pendingMessages = filteredConversations.filter((item) => item.isUnread);
-  const oldMessages = filteredConversations.filter((item) => !item.isUnread);
+  const repliedMessages = filteredConversations.filter((item) => !item.isUnread);
+  const displayedMessages = activeTab === 'pending' ? pendingMessages : repliedMessages;
   const totalPending = pendingMessages.reduce((sum, item) => sum + item.unreadCount, 0);
+  const emptyText = searchQuery
+    ? 'Không tìm thấy tin nhắn'
+    : activeTab === 'pending'
+      ? 'Không có tin nhắn chờ phản hồi'
+      : 'Chưa có đoạn chat đã phản hồi';
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('RoommatePost');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="chevron-back" size={24} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tin nhắn</Text>
@@ -105,6 +120,31 @@ export default function RoommateMessagesScreen() {
         />
       </View>
 
+      <View style={styles.tabCard}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'replied' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('replied')}
+        >
+          <Text style={[styles.tabText, activeTab === 'replied' && styles.tabTextActive]}>
+            Đã phản hồi
+          </Text>
+          <Text style={[styles.tabCount, activeTab === 'replied' && styles.tabCountActive]}>
+            {repliedMessages.length}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'pending' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('pending')}
+        >
+          <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
+            Tin nhắn chờ
+          </Text>
+          <Text style={[styles.tabCount, activeTab === 'pending' && styles.tabCountActive]}>
+            {pendingMessages.length}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#1A4B84" />
@@ -119,52 +159,32 @@ export default function RoommateMessagesScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
             setRefreshing(true);
             loadConversations(true);
           }} />}
         >
-          {pendingMessages.length > 0 && (
-            <View>
-              <View style={styles.pendingSectionHeader}>
-                <Text style={styles.pendingSectionTitle}>Tin nhắn chờ ({pendingMessages.length})</Text>
-              </View>
-              {pendingMessages.map((conversation) => (
-                <ConversationItem
-                  key={`${conversation.postId}-${conversation.otherUserId}`}
-                  item={conversation}
-                  onPress={() =>
-                    navigation.navigate('RoommateConversation', {
-                      conversationId: conversation.conversationId,
-                    })
-                  }
-                />
-              ))}
-            </View>
-          )}
+          {displayedMessages.map((conversation) => (
+            <ConversationItem
+              key={`${conversation.postId}-${conversation.otherUserId}`}
+              item={conversation}
+              onPress={() =>
+                navigation.navigate('RoommateConversation', {
+                  conversationId: conversation.conversationId,
+                })
+              }
+            />
+          ))}
 
-          {oldMessages.length > 0 && (
-            <View>
-              <View style={styles.oldSectionHeader}>
-                <Text style={styles.oldSectionTitle}>Tin nhắn cũ</Text>
-              </View>
-              {oldMessages.map((conversation) => (
-                <ConversationItem
-                  key={`${conversation.postId}-${conversation.otherUserId}`}
-                  item={conversation}
-                  onPress={() =>
-                    navigation.navigate('RoommateConversation', {
-                      conversationId: conversation.conversationId,
-                    })
-                  }
-                />
-              ))}
-            </View>
-          )}
-
-          {filteredConversations.length === 0 && (
+          {displayedMessages.length === 0 && (
             <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{searchQuery ? 'Không tìm thấy tin nhắn' : 'Chưa có tin nhắn nào'}</Text>
+              <Ionicons
+                name={activeTab === 'pending' ? 'mail-open-outline' : 'chatbubbles-outline'}
+                size={32}
+                color="#9CA3AF"
+              />
+              <Text style={styles.emptyText}>{emptyText}</Text>
             </View>
           )}
         </ScrollView>
@@ -226,7 +246,7 @@ function ConversationItem({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F9FAFB',
   },
   header: {
     flexDirection: 'row',
@@ -234,8 +254,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F3F4F6',
   },
   backButton: {
     width: 36,
@@ -267,12 +288,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     height: 42,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
+    borderColor: '#F3F4F6',
+    borderRadius: 16,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
@@ -309,44 +336,76 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  pendingSectionHeader: {
-    backgroundColor: '#EFF6FF',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#DBEAFE',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  tabCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  pendingSectionTitle: {
-    fontSize: 12,
-    color: '#1A4B84',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+  tabButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  oldSectionHeader: {
-    backgroundColor: '#F3F4F6',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  tabButtonActive: {
+    backgroundColor: '#1A4B84',
   },
-  oldSectionTitle: {
-    fontSize: 12,
-    color: '#6B7280',
+  tabText: {
+    fontSize: 13,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    color: '#6B7280',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+  },
+  tabCount: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#F3F4F6',
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  tabCountActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    color: '#FFFFFF',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    gap: 10,
   },
   conversationCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   unreadCard: {
     backgroundColor: '#F8FAFF',

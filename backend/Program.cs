@@ -289,6 +289,44 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"⚠️ Posts table ensure failed: {ex.Message}");
         }
 
+        try
+        {
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('dbo.notifications', 'U') IS NOT NULL
+                BEGIN
+                    IF COL_LENGTH('dbo.notifications', 'owner_user_id') IS NULL
+                        ALTER TABLE dbo.notifications ADD owner_user_id INT NULL;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM sys.indexes
+                        WHERE name = 'IX_notifications_owner_user_id'
+                          AND object_id = OBJECT_ID('dbo.notifications')
+                    )
+                        CREATE INDEX IX_notifications_owner_user_id ON dbo.notifications(owner_user_id);
+
+                    EXEC(N'
+                        UPDATE n
+                        SET owner_user_id = COALESCE(
+                            recipient.OWNER_USER_ID,
+                            recipient.USER_ID,
+                            sender.OWNER_USER_ID,
+                            sender.USER_ID
+                        )
+                        FROM dbo.notifications n
+                        LEFT JOIN [USER] recipient ON recipient.USER_ID = n.recipient_id
+                        LEFT JOIN [USER] sender ON sender.USER_ID = n.user_id
+                        WHERE n.owner_user_id IS NULL
+                          AND COALESCE(recipient.OWNER_USER_ID, recipient.USER_ID, sender.OWNER_USER_ID, sender.USER_ID) IS NOT NULL;
+                    ');
+                END;
+            """);
+            Console.WriteLine("Notification owner scope ensured early");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Notification owner scope ensure failed: {ex.Message}");
+        }
+
         // Apply column additions for existing databases
         try {
             context.Database.ExecuteSqlRaw("""
