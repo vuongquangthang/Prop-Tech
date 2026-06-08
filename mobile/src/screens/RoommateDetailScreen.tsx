@@ -29,6 +29,39 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString('vi-VN');
 };
 
+const normalizeStatus = (value?: string | null) => (value || '').trim().toLowerCase();
+
+const getPostStatusMeta = (post: PostDto) => {
+  const status = normalizeStatus(post.status);
+  if (status === 'pending_review') {
+    return {
+      icon: 'time-outline' as const,
+      color: '#92400E',
+      label: 'Chờ duyệt',
+      badgeStyle: styles.statusBadgePending,
+      textStyle: styles.statusBadgeTextPending,
+    };
+  }
+
+  if (!post.isLocked) {
+    return {
+      icon: 'lock-open-outline' as const,
+      color: '#166534',
+      label: 'Đang mở',
+      badgeStyle: styles.statusBadgeActive,
+      textStyle: styles.statusBadgeTextActive,
+    };
+  }
+
+  return {
+    icon: 'lock-closed-outline' as const,
+    color: '#4B5563',
+    label: 'Đã khóa',
+    badgeStyle: styles.statusBadgeMuted,
+    textStyle: styles.statusBadgeTextMuted,
+  };
+};
+
 export default function RoommateDetailScreen() {
   const navigation = useNavigation<any>();
   const heroScrollRef = useRef<ScrollView>(null);
@@ -86,6 +119,7 @@ export default function RoommateDetailScreen() {
     new Set([...(roomDetail?.imageUrls ?? []).filter(Boolean), ...(post?.imageUrls ?? []).filter(Boolean)])
   );
   const heroImageWidth = heroWidth || 1;
+  const statusMeta = post ? getPostStatusMeta(post) : null;
 
   const handleHeroLayout = (event: LayoutChangeEvent) => {
     const nextWidth = Math.round(event.nativeEvent.layout.width);
@@ -197,16 +231,14 @@ export default function RoommateDetailScreen() {
                 )}
 
                 <View style={styles.heroOverlayRow}>
-                  <View style={[styles.statusBadge, post.isLocked ? styles.statusBadgeMuted : styles.statusBadgeActive]}>
-                    <Ionicons
-                      name={post.isLocked ? 'lock-closed-outline' : 'lock-open-outline'}
-                      size={12}
-                      color={post.isLocked ? '#4B5563' : '#166534'}
-                    />
-                    <Text style={[styles.statusBadgeText, post.isLocked ? styles.statusBadgeTextMuted : styles.statusBadgeTextActive]}>
-                      {post.isLocked ? 'Đã khóa' : 'Đang mở'}
-                    </Text>
-                  </View>
+                  {statusMeta ? (
+                    <View style={[styles.statusBadge, statusMeta.badgeStyle]}>
+                      <Ionicons name={statusMeta.icon} size={12} color={statusMeta.color} />
+                      <Text style={[styles.statusBadgeText, statusMeta.textStyle]}>
+                        {statusMeta.label}
+                      </Text>
+                    </View>
+                  ) : null}
                   {mergedImages.length > 0 ? (
                     <View style={styles.imageCountBadge}>
                       <Ionicons name="images-outline" size={12} color="#FFFFFF" />
@@ -475,6 +507,9 @@ const styles = StyleSheet.create({
   statusBadgeMuted: {
     backgroundColor: 'rgba(243, 244, 246, 0.96)',
   },
+  statusBadgePending: {
+    backgroundColor: 'rgba(254, 243, 199, 0.96)',
+  },
   statusBadgeText: {
     fontSize: 11,
     fontWeight: '700',
@@ -484,6 +519,9 @@ const styles = StyleSheet.create({
   },
   statusBadgeTextMuted: {
     color: '#4B5563',
+  },
+  statusBadgeTextPending: {
+    color: '#92400E',
   },
   imageCountBadge: {
     flexDirection: 'row',

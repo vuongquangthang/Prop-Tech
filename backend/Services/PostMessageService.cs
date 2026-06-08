@@ -127,7 +127,7 @@ public class PostMessageService : IPostMessageService
 
         var client = CreateClient();
         var response = await client.PostAsJsonAsync(
-            $"/api/proptech/conversations/{Uri.EscapeDataString(dto.ConversationId)}/messages?partnerUserId={currentUserId}",
+            $"/api/proptech/conversations/{Uri.EscapeDataString(dto.ConversationId)}/messages?partnerUserId={Uri.EscapeDataString(GetRemotePartnerUserId(remote, currentUserId))}",
             new TrouytinSendMessageRequest(dto.Content.Trim()));
 
         if (!response.IsSuccessStatusCode)
@@ -143,9 +143,10 @@ public class PostMessageService : IPostMessageService
 
     public async Task MarkConversationReadAsync(string conversationId, int currentUserId, int ownerUserId)
     {
+        var remote = await FindRemoteConversationAsync(conversationId, currentUserId);
         var client = CreateClient();
         var response = await client.PatchAsync(
-            $"/api/proptech/conversations/{Uri.EscapeDataString(conversationId)}/read?partnerUserId={currentUserId}",
+            $"/api/proptech/conversations/{Uri.EscapeDataString(conversationId)}/read?partnerUserId={Uri.EscapeDataString(GetRemotePartnerUserId(remote, currentUserId))}",
             null);
 
         if (!response.IsSuccessStatusCode)
@@ -157,13 +158,25 @@ public class PostMessageService : IPostMessageService
     private async Task<List<TrouytinConversationResponse>> GetRemoteConversationsAsync(int currentUserId)
     {
         var client = CreateClient();
-        var response = await client.GetAsync($"/api/proptech/conversations?partnerUserId={currentUserId}");
+        var response = await client.GetAsync($"/api/proptech/conversations?partnerUserId={Uri.EscapeDataString(BuildPrimaryPartnerUserId(currentUserId))}");
         if (!response.IsSuccessStatusCode)
         {
             throw await CreateRemoteExceptionAsync(response, "Không thể tải danh sách hội thoại");
         }
 
-        return await response.Content.ReadFromJsonAsync<List<TrouytinConversationResponse>>() ?? new();
+        var items = await response.Content.ReadFromJsonAsync<List<TrouytinConversationResponse>>() ?? new();
+        if (items.Count > 0)
+        {
+            return items;
+        }
+
+        var legacyResponse = await client.GetAsync($"/api/proptech/conversations?partnerUserId={currentUserId}");
+        if (!legacyResponse.IsSuccessStatusCode)
+        {
+            throw await CreateRemoteExceptionAsync(legacyResponse, "Không thể tải danh sách hội thoại");
+        }
+
+        return await legacyResponse.Content.ReadFromJsonAsync<List<TrouytinConversationResponse>>() ?? new();
     }
 
     private async Task<TrouytinConversationResponse> FindRemoteConversationAsync(string conversationId, int currentUserId)
@@ -223,6 +236,16 @@ public class PostMessageService : IPostMessageService
         return int.TryParse(value["post-".Length..], out var postId) ? postId : null;
     }
 
+    private static string BuildPrimaryPartnerUserId(int currentUserId)
+        => $"user-{currentUserId}";
+
+    private static string GetRemotePartnerUserId(TrouytinConversationResponse conversation, int currentUserId)
+    {
+        return string.IsNullOrWhiteSpace(conversation.PartnerUserId)
+            ? BuildPrimaryPartnerUserId(currentUserId)
+            : conversation.PartnerUserId;
+    }
+
     private static async Task<InvalidOperationException> CreateRemoteExceptionAsync(HttpResponseMessage response, string fallbackMessage)
     {
         try
@@ -264,6 +287,9 @@ public class PostMessageService : IPostMessageService
 
         [JsonPropertyName("ownerUserId")]
         public string OwnerUserId { get; set; } = null!;
+
+        [JsonPropertyName("partnerUserId")]
+        public string PartnerUserId { get; set; } = string.Empty;
 
         [JsonPropertyName("requesterName")]
         public string RequesterName { get; set; } = string.Empty;

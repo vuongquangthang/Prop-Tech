@@ -275,6 +275,7 @@ public class PublicRoomsController : ControllerBase
             AvailableNow = availableNow,
             AvailableFrom = post.MoveInDate,
             PostedAt = post.PostDate,
+            Views = post.Views,
             HygieneScore = room?.HasPrivateBathroom == true ? 4 : 0,
             LivingRooms = room?.LivingRoomCount ?? 0,
             Bedrooms = room?.BedroomCount ?? 1,

@@ -55,6 +55,24 @@ public class InternalPostStatsController : ControllerBase
         }
     }
 
+    [HttpPost("{id:int}/publish")]
+    public async Task<ActionResult<PostDto>> Publish(int id)
+    {
+        if (!IsValidInternalKey())
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Invalid internal API key" });
+        }
+
+        try
+        {
+            return Ok(await _postService.PublishAsync(id));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     private bool IsValidInternalKey()
     {
         var configured = _configuration["InternalApiKey"] ?? "dev-internal-key";

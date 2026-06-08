@@ -358,7 +358,7 @@ export default function RoommateCreateScreen() {
       payload.imageUrls = uploadedUrls;
 
       await postService.create(payload);
-      Alert.alert('Thành công', 'Đã tạo bài đăng tìm người ở cùng.', [
+      Alert.alert('Thành công', 'Đã gửi bài đăng chờ admin duyệt.', [
         { text: 'OK', onPress: () => navigation.navigate('RoommatePost') },
       ]);
     } catch (e: any) {
