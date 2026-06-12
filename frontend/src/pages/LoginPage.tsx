@@ -82,10 +82,10 @@ export function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((current) => !current)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-white/75 transition hover:text-white"
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-white transition hover:text-white"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                {showPassword ? <EyeOff size={20} className="text-white" /> : <Eye size={20} className="text-white" />}
               </button>
             </div>
 

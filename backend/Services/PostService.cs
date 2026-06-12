@@ -451,7 +451,7 @@ public class PostService : IPostService
             };
         }
 
-        return logs.Select((log, index) => MapHistoryEntry(log, index == 0, index + 1)).ToList();
+        return logs.Select((log, index) => MapHistoryEntry(log, index == 0, logs.Count - index)).ToList();
     }
 
     public async Task DeleteAsync(int id, int ownerUserId)

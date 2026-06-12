@@ -157,6 +157,162 @@ export default function RoomDetailScreen() {
     }
   };
 
+  const renderContractDetailContent = () => {
+    if (contractError) {
+      return <Text style={styles.contractErrorText}>{contractError}</Text>;
+    }
+
+    if (!contractDetail) {
+      return null;
+    }
+
+    const statusInfo = getContractStatus();
+    const formulaItems = parseBillingFormula();
+
+    return (
+      <>
+        <View style={styles.contractDocumentHero}>
+          <View style={styles.contractDocumentIcon}>
+            <Ionicons name="document-text" size={26} color="#FFFFFF" />
+          </View>
+          <View style={styles.contractDocumentHeroText}>
+            <Text style={styles.contractDocumentLabel}>HỢP ĐỒNG THUÊ PHÒNG</Text>
+            <Text style={styles.contractDocumentCode}>
+              {contractDetail.contractCode || `#${contractDetail.id}`}
+            </Text>
+            <Text style={styles.contractDocumentRoom}>
+              Phòng {contractDetail.roomNumber || room?.roomCode || '-'}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.contractDocumentStatus,
+              { backgroundColor: statusInfo.color + '18', borderColor: statusInfo.color },
+            ]}
+          >
+            <Text style={[styles.contractDocumentStatusText, { color: statusInfo.color }]}>
+              {statusInfo.label}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.contractSectionBlock}>
+          <Text style={styles.contractSectionTitle}>I. Thông tin chung</Text>
+          <View style={styles.contractClauseRow}>
+            <Text style={styles.contractClauseLabel}>Mã hợp đồng</Text>
+            <Text style={styles.contractClauseValue}>{contractDetail.contractCode || `#${contractDetail.id}`}</Text>
+          </View>
+          <View style={styles.contractClauseRow}>
+            <Text style={styles.contractClauseLabel}>Phòng thuê</Text>
+            <Text style={styles.contractClauseValue}>{contractDetail.roomNumber || room?.roomCode}</Text>
+          </View>
+          <View style={styles.contractClauseRow}>
+            <Text style={styles.contractClauseLabel}>Ngày bắt đầu</Text>
+            <Text style={styles.contractClauseValue}>{formatDate(contractDetail.startDate)}</Text>
+          </View>
+          {contractDetail.expectedEndDate && (
+            <View style={styles.contractClauseRow}>
+              <Text style={styles.contractClauseLabel}>Ngày kết thúc</Text>
+              <Text style={styles.contractClauseValue}>{formatDate(contractDetail.expectedEndDate)}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.contractSectionBlock}>
+          <Text style={styles.contractSectionTitle}>II. Điều khoản tài chính</Text>
+          <View style={styles.contractFinanceGrid}>
+            <View style={styles.contractFinanceCard}>
+              <Text style={styles.contractFinanceLabel}>Tiền thuê/tháng</Text>
+              <Text style={styles.contractFinanceValue}>
+                {formatCurrency(contractDetail.actualRentPrice)}
+              </Text>
+            </View>
+            <View style={styles.contractFinanceCard}>
+              <Text style={styles.contractFinanceLabel}>Tiền cọc</Text>
+              <Text style={styles.contractFinanceValue}>
+                {formatCurrency(contractDetail.depositAmount ?? 0)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.contractClauseRow}>
+            <Text style={styles.contractClauseLabel}>Ngày thanh toán</Text>
+            <Text style={styles.contractClauseValue}>
+              {contractDetail.paymentDayOfMonth
+                ? `Ngày ${contractDetail.paymentDayOfMonth} hàng tháng`
+                : 'Không cố định'}
+            </Text>
+          </View>
+        </View>
+
+        {formulaItems.length > 0 && (
+          <View style={styles.contractSectionBlock}>
+            <Text style={styles.contractSectionTitle}>III. Công thức tính hóa đơn hàng tháng</Text>
+            {formulaItems.map((item, index) => {
+              const formulaText =
+                item.quantity === 'n'
+                  ? `${formatCurrency(item.unitPrice)} × n`
+                  : `${formatCurrency(item.unitPrice)} × ${item.quantity} = ${formatCurrency(
+                      item.unitPrice * parseInt(item.quantity, 10)
+                    )}`;
+
+              return (
+                <View key={index} style={styles.contractClauseRow}>
+                  <Text style={styles.contractClauseLabel}>{item.name}</Text>
+                  <Text style={styles.contractClauseValue}>{formulaText}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {contractDetail.residents.length > 0 && (
+          <View style={styles.contractSectionBlock}>
+            <Text style={styles.contractSectionTitle}>
+              IV. Thành viên cư trú ({contractDetail.residents.length} người)
+            </Text>
+            {contractDetail.residents.map((resident) => {
+              const isHeadOfHousehold = resident.residencyRole === 'Người thuê chính';
+              return (
+                <View
+                  key={resident.residentId}
+                  style={[
+                    styles.residentItem,
+                    isHeadOfHousehold && styles.residentItemHead,
+                  ]}
+                >
+                  <View style={styles.residentHeader}>
+                    <Text style={styles.residentName}>{resident.fullName || 'Không có tên'}</Text>
+                    {isHeadOfHousehold && (
+                      <View style={styles.roleTag}>
+                        <Text style={styles.roleTagText}>Chủ hộ</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.residentMeta}>
+                    <Text style={styles.residentMetaText}>{resident.residencyRole}</Text>
+                  </View>
+                  {resident.phoneNumber && (
+                    <Text style={styles.residentMetaText}>SĐT: {resident.phoneNumber}</Text>
+                  )}
+                  {resident.idCardNumber && (
+                    <Text style={styles.residentMetaText}>CCCD: {resident.idCardNumber}</Text>
+                  )}
+                  {resident.email && <Text style={styles.residentEmail}>{resident.email}</Text>}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.contractDocumentFooter}>
+          <Text style={styles.contractDocumentFooterText}>
+            Thông tin hợp đồng được đồng bộ từ hệ thống quản lý tòa nhà.
+          </Text>
+        </View>
+      </>
+    );
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -336,7 +492,7 @@ export default function RoomDetailScreen() {
             )}
           </TouchableOpacity>
 
-          {showContractDetail && (
+          {false && showContractDetail && (
             <View style={styles.contractDetailBox}>
               {contractError ? (
                 <Text style={styles.contractErrorText}>{contractError}</Text>
@@ -603,6 +759,38 @@ export default function RoomDetailScreen() {
           </View>
         )}
       </ScrollView>
+      <Modal
+        visible={showContractDetail}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowContractDetail(false)}
+      >
+        <View style={styles.contractModalOverlay}>
+          <Pressable style={styles.contractModalBackdrop} onPress={() => setShowContractDetail(false)} />
+          <View style={styles.contractModalCard}>
+            <View style={styles.contractModalHandle} />
+            <View style={styles.contractModalHeader}>
+              <View style={styles.contractModalTitleWrap}>
+                <Ionicons name="document-text" size={20} color="#1A4B84" />
+                <View>
+                  <Text style={styles.contractModalTitle}>Hợp đồng thuê phòng</Text>
+                  <Text style={styles.contractModalSubtitle}>Chi tiết điều khoản và thành viên cư trú</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.contractModalClose} onPress={() => setShowContractDetail(false)}>
+                <Ionicons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.contractModalScroll}
+              contentContainerStyle={styles.contractModalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {renderContractDetailContent()}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
       {/* Image preview modal */}
       <Modal visible={!!previewImageUrl} transparent animationType="fade" onRequestClose={() => setPreviewImageUrl(null)}>
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewImageUrl(null)}>
@@ -762,6 +950,190 @@ const styles = StyleSheet.create({
     borderColor: '#F3F4F6',
     borderRadius: 10,
     padding: 12,
+  },
+  contractModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(17,24,39,0.55)',
+  },
+  contractModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  contractModalCard: {
+    maxHeight: '84%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  contractModalHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginTop: 10,
+  },
+  contractModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  contractModalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  contractModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  contractModalSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  contractModalClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contractModalScroll: {
+    flexGrow: 0,
+  },
+  contractModalContent: {
+    padding: 16,
+    paddingBottom: 28,
+  },
+  contractDocumentHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F2F57',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  contractDocumentIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  contractDocumentHeroText: {
+    flex: 1,
+  },
+  contractDocumentLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.72)',
+    letterSpacing: 0.6,
+  },
+  contractDocumentCode: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 3,
+  },
+  contractDocumentRoom: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.78)',
+    marginTop: 2,
+  },
+  contractDocumentStatus: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    maxWidth: 112,
+  },
+  contractDocumentStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  contractSectionBlock: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+  },
+  contractSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1A4B84',
+    textTransform: 'uppercase',
+    marginBottom: 10,
+    letterSpacing: 0.3,
+  },
+  contractClauseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 9,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  contractClauseLabel: {
+    flex: 0.9,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  contractClauseValue: {
+    flex: 1.1,
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  contractFinanceGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  contractFinanceCard: {
+    flex: 1,
+    backgroundColor: '#EEF4FB',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#D7E5F5',
+  },
+  contractFinanceLabel: {
+    fontSize: 12,
+    color: '#4B5563',
+    marginBottom: 5,
+  },
+  contractFinanceValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1A4B84',
+  },
+  contractDocumentFooter: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    padding: 12,
+  },
+  contractDocumentFooterText: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   infoRowCompact: {
     flexDirection: 'row',
