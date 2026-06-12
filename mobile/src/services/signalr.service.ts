@@ -1,6 +1,6 @@
 import * as SignalR from '@microsoft/signalr';
 import { API_BASE_URL } from './api.service';
-import * as SecureStore from 'expo-secure-store';
+import { secureStorage } from '../utils/secureStorage';
 
 const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
@@ -38,7 +38,7 @@ class SignalRService {
       console.log('🔌 Connecting to SignalR...');
 
       // Verify token exists before connecting
-      const initialToken = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+      const initialToken = await secureStorage.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
       if (!initialToken) {
         console.warn('⚠️ No auth token, skipping SignalR connection');
         this.isConnecting = false;
@@ -48,7 +48,7 @@ class SignalRService {
       this.connection = new SignalR.HubConnectionBuilder()
         .withUrl(`${API_BASE_URL}/hubs/notifications`, {
           accessTokenFactory: async () => {
-            const t = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+            const t = await secureStorage.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
             return t || '';
           },
           transport: SignalR.HttpTransportType.WebSockets,

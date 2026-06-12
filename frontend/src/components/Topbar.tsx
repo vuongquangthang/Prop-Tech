@@ -1,10 +1,11 @@
 import { Bell, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { NotificationPanel } from './NotificationPanel';
 import { notificationService } from '../services/feature.service';
+import { notificationHub } from '../lib/signalr-service';
 
 interface TopbarProps {
   title?: string;
@@ -23,12 +24,37 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
   const adminName = user?.displayName || user?.fullName || user?.residentName || user?.phoneNumber || 'Admin';
   const adminRole = user?.role || 'Admin';
 
-  useEffect(() => {
-    const load = () => notificationService.getUnreadCount().then(setUnreadCount);
-    load();
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
+  const refreshUnreadCount = useCallback(() => {
+    notificationService.getUnreadCount().then(setUnreadCount);
   }, []);
+
+  useEffect(() => {
+    refreshUnreadCount();
+    const interval = setInterval(refreshUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [refreshUnreadCount]);
+
+  useEffect(() => {
+    const refreshOnNotificationEvent = () => {
+      void refreshUnreadCount();
+    };
+    const events = [
+      'ReceiveNotification',
+      'ReceiveAdminNotification',
+      'NewMaintenanceRequest',
+      'MaintenanceRequestUpdated',
+      'MaintenanceRequestClosed',
+      'InvoiceUpdated',
+      'PaymentInitiated',
+      'PaymentSuccess',
+      'PaymentFailed',
+    ];
+
+    events.forEach((eventName) => notificationHub.on(eventName, refreshOnNotificationEvent));
+    return () => {
+      events.forEach((eventName) => notificationHub.off(eventName, refreshOnNotificationEvent));
+    };
+  }, [refreshUnreadCount]);
 
   useEffect(() => {
     if (!showUserMenu) return undefined;
@@ -157,7 +183,13 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
           style={{ padding: '10px' }}
           onClick={() => {
             setShowUserMenu(false);
-            setShowNotifications((current) => !current);
+            setShowNotifications((current) => {
+              const next = !current;
+              if (next) {
+                void refreshUnreadCount();
+              }
+              return next;
+            });
           }}
         >
           <Bell size={18} style={{ color: 'var(--text-primary)' }} />
@@ -230,7 +262,12 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
         </div>
       </div>
 
-      {showNotifications && <NotificationPanel onClose={() => setShowNotifications(false)} />}
+      {showNotifications && (
+        <NotificationPanel
+          onClose={() => setShowNotifications(false)}
+          onNotificationsChanged={refreshUnreadCount}
+        />
+      )}
 
       {logoutConfirmModal}
     </header>

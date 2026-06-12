@@ -29,6 +29,7 @@ public class HopDongService : IHopDongService
 {
     private const string ActivePostStatus = "active";
     private const string PausedPostStatus = "paused";
+    private const string DeletedPostStatus = "deleted";
     private const string OccupiedRoomStatus = "Đã thuê";
     private const string AvailableRoomStatus = "Trống";
 
@@ -1238,11 +1239,27 @@ public class HopDongService : IHopDongService
     private async Task LockRoomPostsAsync(int roomId, string roomStatus)
     {
         var posts = await _context.BaiDangTimPhongs
+            .Include(post => post.CreatedByUser)
             .Where(post => post.RoomId == roomId)
             .ToListAsync();
 
         foreach (var post in posts)
         {
+            if (IsDeletedPost(post))
+            {
+                post.IsLocked = true;
+                post.RoomStatus = roomStatus;
+                continue;
+            }
+
+            if (IsSharedRoommatePost(post))
+            {
+                post.IsLocked = false;
+                post.Status = ActivePostStatus;
+                post.RoomStatus = roomStatus;
+                continue;
+            }
+
             post.IsLocked = true;
             post.Status = PausedPostStatus;
             post.RoomStatus = roomStatus;
@@ -1257,10 +1274,28 @@ public class HopDongService : IHopDongService
 
         foreach (var post in posts)
         {
+            if (IsDeletedPost(post))
+            {
+                post.IsLocked = true;
+                post.RoomStatus = roomStatus;
+                continue;
+            }
+
             post.IsLocked = false;
             post.Status = ActivePostStatus;
             post.RoomStatus = roomStatus;
         }
+    }
+
+    private static bool IsSharedRoommatePost(BaiDangTimPhong post)
+    {
+        return string.Equals(post.CreatedByUser?.Role, "CuDan", StringComparison.OrdinalIgnoreCase)
+            || (post.CurrentOccupants ?? 0) > 0;
+    }
+
+    private static bool IsDeletedPost(BaiDangTimPhong post)
+    {
+        return string.Equals(post.Status, DeletedPostStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     private Task<bool> HasActiveRoomContractAsync(int roomId, int? excludingContractId = null)

@@ -130,6 +130,12 @@ export function UserAccountsTable() {
     try {
       setCreateLoading(true);
       setCreateError(null);
+
+      if (newUserRole === 'CuDan' && !newUserResidentId) {
+        setCreateError('Vui long chon cu dan cho tai khoan cu dan');
+        setCreateLoading(false);
+        return;
+      }
       
       await userService.create({
         phoneNumber: newUserPhone.trim(),

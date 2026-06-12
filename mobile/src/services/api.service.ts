@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { LoginResponse, RefreshTokenRequest } from '../types/dto';
+import { secureStorage } from '../utils/secureStorage';
 
 declare const process: {
   env?: Record<string, string | undefined>;
@@ -9,8 +10,10 @@ declare const process: {
 // Base URL - Change this to your actual backend URL
 const envBaseUrl =
   typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
-// Default to the developer machine LAN IP so physical devices can reach the backend.
-export const API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl : 'http://192.168.1.77:5052';
+const defaultApiBaseUrl = Platform.OS === 'web'
+  ? 'http://localhost:5052'
+  : 'http://192.168.1.10:5052';
+export const API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl : defaultApiBaseUrl;
 const BASE_URL = API_BASE_URL;
 
 // Storage keys
@@ -138,31 +141,31 @@ class ApiService {
   // ==================== TOKEN MANAGEMENT ====================
 
   async saveTokens(accessToken: string, refreshToken: string): Promise<void> {
-    await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-    await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+    await secureStorage.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+    await secureStorage.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
   }
 
   async getAccessToken(): Promise<string | null> {
-    return await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    return await secureStorage.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
   }
 
   async getRefreshToken(): Promise<string | null> {
-    return await SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
+    return await secureStorage.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
   }
 
   async saveUser(user: any): Promise<void> {
-    await SecureStore.setItemAsync(STORAGE_KEYS.USER, JSON.stringify(user));
+    await secureStorage.setItemAsync(STORAGE_KEYS.USER, JSON.stringify(user));
   }
 
   async getUser(): Promise<any | null> {
-    const userStr = await SecureStore.getItemAsync(STORAGE_KEYS.USER);
+    const userStr = await secureStorage.getItemAsync(STORAGE_KEYS.USER);
     return userStr ? JSON.parse(userStr) : null;
   }
 
   async clearAuth(): Promise<void> {
-    await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
-    await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
-    await SecureStore.deleteItemAsync(STORAGE_KEYS.USER);
+    await secureStorage.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    await secureStorage.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
+    await secureStorage.deleteItemAsync(STORAGE_KEYS.USER);
   }
 
   // ==================== API METHODS ====================

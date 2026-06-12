@@ -418,11 +418,22 @@ using (var scope = app.Services.CreateScope())
                         );
 
                         UPDATE bd
-                        SET IS_LOCKED = CASE WHEN active_room.PHONG_ID IS NULL THEN 0 ELSE 1 END,
-                            TRANG_THAI_BAI_DANG = CASE WHEN active_room.PHONG_ID IS NULL THEN 'active' ELSE 'paused' END,
+                        SET IS_LOCKED = CASE
+                                WHEN bd.TRANG_THAI_BAI_DANG = 'deleted' THEN 1
+                                WHEN active_room.PHONG_ID IS NULL THEN 0
+                                WHEN creator.VAI_TRO = 'CuDan' OR ISNULL(bd.SO_NGUOI_DANG_O, 0) > 0 THEN 0
+                                ELSE 1
+                            END,
+                            TRANG_THAI_BAI_DANG = CASE
+                                WHEN bd.TRANG_THAI_BAI_DANG = 'deleted' THEN 'deleted'
+                                WHEN active_room.PHONG_ID IS NULL THEN 'active'
+                                WHEN creator.VAI_TRO = 'CuDan' OR ISNULL(bd.SO_NGUOI_DANG_O, 0) > 0 THEN 'active'
+                                ELSE 'paused'
+                            END,
                             TRANG_THAI_PHONG = p.TRANG_THAI
                         FROM BAI_DANG_TIM_PHONG bd
                         INNER JOIN PHONG p ON p.PHONG_ID = bd.PHONG_ID
+                        LEFT JOIN [USER] creator ON creator.USER_ID = bd.TAO_BOI_ID
                         OUTER APPLY (
                             SELECT TOP 1 hd.PHONG_ID
                             FROM HOP_DONG hd
@@ -433,8 +444,8 @@ using (var scope = app.Services.CreateScope())
                     ELSE
                     BEGIN
                         UPDATE bd
-                        SET IS_LOCKED = 0,
-                            TRANG_THAI_BAI_DANG = 'active',
+                        SET IS_LOCKED = CASE WHEN bd.TRANG_THAI_BAI_DANG = 'deleted' THEN 1 ELSE 0 END,
+                            TRANG_THAI_BAI_DANG = CASE WHEN bd.TRANG_THAI_BAI_DANG = 'deleted' THEN 'deleted' ELSE 'active' END,
                             TRANG_THAI_PHONG = p.TRANG_THAI
                         FROM BAI_DANG_TIM_PHONG bd
                         INNER JOIN PHONG p ON p.PHONG_ID = bd.PHONG_ID;

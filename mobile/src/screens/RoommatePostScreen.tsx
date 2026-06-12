@@ -29,6 +29,49 @@ export default function RoommatePostScreen() {
   const [needMore, setNeedMore] = useState<number | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
 
+  const normalizeStatus = (value?: string | null) => (value || '').trim().toLowerCase();
+
+  const getStatusMeta = (postData: PostDto) => {
+    const status = normalizeStatus(postData.status);
+    if (status === 'pending_review') {
+      return {
+        icon: 'time-outline' as const,
+        color: '#92400E',
+        label: 'Chờ duyệt',
+        badgeStyle: styles.statusPending,
+        textStyle: styles.statusPendingText,
+      };
+    }
+
+    if (status === 'deleted') {
+      return {
+        icon: 'eye-off-outline' as const,
+        color: '#4B5563',
+        label: 'Đã ẩn',
+        badgeStyle: styles.statusClosed,
+        textStyle: styles.statusClosedText,
+      };
+    }
+
+    if (!postData.isLocked) {
+      return {
+        icon: 'lock-open-outline' as const,
+        color: '#15803D',
+        label: 'Mở',
+        badgeStyle: styles.statusOpen,
+        textStyle: styles.statusOpenText,
+      };
+    }
+
+    return {
+      icon: 'lock-closed-outline' as const,
+      color: '#4B5563',
+      label: 'Khóa',
+      badgeStyle: styles.statusClosed,
+      textStyle: styles.statusClosedText,
+    };
+  };
+
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return 'Chưa cập nhật';
     const date = new Date(dateStr);
@@ -92,6 +135,11 @@ export default function RoommatePostScreen() {
 
   const toggleStatus = () => {
     if (!post) return;
+    if (normalizeStatus(post.status) === 'pending_review') {
+      Alert.alert('Đang chờ duyệt', 'Bài đăng sẽ được mở sau khi admin duyệt.');
+      setShowStatusDialog(false);
+      return;
+    }
     const isLocked = !post.isLocked;
     postService
       .updateLock(post.id, { isLocked })
@@ -104,12 +152,12 @@ export default function RoommatePostScreen() {
     if (!post || deleting) return;
 
     Alert.alert(
-      'Xóa bài đăng?',
-      'Bài đăng sẽ bị xóa khỏi ứng dụng cư dân và không thể khôi phục.',
+      'Ẩn bài đăng?',
+      'Bài đăng sẽ được ẩn khỏi TroUyTin. Khi đăng lại, hệ thống sẽ cập nhật vào bài cũ và gửi admin duyệt lại.',
       [
         { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Xóa',
+          text: 'Ẩn',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -118,11 +166,11 @@ export default function RoommatePostScreen() {
               setPost(null);
               setCurrentOccupants(null);
               setNeedMore(null);
-              Alert.alert('Thành công', 'Đã xóa bài đăng.');
+              Alert.alert('Thành công', 'Đã ẩn bài đăng.');
             } catch (err) {
               const message = axios.isAxiosError(err)
-                ? err.response?.data?.message || 'Không thể xóa bài đăng'
-                : 'Không thể xóa bài đăng';
+                ? err.response?.data?.message || 'Không thể ẩn bài đăng'
+                : 'Không thể ẩn bài đăng';
               Alert.alert('Lỗi', message);
             } finally {
               setDeleting(false);
@@ -140,6 +188,9 @@ export default function RoommatePostScreen() {
     }
     navigation.navigate('Home');
   };
+
+  const isPendingReview = post ? normalizeStatus(post.status) === 'pending_review' : false;
+  const statusMeta = post ? getStatusMeta(post) : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -187,17 +238,12 @@ export default function RoommatePostScreen() {
                         : 'Số người tối đa: Chưa cập nhật'}
                   </Text>
                 </View>
-                {!post.isLocked ? (
-                  <View style={[styles.statusBadge, styles.statusOpen]}>
-                    <Ionicons name="lock-open-outline" size={12} color="#15803D" />
-                    <Text style={styles.statusOpenText}>Mở</Text>
+                {statusMeta ? (
+                  <View style={[styles.statusBadge, statusMeta.badgeStyle]}>
+                    <Ionicons name={statusMeta.icon} size={12} color={statusMeta.color} />
+                    <Text style={statusMeta.textStyle}>{statusMeta.label}</Text>
                   </View>
-                ) : (
-                  <View style={[styles.statusBadge, styles.statusClosed]}>
-                    <Ionicons name="lock-closed-outline" size={12} color="#4B5563" />
-                    <Text style={styles.statusClosedText}>Khóa</Text>
-                  </View>
-                )}
+                ) : null}
               </View>
 
               <View style={styles.metaRow}>
@@ -244,14 +290,16 @@ export default function RoommatePostScreen() {
                     <Text style={styles.actionButtonText}>Sửa bài đăng</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.actionButton} onPress={() => setShowStatusDialog(true)}>
-                    <Ionicons
-                      name={post.isLocked ? 'lock-open-outline' : 'lock-closed-outline'}
-                      size={16}
-                      color="#374151"
-                    />
-                    <Text style={styles.actionButtonText}>{post.isLocked ? 'Mở bài' : 'Khóa bài'}</Text>
-                  </TouchableOpacity>
+                  {!isPendingReview ? (
+                    <TouchableOpacity style={styles.actionButton} onPress={() => setShowStatusDialog(true)}>
+                      <Ionicons
+                        name={post.isLocked ? 'lock-open-outline' : 'lock-closed-outline'}
+                        size={16}
+                        color="#374151"
+                      />
+                      <Text style={styles.actionButtonText}>{post.isLocked ? 'Mở bài' : 'Khóa bài'}</Text>
+                    </TouchableOpacity>
+                  ) : null}
 
                   <TouchableOpacity
                     style={styles.actionButton}
@@ -267,7 +315,7 @@ export default function RoommatePostScreen() {
                     disabled={deleting}
                   >
                     <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                    <Text style={styles.deleteButtonText}>{deleting ? 'Đang xóa...' : 'Xóa bài'}</Text>
+                    <Text style={styles.deleteButtonText}>{deleting ? 'Đang ẩn...' : 'Ẩn bài'}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -423,6 +471,9 @@ const styles = StyleSheet.create({
   statusClosed: {
     backgroundColor: '#F3F4F6',
   },
+  statusPending: {
+    backgroundColor: '#FEF3C7',
+  },
   statusOpenText: {
     color: '#15803D',
     fontSize: 11,
@@ -430,6 +481,11 @@ const styles = StyleSheet.create({
   },
   statusClosedText: {
     color: '#4B5563',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusPendingText: {
+    color: '#92400E',
     fontSize: 11,
     fontWeight: '600',
   },

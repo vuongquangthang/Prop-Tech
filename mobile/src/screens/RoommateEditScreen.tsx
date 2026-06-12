@@ -367,7 +367,7 @@ export default function RoommateEditScreen() {
       payload.imageUrls = uploadedUrls;
 
       await postService.update(post.id, payload);
-      Alert.alert('Thành công', 'Đã lưu thay đổi bài đăng.', [
+      Alert.alert('Thành công', 'Đã gửi bài đăng chờ admin duyệt lại.', [
         {
           text: 'OK',
           onPress: () => {

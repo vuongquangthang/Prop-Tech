@@ -411,9 +411,9 @@ export default function RoomDetailScreen() {
           {/* Description */}
           {roomDetail?.description || roomDetail?.imageUrls?.length ? (
             <View style={{ marginTop: 12 }}>
-              {roomDetail?.imageUrls?.length ? (
-                <TouchableOpacity onPress={() => setPreviewImageUrl(resolveImageUrl(roomDetail.imageUrls[0]))}>
-                  <Image source={{ uri: resolveImageUrl(roomDetail.imageUrls[0]) }} style={{ width: '100%', height: 200, borderRadius: 8 }} />
+              {roomDetail?.imageUrls?.[0] ? (
+                <TouchableOpacity onPress={() => setPreviewImageUrl(resolveImageUrl(roomDetail.imageUrls?.[0] || ''))}>
+                  <Image source={{ uri: resolveImageUrl(roomDetail.imageUrls?.[0] || '') }} style={{ width: '100%', height: 200, borderRadius: 8 }} />
                 </TouchableOpacity>
               ) : null}
               {roomDetail?.description ? (
