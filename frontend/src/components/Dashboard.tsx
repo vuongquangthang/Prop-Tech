@@ -592,7 +592,7 @@ const dashboardStyles = `
     gap: 24px;
     padding: 24px;
     border: 1px solid rgba(215, 224, 234, 0.9);
-    border-radius: 24px;
+    border-radius: 12px;
     background:
       radial-gradient(circle at 8% 10%, rgba(30, 78, 140, 0.12), transparent 28%),
       radial-gradient(circle at 82% 0%, rgba(14, 165, 233, 0.12), transparent 32%),
@@ -675,7 +675,7 @@ const dashboardStyles = `
   .dashboard-kpi-card,
   .dashboard-panel {
     border: 1px solid rgba(215, 224, 234, 0.95);
-    border-radius: 22px;
+    border-radius: 12px;
     background: #FFFFFF;
     box-shadow: 0 10px 32px rgba(15, 23, 42, 0.05);
   }
@@ -713,7 +713,7 @@ const dashboardStyles = `
     place-items: center;
     width: 38px;
     height: 38px;
-    border-radius: 14px;
+    border-radius: 10px;
     background: #EAF1F8;
     color: #1E4E8C;
   }
@@ -839,7 +839,7 @@ const dashboardStyles = `
   .ticket-summary div {
     padding: 16px;
     border: 1px solid #E2E8F0;
-    border-radius: 16px;
+    border-radius: 12px;
     background: #F8FAFC;
   }
 
@@ -873,7 +873,7 @@ const dashboardStyles = `
   .kanban-column {
     min-height: 260px;
     border: 1px solid #E2E8F0;
-    border-radius: 18px;
+    border-radius: 12px;
     background: #F8FAFC;
     padding: 14px;
   }
@@ -914,7 +914,7 @@ const dashboardStyles = `
     gap: 10px;
     padding: 12px;
     border: 1px solid #E2E8F0;
-    border-radius: 14px;
+    border-radius: 10px;
     background: #FFFFFF;
   }
 
@@ -936,7 +936,7 @@ const dashboardStyles = `
   .empty-state {
     padding: 18px;
     border: 1px dashed #CBD5E1;
-    border-radius: 14px;
+    border-radius: 10px;
     text-align: center;
   }
 
@@ -952,7 +952,7 @@ const dashboardStyles = `
     align-items: center;
     gap: 12px;
     padding: 12px;
-    border-radius: 14px;
+    border-radius: 10px;
     background: #F8FAFC;
   }
 
@@ -1001,7 +1001,7 @@ const dashboardStyles = `
     gap: 14px;
     padding: 14px;
     border: 1px solid #E2E8F0;
-    border-radius: 16px;
+    border-radius: 12px;
     background: #F8FAFC;
   }
 
@@ -1014,7 +1014,7 @@ const dashboardStyles = `
     place-items: center;
     width: 38px;
     height: 38px;
-    border-radius: 13px;
+    border-radius: 10px;
     flex: none;
   }
 
@@ -1043,7 +1043,7 @@ const dashboardStyles = `
     place-items: center;
     min-height: 420px;
     border: 1px solid #E2E8F0;
-    border-radius: 24px;
+    border-radius: 12px;
     background: #FFFFFF;
   }
 
@@ -1104,7 +1104,7 @@ const dashboardStyles = `
     .dashboard-hero,
     .dashboard-panel,
     .dashboard-kpi-card {
-      border-radius: 18px;
+      border-radius: 12px;
       padding: 16px;
     }
 

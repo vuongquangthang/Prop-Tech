@@ -12,7 +12,7 @@ interface TopbarProps {
   onMenuToggle?: () => void;
 }
 
-export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps) {
+export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: TopbarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -129,14 +129,14 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
             <div className="admin-content-modal-footer flex items-center justify-end gap-3 border-t border-gray-300 px-6 py-4">
               <button
                 type="button"
-                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="app-button-secondary"
                 onClick={() => setShowLogoutConfirm(false)}
               >
                 Hủy
               </button>
               <button
                 type="button"
-                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="app-button-danger"
                 onClick={confirmExitAdmin}
               >
                 Đăng xuất
@@ -214,7 +214,7 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
             style={{ gap: '8px', padding: '6px 10px', cursor: 'pointer' }}
             aria-haspopup="menu"
             aria-expanded={showUserMenu}
-            aria-label="Menu tai khoan"
+            aria-label="Menu tài khoản"
             onClick={() => {
               setShowNotifications(false);
               setShowUserMenu((current) => !current);

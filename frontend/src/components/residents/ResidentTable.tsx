@@ -1,7 +1,8 @@
-import { Plus, Search, Edit2, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit2, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2, Filter } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { AddResidentModal, EditResidentModal } from './ResidentTableModals';
 import { residentService } from '../../services/api.service';
+import { DataCard, DataTable, EmptyState, LoadingState, PageHeader, StatusBadge } from '../ui/product-system';
 
 interface ResidentData {
   id: number;
@@ -16,8 +17,8 @@ interface ResidentData {
 }
 
 const statusConfig = {
-  active: { label: 'Đang hoạt động', color: 'bg-green-100 text-green-800 border-green-300' },
-  locked: { label: 'Bị khóa', color: 'bg-red-100 text-red-800 border-red-300' },
+  active: { label: 'Đang hoạt động', tone: 'success' as const },
+  locked: { label: 'Bị khóa', tone: 'danger' as const },
 };
 
 export function ResidentTable() {
@@ -73,32 +74,38 @@ export function ResidentTable() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Filter Bar */}
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Cư dân"
+        title="Quản lý cư dân"
+        description="Theo dõi hồ sơ, phòng đang ở và trạng thái tài khoản cư dân trong cùng một danh sách."
+      />
+
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Tìm theo SĐT hoặc tên..."
-              className="w-80 pl-10 pr-4 py-2 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:border-gray-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          <select className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <div className="flex flex-wrap items-center gap-4">
+          <Filter size={16} className="text-gray-500" />
+          <select
+            className="app-select"
+            style={{ width: '190px', flex: '0 0 190px' }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Đang hoạt động</option>
             <option value="locked">Bị khóa</option>
           </select>
-
+          <input
+            type="text"
+            placeholder="Tìm theo SĐT, tên hoặc phòng..."
+            className="app-input"
+            style={{ width: '280px', flex: '0 0 280px' }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-        
         <button 
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+          className="app-button-primary"
         >
           <Plus size={16} />
           <span>Thêm cư dân mới</span>
@@ -107,12 +114,12 @@ export function ResidentTable() {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-300 rounded p-4 flex items-center space-x-2">
+        <div className="rounded-[12px] border border-red-200 bg-red-50 p-4 flex items-center gap-2">
           <AlertTriangle size={20} className="text-red-600" />
           <p className="text-sm text-red-800">{error}</p>
           <button 
             onClick={fetchResidents}
-            className="ml-auto px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+            className="app-button-danger ml-auto min-h-0 px-3 py-1"
           >
             Thử lại
           </button>
@@ -120,68 +127,51 @@ export function ResidentTable() {
       )}
       
       {/* Table */}
-      <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">
-            Danh sách cư dân - {loading ? '...' : filteredResidents.length} người
-          </h2>
-        </div>
-        
-        <div className="overflow-x-auto">
+      <DataCard
+        title={`Danh sách cư dân${loading ? '' : ` · ${filteredResidents.length} người`}`}
+        description="Dữ liệu được đồng bộ từ hồ sơ cư dân và phòng đang thuê."
+      >
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={32} className="animate-spin text-gray-400" />
-              <span className="ml-3 text-gray-600">Đang tải dữ liệu...</span>
-            </div>
+            <LoadingState />
           ) : filteredResidents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <User size={48} className="text-gray-300 mb-3" />
-              <p className="text-gray-500">Không tìm thấy cư dân nào</p>
-            </div>
+            <EmptyState icon={<User size={26} />} title="Không tìm thấy cư dân nào" description="Thử đổi từ khóa tìm kiếm hoặc bộ lọc trạng thái." />
           ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-300">
+            <DataTable>
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Ảnh đại diện</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Họ tên</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Số điện thoại</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Email</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Số phòng</th>
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
+                  <th>Họ tên</th>
+                  <th>Số điện thoại</th>
+                  <th>Email</th>
+                  <th>Số phòng</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredResidents.map((resident) => (
-                  <tr key={resident.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="w-10 h-10 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-xl">
-                        👤
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-800">{resident.fullName}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{resident.phoneNumber || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{resident.email || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{resident.room || '-'}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`inline-block px-3 py-1 text-xs rounded border ${statusConfig[(resident.status || 'active') as keyof typeof statusConfig].color}`}>
+                  <tr key={resident.id}>
+                    <td className="font-semibold">{resident.fullName}</td>
+                    <td>{resident.phoneNumber || '-'}</td>
+                    <td>{resident.email || '-'}</td>
+                    <td>{resident.room || '-'}</td>
+                    <td>
+                      <StatusBadge tone={statusConfig[(resident.status || 'active') as keyof typeof statusConfig].tone}>
                         {statusConfig[(resident.status || 'active') as keyof typeof statusConfig].label}
-                      </span>
+                      </StatusBadge>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center">
-                        <button className="p-2 hover:bg-gray-100 rounded" title="Sửa thông tin" onClick={() => handleEditClick(resident)}>
-                          <Edit2 size={16} className="text-gray-600" />
+                    <td>
+                      <div className="flex items-center justify-center gap-2">
+                        <button className="product-action-icon" title="Sửa thông tin" onClick={() => handleEditClick(resident)}>
+                          <Edit2 size={16} />
                         </button>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           )}
-        </div>
-      </div>
+      </DataCard>
       
       {/* Modals */}
       {showAddModal && (

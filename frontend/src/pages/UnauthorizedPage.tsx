@@ -27,7 +27,7 @@ export function UnauthorizedPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-red-100">
+        <div className="bg-white rounded-[16px] shadow-2xl p-8 border border-red-100">
           {/* Icon */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
@@ -59,7 +59,7 @@ export function UnauthorizedPage() {
 
           {/* User Info */}
           {user && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-[12px] p-4 mb-6">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -86,7 +86,7 @@ export function UnauthorizedPage() {
 
           {/* Attempted Route */}
           {from && (
-            <div className="bg-gray-50 rounded-lg p-3 mb-6 text-sm">
+            <div className="bg-gray-50 rounded-[12px] p-3 mb-6 text-sm">
               <p className="text-gray-500">Trang bị từ chối:</p>
               <p className="font-mono text-gray-700 mt-1">{from.pathname}</p>
             </div>
@@ -96,7 +96,7 @@ export function UnauthorizedPage() {
           <div className="space-y-3">
             <button
               onClick={handleGoBack}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-[10px] shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -106,7 +106,7 @@ export function UnauthorizedPage() {
 
             <button
               onClick={handleLogout}
-              className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-[10px] shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

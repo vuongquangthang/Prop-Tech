@@ -97,7 +97,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
 
   return (
     <div 
-      className="fixed inset-0 z-30"
+      className="fixed bottom-0 left-0 right-0 top-16 z-30"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -105,7 +105,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
 
       {/* Panel */}
       <div 
-        className="absolute right-8 top-20 bg-white rounded-2xl shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
+        className="absolute right-8 top-4 bg-white rounded-[16px] shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
         style={{ 
           width: 'min(420px, calc(100vw - 2rem))',
           maxHeight: 'min(600px, calc(100vh - 6rem))',
@@ -135,7 +135,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
             {adminNotifications.some(n => !n.isRead) && (
               <button
                 onClick={handleMarkAllRead}
-                className="p-2 rounded-lg transition-colors hover:bg-slate-100"
+                className="p-2 rounded-[10px] transition-colors hover:bg-slate-100"
                 title="Đánh dấu tất cả đã đọc"
               >
                 <CheckCheck size={20} color="var(--brand-primary)" />
@@ -143,7 +143,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
             )}
             <button
               onClick={onClose}
-              className="p-2 rounded-lg transition-colors hover:bg-slate-100"
+              className="p-2 rounded-[10px] transition-colors hover:bg-slate-100"
             >
               <X size={20} color="var(--text-primary)" />
             </button>
@@ -194,7 +194,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
                     <div className="flex items-start gap-3">
                       {/* Icon */}
                       <div 
-                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                        className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: typeColor.bg }}
                       >
                         <span style={{ fontSize: '18px' }}>{typeColor.icon}</span>

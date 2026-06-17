@@ -42,7 +42,7 @@ export function ForgotPasswordPage() {
       </div>
 
       <div className="relative z-10 px-4" style={{ width: '100%', maxWidth: '560px' }}>
-        <div className="rounded-3xl shadow-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '0.5px solid rgba(255,255,255,0.2)', padding: '80px 48px' }}>
+        <div className="rounded-[16px] shadow-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '0.5px solid rgba(255,255,255,0.2)', padding: '80px 48px' }}>
 
           <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow text-center mb-4">Quên mật khẩu</h1>
           <p className="text-center text-base mb-10" style={{ color: 'rgba(255,255,255,0.7)' }}>
@@ -52,7 +52,7 @@ export function ForgotPasswordPage() {
           {!submitted ? (
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <p className="text-red-400 text-sm text-center bg-red-500/10 rounded-lg p-3">{error}</p>
+                <p className="text-red-400 text-sm text-center bg-red-500/10 rounded-[10px] p-3">{error}</p>
               )}
 
               <div>
@@ -69,7 +69,7 @@ export function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-white text-gray-900 font-bold py-3 rounded-lg mt-8 hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-50"
+                className="w-full bg-white text-gray-900 font-bold py-3 rounded-[10px] mt-8 hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-50"
               >
                 {loading ? 'Đang xử lý...' : 'Gửi yêu cầu'}
               </button>
@@ -96,7 +96,7 @@ export function ForgotPasswordPage() {
               </p>
               <button
                 onClick={() => navigate('/login')}
-                className="w-full bg-white text-gray-900 font-bold py-3 rounded-lg mt-4 hover:bg-gray-100 transition-colors shadow-lg"
+                className="w-full bg-white text-gray-900 font-bold py-3 rounded-[10px] mt-4 hover:bg-gray-100 transition-colors shadow-lg"
               >
                 Quay lại đăng nhập
               </button>

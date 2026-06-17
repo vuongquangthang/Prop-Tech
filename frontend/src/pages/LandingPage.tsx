@@ -255,7 +255,7 @@ export function LandingPage() {
           height: 44px;
           display: grid;
           place-items: center;
-          border-radius: 16px;
+          border-radius: 12px;
           background: linear-gradient(135deg, #1E4E8C, #0EA5E9);
           color: white;
           box-shadow: 0 16px 36px rgba(30, 78, 140, 0.22);
@@ -296,7 +296,7 @@ export function LandingPage() {
           gap: 9px;
           min-height: 48px;
           padding: 0 22px;
-          border-radius: 16px;
+          border-radius: 10px;
           background: linear-gradient(135deg, var(--brand), #0EA5E9);
           color: white;
           font-size: 15px;
@@ -318,7 +318,7 @@ export function LandingPage() {
           min-height: 48px;
           padding: 0 22px;
           border: 1px solid rgba(148, 163, 184, 0.36);
-          border-radius: 16px;
+          border-radius: 12px;
           background: rgba(255,255,255,0.82);
           color: #0F172A;
           font-size: 15px;
@@ -450,7 +450,7 @@ export function LandingPage() {
           gap: 12px;
           padding: 14px 16px;
           border: 1px solid rgba(226, 232, 240, 0.9);
-          border-radius: 22px;
+          border-radius: 12px;
           background: rgba(255,255,255,0.92);
           box-shadow: 0 26px 70px rgba(15,23,42,0.16);
           backdrop-filter: blur(18px);
@@ -461,7 +461,7 @@ export function LandingPage() {
           height: 46px;
           display: grid;
           place-items: center;
-          border-radius: 16px;
+          border-radius: 10px;
           background: #DCFCE7;
           color: #15803D;
         }
@@ -481,7 +481,7 @@ export function LandingPage() {
         .lp-dashboard {
           overflow: hidden;
           border: 1px solid rgba(255,255,255,0.16);
-          border-radius: 30px;
+          border-radius: 16px;
           background:
             radial-gradient(circle at 90% 8%, rgba(14,165,233,0.24), transparent 32%),
             linear-gradient(145deg, #07111F 0%, #0B1830 48%, #102A55 100%);
@@ -529,7 +529,7 @@ export function LandingPage() {
 
         .lp-dashboard aside,
         .lp-dashboard main {
-          border-radius: 24px;
+          border-radius: 12px;
           padding: 16px;
         }
 
@@ -545,7 +545,7 @@ export function LandingPage() {
           width: 40px;
           height: 40px;
           padding: 10px;
-          border-radius: 14px;
+          border-radius: 10px;
           background: white;
           color: var(--brand);
         }
@@ -570,7 +570,7 @@ export function LandingPage() {
         .lp-dashboard aside > div:not(.lp-dash-brand) {
           margin-top: 8px;
           padding: 10px 12px;
-          border-radius: 14px;
+          border-radius: 10px;
           color: rgba(226,232,240,0.72);
           font-size: 13px;
           font-weight: 850;
@@ -612,7 +612,7 @@ export function LandingPage() {
         }
 
         .lp-metric {
-          border-radius: 20px;
+          border-radius: 12px;
           padding: 16px;
         }
 
@@ -625,7 +625,7 @@ export function LandingPage() {
 
         .lp-chart-card {
           margin-top: 12px;
-          border-radius: 22px;
+          border-radius: 12px;
           padding: 16px;
         }
 
@@ -654,7 +654,7 @@ export function LandingPage() {
         .lp-phone {
           width: 242px;
           border: 10px solid #07111F;
-          border-radius: 38px;
+          border-radius: 16px;
           background: #07111F;
           box-shadow: 0 34px 90px rgba(15,23,42,0.30);
         }
@@ -668,7 +668,7 @@ export function LandingPage() {
         }
 
         .lp-phone-screen {
-          border-radius: 28px;
+          border-radius: 16px;
           padding: 16px;
           background: linear-gradient(180deg, #EAF3FF, white);
         }
@@ -706,7 +706,7 @@ export function LandingPage() {
 
         .lp-bill-card {
           padding: 16px;
-          border-radius: 24px;
+          border-radius: 12px;
           background: linear-gradient(135deg, #1E4E8C, #0EA5E9);
           color: white;
           box-shadow: 0 18px 42px rgba(30,78,140,0.24);
@@ -730,7 +730,7 @@ export function LandingPage() {
           width: 100%;
           margin-top: 14px;
           padding: 11px;
-          border-radius: 16px;
+          border-radius: 12px;
           background: white;
           color: var(--brand);
           font-size: 13px;
@@ -746,7 +746,7 @@ export function LandingPage() {
 
         .lp-shortcuts div {
           padding: 12px 8px;
-          border-radius: 17px;
+          border-radius: 12px;
           background: white;
           text-align: center;
           box-shadow: 0 8px 18px rgba(15,23,42,0.06);
@@ -798,7 +798,7 @@ export function LandingPage() {
         .lp-logo-grid span {
           padding: 12px;
           border: 1px solid rgba(226,232,240,0.9);
-          border-radius: 16px;
+          border-radius: 12px;
           background: white;
           color: #64748B;
           text-align: center;
@@ -892,7 +892,7 @@ export function LandingPage() {
         .lp-card {
           padding: 26px;
           border: 1px solid rgba(226,232,240,0.9);
-          border-radius: 30px;
+          border-radius: 12px;
           background: white;
           box-shadow: 0 16px 44px rgba(15,23,42,0.05);
           transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
@@ -910,7 +910,7 @@ export function LandingPage() {
           display: grid;
           place-items: center;
           margin-bottom: 22px;
-          border-radius: 20px;
+          border-radius: 12px;
           background: linear-gradient(135deg, #EAF3FF, white);
           color: var(--brand);
           box-shadow: inset 0 0 0 1px rgba(30,78,140,0.10);
@@ -965,7 +965,7 @@ export function LandingPage() {
         .lp-platform-tags div {
           padding: 20px;
           border: 1px solid rgba(255,255,255,0.10);
-          border-radius: 24px;
+          border-radius: 12px;
           background: rgba(255,255,255,0.07);
         }
 
@@ -1024,7 +1024,7 @@ export function LandingPage() {
           width: 290px;
           padding: 22px;
           border: 1px solid rgba(226,232,240,0.9);
-          border-radius: 30px;
+          border-radius: 12px;
           background: white;
           box-shadow: 0 26px 70px rgba(15,23,42,0.10);
         }
@@ -1049,7 +1049,7 @@ export function LandingPage() {
           clear: both;
           margin-top: 14px;
           padding: 14px;
-          border-radius: 17px;
+          border-radius: 12px;
           background: #F8FAFC;
         }
 
@@ -1075,7 +1075,7 @@ export function LandingPage() {
         .lp-showcase-panel {
           padding: 28px;
           border: 1px solid rgba(226,232,240,0.9);
-          border-radius: 34px;
+          border-radius: 16px;
           background: white;
           box-shadow: 0 26px 80px rgba(15,23,42,0.08);
         }
@@ -1105,7 +1105,7 @@ export function LandingPage() {
           position: relative;
           padding: 28px;
           border: 1px solid rgba(226,232,240,0.9);
-          border-radius: 30px;
+          border-radius: 12px;
           background: #F8FAFC;
         }
 
@@ -1115,7 +1115,7 @@ export function LandingPage() {
           display: grid;
           place-items: center;
           margin-bottom: 24px;
-          border-radius: 18px;
+          border-radius: 12px;
           background: #07111F;
           color: white;
           font-style: normal;
@@ -1154,7 +1154,7 @@ export function LandingPage() {
         .lp-roi-card {
           padding: 26px;
           border: 1px solid rgba(255,255,255,0.10);
-          border-radius: 30px;
+          border-radius: 12px;
           background: rgba(255,255,255,0.07);
         }
 
@@ -1197,7 +1197,7 @@ export function LandingPage() {
         .lp-price {
           padding: 28px;
           border: 1px solid rgba(226,232,240,0.9);
-          border-radius: 32px;
+          border-radius: 12px;
           background: white;
           box-shadow: 0 16px 44px rgba(15,23,42,0.05);
         }
@@ -1329,7 +1329,7 @@ export function LandingPage() {
           gap: 36px;
           align-items: center;
           padding: 58px;
-          border-radius: 42px;
+          border-radius: 16px;
           background:
             radial-gradient(circle at 85% 10%, rgba(125,211,252,0.28), transparent 28%),
             linear-gradient(135deg, #1E4E8C, #0F2D52);
@@ -1486,7 +1486,7 @@ export function LandingPage() {
           .lp-logo i {
             width: 38px;
             height: 38px;
-            border-radius: 14px;
+            border-radius: 10px;
           }
 
           .lp-login {
@@ -1497,7 +1497,7 @@ export function LandingPage() {
           .lp-secondary {
             min-height: 44px;
             padding: 0 16px;
-            border-radius: 14px;
+            border-radius: 10px;
             font-size: 13px;
           }
 
@@ -1606,7 +1606,7 @@ export function LandingPage() {
           .lp-roi-card,
           .lp-testimonial,
           .lp-price {
-            border-radius: 24px;
+            border-radius: 12px;
             padding: 22px;
           }
 
@@ -1620,7 +1620,7 @@ export function LandingPage() {
 
           .lp-cta-box {
             padding: 28px;
-            border-radius: 28px;
+            border-radius: 16px;
           }
         }
       `}</style>

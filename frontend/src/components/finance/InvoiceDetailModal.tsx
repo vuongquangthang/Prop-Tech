@@ -218,7 +218,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '16px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '900px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 80px rgba(0,0,0,0.25)' }}>
+      <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-modal)', width: '100%', maxWidth: '900px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 80px rgba(0,0,0,0.25)' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
@@ -273,7 +273,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                 <InfoCard
                   title="Thành viên trong hộ"
                   headerRight={members.length > 0 ? (
-                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '12px' }}>
+                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 'var(--radius-badge)' }}>
                       {members.length} người
                     </span>
                   ) : undefined}
@@ -347,7 +347,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                 )}
 
                 {/* Tổng cộng */}
-                <div style={{ border: '1px solid rgba(30, 78, 140, 0.24)', borderRadius: '12px', padding: '16px 14px', backgroundColor: 'rgba(30, 78, 140, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <div style={{ border: '1px solid rgba(30, 78, 140, 0.24)', borderRadius: 'var(--radius-card)', padding: '16px 14px', backgroundColor: 'rgba(30, 78, 140, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                   <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--brand-primary)', letterSpacing: '0.05em' }}>TỔNG CỘNG</span>
                   <span style={{ fontWeight: 800, fontSize: '20px', color: 'var(--brand-primary)' }}>
                     {fmt(detail.totalAmount)} VND
@@ -369,21 +369,21 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
         {/* Footer */}
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
-            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
             onClick={() => window.print()}
           >
             <Printer size={14} />
             In hóa đơn
           </button>
           <button
-            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Send size={14} />
             Gửi lại cho {sendCount > 0 ? `${sendCount} người` : 'cư dân'}
           </button>
           {isDraft && detail && (
             <button
-              style={{ padding: '8px 16px', backgroundColor: 'var(--info)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '8px 16px', backgroundColor: 'var(--info)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
               onClick={() => { onApprove(detail.id); onClose(); }}
             >
               <CheckCircle size={14} />
@@ -393,7 +393,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
           <div style={{ flex: 1 }} />
           <button
             onClick={onClose}
-            style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: '12px', fontSize: 'var(--type-caption)', cursor: 'pointer', background: 'white', color: 'var(--text-primary)', fontWeight: 500 }}
+            style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: 'var(--type-caption)', cursor: 'pointer', background: 'white', color: 'var(--text-primary)', fontWeight: 500 }}
           >
             Đóng
           </button>

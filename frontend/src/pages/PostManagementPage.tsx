@@ -153,9 +153,9 @@ export function PostManagementPage() {
         {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
         {loading ? (
-          <div className="rounded-2xl border-2 border-gray-300 bg-white p-10 text-center text-gray-500">Đang tải danh sách...</div>
+          <div className="rounded-[12px] border-2 border-gray-300 bg-white p-10 text-center text-gray-500">Đang tải danh sách...</div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border-2 border-gray-300 bg-white">
+          <div className="overflow-hidden rounded-[12px] border-2 border-gray-300 bg-white">
             <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
               <h2 className="text-lg font-semibold">Danh sách bài đăng</h2>
               <button onClick={() => navigate('/post-management/create')} className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-white">

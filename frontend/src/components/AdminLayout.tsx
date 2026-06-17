@@ -1,7 +1,7 @@
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Outlet, useLocation } from 'react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Map routes to titles
 const routeTitles: Record<string, string> = {
@@ -31,6 +31,7 @@ const routeTitles: Record<string, string> = {
 
 export function AdminLayout() {
   const location = useLocation();
+  const mainRef = useRef<HTMLElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
@@ -39,6 +40,11 @@ export function AdminLayout() {
   
   // Get title for current route
   const currentTitle = routeTitles[location.pathname] || 'Bảng điều khiển';
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname]);
 
   return (
     <div
@@ -81,7 +87,7 @@ export function AdminLayout() {
         onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
       />
 
-      <main className="admin-main-content overflow-x-hidden">
+      <main ref={mainRef} className="admin-main-content overflow-x-hidden">
         <div className={needsPadding ? 'app-page-shell app-section' : ''}>
           <Outlet />
         </div>
