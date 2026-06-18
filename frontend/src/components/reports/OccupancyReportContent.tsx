@@ -62,9 +62,9 @@ export function OccupancyReportContent() {
       
       // Prepare occupancy chart data
       const chartData: OccupancyData[] = [
-        { name: 'Đã thuê', value: statusCounts['Đã thuê'] || 0, color: '#10b981' },
-        { name: 'Trống', value: statusCounts['Trống'] || 0, color: '#6b7280' },
-        { name: 'Bảo trì', value: statusCounts['Bảo trì'] || 0, color: '#f59e0b' },
+        { name: 'Đã thuê', value: statusCounts['Đã thuê'] || 0, color: 'var(--chart-4)' },
+        { name: 'Trống', value: statusCounts['Trống'] || 0, color: 'var(--chart-2)' },
+        { name: 'Bảo trì', value: statusCounts['Bảo trì'] || 0, color: 'var(--chart-5)' },
       ];
       
       // Prepare building stats
@@ -163,7 +163,7 @@ export function OccupancyReportContent() {
                 labelLine={true}
                 label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
                 outerRadius={80}
-                fill="#1E4E8C"
+                fill="var(--chart-1)"
                 dataKey="value"
                 style={{ fontFamily: 'Roboto, Arial, sans-serif', fontSize: '15px' }}
               >
@@ -173,11 +173,13 @@ export function OccupancyReportContent() {
               </Pie>
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: '#fff', 
-                  border: '1px solid #d7e0ea',
+                  backgroundColor: 'var(--chart-tooltip)', 
+                  border: '1px solid var(--border)',
                   borderRadius: '8px',
+                  color: 'var(--foreground)',
                   fontSize: '15px',
-                  fontFamily: 'Roboto, Arial, sans-serif'
+                  fontFamily: 'Roboto, Arial, sans-serif',
+                  boxShadow: 'var(--shadow-soft)',
                 }}
               />
             </PieChart>

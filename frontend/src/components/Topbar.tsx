@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { NotificationPanel } from './NotificationPanel';
 import { notificationService } from '../services/feature.service';
 import { notificationHub } from '../lib/signalr-service';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface TopbarProps {
   title?: string;
@@ -151,7 +152,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
   return (
     <header
       className="admin-topbar app-navbar fixed left-0 right-0 top-0 z-[60] flex h-16 flex-shrink-0 items-center justify-between px-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
-      style={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
+      style={{ backgroundColor: 'var(--topbar)' }}
     >
       <div className="flex items-center" style={{ gap: '12px', minWidth: 0 }}>
         <style>{`
@@ -177,6 +178,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
       </div>
 
       <div className="flex flex-shrink-0 items-center" style={{ gap: '8px' }}>
+        <ThemeSwitcher />
         <button
           type="button"
           className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]"

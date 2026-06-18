@@ -189,7 +189,7 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
       `}</style>
       <aside
         className={`admin-sidebar flex flex-col${isOpen ? ' open' : ''}${isCollapsed ? ' collapsed' : ''}`}
-        style={{ width: isCollapsed ? '80px' : '288px', minWidth: isCollapsed ? '80px' : '288px', height: '100vh', backgroundColor: 'rgba(255,255,255,0.92)', borderRight: '1px solid var(--surface-border)' }}>
+        style={{ width: isCollapsed ? '80px' : '288px', minWidth: isCollapsed ? '80px' : '288px', height: '100vh', backgroundColor: 'var(--sidebar)', borderRight: '1px solid var(--surface-border)' }}>
       {/* Logo */}
         <button
           type="button"
@@ -205,7 +205,7 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
               style={{ 
                 width: '40px', 
                 height: '40px', 
-                background: 'linear-gradient(135deg, var(--brand-primary), #0f766e)',
+                background: 'linear-gradient(135deg, var(--primary), var(--info))',
                 borderRadius: '12px',
                 boxShadow: '0 12px 26px rgba(30, 78, 140, 0.22)'
               }}

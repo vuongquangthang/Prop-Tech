@@ -384,22 +384,24 @@ export function RevenueReportContent() {
           
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="period" tick={{ fontSize: 14 }} stroke="#6b7280" />
-              <YAxis tick={{ fontSize: 14 }} stroke="#6b7280" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="period" tick={{ fontSize: 14 }} stroke="var(--chart-axis)" />
+              <YAxis tick={{ fontSize: 14 }} stroke="var(--chart-axis)" />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: '#fff', 
-                  border: '1px solid #d1d5db',
+                  backgroundColor: 'var(--chart-tooltip)', 
+                  border: '1px solid var(--border)',
                   borderRadius: '4px',
-                  fontSize: 'var(--type-caption)'
+                  color: 'var(--foreground)',
+                  fontSize: 'var(--type-caption)',
+                  boxShadow: 'var(--shadow-soft)',
                 }}
                 formatter={(value: number) => `${value.toFixed(0)} triệu`}
               />
               <Legend wrapperStyle={{ fontSize: 'var(--type-caption)' }} />
-              <Bar dataKey="Tiền phòng" fill="#1f2937" />
-              <Bar dataKey="Phí dịch vụ" fill="#f59e0b" />
-              <Bar dataKey="Doanh thu khác" fill="#3b82f6" />
+              <Bar dataKey="Tiền phòng" fill="var(--chart-1)" />
+              <Bar dataKey="Phí dịch vụ" fill="var(--chart-5)" />
+              <Bar dataKey="Doanh thu khác" fill="var(--chart-2)" />
             </BarChart>
           </ResponsiveContainer>
         </div>

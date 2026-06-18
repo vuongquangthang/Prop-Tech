@@ -111,7 +111,7 @@ const isCompletedMaintenance = (status?: string) => {
   return ['completed', 'done', 'closed', 'hoàn thành', 'đã đóng', 'đã xử lý'].some((item) => normalized.includes(item));
 };
 
-const chartColors = ['#1E4E8C', '#0EA5E9', '#6366F1', '#22C55E', '#F59E0B'];
+const chartColors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
 
 function DashboardSkeleton() {
   return (
@@ -278,19 +278,19 @@ export function Dashboard() {
       title: 'Mới',
       count: newTickets,
       items: maintenance.filter((item) => isNewMaintenance(item.status)).slice(0, 3),
-      accent: '#0EA5E9',
+      accent: 'var(--chart-2)',
     },
     {
       title: 'Đang xử lý',
       count: processingTickets,
       items: maintenance.filter((item) => isProcessingMaintenance(item.status)).slice(0, 3),
-      accent: '#F59E0B',
+      accent: 'var(--chart-5)',
     },
     {
       title: 'Hoàn thành',
       count: completedTickets,
       items: maintenance.filter((item) => isCompletedMaintenance(item.status)).slice(0, 3),
-      accent: '#22C55E',
+      accent: 'var(--chart-4)',
     },
   ];
 
@@ -420,12 +420,12 @@ export function Dashboard() {
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={revenueChart} barGap={8}>
-                <CartesianGrid vertical={false} stroke="#E2E8F0" strokeDasharray="4 6" />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: '#64748B', fontSize: 12 }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fill: '#64748B', fontSize: 12 }} unit="M" />
-                <Tooltip cursor={{ fill: 'rgba(30, 78, 140, 0.06)' }} formatter={(value) => [`${value}M đ`, '']} />
-                <Bar dataKey="collected" name="Đã thu" fill="#1E4E8C" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="service" name="Dịch vụ" fill="#0EA5E9" radius={[8, 8, 0, 0]} />
+                <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="4 6" />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} unit="M" />
+                <Tooltip cursor={{ fill: 'color-mix(in srgb, var(--primary) 8%, transparent)' }} formatter={(value) => [`${value}M đ`, '']} />
+                <Bar dataKey="collected" name="Đã thu" fill="var(--chart-1)" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="service" name="Dịch vụ" fill="var(--chart-2)" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -569,7 +569,7 @@ const dashboardStyles = `
     width: min(100%, 1600px);
     margin-inline: auto;
     padding: 4px;
-    color: #0F172A;
+    color: var(--foreground);
   }
 
   .dashboard-shell *,
@@ -591,19 +591,19 @@ const dashboardStyles = `
     justify-content: space-between;
     gap: 24px;
     padding: 24px;
-    border: 1px solid rgba(215, 224, 234, 0.9);
+    border: 1px solid var(--surface-level-2-border);
     border-radius: 12px;
     background:
-      radial-gradient(circle at 8% 10%, rgba(30, 78, 140, 0.12), transparent 28%),
-      radial-gradient(circle at 82% 0%, rgba(14, 165, 233, 0.12), transparent 32%),
-      #FFFFFF;
-    box-shadow: 0 14px 42px rgba(15, 23, 42, 0.06);
+      radial-gradient(circle at 8% 10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 28%),
+      radial-gradient(circle at 82% 0%, color-mix(in srgb, var(--info) 12%, transparent), transparent 32%),
+      var(--surface-level-2);
+    box-shadow: var(--shadow-card);
   }
 
   .dashboard-eyebrow,
   .dashboard-panel-header span {
     display: block;
-    color: #1E4E8C;
+    color: var(--primary);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.16em;
@@ -612,7 +612,7 @@ const dashboardStyles = `
 
   .dashboard-hero h1 {
     margin-top: 8px;
-    color: #0F172A;
+    color: var(--foreground);
     font-size: clamp(28px, 3vw, 42px);
     font-weight: 800;
     line-height: 1.08;
@@ -622,7 +622,7 @@ const dashboardStyles = `
   .dashboard-hero p {
     max-width: 760px;
     margin-top: 10px;
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 15px;
     line-height: 1.7;
     font-weight: 500;
@@ -643,10 +643,10 @@ const dashboardStyles = `
     gap: 8px;
     min-height: 40px;
     padding: 0 14px;
-    border: 1px solid #D7E0EA;
+    border: 1px solid var(--surface-level-3-border);
     border-radius: 12px;
-    background: #FFFFFF;
-    color: #334155;
+    background: var(--surface-level-3);
+    color: var(--foreground-muted);
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -654,16 +654,17 @@ const dashboardStyles = `
   }
 
   .dashboard-hero-actions button:first-child {
-    border-color: #1E4E8C;
-    background: #1E4E8C;
-    color: #FFFFFF;
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   .dashboard-hero-actions button:hover,
   .dashboard-panel-header button:hover,
   .alert-card button:hover {
     transform: translateY(-1px);
-    border-color: #1E4E8C;
+    border-color: var(--surface-level-4-border);
+    background: var(--surface-level-4);
   }
 
   .dashboard-kpis {
@@ -674,10 +675,10 @@ const dashboardStyles = `
 
   .dashboard-kpi-card,
   .dashboard-panel {
-    border: 1px solid rgba(215, 224, 234, 0.95);
+    border: 1px solid var(--surface-level-2-border);
     border-radius: 12px;
-    background: #FFFFFF;
-    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.05);
+    background: var(--surface-level-2);
+    box-shadow: var(--shadow-soft);
   }
 
   .dashboard-kpi-card {
@@ -688,7 +689,9 @@ const dashboardStyles = `
 
   .dashboard-kpi-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+    border-color: var(--surface-level-4-border);
+    background: color-mix(in srgb, var(--surface-level-2) 82%, var(--surface-level-4));
+    box-shadow: var(--shadow-hover);
   }
 
   .dashboard-kpi-top,
@@ -703,7 +706,7 @@ const dashboardStyles = `
   }
 
   .dashboard-kpi-top span {
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 12px;
     font-weight: 700;
   }
@@ -714,14 +717,14 @@ const dashboardStyles = `
     width: 38px;
     height: 38px;
     border-radius: 10px;
-    background: #EAF1F8;
-    color: #1E4E8C;
+    background: var(--primary-soft);
+    color: var(--primary);
   }
 
   .dashboard-kpi-card strong {
     display: block;
     margin-top: 18px;
-    color: #0F172A;
+    color: var(--foreground);
     font-size: clamp(24px, 2.4vw, 32px);
     font-weight: 800;
     letter-spacing: -0.05em;
@@ -734,7 +737,7 @@ const dashboardStyles = `
 
   .dashboard-kpi-bottom small {
     max-width: 130px;
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 11px;
     font-weight: 600;
     line-height: 1.45;
@@ -753,13 +756,13 @@ const dashboardStyles = `
   }
 
   .dashboard-kpi-bottom em.positive {
-    background: #DCFCE7;
-    color: #15803D;
+    background: var(--success-soft);
+    color: var(--success-foreground);
   }
 
   .dashboard-kpi-bottom em.negative {
-    background: #FEE2E2;
-    color: #B42318;
+    background: var(--error-soft);
+    color: var(--error-foreground);
   }
 
   .dashboard-grid {
@@ -790,7 +793,7 @@ const dashboardStyles = `
 
   .dashboard-panel-header h2 {
     margin-top: 4px;
-    color: #0F172A;
+    color: var(--foreground);
     font-size: 20px;
     font-weight: 800;
     letter-spacing: -0.035em;
@@ -798,6 +801,18 @@ const dashboardStyles = `
 
   .chart-wrap {
     min-height: 300px;
+    padding: 14px 10px 4px;
+    border: 1px solid var(--surface-level-3-border);
+    border-radius: 12px;
+    background: var(--surface-level-3);
+  }
+
+  .dashboard-shell .recharts-default-tooltip {
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-card);
+    background: var(--chart-tooltip) !important;
+    color: var(--foreground) !important;
+    box-shadow: var(--shadow-card);
   }
 
   .debt-legend {
@@ -812,8 +827,15 @@ const dashboardStyles = `
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
+    border: 1px solid var(--surface-level-3-border);
     border-radius: 12px;
-    background: #F8FAFC;
+    background: var(--surface-level-3);
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+
+  .debt-legend div:hover {
+    border-color: var(--surface-level-4-border);
+    background: var(--surface-level-4);
   }
 
   .debt-legend i {
@@ -824,7 +846,7 @@ const dashboardStyles = `
 
   .debt-legend span,
   .debt-legend b {
-    color: #334155;
+    color: var(--foreground-muted);
     font-size: 12px;
     font-weight: 700;
   }
@@ -838,19 +860,19 @@ const dashboardStyles = `
 
   .ticket-summary div {
     padding: 16px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--surface-level-3-border);
     border-radius: 12px;
-    background: #F8FAFC;
+    background: var(--surface-level-3);
   }
 
   .ticket-summary div.danger {
-    border-color: #FECACA;
-    background: #FEF2F2;
+    border-color: color-mix(in srgb, var(--error) 34%, transparent);
+    background: var(--error-soft);
   }
 
   .ticket-summary b {
     display: block;
-    color: #0F172A;
+    color: var(--foreground);
     font-size: 28px;
     font-weight: 800;
     letter-spacing: -0.04em;
@@ -859,7 +881,7 @@ const dashboardStyles = `
   .ticket-summary span {
     display: block;
     margin-top: 4px;
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 12px;
     font-weight: 700;
   }
@@ -872,9 +894,9 @@ const dashboardStyles = `
 
   .kanban-column {
     min-height: 260px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--surface-level-3-border);
     border-radius: 12px;
-    background: #F8FAFC;
+    background: var(--surface-level-3);
     padding: 14px;
   }
 
@@ -891,13 +913,13 @@ const dashboardStyles = `
 
   .kanban-title span {
     flex: 1;
-    color: #334155;
+    color: var(--foreground-muted);
     font-size: 13px;
     font-weight: 800;
   }
 
   .kanban-title b {
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 12px;
     font-weight: 800;
   }
@@ -913,14 +935,21 @@ const dashboardStyles = `
     justify-content: space-between;
     gap: 10px;
     padding: 12px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--surface-level-4-border);
     border-radius: 10px;
-    background: #FFFFFF;
+    background: var(--surface-level-4);
+    transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  }
+
+  .ticket-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 46%, var(--surface-level-4-border));
+    background: color-mix(in srgb, var(--surface-level-4) 90%, var(--primary));
+    transform: translateY(-1px);
   }
 
   .ticket-card b {
     display: block;
-    color: #0F172A;
+    color: var(--foreground);
     font-size: 13px;
     font-weight: 800;
   }
@@ -928,14 +957,14 @@ const dashboardStyles = `
   .ticket-card span,
   .ticket-card small,
   .empty-state {
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 11px;
     font-weight: 700;
   }
 
   .empty-state {
     padding: 18px;
-    border: 1px dashed #CBD5E1;
+    border: 1px dashed var(--border-hover);
     border-radius: 10px;
     text-align: center;
   }
@@ -952,8 +981,15 @@ const dashboardStyles = `
     align-items: center;
     gap: 12px;
     padding: 12px;
+    border: 1px solid var(--surface-level-3-border);
     border-radius: 10px;
-    background: #F8FAFC;
+    background: var(--surface-level-3);
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+
+  .activity-item:hover {
+    border-color: var(--surface-level-4-border);
+    background: var(--surface-level-4);
   }
 
   .activity-item i {
@@ -962,18 +998,18 @@ const dashboardStyles = `
     width: 36px;
     height: 36px;
     border-radius: 12px;
-    color: #FFFFFF;
+    color: var(--foreground-on-color);
   }
 
-  .activity-item i.resident { background: #1E4E8C; }
-  .activity-item i.payment { background: #22C55E; }
-  .activity-item i.complaint { background: #F59E0B; }
-  .activity-item i.visitor { background: #6366F1; }
+  .activity-item i.resident { background: var(--chart-1); }
+  .activity-item i.payment { background: var(--chart-4); }
+  .activity-item i.complaint { background: var(--chart-5); }
+  .activity-item i.visitor { background: var(--chart-3); }
 
   .activity-item b,
   .alert-card b {
     display: block;
-    color: #0F172A;
+    color: var(--foreground);
     font-size: 13px;
     font-weight: 800;
   }
@@ -982,13 +1018,13 @@ const dashboardStyles = `
   .alert-card span {
     display: block;
     margin-top: 3px;
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 12px;
     font-weight: 600;
   }
 
   .activity-item small {
-    color: #94A3B8;
+    color: var(--foreground-subtle);
     font-size: 11px;
     font-weight: 800;
     white-space: nowrap;
@@ -1000,9 +1036,15 @@ const dashboardStyles = `
     align-items: center;
     gap: 14px;
     padding: 14px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--surface-level-3-border);
     border-radius: 12px;
-    background: #F8FAFC;
+    background: var(--surface-level-3);
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+
+  .alert-card:hover {
+    border-color: var(--surface-level-4-border);
+    background: var(--surface-level-4);
   }
 
   .alert-main {
@@ -1019,46 +1061,46 @@ const dashboardStyles = `
   }
 
   .alert-card.critical {
-    border-color: #FECACA;
-    background: #FEF2F2;
+    border-color: color-mix(in srgb, var(--error) 34%, transparent);
+    background: var(--error-soft);
   }
 
   .alert-card.critical i {
-    background: #FEE2E2;
-    color: #B42318;
+    background: var(--error-soft);
+    color: var(--error-foreground);
   }
 
   .alert-card.high i {
-    background: #FEF3C7;
-    color: #B45309;
+    background: var(--warning-soft);
+    color: var(--warning-foreground);
   }
 
   .alert-card.medium i {
-    background: #DBEAFE;
-    color: #1E4E8C;
+    background: var(--info-soft);
+    color: var(--info-foreground);
   }
 
   .dashboard-loading {
     display: grid;
     place-items: center;
     min-height: 420px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--surface-level-2-border);
     border-radius: 12px;
-    background: #FFFFFF;
+    background: var(--surface-level-2);
   }
 
   .dashboard-loading div {
     width: 42px;
     height: 42px;
-    border: 4px solid #E2E8F0;
-    border-top-color: #1E4E8C;
+    border: 4px solid var(--border);
+    border-top-color: var(--primary);
     border-radius: 50%;
     animation: dashboard-spin 0.8s linear infinite;
   }
 
   .dashboard-loading p {
     margin-top: 14px;
-    color: #64748B;
+    color: var(--foreground-subtle);
     font-size: 14px;
     font-weight: 700;
   }

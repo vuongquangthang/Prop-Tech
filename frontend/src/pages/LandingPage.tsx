@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { useNavigate } from 'react-router';
+import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
 type IconType = ComponentType<{ size?: number; className?: string }>;
 
@@ -1437,6 +1438,127 @@ export function LandingPage() {
           }
         }
 
+        .dark .lp {
+          --ink: var(--foreground);
+          --muted: var(--foreground-muted);
+          --line: var(--border);
+          background: var(--background);
+          color: var(--foreground);
+        }
+
+        .dark .lp-header {
+          border-color: var(--border);
+          background: color-mix(in srgb, var(--topbar) 92%, transparent);
+        }
+
+        .dark .lp-menu a,
+        .dark .lp-login,
+        .dark .lp-trust-list,
+        .dark .lp-section-title p,
+        .dark .lp-card p,
+        .dark .lp-testimonial footer,
+        .dark .lp-price p,
+        .dark .lp-price li,
+        .dark .lp-footer,
+        .dark .lp-copyright {
+          color: var(--foreground-muted);
+        }
+
+        .dark .lp-hero {
+          background:
+            radial-gradient(circle at 12% 10%, color-mix(in srgb, var(--info) 15%, transparent), transparent 28%),
+            radial-gradient(circle at 80% 6%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 30%),
+            linear-gradient(180deg, var(--background) 0%, var(--background-secondary) 52%, var(--background) 100%);
+        }
+
+        .dark .lp-hero::before {
+          background-image:
+            linear-gradient(color-mix(in srgb, var(--primary) 10%, transparent) 1px, transparent 1px),
+            linear-gradient(90deg, color-mix(in srgb, var(--primary) 10%, transparent) 1px, transparent 1px);
+        }
+
+        .dark .lp-white {
+          background: var(--background);
+        }
+
+        .dark .lp-blue {
+          background: var(--background-secondary);
+        }
+
+        .dark .lp-card,
+        .dark .lp-testimonial,
+        .dark .lp-price,
+        .dark .lp-showcase-panel,
+        .dark .lp-request-card,
+        .dark .lp-workflow article,
+        .dark .lp-logo-strip,
+        .dark .lp-pill,
+        .dark .lp-secondary {
+          border-color: var(--border);
+          background: var(--card);
+          color: var(--foreground);
+          box-shadow: var(--shadow-soft);
+        }
+
+        .dark .lp-card h3,
+        .dark .lp-testimonial p,
+        .dark .lp-price h3,
+        .dark .lp-price strong,
+        .dark .lp-showcase-panel h3,
+        .dark .lp-request-card h3,
+        .dark .lp-workflow h3,
+        .dark .lp-logo,
+        .dark .lp-section-title h2,
+        .dark .lp-hero h1 {
+          color: var(--foreground);
+        }
+
+        .dark .lp-dashboard {
+          border-color: var(--border);
+          background: var(--background-tertiary);
+          box-shadow: var(--shadow-strong);
+        }
+
+        .dark .lp-dashboard main,
+        .dark .lp-chart-card,
+        .dark .lp-metric,
+        .dark .lp-phone-screen,
+        .dark .lp-shortcuts > div {
+          border-color: var(--border);
+          background: var(--card);
+          color: var(--foreground);
+        }
+
+        .dark .lp-phone {
+          border-color: #283548;
+          background: #0F172A;
+          box-shadow: var(--shadow-strong);
+        }
+
+        .dark .lp-phone-screen {
+          background: linear-gradient(180deg, var(--background-secondary), var(--card));
+        }
+
+        .dark .lp-logo-strip,
+        .dark .lp-footer {
+          border-color: var(--border);
+          background: color-mix(in srgb, var(--card) 84%, transparent);
+        }
+
+        .dark .lp-price.featured {
+          border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
+          background: var(--background-tertiary);
+        }
+
+        .dark .lp-primary {
+          background: var(--primary);
+          color: var(--primary-foreground);
+        }
+
+        .dark .lp-primary:hover {
+          background: var(--primary-hover);
+        }
+
         @media (max-width: 1080px) {
           .lp-menu {
             display: none;
@@ -1639,6 +1761,7 @@ export function LandingPage() {
           </div>
 
           <div className="lp-nav-actions">
+            <ThemeSwitcher />
             <button className="lp-login" onClick={goLogin}>Đăng nhập</button>
             <button className="lp-primary" onClick={goLogin}>
               Dùng thử <ArrowRight size={16} />
