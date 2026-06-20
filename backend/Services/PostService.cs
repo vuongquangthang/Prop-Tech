@@ -56,6 +56,8 @@ public class PostService : IPostService
     {
         var posts = await FilterPostsForOwner(_context.BaiDangTimPhongs, ownerUserId)
             .AsNoTracking()
+            // Khong hien bai da xoa (logic chong trung danh dau ban thua la "deleted") -> tranh hien bai trung.
+            .Where(post => post.Status != DeletedPostStatus)
             .Include(post => post.CreatedByUser)
             .Include(post => post.Room)
                 .ThenInclude(room => room!.Floor)

@@ -33,6 +33,7 @@ export function CreatePostPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [existingPosts, setExistingPosts] = useState<PostRecord[]>([]);
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
@@ -378,6 +379,7 @@ export function CreatePostPage() {
   };
 
   const handleSubmit = () => {
+    if (isSubmitting) return; // chan double-submit -> tranh tao 2 bai trung
     if (!selectedRoom) return;
 
     const contactName = contactType === 'current' ? currentAccountName : contactNameInput;
@@ -417,6 +419,7 @@ export function CreatePostPage() {
     };
 
     // Upload any new files to server (api/file/upload) and replace previews with returned URLs
+    setIsSubmitting(true);
     void (async () => {
       try {
         const finalUrls: string[] = [];
@@ -504,6 +507,8 @@ export function CreatePostPage() {
         console.error(err);
         const message = err instanceof Error ? err.message : String(err);
         toast.error(message || (isEditing ? 'Không thể lưu thay đổi' : 'Không thể đăng bài'));
+      } finally {
+        setIsSubmitting(false);
       }
     })();
   };
@@ -991,10 +996,10 @@ export function CreatePostPage() {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    disabled={!selectedRoomId}
-                    className={`rounded px-4 py-2 text-sm text-white ${selectedRoomId ? 'bg-gray-800 hover:bg-gray-700' : 'cursor-not-allowed bg-gray-400'}`}
+                    disabled={!selectedRoomId || isSubmitting}
+                    className={`rounded px-4 py-2 text-sm text-white ${selectedRoomId && !isSubmitting ? 'bg-gray-800 hover:bg-gray-700' : 'cursor-not-allowed bg-gray-400'}`}
                   >
-                    {isEditing ? 'Lưu thay đổi' : 'Đăng bài'}
+                    {isSubmitting ? 'Đang lưu...' : isEditing ? 'Lưu thay đổi' : 'Đăng bài'}
                   </button>
                 </div>
               </div>

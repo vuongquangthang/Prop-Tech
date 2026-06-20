@@ -390,13 +390,32 @@ public class PublicRoomsController : ControllerBase
         {
             Name = BuildPostContactName(post),
             Phone = BuildPostContactPhone(post),
-            Avatar = post.CreatedByUser?.AvatarUrl ?? "",
+            // Lien he "other" la nguoi khac, khong dung avatar cua chu tai khoan -> de trong (hien chu cai dau).
+            Avatar = IsOtherContact(post) ? "" : (post.CreatedByUser?.AvatarUrl ?? ""),
             UserId = BuildPostContactUserId(post),
         };
     }
 
+    // Chu nha co the chon gan thong tin nguoi lien he KHAC (ContactType = "other").
+    private static bool IsOtherContact(BaiDangTimPhong post)
+    {
+        return string.Equals(post.ContactType?.Trim(), "other", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string BuildPostContactName(BaiDangTimPhong post)
     {
+        // Neu gan nguoi lien he khac -> uu tien ten lien he da nhap, KHONG lay ten chu tai khoan.
+        if (IsOtherContact(post))
+        {
+            return FirstNonEmpty(
+                post.ContactName,
+                post.CreatedByUser?.OwnerUser?.DisplayName,
+                post.CreatedByUser?.DisplayName,
+                post.CreatedByUser?.PhoneNumber,
+                "Người liên hệ"
+            );
+        }
+
         if (IsOwnerAccountPost(post))
         {
             return FirstNonEmpty(
@@ -418,6 +437,16 @@ public class PublicRoomsController : ControllerBase
 
     private static string BuildPostContactPhone(BaiDangTimPhong post)
     {
+        // Lien he "other" -> uu tien SDT da nhap, khong fallback sang SDT resident cua chu tai khoan.
+        if (IsOtherContact(post))
+        {
+            return FirstNonEmpty(
+                post.ContactPhone,
+                post.CreatedByUser?.PhoneNumber,
+                "1900 xxxx"
+            );
+        }
+
         return FirstNonEmpty(
             post.ContactPhone,
             post.CreatedByUser?.Resident?.PhoneNumber,
