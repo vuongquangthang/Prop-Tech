@@ -1,5 +1,4 @@
-import { Search, Bell, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
-import { useSearch } from '../contexts/SearchContext';
+import { Bell, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -14,7 +13,6 @@ interface TopbarProps {
 }
 
 export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps) {
-  const { searchTerm, setSearchTerm } = useSearch();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -100,13 +98,13 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
           >
             <div className="admin-content-modal-header flex items-center justify-between border-b border-gray-300 px-6 py-4">
               <h3 id="logout-confirm-title" className="text-lg font-semibold text-gray-800">
-                Xac nhan dang xuat
+                Xác nhận đăng xuất
               </h3>
               <button
                 type="button"
                 className="rounded p-1 hover:bg-gray-100"
                 onClick={() => setShowLogoutConfirm(false)}
-                aria-label="Dong"
+                aria-label="Đóng"
               >
                 <X size={20} className="text-gray-600" />
               </button>
@@ -119,10 +117,10 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
                 </div>
                 <div>
                   <p id="logout-confirm-description" className="text-sm font-semibold text-red-800">
-                    Ban co muon dang xuat khoi he thong?
+                    Bạn có muốn đăng xuất khỏi hệ thống?
                   </p>
                   <p className="mt-1 text-sm text-red-700">
-                    Phien lam viec hien tai se ket thuc va ban se quay ve man hinh dang nhap.
+                    Phiên làm việc hiện tại sẽ kết thúc và bạn sẽ quay về màn hình đăng nhập.
                   </p>
                 </div>
               </div>
@@ -134,14 +132,14 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
                 className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 onClick={() => setShowLogoutConfirm(false)}
               >
-                Huy
+                Hủy
               </button>
               <button
                 type="button"
                 className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                 onClick={confirmExitAdmin}
               >
-                Dang xuat
+                Đăng xuất
               </button>
             </div>
           </div>
@@ -159,9 +157,6 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
         <style>{`
           .topbar-hamburger { display: none; }
           @media (max-width: 1279px) { .topbar-hamburger { display: flex; } }
-          .topbar-search { width: min(28vw, 260px); }
-          @media (max-width: 1439px) { .topbar-search { width: min(24vw, 220px); } }
-          @media (max-width: 1023px) { .topbar-search { width: 160px; } }
           .topbar-label { display: inline; }
           @media (max-width: 1023px) { .topbar-label { display: none; } }
         `}</style>
@@ -182,24 +177,6 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
       </div>
 
       <div className="flex flex-shrink-0 items-center" style={{ gap: '8px' }}>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 transform" size={16} style={{ color: 'var(--text-secondary)' }} />
-          <input
-            type="text"
-            placeholder="Tim kiem nhanh..."
-            className="topbar-search app-input focus:outline-none"
-            style={{
-              paddingLeft: '36px',
-              paddingRight: '12px',
-              height: '40px',
-              backgroundColor: 'var(--surface-card-2)',
-              fontSize: 'var(--type-caption)'
-            }}
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
-        </div>
-
         <button
           type="button"
           className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]"
@@ -278,7 +255,7 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
                 onClick={handleExitAdmin}
               >
                 <LogOut size={16} />
-                Dang xuat
+                Đăng xuất
               </button>
             </div>
           )}

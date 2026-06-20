@@ -309,13 +309,6 @@ export function AssetTable() {
         )}
       </div>
       
-      {/* Warning Box */}
-      <div className="bg-red-50 border border-red-300 rounded p-4">
-        <p className="text-sm text-red-800">
-          <strong>⚠️ Cảnh báo:</strong> Khi xóa tài sản, vui lòng xác nhận rằng tài sản đã được thu hồi hoặc thanh lý. Hành động này không thể hoàn tác.
-        </p>
-      </div>
-
       {/* Add Asset Modal */}
       {showAddModal && (
         <div className="admin-content-modal-overlay">

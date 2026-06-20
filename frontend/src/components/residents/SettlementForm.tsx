@@ -38,33 +38,33 @@ export function SettlementForm() {
   const [activeTab, setActiveTab] = useState<'view' | 'create'>('view');
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col space-y-6">
       {/* Tabs */}
-      <div className="flex space-x-2 mb-6">
+      <div className="bg-white border-2 border-gray-300 rounded p-2">
+        <div className="grid grid-cols-2 gap-2 max-w-[560px]">
         <button
           onClick={() => setActiveTab('view')}
-          className={`flex items-center space-x-2 px-6 py-3 rounded-lg text-base transition-colors ${
+          className={`flex items-center justify-center space-x-2 px-5 py-2.5 rounded text-sm transition-colors ${
             activeTab === 'view'
-              ? 'bg-[var(--brand-primary)] text-white'
-              : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50'
+              ? 'bg-gray-800 text-white'
+              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
           }`}
-          style={{ height: 'var(--btn-height)' }}
         >
-          <Eye size={20} />
+          <Eye size={16} />
           <span>Xem hồ sơ tất toán</span>
         </button>
         <button
           onClick={() => setActiveTab('create')}
-          className={`flex items-center space-x-2 px-6 py-3 rounded-lg text-base transition-colors ${
+          className={`flex items-center justify-center space-x-2 px-5 py-2.5 rounded text-sm transition-colors ${
             activeTab === 'create'
-              ? 'bg-[var(--brand-primary)] text-white'
-              : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50'
+              ? 'bg-gray-800 text-white'
+              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
           }`}
-          style={{ height: 'var(--btn-height)' }}
         >
-          <Plus size={20} />
+          <Plus size={16} />
           <span>Tạo hồ sơ tất toán</span>
         </button>
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -134,24 +134,22 @@ function ViewSettlementsTab() {
   };
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="flex flex-col space-y-6">
       {/* Search Bar */}
-      <div className="bg-white border-2 border-gray-300 rounded-2xl p-6">
+      <div className="bg-white border-2 border-gray-300 rounded p-4">
         <div className="flex items-center space-x-4">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
               placeholder="Tìm theo mã tất toán, phòng hoặc tên cư dân..."
-              className="w-full pl-12 pr-4 border border-gray-300 rounded-lg bg-white text-base focus:outline-none focus:border-[var(--brand-primary)]"
-              style={{ height: 'var(--input-height)' }}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:border-gray-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <button 
-            className="px-6 bg-gray-800 text-white text-base rounded-lg hover:bg-gray-700 transition-colors"
-            style={{ height: 'var(--btn-height)' }}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 transition-colors"
           >
             Tìm kiếm
           </button>
@@ -159,8 +157,8 @@ function ViewSettlementsTab() {
       </div>
 
       {/* Settlements List */}
-      <div className="bg-white border-2 border-gray-300 rounded-2xl overflow-hidden flex-1">
-        <div className="border-b-2 border-gray-300 px-6 py-4 bg-gray-50">
+      <div className="bg-white border-2 border-gray-300 rounded overflow-hidden flex-1">
+        <div className="border-b border-gray-300 px-6 py-4 bg-gray-50">
           <h2 className="text-lg text-gray-800">Danh sách hồ sơ tất toán ({filtered.length})</h2>
         </div>
 
@@ -179,19 +177,19 @@ function ViewSettlementsTab() {
             <span className="text-base">Không có hồ sơ tất toán nào</span>
           </div>
         ) : (
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
           <table className="w-full">
-            <thead className="bg-gray-100 sticky top-0">
-              <tr className="border-b border-gray-300">
-                <th className="px-6 py-4 text-left text-base text-gray-700">Mã TS</th>
-                <th className="px-6 py-4 text-left text-base text-gray-700">Ngày tất toán</th>
-                <th className="px-6 py-4 text-left text-base text-gray-700">Phòng</th>
-                <th className="px-6 py-4 text-left text-base text-gray-700">Chủ hộ</th>
-                <th className="px-6 py-4 text-right text-base text-gray-700">Tiền hoàn cọc</th>
-                <th className="px-6 py-4 text-right text-base text-gray-700">Khấu trừ</th>
-                <th className="px-6 py-4 text-right text-base text-gray-700">Tổng tất toán</th>
-                <th className="px-6 py-4 text-center text-base text-gray-700">Trạng thái</th>
-                <th className="px-6 py-4 text-center text-base text-gray-700">Thao tác</th>
+            <thead className="bg-gray-50 sticky top-0 border-b border-gray-300">
+              <tr>
+                <th className="px-6 py-3 text-left text-sm text-gray-600">Mã TS</th>
+                <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày tất toán</th>
+                <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
+                <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
+                <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền hoàn cọc</th>
+                <th className="px-6 py-3 text-right text-sm text-gray-600">Khấu trừ</th>
+                <th className="px-6 py-3 text-right text-sm text-gray-600">Tổng tất toán</th>
+                <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
+                <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -199,28 +197,28 @@ function ViewSettlementsTab() {
                 const { label, cls } = statusLabel(s.status);
                 return (
                   <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-base text-gray-900 font-medium">TS-{String(s.id).padStart(3, '0')}</td>
-                    <td className="px-6 py-4 text-base text-gray-700">
+                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">TS-{String(s.id).padStart(3, '0')}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
                       {s.settlementDate ? new Date(s.settlementDate).toLocaleDateString('vi-VN') : '-'}
                     </td>
-                    <td className="px-6 py-4 text-base text-gray-700">{s.roomNumber || '-'}</td>
-                    <td className="px-6 py-4 text-base text-gray-700">{s.residentName || '-'}</td>
-                    <td className="px-6 py-4 text-base text-green-600 text-right">
+                    <td className="px-6 py-4 text-sm text-gray-700">{s.roomNumber || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{s.residentName || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-green-600 text-right">
                       {s.depositRefund != null ? `+${Number(s.depositRefund).toLocaleString('vi-VN')}` : '-'}
                     </td>
-                    <td className="px-6 py-4 text-base text-red-600 text-right">
+                    <td className="px-6 py-4 text-sm text-red-600 text-right">
                       {s.deductions != null ? `-${Number(s.deductions).toLocaleString('vi-VN')}` : '-'}
                     </td>
-                    <td className="px-6 py-4 text-base text-gray-900 text-right font-medium">
+                    <td className="px-6 py-4 text-sm text-gray-900 text-right font-medium">
                       {s.totalSettlement != null ? Number(s.totalSettlement).toLocaleString('vi-VN') : '-'}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm ${cls}`}>{label}</span>
+                      <span className={`inline-block px-3 py-1 rounded border text-xs ${cls}`}>{label}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button
                         onClick={() => openSettlementDetail(Number(s.id))}
-                        className="px-4 py-2 bg-[var(--brand-primary)] text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50 transition-colors"
                       >
                         Xem chi tiết
                       </button>
@@ -253,8 +251,8 @@ function SettlementDetailModal({ settlement, loading, onClose }: { settlement: a
 
   return (
     <div className="admin-content-modal-overlay">
-      <div className="w-full max-w-3xl bg-white rounded-xl border border-gray-300 shadow-lg max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between">
+      <div className="w-full max-w-3xl bg-white rounded border-2 border-gray-300 shadow-lg max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <FileText size={18} className="text-gray-700" />
             <h3 className="text-lg text-gray-900">Chi tiết hồ sơ tất toán</h3>
@@ -264,7 +262,7 @@ function SettlementDetailModal({ settlement, loading, onClose }: { settlement: a
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-6 space-y-4">
           {loading ? (
             <div className="flex items-center justify-center py-10 text-gray-600">
               <Loader2 size={22} className="animate-spin mr-2" />
@@ -275,19 +273,19 @@ function SettlementDetailModal({ settlement, loading, onClose }: { settlement: a
           ) : (
             <>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                <div className="bg-gray-50 border border-gray-300 rounded p-3">
                   <p className="text-gray-500">Mã hồ sơ</p>
                   <p className="text-gray-900 font-medium">TS-{String(settlement.id).padStart(3, '0')}</p>
                 </div>
-                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                <div className="bg-gray-50 border border-gray-300 rounded p-3">
                   <p className="text-gray-500">Trạng thái</p>
                   <p className="text-gray-900 font-medium">{settlement.status || 'Pending'}</p>
                 </div>
-                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                <div className="bg-gray-50 border border-gray-300 rounded p-3">
                   <p className="text-gray-500">Phòng</p>
                   <p className="text-gray-900 font-medium">{settlement.roomNumber || '-'}</p>
                 </div>
-                <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                <div className="bg-gray-50 border border-gray-300 rounded p-3">
                   <p className="text-gray-500">Cư dân</p>
                   <p className="text-gray-900 font-medium">{settlement.residentName || '-'}</p>
                 </div>
@@ -304,8 +302,8 @@ function SettlementDetailModal({ settlement, loading, onClose }: { settlement: a
                 </div>
               </div>
 
-              <div className="bg-white border border-gray-200 rounded">
-                <div className="px-4 py-3 border-b border-gray-200 text-sm text-gray-700">Chi tiết các khoản</div>
+              <div className="bg-white border border-gray-300 rounded">
+                <div className="px-4 py-3 border-b border-gray-300 bg-gray-50 text-sm text-gray-700">Chi tiết các khoản</div>
                 {details.length === 0 ? (
                   <div className="px-4 py-6 text-sm text-gray-500">Không có chi tiết khoản mục</div>
                 ) : (
@@ -323,9 +321,9 @@ function SettlementDetailModal({ settlement, loading, onClose }: { settlement: a
                 )}
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded p-4 text-right">
+              <div className="bg-gray-50 border border-gray-300 rounded p-4 text-right">
                 <p className="text-sm text-gray-700">Tổng tất toán</p>
-                <p className="text-2xl text-blue-700 font-semibold">{Number(settlement.totalSettlement || 0).toLocaleString('vi-VN')} VNĐ</p>
+                <p className="text-2xl text-gray-900 font-semibold">{Number(settlement.totalSettlement || 0).toLocaleString('vi-VN')} VNĐ</p>
               </div>
             </>
           )}
@@ -471,10 +469,10 @@ function CreateSettlementTab() {
   };
 
   return (
-    <div className="flex flex-col space-y-4 h-full">
+    <div className="flex flex-col space-y-6 h-full">
       {/* Search Contract */}
       <div className="bg-white border-2 border-gray-300 rounded p-4">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input
@@ -512,15 +510,15 @@ function CreateSettlementTab() {
       )}
 
       {/* Main Content - 2 Columns */}
-      <div className="grid grid-cols-2 gap-4 flex-1">
+      <div className="grid grid-cols-2 gap-6 flex-1">
         {/* Left Column */}
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Contract Info */}
           <div className="bg-white border-2 border-gray-300 rounded">
-            <div className="border-b border-gray-300 px-4 py-2 bg-gray-50">
-              <h2 className="text-sm text-gray-800">Thông tin hợp đồng</h2>
+            <div className="border-b border-gray-300 px-6 py-4 bg-gray-50">
+              <h2 className="text-lg text-gray-800">Thông tin hợp đồng</h2>
             </div>
-            <div className="p-4 grid grid-cols-2 gap-3 text-xs">
+            <div className="p-6 grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-600 mb-1">Mã HĐ</p>
                 <p className="text-gray-900">{selectedContract?.contractCode || selectedContract?.maHopDong || '-'}</p>
@@ -539,7 +537,7 @@ function CreateSettlementTab() {
                   type="date"
                   value={settlementDate}
                   onChange={(e) => setSettlementDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-2 py-1"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
                 />
               </div>
             </div>
@@ -547,15 +545,15 @@ function CreateSettlementTab() {
 
           {/* Deposit */}
           <div className="bg-white border-2 border-gray-300 rounded">
-            <div className="border-b border-gray-300 px-4 py-2 bg-green-50">
-              <h3 className="text-sm text-gray-800">1. Tiền cọc gốc</h3>
+            <div className="border-b border-gray-300 px-6 py-4 bg-gray-50">
+              <h3 className="text-lg text-gray-800">1. Tiền cọc gốc</h3>
             </div>
-            <div className="p-4">
+            <div className="p-6">
               <input
                 type="text"
                 value={formatAmount(depositRefundInput)}
                 onChange={(e) => setDepositRefundInput(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-xl text-gray-900"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-lg text-gray-900 focus:outline-none focus:border-gray-500"
               />
               <p className="text-xs text-gray-600 mt-1">VNĐ</p>
             </div>
@@ -563,10 +561,10 @@ function CreateSettlementTab() {
 
           {/* Deductions */}
           <div className="bg-white border-2 border-gray-300 rounded">
-            <div className="border-b border-gray-300 px-4 py-2 bg-red-50">
-              <h3 className="text-sm text-gray-800">2. Các khoản khấu trừ</h3>
+            <div className="border-b border-gray-300 px-6 py-4 bg-gray-50">
+              <h3 className="text-lg text-gray-800">2. Các khoản khấu trừ</h3>
             </div>
-            <div className="p-4 space-y-3 text-xs">
+            <div className="p-6 space-y-4 text-sm">
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -589,7 +587,7 @@ function CreateSettlementTab() {
                     type="text"
                     value={formatAmount(deductionsInput)}
                     onChange={(e) => setDeductionsInput(e.target.value)}
-                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
+                    className="w-40 border border-gray-300 rounded px-3 py-2 text-right text-sm focus:outline-none focus:border-gray-500"
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -598,7 +596,7 @@ function CreateSettlementTab() {
                     type="text"
                     value={formatAmount(compensationInput)}
                     onChange={(e) => setCompensationInput(e.target.value)}
-                    className="w-40 border border-gray-300 rounded px-2 py-1 text-right"
+                    className="w-40 border border-gray-300 rounded px-3 py-2 text-right text-sm focus:outline-none focus:border-gray-500"
                   />
                 </div>
               </div>
@@ -614,16 +612,16 @@ function CreateSettlementTab() {
         </div>
 
         {/* Right Column */}
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Final Amount */}
-          <div className="bg-white border-2 border-gray-800 rounded">
-            <div className="border-b border-gray-800 px-4 py-2 bg-gray-800">
-              <h3 className="text-sm text-white flex items-center">
+          <div className="bg-white border-2 border-gray-300 rounded">
+            <div className="border-b border-gray-300 px-6 py-4 bg-gray-50">
+              <h3 className="text-lg text-gray-800 flex items-center">
                 <Calculator size={16} className="mr-2" />
                 3. Tổng kết tất toán
               </h3>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="p-6 space-y-3">
               <div className="flex items-center justify-between pb-3 border-b border-gray-300 text-sm">
                 <p className="text-gray-700">Tiền cọc gốc:</p>
                 <p className="text-gray-900">+{depositRefund.toLocaleString('vi-VN')}</p>
@@ -638,7 +636,7 @@ function CreateSettlementTab() {
               </div>
               <div className="flex items-center justify-between pt-2">
                 <p className="text-base text-gray-800">Số tiền hoàn trả:</p>
-                <p className={`text-3xl ${totalSettlement >= 0 ? 'text-green-600' : 'text-red-600'}`}>{totalSettlement.toLocaleString('vi-VN')}</p>
+                <p className={`text-2xl font-semibold ${totalSettlement >= 0 ? 'text-green-600' : 'text-red-600'}`}>{totalSettlement.toLocaleString('vi-VN')}</p>
               </div>
               <p className="text-xs text-gray-600 text-right">VNĐ</p>
             </div>
@@ -646,12 +644,12 @@ function CreateSettlementTab() {
 
           {/* Notes */}
           <div className="bg-white border-2 border-gray-300 rounded">
-            <div className="border-b border-gray-300 px-4 py-2">
-              <h3 className="text-sm text-gray-800">Ghi chú tất toán</h3>
+            <div className="border-b border-gray-300 px-6 py-4 bg-gray-50">
+              <h3 className="text-lg text-gray-800">Ghi chú tất toán</h3>
             </div>
-            <div className="p-4">
+            <div className="p-6">
               <textarea 
-                className="w-full h-24 p-2 border border-gray-300 rounded text-xs focus:outline-none focus:border-gray-500"
+                className="w-full h-24 p-3 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-500"
                 placeholder="Nhập ghi chú về quá trình tất toán..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -669,12 +667,6 @@ function CreateSettlementTab() {
             <span>{submitting ? 'Đang tạo hồ sơ...' : 'Xác nhận tất toán'}</span>
           </button>
 
-          {/* Warning */}
-          <div className="bg-red-50 border border-red-300 rounded p-3">
-            <p className="text-xs text-red-800">
-              <strong>⚠️ Sau khi xác nhận:</strong> Hợp đồng → Thanh lý | Phòng → Trống | Tài khoản → Đóng
-            </p>
-          </div>
         </div>
       </div>
     </div>

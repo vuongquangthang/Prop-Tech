@@ -513,6 +513,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   // Form state - Step 2 (tenant)
   const [tenantType, setTenantType] = useState<'new' | 'existing'>('new');
   const [selectedResidentId, setSelectedResidentId] = useState('');
+  const [residentSearch, setResidentSearch] = useState('');
   const [tenantName, setTenantName] = useState('');
   const [tenantIdCard, setTenantIdCard] = useState('');
   const [tenantPhone, setTenantPhone] = useState('');
@@ -701,6 +702,27 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     setTenantPhone(r.phoneNumber || r.soDienThoai || '');
     setTenantEmail(r.email || '');
   }, [tenantType, selectedResidentId, residents]);
+
+  const filteredResidents = residents.filter((resident: any) => {
+    const keyword = residentSearch.trim().toLowerCase();
+    if (!keyword) return true;
+    const searchableText = [
+      resident.fullName,
+      resident.hoTen,
+      resident.phoneNumber,
+      resident.soDienThoai,
+      resident.idCardNumber,
+      resident.soCCCD,
+      resident.roomCode,
+      resident.soPhong,
+      resident.email,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return searchableText.includes(keyword);
+  });
 
   useEffect(() => {
     if (selectedBuildingId) {
@@ -964,24 +986,79 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                   <input type="radio" name="tenantType" id="existingTenant" checked={tenantType === 'existing'} onChange={() => setTenantType('existing')} className="w-4 h-4" />
                   <label htmlFor="existingTenant" className="text-sm text-gray-700 font-bold">Chọn từ cư dân đã có</label>
                 </div>
-                <select 
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500 mt-2" 
-                  disabled={tenantType !== 'existing'} 
-                  value={selectedResidentId} 
-                  onChange={(e) => setSelectedResidentId(e.target.value)}
-                  size={5}
-                  style={{ height: 'auto', maxHeight: '180px', overflow: 'auto', marginLeft: '28px', width: 'calc(100% - 28px)' }}
-                >
-                  <option value="">Chọn cư dân...</option>
-                  {residents.map((r: any) => (
-                    <option key={r.id} value={r.id}>
-                      {r.fullName || r.hoTen} - {(r.phoneNumber || r.soDienThoai || '---')} - {(r.roomCode || r.soPhong || 'Chưa có phòng')}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1" style={{ marginLeft: '28px' }}>
-                  🔗 Danh sách đồng bộ từ <strong>Cư dân & Hợp đồng → Danh sách Cư dân</strong>
-                </p>
+                {tenantType === 'existing' && (
+                  <>
+                    <div className="mt-3 rounded border border-gray-300 bg-white p-3" style={{ marginLeft: '28px', width: 'calc(100% - 28px)' }}>
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <p className="text-xs font-bold text-gray-800">Danh sách cư dân</p>
+                          <p className="text-xs text-gray-500">Chọn một cư dân có sẵn để làm chủ hộ hợp đồng</p>
+                        </div>
+                        <span className="text-xs text-gray-600 bg-gray-100 border border-gray-300 px-2 py-1 rounded whitespace-nowrap">
+                          {filteredResidents.length}/{residents.length} cư dân
+                        </span>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={residentSearch}
+                        onChange={(e) => setResidentSearch(e.target.value)}
+                        placeholder="Tìm theo tên, SĐT, CCCD, phòng..."
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500 mb-3"
+                      />
+
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {filteredResidents.length === 0 ? (
+                          <div className="text-center text-sm text-gray-500 py-6 bg-gray-50 border border-dashed border-gray-300 rounded">
+                            Không tìm thấy cư dân phù hợp
+                          </div>
+                        ) : (
+                          filteredResidents.map((resident: any) => {
+                            const residentId = String(resident.id);
+                            const isSelected = selectedResidentId === residentId;
+                            const name = resident.fullName || resident.hoTen || 'Chưa có tên';
+                            const phone = resident.phoneNumber || resident.soDienThoai || 'Chưa có SĐT';
+                            const idCard = resident.idCardNumber || resident.soCCCD || 'Chưa có CCCD';
+                            const roomCode = resident.roomCode || resident.soPhong || 'Chưa có phòng';
+
+                            return (
+                              <button
+                                key={resident.id}
+                                type="button"
+                                onClick={() => setSelectedResidentId(residentId)}
+                                className={`w-full text-left rounded border px-3 py-3 transition-colors ${
+                                  isSelected
+                                    ? 'border-gray-800 bg-gray-100'
+                                    : 'border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-400'
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-bold text-gray-900 truncate">{name}</p>
+                                    {isSelected && (
+                                      <span className="text-xs bg-gray-800 text-white px-2 py-0.5 rounded whitespace-nowrap">Đã chọn</span>
+                                    )}
+                                  </div>
+                                  <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-gray-600">
+                                    <span className="truncate">SĐT: {phone}</span>
+                                    <span className="truncate">CCCD: {idCard}</span>
+                                    <span className="truncate">Phòng: {roomCode}</span>
+                                  </div>
+                                  {resident.email && (
+                                    <p className="text-xs text-blue-600 mt-1 truncate">{resident.email}</p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2" style={{ marginLeft: '28px' }}>
+                      🔗 Danh sách đồng bộ từ <strong>Cư dân & Hợp đồng → Danh sách Cư dân</strong>
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>

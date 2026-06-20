@@ -10,6 +10,7 @@ public interface IAuthService
     Task<LoginResponseDto> LoginAsync(LoginRequestDto request);
     Task<LoginResponseDto> RegisterAsync(RegisterRequestDto request);
     Task<LoginResponseDto> RefreshTokenAsync(string refreshToken);
+    Task<UserDto> RequestPasswordResetAsync(ForgotPasswordRequestDto request);
     Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request);
     Task<UserDto?> GetUserByIdAsync(int userId);
     Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileDto dto);
@@ -157,6 +158,28 @@ public class AuthService : IAuthService
             ExpiresIn = 3600,
             User = userDto
         };
+    }
+
+    public async Task<UserDto> RequestPasswordResetAsync(ForgotPasswordRequestDto request)
+    {
+        var identity = request.PhoneNumberOrEmail?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(identity))
+        {
+            throw new InvalidOperationException("Vui lòng nhập số điện thoại hoặc email");
+        }
+
+        var user = await _userRepository.GetByPhoneOrEmailAsync(identity);
+        if (user == null)
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản phù hợp");
+        }
+
+        if (user.IsLocked)
+        {
+            throw new InvalidOperationException("Tài khoản đang bị khóa. Vui lòng liên hệ quản trị viên");
+        }
+
+        return await MapToUserDto(user);
     }
 
     public async Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request)

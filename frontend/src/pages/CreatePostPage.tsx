@@ -50,6 +50,7 @@ export function CreatePostPage() {
   const [servicePrices, setServicePrices] = useState<{ [key: string]: string }>({});
   const [localServices, setLocalServices] = useState<any[]>([]);
   const [serviceCatalog, setServiceCatalog] = useState<PostServiceLineItem[]>([]);
+  const [recentlyRemovedServiceKeys, setRecentlyRemovedServiceKeys] = useState<Set<string>>(new Set());
   const [assetCatalog, setAssetCatalog] = useState<AssetOption[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -98,8 +99,9 @@ export function CreatePostPage() {
     : currentAccountName || currentAccountPhone || 'Chua co thong tin tai khoan';
   const selectedRoomType = String((selectedRoom as any)?.type ?? 'single');
   const isEditing = editingPostId !== null;
+  const normalizeServiceKey = (key: unknown) => String(key ?? '').toLowerCase();
   const availableCatalogServices = serviceCatalog.filter((catalogItem) =>
-    !localServices.some((service) => String(service.key ?? '').toLowerCase() === String(catalogItem.key).toLowerCase())
+    !localServices.some((service) => normalizeServiceKey(service.key) === normalizeServiceKey(catalogItem.key))
   );
   const availableAssetAmenities = assetCatalog.filter((asset) => !selectedAmenities.includes(asset.assetName));
   const postedRoomIds = useMemo(() => {
@@ -139,6 +141,7 @@ export function CreatePostPage() {
   // Normalize services for the selected room and initialize servicePrices so prices show immediately
   useEffect(() => {
     if (!selectedRoom) return;
+    setRecentlyRemovedServiceKeys(new Set());
     // use normalized services from room as the standard source
     let svcList = Array.isArray(selectedRoom.services) ? selectedRoom.services : [];
     if (svcList.length === 0 && selectedRoomId) {
@@ -202,11 +205,16 @@ export function CreatePostPage() {
   const handleAddServiceFromCatalog = (serviceKey: string) => {
     const selectedService = serviceCatalog.find((item) => item.key === serviceKey);
     if (!selectedService) return;
-    if (localServices.some((service) => String(service.key ?? '').toLowerCase() === String(selectedService.key).toLowerCase())) {
+    if (localServices.some((service) => normalizeServiceKey(service.key) === normalizeServiceKey(selectedService.key))) {
       toast.error('Dịch vụ này đã có trong danh sách');
       return;
     }
 
+    setRecentlyRemovedServiceKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(normalizeServiceKey(selectedService.key));
+      return next;
+    });
     setLocalServices((prev) => [...prev, { ...selectedService }]);
   };
 
@@ -226,6 +234,14 @@ export function CreatePostPage() {
   };
 
   const handleRemoveService = (index: number) => {
+    const removedServiceKey = normalizeServiceKey(localServices[index]?.key);
+    if (removedServiceKey) {
+      setRecentlyRemovedServiceKeys((prev) => {
+        const next = new Set(prev);
+        next.add(removedServiceKey);
+        return next;
+      });
+    }
     setLocalServices((prev) => prev.filter((_, i) => i !== index));
     setServicePrices((prev) => {
       const next = { ...prev };
@@ -768,16 +784,24 @@ export function CreatePostPage() {
                     {availableCatalogServices.length > 0 && (
                       <div className="mb-3 max-h-28 overflow-y-auto rounded border border-gray-300 bg-white p-2">
                         <div className="flex flex-wrap gap-2">
-                          {availableCatalogServices.map((service) => (
-                            <button
-                              key={service.key}
-                              type="button"
-                              onClick={() => handleAddServiceFromCatalog(service.key)}
-                              className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
-                            >
-                              {service.name} {service.unit ? `(${service.unit})` : ''} - {Number(service.price ?? 0).toLocaleString('vi-VN')} VNĐ
-                            </button>
-                          ))}
+                          {availableCatalogServices.map((service) => {
+                            const wasRecentlyRemoved = recentlyRemovedServiceKeys.has(normalizeServiceKey(service.key));
+                            return (
+                              <button
+                                key={service.key}
+                                type="button"
+                                onClick={() => handleAddServiceFromCatalog(service.key)}
+                                className={`rounded border px-2 py-1 text-xs transition-colors ${
+                                  wasRecentlyRemoved
+                                    ? 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                    : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                                }`}
+                                title={wasRecentlyRemoved ? 'Dịch vụ vừa được bỏ khỏi bảng, bấm để thêm lại' : 'Thêm dịch vụ'}
+                              >
+                                {service.name} {service.unit ? `(${service.unit})` : ''} - {Number(service.price ?? 0).toLocaleString('vi-VN')} VNĐ
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

@@ -13,6 +13,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useAuthStore } from '../store/authStore';
+import { Ionicons } from '@expo/vector-icons';
 
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/AuthStack';
@@ -24,6 +25,7 @@ type Props = {
 export default function LoginScreen({ navigation }: Props) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const { login, isLoading, error, clearError } = useAuthStore();
 
@@ -95,18 +97,26 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
 
             {/* Password input */}
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, styles.passwordWrapper]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.passwordInput]}
                 placeholder="Mật khẩu"
                 placeholderTextColor="rgba(255,255,255,0.6)"
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 editable={!isLoading}
                 selectionColor="white"
               />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword((current) => !current)}
+                activeOpacity={0.75}
+                disabled={isLoading}
+              >
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
             </View>
 
             {/* Remember me + Forgot password */}
@@ -193,12 +203,27 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.5)',
     marginBottom: 24,
   },
+  passwordWrapper: {
+    position: 'relative',
+  },
   input: {
     fontSize: 16,
     color: '#FFFFFF',
     paddingVertical: 10,
     fontWeight: '500',
     backgroundColor: 'transparent',
+  },
+  passwordInput: {
+    paddingRight: 42,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   row: {
     flexDirection: 'row',
