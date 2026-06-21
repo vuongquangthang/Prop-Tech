@@ -385,10 +385,12 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.UpdatedBy)
                 .OnDelete(DeleteBehavior.SetNull);
+            // NoAction (khong SetNull) de tranh nhieu duong cascade tu USER -> KNOWLEDGE_BASE
+            // (UpdatedBy da la SetNull). SQL Server cam multiple cascade paths (error 1785).
             entity.HasOne(e => e.OwnerUser)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerUserId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         // ========== NHẮC NỢ ==========
