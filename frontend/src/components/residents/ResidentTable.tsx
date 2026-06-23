@@ -1,8 +1,9 @@
-import { Plus, Search, Edit2, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2, Filter } from 'lucide-react';
+import { Search, Edit2, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2, Filter } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { AddResidentModal, EditResidentModal } from './ResidentTableModals';
+import { EditResidentModal } from './ResidentTableModals';
 import { residentService } from '../../services/api.service';
 import { DataCard, DataTable, EmptyState, LoadingState, PageHeader, StatusBadge } from '../ui/product-system';
+import { FilterSelect } from '../ui/FilterSelect';
 
 interface ResidentData {
   id: number;
@@ -27,7 +28,6 @@ export function ResidentTable() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedResident, setSelectedResident] = useState<any>(null);
 
@@ -84,7 +84,7 @@ export function ResidentTable() {
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap items-center gap-4">
           <Filter size={16} className="text-gray-500" />
-          <select
+          <FilterSelect
             className="app-select"
             style={{ width: '190px', flex: '0 0 190px' }}
             value={statusFilter}
@@ -93,7 +93,7 @@ export function ResidentTable() {
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Đang hoạt động</option>
             <option value="locked">Bị khóa</option>
-          </select>
+          </FilterSelect>
           <input
             type="text"
             placeholder="Tìm theo SĐT, tên hoặc phòng..."
@@ -103,13 +103,6 @@ export function ResidentTable() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="app-button-primary"
-        >
-          <Plus size={16} />
-          <span>Thêm cư dân mới</span>
-        </button>
       </div>
 
       {/* Error Message */}
@@ -174,13 +167,6 @@ export function ResidentTable() {
       </DataCard>
       
       {/* Modals */}
-      {showAddModal && (
-        <AddResidentModal 
-          onClose={() => setShowAddModal(false)}
-          onSuccess={fetchResidents}
-        />
-      )}
-
       {showEditModal && selectedResident && (
         <EditResidentModal 
           resident={selectedResident} 

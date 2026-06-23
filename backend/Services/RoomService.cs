@@ -165,6 +165,7 @@ public class RoomService : IRoomService
             ImageUrls = baseDto.ImageUrls,
             Amenities = baseDto.Amenities,
             ServiceIds = baseDto.ServiceIds,
+            ServicePrices = baseDto.ServicePrices,
             Services = baseDto.Services,
             ActiveContracts = room.HopDongs?
                 .Where(hd => hd.ExpectedEndDate == null || hd.ExpectedEndDate > DateTime.UtcNow)
@@ -294,7 +295,8 @@ public class RoomService : IRoomService
             BathroomCount = dto.BathroomCount,
             ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls ?? new List<string>(), JsonOptions),
             AmenitiesJson = JsonSerializer.Serialize(dto.Amenities ?? new List<string>(), JsonOptions),
-            ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds ?? new List<int>(), JsonOptions)
+            ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds ?? new List<int>(), JsonOptions),
+            ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices ?? new List<RoomServicePriceDto>(), JsonOptions)
         };
 
         await _roomRepository.AddAsync(room);
@@ -367,6 +369,7 @@ public class RoomService : IRoomService
         if (dto.ImageUrls != null) room.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
         if (dto.Amenities != null) room.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
         if (dto.ServiceIds != null) room.ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds, JsonOptions);
+        if (dto.ServicePrices != null) room.ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions);
 
         if (shouldLockRoomPosts)
         {
@@ -527,7 +530,8 @@ public class RoomService : IRoomService
         var floor = await _floorRepository.GetByIdAsync(room.FloorId);
         var building = floor != null ? await _buildingRepository.GetByIdAsync(floor.BuildingId) : null;
         var serviceIds = DeserializeList<int>(room.ServiceIdsJson);
-        var services = await ResolveServicesAsync(serviceIds);
+        var servicePrices = DeserializeList<RoomServicePriceDto>(room.ServicePricesJson);
+        var services = await ResolveServicesAsync(serviceIds, servicePrices);
         var imageUrls = DeserializeList<string>(room.ImageUrlsJson);
         var amenities = room.ChiTietTaiSanPhongs != null && room.ChiTietTaiSanPhongs.Count > 0
             ? room.ChiTietTaiSanPhongs
@@ -559,6 +563,7 @@ public class RoomService : IRoomService
             ImageUrls = imageUrls,
             Amenities = amenities,
             ServiceIds = serviceIds,
+            ServicePrices = servicePrices,
             Services = services
         };
     }
@@ -639,7 +644,9 @@ public class RoomService : IRoomService
         }
     }
 
-    private async Task<List<ServiceInfoDto>> ResolveServicesAsync(List<int> serviceIds)
+    private async Task<List<ServiceInfoDto>> ResolveServicesAsync(
+        List<int> serviceIds,
+        List<RoomServicePriceDto>? roomServicePrices = null)
     {
         if (serviceIds.Count == 0)
         {
@@ -648,6 +655,9 @@ public class RoomService : IRoomService
 
         var services = await _serviceRepository.FindAsync(s => serviceIds.Contains(s.Id));
         var serviceMap = services.ToDictionary(s => s.Id, s => s);
+        var priceMap = (roomServicePrices ?? new List<RoomServicePriceDto>())
+            .GroupBy(item => item.ServiceId)
+            .ToDictionary(group => group.Key, group => group.Last().Price);
 
         var result = new List<ServiceInfoDto>();
         foreach (var id in serviceIds)
@@ -661,7 +671,7 @@ public class RoomService : IRoomService
             {
                 ServiceId = service.Id,
                 ServiceName = service.Name,
-                Price = service.CommonUnitPrice ?? 0,
+                Price = priceMap.TryGetValue(id, out var roomPrice) ? roomPrice : service.CommonUnitPrice ?? 0,
                 Unit = service.Unit ?? string.Empty
             });
         }

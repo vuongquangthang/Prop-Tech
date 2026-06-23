@@ -112,6 +112,115 @@ const isCompletedMaintenance = (status?: string) => {
 };
 
 const chartColors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
+const dashboardDemoEnabled = import.meta.env.VITE_DASHBOARD_DEMO === 'true';
+
+const dateFromNow = (days: number, hours = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(date.getHours() + hours);
+  return date.toISOString();
+};
+
+const demoStats: DashboardStats = {
+  roomStats: {
+    totalRooms: 128,
+    occupiedRooms: 119,
+    availableRooms: 6,
+    maintenanceRooms: 3,
+    occupancyRate: 93,
+  },
+  revenueStats: {
+    currentMonthRevenue: 486_500_000,
+    lastMonthRevenue: 452_800_000,
+    yearToDateRevenue: 2_674_000_000,
+    averageMonthlyRevenue: 445_700_000,
+    growthRate: 7.4,
+  },
+  debtStats: {
+    totalOutstanding: 86_400_000,
+    overdueInvoicesCount: 12,
+    overdueAmount: 48_700_000,
+    unpaidInvoicesCount: 21,
+  },
+  residentStats: {
+    totalResidents: 287,
+    activeContracts: 119,
+    newResidentsThisMonth: 18,
+  },
+  vehicleStats: {
+    totalVehicles: 214,
+    cars: 38,
+    motorcycles: 164,
+    bicycles: 12,
+  },
+  maintenanceStats: {
+    totalRequests: 94,
+    pendingRequests: 7,
+    inProgressRequests: 5,
+    completedRequests: 82,
+    rejectedRequests: 0,
+  },
+};
+
+const demoMonthlyRevenue: MonthlyRevenue[] = [
+  [1, 338, 267, 52, 19],
+  [2, 351, 278, 54, 19],
+  [3, 372, 294, 59, 19],
+  [4, 389, 305, 62, 22],
+  [5, 406, 319, 65, 22],
+  [6, 421, 331, 68, 22],
+  [7, 438, 344, 70, 24],
+  [8, 447, 351, 72, 24],
+  [9, 462, 363, 75, 24],
+  [10, 471, 370, 77, 24],
+  [11, 453, 356, 74, 23],
+  [12, 487, 382, 80, 25],
+].map(([month, total, roomRent, service, other]) => ({
+  month,
+  year: new Date().getFullYear(),
+  totalRevenue: total * 1_000_000,
+  roomRentRevenue: roomRent * 1_000_000,
+  serviceRevenue: service * 1_000_000,
+  otherRevenue: other * 1_000_000,
+}));
+
+const demoMaintenance: MaintenanceRequest[] = [
+  { id: 901, roomId: 1208, roomNumber: 'A-1208', userId: 1, userName: 'Nguyễn Minh Anh', issueType: 'Điều hòa không làm lạnh', status: 'Mới', createdAt: dateFromNow(0, -1) },
+  { id: 902, roomId: 706, roomNumber: 'B-0706', userId: 2, userName: 'Trần Gia Hân', issueType: 'Rò rỉ nước lavabo', status: 'Chờ xử lý', createdAt: dateFromNow(0, -3) },
+  { id: 903, roomId: 315, roomNumber: 'C-0315', userId: 3, userName: 'Lê Quốc Bảo', issueType: 'Khóa cửa điện tử lỗi', status: 'Mới', createdAt: dateFromNow(-1) },
+  { id: 904, roomId: 1002, roomNumber: 'A-1002', userId: 4, userName: 'Phạm Thu Trang', issueType: 'Kiểm tra bình nóng lạnh', status: 'Đang xử lý', createdAt: dateFromNow(-2) },
+  { id: 905, roomId: 508, roomNumber: 'B-0508', userId: 5, userName: 'Đỗ Hoàng Nam', issueType: 'Thay đèn hành lang', status: 'Đang thực hiện', createdAt: dateFromNow(-4) },
+  { id: 906, roomId: 602, roomNumber: 'C-0602', userId: 6, userName: 'Vũ Khánh Linh', issueType: 'Bảo trì máy giặt', status: 'Đang xử lý', createdAt: dateFromNow(-1, -4) },
+  { id: 907, roomId: 1104, roomNumber: 'A-1104', userId: 7, userName: 'Bùi Đức Thành', issueType: 'Thông tắc đường thoát sàn', status: 'Hoàn thành', createdAt: dateFromNow(-2), closedAt: dateFromNow(-1) },
+  { id: 908, roomId: 409, roomNumber: 'B-0409', userId: 8, userName: 'Ngô Hải Yến', issueType: 'Căn chỉnh cửa ban công', status: 'Đã đóng', createdAt: dateFromNow(-3), closedAt: dateFromNow(-1) },
+  { id: 909, roomId: 803, roomNumber: 'C-0803', userId: 9, userName: 'Hoàng Nhật Minh', issueType: 'Thay vòi sen', status: 'Hoàn thành', createdAt: dateFromNow(-5), closedAt: dateFromNow(-2) },
+];
+
+const demoInvoices = [
+  { id: 501, buildingName: 'The Metro', roomNumber: 'A-1208', remainingAmount: 34_600_000, totalAmount: 34_600_000, paidAmount: 0, createdAt: dateFromNow(-2), dueDate: dateFromNow(-5) },
+  { id: 502, buildingName: 'Sunrise Residence', roomNumber: 'B-0706', remainingAmount: 28_400_000, totalAmount: 42_000_000, paidAmount: 13_600_000, createdAt: dateFromNow(-3), dueDate: dateFromNow(-4) },
+  { id: 503, buildingName: 'Central Garden', roomNumber: 'C-0315', remainingAmount: 23_400_000, totalAmount: 23_400_000, paidAmount: 0, createdAt: dateFromNow(-1), dueDate: dateFromNow(-3) },
+];
+
+const demoResidents = [
+  { id: 1, fullName: 'Nguyễn Minh Anh', room: 'A-1208', createdAt: dateFromNow(0, -2) },
+  { id: 2, fullName: 'Trần Gia Hân', room: 'B-0706', createdAt: dateFromNow(-1) },
+  { id: 3, fullName: 'Lê Quốc Bảo', room: 'C-0315', createdAt: dateFromNow(-2) },
+  { id: 4, fullName: 'Phạm Thu Trang', room: 'A-1002', createdAt: dateFromNow(-3) },
+];
+
+const demoContracts = [
+  { id: 1, roomNumber: 'A-0805', expectedEndDate: dateFromNow(12) },
+  { id: 2, roomNumber: 'B-1102', expectedEndDate: dateFromNow(18) },
+  { id: 3, roomNumber: 'C-0604', expectedEndDate: dateFromNow(24) },
+  { id: 4, roomNumber: 'A-0307', expectedEndDate: dateFromNow(29) },
+];
+
+const demoRooms = Array.from({ length: 128 }, (_, index) => ({
+  id: index + 1,
+  roomCode: `${String.fromCharCode(65 + (index % 3))}-${String(Math.floor(index / 3) + 1).padStart(4, '0')}`,
+  status: index < 119 ? 'Đã thuê' : index < 125 ? 'Trống' : 'Bảo trì',
+}));
 
 function DashboardSkeleton() {
   return (
@@ -138,6 +247,18 @@ export function Dashboard() {
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
+    if (dashboardDemoEnabled) {
+      setStats(demoStats);
+      setMonthlyRevenue(demoMonthlyRevenue);
+      setMaintenance(demoMaintenance);
+      setInvoices(demoInvoices);
+      setResidents(demoResidents);
+      setContracts(demoContracts);
+      setRooms(demoRooms);
+      setLoading(false);
+      return;
+    }
+
     const currentYear = new Date().getFullYear();
     const [dashboardResult, revenueResult, maintenanceResult, invoiceResult, residentResult, contractResult, roomResult] =
       await Promise.allSettled([
@@ -172,10 +293,15 @@ export function Dashboard() {
   const debtStats = stats?.debtStats;
   const maintenanceStats = stats?.maintenanceStats;
 
-  const totalRooms = roomStats?.totalRooms ?? rooms.length;
-  const occupiedRooms = roomStats?.occupiedRooms ?? rooms.filter((room) => String(room.status ?? '').toLowerCase().includes('thuê')).length;
-  const occupancyRate = roomStats?.occupancyRate ?? (totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0);
-  const totalResidents = residentStats?.totalResidents ?? residents.length;
+  const listedTotalRooms = rooms.length;
+  const listedOccupiedRooms = rooms.filter((room) => {
+    const status = String(room.status ?? room.trangThai ?? '').trim().toLowerCase();
+    return status.includes('thuê') || status === 'rented' || status === 'occupied';
+  }).length;
+  const totalRooms = Math.max(Number(roomStats?.totalRooms ?? 0), listedTotalRooms);
+  const occupiedRooms = Math.max(Number(roomStats?.occupiedRooms ?? 0), listedOccupiedRooms);
+  const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
+  const totalResidents = Math.max(Number(residentStats?.totalResidents ?? 0), residents.length);
   const monthlyRevenueValue = revenueStats?.currentMonthRevenue ?? 0;
   const lastMonthRevenueValue = revenueStats?.lastMonthRevenue ?? 0;
   const outstandingDebt = debtStats?.totalOutstanding ?? invoices.reduce((sum, invoice) => {
@@ -186,7 +312,7 @@ export function Dashboard() {
   const kpis = [
     {
       label: 'Tổng cư dân',
-      value: totalResidents ? String(totalResidents) : '—',
+      value: totalResidents.toLocaleString('vi-VN'),
       sub: `${residentStats?.newResidentsThisMonth ?? 0} cư dân mới tháng này`,
       trend: '+8.4%',
       positive: true,
@@ -194,7 +320,7 @@ export function Dashboard() {
     },
     {
       label: 'Phòng đã thuê',
-      value: occupiedRooms ? String(occupiedRooms) : '—',
+      value: occupiedRooms.toLocaleString('vi-VN'),
       sub: `${totalRooms || 0} tổng số phòng`,
       trend: '+3 phòng',
       positive: true,
@@ -376,7 +502,10 @@ export function Dashboard() {
 
       <section className="dashboard-hero">
         <div>
-          <p className="dashboard-eyebrow">Bảng điều hành</p>
+          <div className="dashboard-eyebrow-row">
+            <p className="dashboard-eyebrow">Bảng điều hành</p>
+            {dashboardDemoEnabled && <span className="dashboard-demo-badge">Dữ liệu demo</span>}
+          </div>
           <h1>Bảng điều khiển vận hành</h1>
           <p>Theo dõi sức khỏe tòa nhà, dòng tiền, bảo trì và hoạt động cư dân trong một giao diện tập trung.</p>
         </div>
@@ -423,7 +552,11 @@ export function Dashboard() {
                 <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="4 6" />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} unit="M" />
-                <Tooltip cursor={{ fill: 'color-mix(in srgb, var(--primary) 8%, transparent)' }} formatter={(value) => [`${value}M đ`, '']} />
+                <Tooltip
+                  cursor={{ fill: 'color-mix(in srgb, var(--primary) 8%, transparent)' }}
+                  formatter={(value, name) => [`${value} triệu đồng`, name]}
+                  labelFormatter={(label) => `Kỳ ${label}`}
+                />
                 <Bar dataKey="collected" name="Đã thu" fill="var(--chart-1)" radius={[8, 8, 0, 0]} />
                 <Bar dataKey="service" name="Dịch vụ" fill="var(--chart-2)" radius={[8, 8, 0, 0]} />
               </BarChart>
@@ -607,6 +740,27 @@ const dashboardStyles = `
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .dashboard-eyebrow-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .dashboard-demo-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 9px;
+    border: 1px solid color-mix(in srgb, var(--success) 34%, var(--surface-level-3-border));
+    border-radius: 999px;
+    background: var(--success-soft);
+    color: var(--success-foreground);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 

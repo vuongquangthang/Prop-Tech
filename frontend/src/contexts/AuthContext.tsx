@@ -4,11 +4,14 @@ import { API_ENDPOINTS } from '../lib/api-config';
 
 interface User {
   id: number;
+  username?: string;
   phoneNumber: string;
   fullName?: string;
   displayName?: string;
   residentName?: string;
   email?: string;
+  address?: string;
+  avatarUrl?: string;
   role: string;
 }
 
@@ -21,6 +24,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  updateUser: (userData: User) => void;
 }
 
 interface RegisterRequest {
@@ -150,6 +154,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUser = (userData: User) => {
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -159,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     register,
     changePassword,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -12,6 +12,7 @@ public class ServiceDto
     public decimal? CommonUnitPrice { get; set; }
     public bool IsActive { get; set; }
     public DateTime? EffectiveDate { get; set; }
+    public DateTime? PriceUpdatedAt { get; set; }
     public int? OwnerUserId { get; set; }
 }
 
@@ -66,6 +67,7 @@ public class ServiceInContractDto
     public decimal? UnitPrice { get; set; }
     public DateTime ApplyFrom { get; set; }
     public DateTime? ApplyTo { get; set; }
+    public DateTime? PriceUpdatedAt { get; set; }
     public decimal TotalQuantity { get; set; }
     public int ResidentCount { get; set; }
     public List<string> ResidentNames { get; set; } = new();

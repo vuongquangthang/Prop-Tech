@@ -74,6 +74,7 @@ export const API_ENDPOINTS = {
     CHANGE_REQUEST_CONFIRM: (notificationId: number) => `/api/HopDong/change-request/${notificationId}/confirm`,
     CHANGE_REQUEST_DISCUSS: (notificationId: number) => `/api/HopDong/change-request/${notificationId}/discuss`,
     EXTEND: (id: number) => `/api/HopDong/${id}/extend`,
+    HISTORY: (id: number) => `/api/HopDong/${id}/history`,
     TERMINATE: (id: number) => `/api/HopDong/${id}/terminate`,
     OCCUPANTS: (id: number) => `/api/HopDong/${id}/occupants`,
   },

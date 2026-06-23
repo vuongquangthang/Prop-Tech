@@ -6,11 +6,12 @@ interface IssueCardProps {
   tag: string;
   title: string;
   id: string;
+  roomLabel?: string;
   status?: { label: string; color: string; bgColor: string };
   onPress: () => void;
 }
 
-export function IssueCard({ tag, title, id, status, onPress }: IssueCardProps) {
+export function IssueCard({ tag, title, id, roomLabel, status, onPress }: IssueCardProps) {
   return (
     <TouchableOpacity onPress={onPress} style={styles.container}>
       <View style={styles.content}>
@@ -25,6 +26,12 @@ export function IssueCard({ tag, title, id, status, onPress }: IssueCardProps) {
               </View>
             )}
           </View>
+          {roomLabel && (
+            <View style={styles.roomRow}>
+              <Ionicons name="home-outline" size={14} color="#1A4B84" />
+              <Text style={styles.roomText}>{roomLabel}</Text>
+            </View>
+          )}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.id}>{id}</Text>
         </View>
@@ -91,6 +98,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 4,
+  },
+  roomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 7,
+  },
+  roomText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A4B84',
   },
   id: {
     fontSize: 12,

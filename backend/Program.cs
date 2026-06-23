@@ -338,6 +338,30 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE HOA_DON ADD REJECTED_REASON NVARCHAR(500) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'SO_NGUOI_TOI_DA')
                     ALTER TABLE PHONG ADD SO_NGUOI_TOI_DA INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'GIA_DICH_VU_JSON')
+                    ALTER TABLE PHONG ADD GIA_DICH_VU_JSON NVARCHAR(MAX) NOT NULL
+                        CONSTRAINT DF_PHONG_GIA_DICH_VU_JSON DEFAULT(N'[]') WITH VALUES;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'DA_NOP_TIEN_COC')
+                    ALTER TABLE HOP_DONG ADD DA_NOP_TIEN_COC BIT NOT NULL
+                        CONSTRAINT DF_HOP_DONG_DA_NOP_TIEN_COC DEFAULT(0) WITH VALUES;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'CAP_NHAT_LUC')
+                    ALTER TABLE HOP_DONG ADD CAP_NHAT_LUC DATETIME2 NULL;
+                IF OBJECT_ID('dbo.LICH_SU_CHINH_SUA_HOP_DONG', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.LICH_SU_CHINH_SUA_HOP_DONG (
+                        LICH_SU_ID BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                        HOP_DONG_ID INT NOT NULL,
+                        PHIEN_BAN INT NOT NULL,
+                        TOM_TAT NVARCHAR(500) NOT NULL,
+                        DU_LIEU_JSON NVARCHAR(MAX) NOT NULL,
+                        CAP_NHAT_BOI_ID INT NULL,
+                        TEN_NGUOI_CAP_NHAT NVARCHAR(200) NULL,
+                        CAP_NHAT_LUC DATETIME2 NOT NULL,
+                        CONSTRAINT FK_LICH_SU_CHINH_SUA_HOP_DONG_HOP_DONG
+                            FOREIGN KEY (HOP_DONG_ID) REFERENCES HOP_DONG(HOP_DONG_ID) ON DELETE CASCADE,
+                        CONSTRAINT UQ_LICH_SU_CHINH_SUA_HOP_DONG_VERSION UNIQUE (HOP_DONG_ID, PHIEN_BAN)
+                    );
+                END;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'MA_HOP_DONG')
                     ALTER TABLE HOP_DONG ADD MA_HOP_DONG NVARCHAR(50) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'NGAY_THANH_TOAN_HANG_THANG')

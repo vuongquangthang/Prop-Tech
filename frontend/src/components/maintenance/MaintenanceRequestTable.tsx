@@ -3,6 +3,8 @@ import { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { fileService } from '../../services/feature.service';
 import { DataCard, DataTable, EmptyState, PageHeader, SegmentedTabs, Toolbar } from '../ui/product-system';
+import { FilterSelect } from '../ui/FilterSelect';
+import { ImageViewer } from '../ui/ImageViewer';
 
 // Modal Hoàn thành yêu cầu
 function CompleteModal({ request, onClose, onComplete }: { request: any; onClose: () => void; onComplete: (adminNote: string, completionImageUrl: string) => void }) {
@@ -208,7 +210,7 @@ export function MaintenanceRequestTable() {
   const [activeTab, setActiveTab] = useState('new');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [completeModalRequest, setCompleteModalRequest] = useState<any>(null);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
   const [filterType, setFilterType] = useState('all');
   
   // Get data from context
@@ -325,6 +327,33 @@ export function MaintenanceRequestTable() {
     }
   };
 
+  const evidenceImages = (() => {
+    const images: string[] = [];
+    const mediaUrls = selectedRequest?.fullIncident?.mediaUrls;
+
+    if (mediaUrls) {
+      try {
+        const parsedUrls = JSON.parse(mediaUrls) as string[];
+        if (Array.isArray(parsedUrls)) {
+          images.push(...parsedUrls.map((url) => resolveImageUrl(url)).filter(Boolean));
+        }
+      } catch {
+        // Fall back to the legacy single image below.
+      }
+    }
+
+    if (images.length === 0 && selectedRequest?.imageUrl) {
+      images.push(resolveImageUrl(selectedRequest.imageUrl));
+    }
+
+    const completionImageUrl = selectedRequest?.fullIncident?.completionImageUrl;
+    if (completionImageUrl) {
+      images.push(resolveImageUrl(completionImageUrl));
+    }
+
+    return images;
+  })();
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -337,7 +366,7 @@ export function MaintenanceRequestTable() {
         <SegmentedTabs items={tabs} activeKey={activeTab} onChange={setActiveTab} />
         <div className="flex items-center gap-3">
           <Filter size={16} className="text-[var(--text-muted)]" />
-          <select 
+          <FilterSelect
             className="app-select w-auto min-w-[190px]"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -351,7 +380,7 @@ export function MaintenanceRequestTable() {
             <option value="Bãi xe">Bãi xe</option>
             <option value="Tiếng ồn">Tiếng ồn</option>
             <option value="Khác">Khác</option>
-          </select>
+          </FilterSelect>
         </div>
       </Toolbar>
       
@@ -471,7 +500,7 @@ export function MaintenanceRequestTable() {
                       const urls = JSON.parse(selectedRequest.fullIncident.mediaUrls) as string[];
                       if (Array.isArray(urls) && urls.length > 0) {
                         return urls.map((url: string, idx: number) => (
-                          <button key={idx} type="button" onClick={() => setPreviewImageUrl(resolveImageUrl(url))} className="block w-full text-left">
+                          <button key={idx} type="button" onClick={() => setPreviewImage({ images: evidenceImages, index: idx, titlePrefix: 'Ảnh sửa chữa' })} className="block w-full text-left">
                             <img
                               src={resolveImageUrl(url)}
                               alt={`Ảnh trước khi sửa ${idx + 1}`}
@@ -486,7 +515,7 @@ export function MaintenanceRequestTable() {
                     return null;
                   })() : null}
                   {!selectedRequest.fullIncident?.mediaUrls && selectedRequest.imageUrl && (
-                    <button type="button" onClick={() => setPreviewImageUrl(resolveImageUrl(selectedRequest.imageUrl))} className="block w-full text-left">
+                    <button type="button" onClick={() => setPreviewImage({ images: evidenceImages, index: 0, titlePrefix: 'Ảnh sửa chữa' })} className="block w-full text-left">
                       <img 
                         src={resolveImageUrl(selectedRequest.imageUrl)}
                         alt="Trước khi sửa"
@@ -508,7 +537,11 @@ export function MaintenanceRequestTable() {
                   <p className="text-xs text-gray-500 mb-2">Sau khi sửa</p>
                   <button
                     type="button"
-                    onClick={() => setPreviewImageUrl(resolveImageUrl(selectedRequest.fullIncident.completionImageUrl))}
+                    onClick={() => setPreviewImage({
+                      images: evidenceImages,
+                      index: Math.max(evidenceImages.length - 1, 0),
+                      titlePrefix: 'Ảnh sửa chữa',
+                    })}
                     className="block w-full text-left"
                   >
                     <img 
@@ -553,25 +586,13 @@ export function MaintenanceRequestTable() {
         />
       )}
 
-      {previewImageUrl && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6"
-          onClick={() => setPreviewImageUrl(null)}
-        >
-          <button
-            type="button"
-            onClick={() => setPreviewImageUrl(null)}
-            className="fixed top-4 right-4 z-[70] p-2 rounded bg-white/10 text-white hover:bg-white/20"
-          >
-            <X size={18} />
-          </button>
-          <img
-            src={previewImageUrl}
-            alt="Xem chi tiết"
-            className="max-w-[92vw] max-h-[88vh] object-contain rounded"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+      {previewImage && (
+        <ImageViewer
+          images={previewImage.images}
+          initialIndex={previewImage.index}
+          titlePrefix={previewImage.titlePrefix}
+          onClose={() => setPreviewImage(null)}
+        />
       )}
     </div>
   );

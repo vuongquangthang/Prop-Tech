@@ -25,6 +25,7 @@ public class RoomDto
     public List<string> ImageUrls { get; set; } = new();
     public List<string> Amenities { get; set; } = new();
     public List<int> ServiceIds { get; set; } = new();
+    public List<RoomServicePriceDto> ServicePrices { get; set; } = new();
     public List<ServiceInfoDto> Services { get; set; } = new();
 }
 
@@ -49,6 +50,7 @@ public class CreateRoomDto
     public List<string>? ImageUrls { get; set; }
     public List<string>? Amenities { get; set; }
     public List<int>? ServiceIds { get; set; }
+    public List<RoomServicePriceDto>? ServicePrices { get; set; }
 }
 
 /// <summary>
@@ -71,6 +73,13 @@ public class UpdateRoomDto
     public List<string>? ImageUrls { get; set; }
     public List<string>? Amenities { get; set; }
     public List<int>? ServiceIds { get; set; }
+    public List<RoomServicePriceDto>? ServicePrices { get; set; }
+}
+
+public class RoomServicePriceDto
+{
+    public int ServiceId { get; set; }
+    public decimal Price { get; set; }
 }
 
 /// <summary>

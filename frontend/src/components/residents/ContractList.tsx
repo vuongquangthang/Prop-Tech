@@ -1,9 +1,10 @@
-import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX, Pencil, Filter } from 'lucide-react';
+import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX, Pencil, Filter, CalendarPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal } from './ContractModals';
+import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal, ExtendContractModal } from './ContractModals';
 import { contractService, tatToanService } from '../../services/api.service';
 import { DataCard, DataTable, EmptyState, LoadingState, PageHeader, StatusBadge } from '../ui/product-system';
+import { FilterSelect } from '../ui/FilterSelect';
 
 interface ContractData {
   id: number;
@@ -14,6 +15,7 @@ interface ContractData {
   tenant: string;
   startDate: string;
   endDate: string;
+  expectedEndDate?: string;
   deposit: number;
   monthlyRent: number;
   daysLeft: number;
@@ -92,6 +94,7 @@ export function ContractList() {
           tenant: tenantName,
           startDate: contract.startDate ? new Date(contract.startDate).toLocaleDateString('vi-VN') : '-',
           endDate: endDateRaw ? new Date(endDateRaw).toLocaleDateString('vi-VN') : '-',
+          expectedEndDate: endDateRaw || undefined,
           deposit: contract.depositAmount ?? contract.deposit ?? contract.tienCoc ?? 0,
           monthlyRent: contract.actualRentPrice ?? contract.monthlyRent ?? contract.giaThue ?? 0,
           daysLeft,
@@ -142,6 +145,7 @@ export function ContractList() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ContractData | null>(null);
 
   const openCreateModal = () => {
@@ -161,6 +165,11 @@ export function ContractList() {
   const openEditModal = (contract: ContractData) => {
     setEditTarget(contract);
     setIsEditModalOpen(true);
+  };
+
+  const openExtendModal = (contract: ContractData) => {
+    setSelectedContract(contract);
+    setIsExtendModalOpen(true);
   };
 
   // FIX: Handle contract creation success - reload list and navigate
@@ -216,7 +225,7 @@ export function ContractList() {
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap items-center gap-4">
           <Filter size={16} className="text-gray-500" />
-          <select
+          <FilterSelect
             className="app-select"
             style={{ width: '220px', flex: '0 0 220px' }}
             value={statusFilter}
@@ -228,7 +237,7 @@ export function ContractList() {
             <option value="danger">Sắp hết hạn (&lt;7 ngày)</option>
             <option value="expired">Đã quá hạn</option>
             <option value="ended">Đã hết</option>
-          </select>
+          </FilterSelect>
           <input
             type="text"
             placeholder="Tìm theo mã hợp đồng, phòng hoặc chủ hộ..."
@@ -287,6 +296,11 @@ export function ContractList() {
                         <button className="product-action-icon" title="Cập nhật hợp đồng" onClick={() => openEditModal(contract)}>
                           <Pencil size={16} />
                         </button>
+                        {contract.status !== 'ended' && (
+                          <button className="product-action-icon" title="Gia hạn hợp đồng" onClick={() => openExtendModal(contract)}>
+                            <CalendarPlus size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -320,6 +334,10 @@ export function ContractList() {
 
       {isEditModalOpen && editTarget && (
         <EditContractModal contract={editTarget} onClose={() => setIsEditModalOpen(false)} onSuccess={fetchContracts} />
+      )}
+
+      {isExtendModalOpen && selectedContract && (
+        <ExtendContractModal contract={selectedContract} onClose={() => setIsExtendModalOpen(false)} onSuccess={fetchContracts} />
       )}
     </div>
   );

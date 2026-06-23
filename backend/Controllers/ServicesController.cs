@@ -172,7 +172,7 @@ public class ServicesController : ControllerBase
     /// Xóa dịch vụ (đánh dấu không hoạt động)
     /// </summary>
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> Delete(int id)
     {
         try

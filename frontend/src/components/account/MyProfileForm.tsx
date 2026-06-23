@@ -1,4 +1,4 @@
-import { Save, LogOut, Camera, Loader2, AlertTriangle, Key, ChevronDown, ChevronUp, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Save, LogOut, Camera, Loader2, AlertTriangle, Key, ChevronDown, ChevronUp, Eye, EyeOff, CheckCircle, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,6 +8,7 @@ export function MyProfileForm() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -27,7 +28,7 @@ export function MyProfileForm() {
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { logout, changePassword } = useAuth();
+  const { logout, changePassword, updateUser } = useAuth();
 
   useEffect(() => {
     // Only fetch profile if user is logged in (has token)
@@ -46,11 +47,12 @@ export function MyProfileForm() {
       setError(null);
       const user = await authService.getCurrentUser();
 
-      setFullName(user.residentName || user.phoneNumber || '');
+      setFullName(user.displayName || user.fullName || user.residentName || '');
+      setUsername(user.username || user.phoneNumber || '');
       setPhone(user.phoneNumber || '');
-      if (user.email)    setEmail(user.email);
-      if (user.address)  setAddress(user.address);
-      if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
+      setEmail(user.email || '');
+      setAddress(user.address || '');
+      setAvatarUrl(user.avatarUrl || '');
     } catch (err: any) {
       // If 401/403 (not authenticated), show empty form instead of error
       if (err.message?.includes('401') || err.message?.includes('403') || err.message?.includes('Unauthorized')) {
@@ -66,6 +68,13 @@ export function MyProfileForm() {
 
   const handleChangePhoto = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleRemovePhoto = () => {
+    setAvatarUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +106,13 @@ export function MyProfileForm() {
     if (!phone.trim()) { alert('Vui lòng nhập Số điện thoại'); return; }
 
     try {
-      await authService.updateProfile({ email: email.trim(), address: address.trim(), avatarUrl });
+      const updatedUser = await authService.updateProfile({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        address: address.trim(),
+        avatarUrl,
+      });
+      updateUser(updatedUser);
       setShowSuccessModal(true);
     } catch (err: any) {
       alert(err.message || 'Không thể cập nhật hồ sơ');
@@ -177,6 +192,7 @@ export function MyProfileForm() {
 
   return (
     <div className="space-y-4">
+
       {/* Profile Form */}
       <div className="bg-white border-2 border-gray-300 rounded p-8">
         <h2 className="text-gray-800 mb-6" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin cá nhân</h2>
@@ -198,14 +214,27 @@ export function MyProfileForm() {
               onChange={handleFileChange}
               className="hidden"
             />
-            <button 
-              onClick={handleChangePhoto}
-              className="px-4 py-2 bg-white border border-gray-800 text-gray-800 rounded hover:bg-gray-50 flex items-center space-x-2"
-              style={{ fontSize: 'var(--type-caption)' }}
-            >
-              <Camera size={16} />
-              <span>Thay đổi ảnh</span>
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button 
+                onClick={handleChangePhoto}
+                className="px-4 py-2 bg-white border border-gray-800 text-gray-800 rounded hover:bg-gray-50 flex items-center space-x-2"
+                style={{ fontSize: 'var(--type-caption)' }}
+              >
+                <Camera size={16} />
+                <span>Thay đổi ảnh</span>
+              </button>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="px-4 py-2 bg-white border border-red-500 text-red-600 rounded hover:bg-red-50 flex items-center space-x-2"
+                  style={{ fontSize: 'var(--type-caption)' }}
+                >
+                  <Trash2 size={16} />
+                  <span>Xóa ảnh</span>
+                </button>
+              )}
+            </div>
             <p className="text-gray-500 text-center" style={{ fontSize: 'var(--type-caption)' }}>
               Định dạng: JPG, PNG<br/>
               Kích thước tối đa: 2MB
@@ -229,7 +258,7 @@ export function MyProfileForm() {
                 <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Username</label>
                 <input 
                   type="text"
-                  value="admin"
+                  value={username}
                   disabled
                   className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded"
                   style={{ fontSize: 'var(--type-caption)' }}
@@ -270,7 +299,7 @@ export function MyProfileForm() {
                 style={{ fontSize: 'var(--type-caption)' }}
               />
             </div>
-            
+
             <div>
               <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Địa chỉ</label>
               <textarea 

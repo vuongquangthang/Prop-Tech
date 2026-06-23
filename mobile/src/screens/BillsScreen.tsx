@@ -216,6 +216,7 @@ export default function BillsScreen() {
                 )}
                 <BillCard
                   month={invoiceService.formatPeriod(invoice.month, invoice.year)}
+                  roomLabel={invoice.roomNumber ? `Phòng ${invoice.roomNumber}` : invoice.roomId ? `Phòng #${invoice.roomId}` : undefined}
                   status={getStatusDisplay(invoice)}
                   amount={invoiceService.formatCurrency(invoice.totalAmount)}
                   isActive={invoice.status === 'Chưa thanh toán'}

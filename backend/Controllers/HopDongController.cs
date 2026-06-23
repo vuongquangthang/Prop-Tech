@@ -182,7 +182,56 @@ public class HopDongController : ControllerBase
             {
                 return NotFound(new { message = "Hop dong khong ton tai" });
             }
-            var contract = await _hopDongService.UpdateAsync(id, dto);
+            var contract = await _hopDongService.UpdateAsync(id, dto, GetUserId());
+            return Ok(contract);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lấy lịch sử các phiên bản chỉnh sửa hợp đồng
+    /// </summary>
+    [HttpGet("{id}/history")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<List<ContractEditHistoryDto>>> GetEditHistory(int id)
+    {
+        try
+        {
+            if (!await OwnsContractAsync(id))
+            {
+                return NotFound(new { message = "Hợp đồng không tồn tại" });
+            }
+
+            return Ok(await _hopDongService.GetEditHistoryAsync(id));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Gia hạn hợp đồng, giữ nguyên giá thuê và tiền cọc
+    /// </summary>
+    [HttpPost("{id}/extend")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<HopDongDto>> Extend(int id, [FromBody] ExtendHopDongDto dto)
+    {
+        try
+        {
+            if (!await OwnsContractAsync(id))
+            {
+                return NotFound(new { message = "Hợp đồng không tồn tại" });
+            }
+
+            var contract = await _hopDongService.ExtendAsync(id, dto);
             return Ok(contract);
         }
         catch (InvalidOperationException ex)

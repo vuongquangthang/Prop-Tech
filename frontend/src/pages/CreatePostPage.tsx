@@ -9,6 +9,8 @@ import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
 import { API_CONFIG } from '../lib/api-config';
 import { useAuth } from '../contexts/AuthContext';
+import { ImageViewer } from '../components/ui/ImageViewer';
+import { MoneyInput } from '../components/ui/MoneyInput';
 
 interface AssetOption {
   id: number;
@@ -54,7 +56,7 @@ export function CreatePostPage() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
-  const [postPreviewImage, setPostPreviewImage] = useState<{ src: string; title: string } | null>(null);
+  const [postPreviewImage, setPostPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
   const [showPostFormModal, setShowPostFormModal] = useState(false);
   const [roomStatusFilter, setRoomStatusFilter] = useState<RoomStatusFilter>('all');
 
@@ -709,13 +711,21 @@ export function CreatePostPage() {
                       <PostImagePreviewStrip
                         images={selectedRoom.imageUrls.map((url) => resolveImageUrl(url))}
                         altPrefix="Ảnh phòng"
-                        onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                        onPreview={(_, index) => setPostPreviewImage({
+                          images: selectedRoom.imageUrls.map((url) => resolveImageUrl(url)),
+                          index,
+                          titlePrefix: 'Ảnh phòng',
+                        })}
                       />
                     ) : (
                       <PostImagePreviewStrip
                         images={[]}
                         altPrefix="Ảnh phòng"
-                        onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                        onPreview={(_, index) => setPostPreviewImage({
+                          images: [],
+                          index,
+                          titlePrefix: 'Ảnh phòng',
+                        })}
                       />
                     )}
                   </div>
@@ -824,13 +834,14 @@ export function CreatePostPage() {
                                   <div className="flex items-center justify-end gap-2">
                                     {editingServiceIndex === idx ? (
                                       <>
-                                        <input
-                                          type="text"
+                                        <MoneyInput
                                           value={getServicePrice(idx, service.price ?? service.unitPrice ?? service.amount ?? '')}
-                                          onChange={(e) => handleServicePriceChange(idx, e.target.value)}
-                                          className="w-32 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-blue-500 focus:outline-none"
+                                          onChange={(value) => handleServicePriceChange(idx, value)}
+                                          defaultScale="thousand"
+                                          compact
+                                          className="w-48"
                                         />
-                                        <span className="text-xs text-gray-600">VNĐ/{service.unit ?? ''}</span>
+                                        <span className="text-xs text-gray-600">/{service.unit ?? 'đơn vị'}</span>
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -996,7 +1007,11 @@ export function CreatePostPage() {
                     onAdd={() => fileInputRef.current?.click()}
                     onDrop={handleDrop}
                     onRemove={removeImage}
-                    onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh bài đăng ${index + 1}` })}
+                    onPreview={(_, index) => setPostPreviewImage({
+                      images: imagePreviews,
+                      index,
+                      titlePrefix: 'Ảnh bài đăng',
+                    })}
                   />
                   <p className="mt-2 text-xs text-gray-500">
                     PNG, JPG, JPEG — tối đa {POST_IMAGE_LIMIT} ảnh. Bạn còn {Math.max(0, POST_IMAGE_LIMIT - imagePreviews.length)} ảnh có thể thêm.
@@ -1027,35 +1042,14 @@ export function CreatePostPage() {
           )}
         </div>
       </div>
-      {postPreviewImage && typeof document !== 'undefined' && createPortal((
-        <div
-          className="fixed inset-0 flex items-center justify-center p-6"
-          style={{
-            zIndex: 2147483647,
-            backgroundColor: 'rgba(15, 23, 42, 0.78)',
-            backdropFilter: 'blur(8px)',
-          }}
-          onClick={() => setPostPreviewImage(null)}
-        >
-          <div
-            className="relative flex items-center justify-center"
-            style={{ maxHeight: '72vh', maxWidth: '78vw' }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={postPreviewImage.src}
-              alt={postPreviewImage.title}
-              className="rounded bg-white object-contain shadow-2xl"
-              style={{
-                maxHeight: 'min(72vh, 560px)',
-                maxWidth: 'min(78vw, 720px)',
-                width: 'auto',
-                height: 'auto',
-              }}
-            />
-          </div>
-        </div>
-      ), document.body)}
+      {postPreviewImage && (
+        <ImageViewer
+          images={postPreviewImage.images}
+          initialIndex={postPreviewImage.index}
+          titlePrefix={postPreviewImage.titlePrefix}
+          onClose={() => setPostPreviewImage(null)}
+        />
+      )}
     </div>
   );
 }

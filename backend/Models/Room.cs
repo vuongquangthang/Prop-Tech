@@ -73,6 +73,9 @@ public class Room
     [Column("DICH_VU_JSON", TypeName = "nvarchar(max)")]
     public string ServiceIdsJson { get; set; } = "[]";
 
+    [Column("GIA_DICH_VU_JSON", TypeName = "nvarchar(max)")]
+    public string ServicePricesJson { get; set; } = "[]";
+
     // Navigation properties
     [ForeignKey("FloorId")]
     public Floor Floor { get; set; } = null!;

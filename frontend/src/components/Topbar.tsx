@@ -24,6 +24,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
 
   const adminName = user?.displayName || user?.fullName || user?.residentName || user?.phoneNumber || 'Admin';
   const adminRole = user?.role || 'Admin';
+  const avatarUrl = user?.avatarUrl?.trim();
 
   const refreshUnreadCount = useCallback(() => {
     notificationService.getUnreadCount().then(setUnreadCount);
@@ -223,10 +224,14 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
             }}
           >
             <div
-              className="flex items-center justify-center rounded-full"
+              className="flex items-center justify-center overflow-hidden rounded-full"
               style={{ width: '28px', height: '28px', backgroundColor: 'var(--brand-surface)' }}
             >
-              <User size={14} style={{ color: 'var(--brand-primary)' }} />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={adminName} className="h-full w-full object-cover" />
+              ) : (
+                <User size={14} style={{ color: 'var(--brand-primary)' }} />
+              )}
             </div>
             <span
               className="topbar-label max-w-[160px] truncate"

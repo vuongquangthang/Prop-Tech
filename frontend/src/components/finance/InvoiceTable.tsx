@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Eye, Send, Filter, CheckCircle, X, FileText, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, Send, Filter, CheckCircle, X, FileText, Pencil } from 'lucide-react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
+import { FilterSelect } from '../ui/FilterSelect';
+import { buildingService, floorService, roomService, type Building, type Floor, type Room } from '../../services/api.service';
 
 interface LineItem {
   id: number;
   itemType: string;
+  serviceId?: number;
+  serviceName?: string;
   description?: string;
   quantity?: number;
   unitPrice?: number;
@@ -72,15 +76,14 @@ export function InvoiceTable() {
   const currentDate = new Date();
   const [activeTab, setActiveTab] = useState('draft');
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState('');
+  const [selectedFloorId, setSelectedFloorId] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState('');
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-
-  // Calculate state (draft tab)
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
-  const [calculating, setCalculating] = useState(false);
-  const [calcResult, setCalcResult] = useState<{ totalInvoices: number; totalAmount: number; skipped: number; skippedReasons: string[]; errors: string[] } | null>(null);
-  const [showCalcPanel, setShowCalcPanel] = useState(false);
 
   // Selection & approve state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -91,6 +94,7 @@ export function InvoiceTable() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [modalInvoiceId, setModalInvoiceId] = useState<number | null>(null);
   const modalInvoice = modalInvoiceId ? allInvoices.find(i => i.id === modalInvoiceId) : null;
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
 
   // Messages
   const [successMsg, setSuccessMsg] = useState('');
@@ -117,11 +121,32 @@ export function InvoiceTable() {
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
   useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'InvoiceUpdated'], loadInvoices);
 
+  useEffect(() => {
+    const loadLocationFilters = async () => {
+      try {
+        const [buildingRows, floorRows, roomRows] = await Promise.all([
+          buildingService.getAll(),
+          floorService.getAll(),
+          roomService.getAll(),
+        ]);
+        setBuildings(Array.isArray(buildingRows) ? buildingRows : []);
+        setFloors(Array.isArray(floorRows) ? floorRows : []);
+        setRooms(Array.isArray(roomRows) ? roomRows : []);
+      } catch {
+        setBuildings([]);
+        setFloors([]);
+        setRooms([]);
+      }
+    };
+
+    void loadLocationFilters();
+  }, []);
+
   const isOverdue = (inv: Invoice) =>
     isPending(inv) && !!inv.dueDate && new Date(inv.dueDate) < currentDate;
 
   const tabs = [
-    { key: 'draft',   label: 'Nhập',           count: allInvoices.filter(isDraft).length },
+    { key: 'draft',   label: 'Nháp',           count: allInvoices.filter(isDraft).length },
     { key: 'pending', label: 'Chờ thanh toán',  count: allInvoices.filter(i => isPending(i) && !isOverdue(i)).length },
     { key: 'paid',    label: 'Đã thanh toán',   count: allInvoices.filter(isPaid).length },
     { key: 'overdue', label: 'Quá hạn',         count: allInvoices.filter(isOverdue).length },
@@ -135,37 +160,36 @@ export function InvoiceTable() {
     return true;
   });
 
+  const roomByInvoice = (invoice: Invoice) => rooms.find(room =>
+    (invoice.roomId && room.id === invoice.roomId) ||
+    (!!invoice.roomCode && room.roomCode === invoice.roomCode) ||
+    (!!invoice.roomNumber && room.roomCode === invoice.roomNumber)
+  );
+
+  const locationFiltered = tabFiltered.filter(invoice => {
+    const room = roomByInvoice(invoice);
+    if (selectedBuildingId && String(room?.buildingId ?? '') !== selectedBuildingId) return false;
+    if (selectedFloorId && String(room?.floorId ?? '') !== selectedFloorId) return false;
+    if (selectedRoomId && String(room?.id ?? '') !== selectedRoomId) return false;
+    return true;
+  });
+
   const filteredInvoices = search.trim()
-    ? tabFiltered.filter(inv =>
+    ? locationFiltered.filter(inv =>
         inv.invoiceNumber?.toLowerCase().includes(search.toLowerCase()) ||
         inv.roomCode?.toLowerCase().includes(search.toLowerCase()) ||
         inv.residentName?.toLowerCase().includes(search.toLowerCase())
       )
-    : tabFiltered;
+    : locationFiltered;
 
-  const handleCalculate = async () => {
-    setCalculating(true);
-    setErrors([]);
-    setSuccessMsg('');
-    try {
-      const res = await api.post<{ totalInvoices: number; totalAmount: number; skipped: number; skippedReasons: string[]; errors: string[] }>(
-        API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth)
-      );
-      setCalcResult(res.data);
-      if (res.data.totalInvoices > 0) {
-        setSuccessMsg(`✅ Đã tạo ${res.data.totalInvoices} hóa đơn nháp, tổng ${res.data.totalAmount.toLocaleString('vi-VN')} đ`);
-      } else if (res.data.skipped > 0) {
-        setSuccessMsg(`ℹ️ Không tạo hóa đơn mới — ${res.data.skipped} hợp đồng đã có hóa đơn tháng này rồi.`);
-      } else {
-        setSuccessMsg('ℹ️ Không có hợp đồng nào để tính toán.');
-      }
-      await loadInvoices();
-    } catch (err: any) {
-      setErrors([err.response?.data?.message || 'Lỗi khi tính toán hóa đơn.']);
-    } finally {
-      setCalculating(false);
-    }
-  };
+  const availableFloors = selectedBuildingId
+    ? floors.filter(floor => String(floor.buildingId) === selectedBuildingId)
+    : floors;
+  const availableRooms = rooms.filter(room => {
+    if (selectedBuildingId && String(room.buildingId ?? '') !== selectedBuildingId) return false;
+    if (selectedFloorId && String(room.floorId) !== selectedFloorId) return false;
+    return true;
+  });
 
   const handleBatchApprove = async () => {
     setApproving(true);
@@ -224,9 +248,6 @@ export function InvoiceTable() {
     if (selectedIds.size === filteredInvoices.length) setSelectedIds(new Set());
     else setSelectedIds(new Set(filteredInvoices.map(d => d.id)));
   };
-
-  const yearOptions = [currentDate.getFullYear(), currentDate.getFullYear() - 1];
-  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -290,19 +311,78 @@ export function InvoiceTable() {
           placeholder="Tìm mã hóa đơn, phòng..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ padding: '7px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: '14px', width: '220px', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
+          style={{ padding: '7px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: '14px', width: '220px', minWidth: '220px', maxWidth: '220px', flex: '0 0 220px', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
         />
+        <FilterSelect
+          value={selectedBuildingId}
+          onChange={(event) => {
+            setSelectedBuildingId(event.target.value);
+            setSelectedFloorId('');
+            setSelectedRoomId('');
+            setSelectedIds(new Set());
+          }}
+          wrapperClassName="w-[170px] min-w-[170px] max-w-[170px] flex-none"
+          className="w-full"
+          style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
+        >
+          <option value="">Tất cả tòa</option>
+          {buildings.map(building => (
+            <option key={building.id} value={String(building.id)}>
+              {building.buildingName || building.buildingCode || `Tòa ${building.id}`}
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect
+          value={selectedFloorId}
+          onChange={(event) => {
+            setSelectedFloorId(event.target.value);
+            setSelectedRoomId('');
+            setSelectedIds(new Set());
+          }}
+          wrapperClassName="w-[150px] min-w-[150px] max-w-[150px] flex-none"
+          className="w-full"
+          style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
+        >
+          <option value="">Tất cả tầng</option>
+          {availableFloors.map(floor => (
+            <option key={floor.id} value={String(floor.id)}>
+              Tầng {floor.floorNumber}
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect
+          value={selectedRoomId}
+          onChange={(event) => {
+            setSelectedRoomId(event.target.value);
+            setSelectedIds(new Set());
+          }}
+          wrapperClassName="w-[150px] min-w-[150px] max-w-[150px] flex-none"
+          className="w-full"
+          style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
+        >
+          <option value="">Tất cả phòng</option>
+          {availableRooms.map(room => (
+            <option key={room.id} value={String(room.id)}>
+              {room.roomCode}
+            </option>
+          ))}
+        </FilterSelect>
+        <button
+          onClick={() => {
+            setSelectedBuildingId('');
+            setSelectedFloorId('');
+            setSelectedRoomId('');
+            setSelectedIds(new Set());
+          }}
+          disabled={!selectedBuildingId && !selectedFloorId && !selectedRoomId}
+          className="w-[78px] min-w-[78px] max-w-[78px] flex-none px-3 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:pointer-events-none"
+          style={{ visibility: (selectedBuildingId || selectedFloorId || selectedRoomId) ? 'visible' : 'hidden' }}
+        >
+          Xóa lọc
+        </button>
         <div style={{ flex: 1 }} />
         {activeTab === 'draft' && (
           <>
-            {/* Collapse-able calculate panel trigger */}
-            <button
-              onClick={() => setShowCalcPanel(v => !v)}
-              style={{ padding: '8px 14px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: 'var(--text-secondary)' }}
-            >
-              Tính hóa đơn
-              {showCalcPanel ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
             <button
               onClick={() => { if (selectedIds.size === 0) { setSelectedIds(new Set(filteredInvoices.map(i => i.id))); setShowConfirm(true); } else setShowConfirm(true); }}
               disabled={approving || filteredInvoices.length === 0}
@@ -314,42 +394,6 @@ export function InvoiceTable() {
           </>
         )}
       </div>
-
-      {/* Collapsible Calculate panel */}
-      {activeTab === 'draft' && showCalcPanel && (
-        <div style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)', padding: '16px' }}>
-          <div className="flex items-center gap-4 flex-wrap">
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(Number(e.target.value))}
-              style={{ padding: '8px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'white', color: 'var(--text-primary)', fontSize: '14px' }}
-            >
-              {monthOptions.map(m => <option key={m} value={m}>Tháng {String(m).padStart(2, '0')}</option>)}
-            </select>
-            <select
-              value={selectedYear}
-              onChange={e => setSelectedYear(Number(e.target.value))}
-              style={{ padding: '8px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'white', color: 'var(--text-primary)', fontSize: '14px' }}
-            >
-              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <button
-              onClick={handleCalculate}
-              disabled={calculating}
-              style={{ padding: '8px 20px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: '14px', opacity: calculating ? 0.6 : 1 }}
-            >
-              {calculating ? 'Đang tính...' : `Tính tháng ${String(selectedMonth).padStart(2,'0')}/${selectedYear}`}
-            </button>
-          </div>
-          {calcResult && (
-            <div style={{ marginTop: '10px', fontSize: 'var(--type-caption)' }}>
-              {calcResult.totalInvoices > 0 && <div style={{ color: '#15803d' }}>✅ Đã tạo <strong>{calcResult.totalInvoices}</strong> hóa đơn nháp, tổng <strong>{calcResult.totalAmount.toLocaleString('vi-VN')} đ</strong></div>}
-              {calcResult.skipped > 0 && <div style={{ color: '#b45309', marginTop: '2px' }}>⚠️ Bỏ qua <strong>{calcResult.skipped}</strong> hợp đồng đã có hóa đơn tháng này.</div>}
-              {calcResult.errors.length > 0 && <div style={{ color: '#b45309', marginTop: '2px' }}>⚠️ {calcResult.errors.length} phòng chưa có chỉ số điện/nước</div>}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* old action bar placeholder — removed, now in toolbar */}
       {false && activeTab === 'draft' && selectedIds.size > 0 && (
@@ -384,7 +428,7 @@ export function InvoiceTable() {
               <FileText size={48} className="mx-auto text-gray-300 mb-3" />
               <p className="text-gray-500">Không có hóa đơn nào.</p>
               {activeTab === 'draft' && (
-                <p className="text-sm text-gray-400 mt-1">Hãy chốt chỉ số điện/nước rồi bấm "Tính hóa đơn" ở trên.</p>
+                <p className="text-sm text-gray-400 mt-1">Hãy chốt chỉ số điện/nước rồi tạo hóa đơn nháp từ trang Chốt chỉ số Điện/Nước.</p>
               )}
             </div>
           ) : (
@@ -465,6 +509,10 @@ export function InvoiceTable() {
                           {isDraft(inv) && (
                             <>
                               <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setEditingInvoice(inv);
+                                }}
                                 title="Chỉnh sửa"
                                 style={{ padding: '5px', border: '1px solid #e5e7eb', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#4b5563', display: 'flex' }}
                               >
@@ -503,6 +551,18 @@ export function InvoiceTable() {
         />
       )}
 
+      {editingInvoice && (
+        <EditDraftInvoiceModal
+          invoice={editingInvoice}
+          onClose={() => setEditingInvoice(null)}
+          onSaved={async () => {
+            setSuccessMsg(`✅ Đã cập nhật hóa đơn nháp phòng ${editingInvoice.roomCode || editingInvoice.invoiceNumber}.`);
+            setEditingInvoice(null);
+            await loadInvoices();
+          }}
+        />
+      )}
+
       {/* Confirm batch approve dialog */}
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.18)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
@@ -524,6 +584,187 @@ export function InvoiceTable() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface DraftLineItemForm {
+  id: number;
+  itemType: string;
+  serviceId?: number;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+}
+
+function EditDraftInvoiceModal({
+  invoice,
+  onClose,
+  onSaved,
+}: {
+  invoice: Invoice;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [lineItems, setLineItems] = useState<DraftLineItemForm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadDetail = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await api.get<Invoice>(API_ENDPOINTS.INVOICES.BY_ID(invoice.id));
+        const items = response.data.lineItems || [];
+        if (!mounted) return;
+        setLineItems(items.map((item) => ({
+          id: item.id,
+          itemType: item.itemType || 'DichVu',
+          serviceId: item.serviceId,
+          description: item.description || item.serviceName || item.itemType || 'Khoản thu',
+          quantity: String(item.quantity ?? 1),
+          unitPrice: String(item.unitPrice ?? 0),
+        })));
+      } catch (err: any) {
+        if (mounted) setError(err.response?.data?.message || 'Không thể tải chi tiết hóa đơn nháp.');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void loadDetail();
+    return () => { mounted = false; };
+  }, [invoice.id]);
+
+  const updateLineItem = (id: number, field: keyof DraftLineItemForm, value: string) => {
+    setLineItems((items) => items.map((item) => item.id === id ? { ...item, [field]: value } : item));
+  };
+
+  const parseMoney = (value: string) => Number(value.replace(/[^\d.]/g, '')) || 0;
+  const parseQuantity = (value: string) => Number(value.replace(/[^\d.]/g, '')) || 0;
+  const totalAmount = lineItems.reduce((sum, item) => sum + parseQuantity(item.quantity) * parseMoney(item.unitPrice), 0);
+
+  const handleSave = async () => {
+    const invalidItem = lineItems.find((item) => !item.description.trim() || parseQuantity(item.quantity) < 0 || parseMoney(item.unitPrice) < 0);
+    if (invalidItem) {
+      setError('Vui lòng kiểm tra mô tả, số lượng và đơn giá của các khoản thu.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError('');
+      await api.put(API_ENDPOINTS.INVOICES.EDIT_DRAFT(invoice.id), {
+        lineItems: lineItems.map((item) => ({
+          itemType: item.itemType,
+          serviceId: item.serviceId,
+          quantity: parseQuantity(item.quantity),
+          unitPrice: parseMoney(item.unitPrice),
+          description: item.description.trim(),
+        })),
+      });
+      await onSaved();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Không thể lưu hóa đơn nháp.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="admin-content-modal-overlay">
+      <div className="bg-white rounded-lg w-[860px] max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Sửa hóa đơn nháp</h3>
+            <p className="text-sm text-gray-500">Phòng {invoice.roomCode || '---'} · {invoice.invoiceNumber}</p>
+          </div>
+          <button onClick={onClose} disabled={saving} className="p-1 text-gray-500 hover:text-gray-800">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {loading ? (
+            <div className="py-10 text-center text-gray-500">Đang tải chi tiết hóa đơn...</div>
+          ) : (
+            <div className="space-y-3">
+              {lineItems.map((item, index) => {
+                const subtotal = parseQuantity(item.quantity) * parseMoney(item.unitPrice);
+                return (
+                  <div key={item.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-700">Khoản thu #{index + 1}</span>
+                      <span className="text-sm font-bold text-gray-900">{subtotal.toLocaleString('vi-VN')} VNĐ</span>
+                    </div>
+                    <div className="grid grid-cols-12 gap-3">
+                      <div className="col-span-5">
+                        <label className="mb-1 block text-xs text-gray-600">Mô tả</label>
+                        <input
+                          value={item.description}
+                          onChange={(event) => updateLineItem(item.id, 'description', event.target.value)}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="mb-1 block text-xs text-gray-600">Loại</label>
+                        <select
+                          value={item.itemType}
+                          onChange={(event) => updateLineItem(item.id, 'itemType', event.target.value)}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                        >
+                          <option value="TienPhong">Tiền phòng</option>
+                          <option value="Dien">Điện</option>
+                          <option value="Nuoc">Nước</option>
+                          <option value="DichVu">Dịch vụ</option>
+                          <option value="PhatSinh">Phát sinh</option>
+                          <option value="KhauTru">Khấu trừ</option>
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="mb-1 block text-xs text-gray-600">Số lượng</label>
+                        <input
+                          value={item.quantity}
+                          onChange={(event) => updateLineItem(item.id, 'quantity', event.target.value.replace(/[^\d.]/g, ''))}
+                          inputMode="decimal"
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-right text-sm focus:outline-none focus:border-gray-500"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <label className="mb-1 block text-xs text-gray-600">Đơn giá</label>
+                        <input
+                          value={item.unitPrice}
+                          onChange={(event) => updateLineItem(item.id, 'unitPrice', event.target.value.replace(/[^\d.]/g, ''))}
+                          inputMode="decimal"
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-right text-sm focus:outline-none focus:border-gray-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {error && <p className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        </div>
+
+        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-between bg-white">
+          <div className="text-sm text-gray-700">
+            Tổng sau chỉnh sửa: <strong>{totalAmount.toLocaleString('vi-VN')} VNĐ</strong>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} disabled={saving} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">Hủy</button>
+            <button onClick={handleSave} disabled={saving || loading || lineItems.length === 0} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50">
+              {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

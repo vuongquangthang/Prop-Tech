@@ -1,6 +1,5 @@
 import { Plus, Eye, Lock, Unlock, X, MessageCircle } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { usePosts } from '../hooks/usePosts';
@@ -8,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatMoneyVnd } from '../lib/postValidation';
 import { postService, type PostEditHistoryDto } from '../services/postService';
 import { buildPropTechPartnerUserId, loadRoomConversations } from '../services/roomConversationService';
+import { ImageViewer } from '../components/ui/ImageViewer';
 
 const roomStatusConfig = {
   'Trống': { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
@@ -40,7 +40,7 @@ export function PostManagementPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [pendingMessagesByPost, setPendingMessagesByPost] = useState<Record<string, number>>({});
-  const [detailPreviewImage, setDetailPreviewImage] = useState<{ src: string; title: string } | null>(null);
+  const [detailPreviewImage, setDetailPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
 
   const sorted = useMemo(() => [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [posts]);
 
@@ -374,7 +374,11 @@ export function PostManagementPage() {
                   <PostDetailImageStrip
                     images={(selectedPost as any).roomImageUrls}
                     altPrefix="Ảnh phòng"
-                    onPreview={(src, index) => setDetailPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                    onPreview={(_, index) => setDetailPreviewImage({
+                      images: (selectedPost as any).roomImageUrls,
+                      index,
+                      titlePrefix: 'Ảnh phòng',
+                    })}
                   />
                 </div>
               )}
@@ -444,7 +448,11 @@ export function PostManagementPage() {
                   <PostDetailImageStrip
                     images={selectedPost.imageUrls}
                     altPrefix="Ảnh minh họa"
-                    onPreview={(src, index) => setDetailPreviewImage({ src, title: `Ảnh minh họa ${index + 1}` })}
+                    onPreview={(_, index) => setDetailPreviewImage({
+                      images: selectedPost.imageUrls,
+                      index,
+                      titlePrefix: 'Ảnh minh họa',
+                    })}
                   />
                 </div>
               )}
@@ -527,35 +535,14 @@ export function PostManagementPage() {
         </div>
       )}
 
-      {detailPreviewImage && typeof document !== 'undefined' && createPortal((
-        <div
-          className="fixed inset-0 flex items-center justify-center p-6"
-          style={{
-            zIndex: 2147483647,
-            backgroundColor: 'rgba(15, 23, 42, 0.78)',
-            backdropFilter: 'blur(8px)',
-          }}
-          onClick={() => setDetailPreviewImage(null)}
-        >
-          <div
-            className="relative flex items-center justify-center"
-            style={{ maxHeight: '72vh', maxWidth: '78vw' }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={detailPreviewImage.src}
-              alt={detailPreviewImage.title}
-              className="rounded bg-white object-contain shadow-2xl"
-              style={{
-                maxHeight: 'min(72vh, 560px)',
-                maxWidth: 'min(78vw, 720px)',
-                width: 'auto',
-                height: 'auto',
-              }}
-            />
-          </div>
-        </div>
-      ), document.body)}
+      {detailPreviewImage && (
+        <ImageViewer
+          images={detailPreviewImage.images}
+          initialIndex={detailPreviewImage.index}
+          titlePrefix={detailPreviewImage.titlePrefix}
+          onClose={() => setDetailPreviewImage(null)}
+        />
+      )}
     </div>
   );
 }

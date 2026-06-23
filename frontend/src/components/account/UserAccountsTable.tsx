@@ -1,6 +1,7 @@
 import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, Phone, UserRound, Shield, KeyRound } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
+import { FilterSelect } from '../ui/FilterSelect';
 
 interface UserData {
   id: number | string;
@@ -243,8 +244,8 @@ export function UserAccountsTable() {
         <div className="flex items-center space-x-4">
           <Filter size={16} className="text-gray-500" />
           
-          <select 
-            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-3 py-2 bg-white focus:outline-none"
             style={{ fontSize: 'var(--type-caption)' }}
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
@@ -252,10 +253,10 @@ export function UserAccountsTable() {
             <option value="all">Tất cả vai trò</option>
             <option value="Admin">BQL</option>
             <option value="CuDan">Cư dân</option>
-          </select>
+          </FilterSelect>
           
-          <select 
-            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-3 py-2 bg-white focus:outline-none"
             style={{ fontSize: 'var(--type-caption)' }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -264,7 +265,7 @@ export function UserAccountsTable() {
             <option value="active">Đang hoạt động</option>
             <option value="locked">Đang bị khóa</option>
             <option value="inactive">Chưa kích hoạt</option>
-          </select>
+          </FilterSelect>
           
           <input 
             type="text"

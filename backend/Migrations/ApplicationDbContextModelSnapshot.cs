@@ -1809,13 +1809,12 @@ namespace backend.Migrations
 
                     b.Navigation("ChiTietSuDungDichVus");
 
-                    b.Navigation("PriceHistories");
                 });
 
             modelBuilder.Entity("backend.Models.ServicePriceHistory", b =>
                 {
                     b.HasOne("backend.Models.Service", "Service")
-                        .WithMany("PriceHistories")
+                        .WithMany()
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

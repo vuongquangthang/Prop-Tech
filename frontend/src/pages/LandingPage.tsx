@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  BarChart3,
   Bell,
   Building2,
   Check,
@@ -83,97 +82,40 @@ function SectionTitle({ eyebrow, title, description }: { eyebrow: string; title:
 
 function DashboardMockup() {
   return (
-    <div className="lp-dashboard">
+    <figure className="lp-dashboard lp-product-shot lp-product-shot-web">
       <div className="lp-window-bar">
         <i />
         <i />
         <i />
-        <span>app.proptech.vn/dashboard</span>
+        <span>SmartHome Hub · Web Dashboard</span>
       </div>
-      <div className="lp-dashboard-body">
-        <aside>
-          <div className="lp-dash-brand">
-            <Building2 size={19} />
-            <div>
-              <b>Tòa A</b>
-              <small>Operations</small>
-            </div>
-          </div>
-          {['Tổng quan', 'Cư dân', 'Hóa đơn', 'Sự cố', 'Báo cáo'].map((item, index) => (
-            <div key={item} className={index === 0 ? 'active' : ''}>{item}</div>
-          ))}
-        </aside>
-        <main>
-          <div className="lp-dash-header">
-            <div>
-              <small>Realtime command center</small>
-              <h3>Tổng quan vận hành</h3>
-            </div>
-            <em>Live</em>
-          </div>
-          <div className="lp-metric-grid">
-            {[
-              ['92%', 'Thu phí'],
-              ['14', 'Sự cố mới'],
-              ['8', 'Phòng trống'],
-            ].map(([value, label]) => (
-              <div key={label} className="lp-metric">
-                <b>{value}</b>
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="lp-chart-card">
-            <div>
-              <b>Dòng tiền tháng</b>
-              <BarChart3 size={18} />
-            </div>
-            <div className="lp-chart">
-              {[38, 52, 46, 71, 62, 88, 78, 96, 84].map((height, index) => (
-                <i key={index} style={{ height: `${height}%` }} />
-              ))}
-            </div>
-          </div>
-        </main>
+      <div className="lp-product-image-wrap">
+        <img
+          src="/web.png"
+          alt="Dashboard quản lý tòa nhà SmartHome Hub với KPI cư dân, phòng thuê, doanh thu và công nợ"
+          loading="eager"
+          decoding="async"
+        />
       </div>
-    </div>
+    </figure>
   );
 }
 
 function PhoneMockup() {
-  const shortcuts: Array<[IconType, string]> = [
-    [Wrench, 'Sửa chữa'],
-    [MessageSquareText, 'Tin nhắn'],
-    [FileText, 'Hợp đồng'],
-    [ReceiptText, 'Hóa đơn'],
-  ];
-
   return (
-    <div className="lp-phone">
-      <div className="lp-phone-notch" />
-      <div className="lp-phone-screen">
-        <div className="lp-phone-top">
-          <div>
-            <small>Xin chào, Minh Anh</small>
-            <b>Căn hộ A-1205</b>
-          </div>
-          <Bell size={18} />
-        </div>
-        <div className="lp-bill-card">
-          <small>Hóa đơn cần thanh toán</small>
-          <b>2.450.000đ</b>
-          <button>Thanh toán QR</button>
-        </div>
-        <div className="lp-shortcuts">
-          {shortcuts.map(([Icon, label]) => (
-            <div key={label}>
-              <Icon size={20} />
-              <span>{label}</span>
-            </div>
-          ))}
+    <figure className="lp-phone lp-product-shot lp-product-shot-mobile">
+      <div className="lp-phone-hardware">
+        <div className="lp-phone-speaker" />
+        <div className="lp-product-image-wrap">
+          <img
+            src="/app.png"
+            alt="Ứng dụng cư dân Smart Home hiển thị hóa đơn, thanh toán và tiện ích báo cáo sự cố"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
       </div>
-    </div>
+    </figure>
   );
 }
 
@@ -672,6 +614,105 @@ export function LandingPage() {
           border-radius: 16px;
           padding: 16px;
           background: linear-gradient(180deg, #EAF3FF, white);
+        }
+
+        .lp-product-shot {
+          margin: 0;
+          transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .lp-product-shot:hover {
+          transform: translateY(-4px);
+        }
+
+        .lp-product-shot-web {
+          overflow: hidden;
+          border: 1px solid rgba(148, 163, 184, 0.34);
+          border-radius: 16px;
+          background: #F8FAFC;
+          box-shadow: 0 34px 110px rgba(15, 23, 42, 0.28);
+        }
+
+        .lp-product-shot-web .lp-window-bar {
+          height: 42px;
+          border-bottom-color: rgba(148, 163, 184, 0.18);
+          background: rgba(248, 250, 252, 0.96);
+        }
+
+        .lp-product-shot-web .lp-window-bar i {
+          background: #CBD5E1;
+        }
+
+        .lp-product-shot-web .lp-window-bar span {
+          color: #64748B;
+        }
+
+        .lp-product-image-wrap {
+          position: relative;
+          overflow: hidden;
+          background: #F8FAFC;
+        }
+
+        .lp-product-shot-web .lp-product-image-wrap {
+          aspect-ratio: 1897 / 905;
+        }
+
+        .lp-product-shot-web img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center;
+        }
+
+        .lp-product-shot-mobile {
+          width: 242px;
+          border: 0;
+          border-radius: 30px;
+          background: transparent;
+          box-shadow: 0 34px 90px rgba(15, 23, 42, 0.30);
+        }
+
+        .lp-phone-hardware {
+          position: relative;
+          padding: 8px;
+          border: 1px solid rgba(148, 163, 184, 0.36);
+          border-radius: 30px;
+          background: #0B1220;
+        }
+
+        .lp-phone-speaker {
+          position: absolute;
+          z-index: 2;
+          top: 12px;
+          left: 50%;
+          width: 50px;
+          height: 5px;
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.76);
+          transform: translateX(-50%);
+        }
+
+        .lp-product-shot-mobile .lp-product-image-wrap {
+          aspect-ratio: 946 / 2048;
+          border-radius: 23px;
+          background: white;
+        }
+
+        .lp-product-shot-mobile img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: top center;
+        }
+
+        .lp-platform-visual .lp-product-shot-web {
+          min-width: 0;
+        }
+
+        .lp-showcase .lp-product-shot-web {
+          height: 100%;
         }
 
         .lp-phone-top {
@@ -1519,6 +1560,21 @@ export function LandingPage() {
           box-shadow: var(--shadow-strong);
         }
 
+        .dark .lp-dashboard.lp-product-shot-web {
+          border-color: var(--surface-level-3-border);
+          background: #F8FAFC;
+        }
+
+        .dark .lp-product-shot-web .lp-window-bar {
+          border-bottom-color: rgba(148, 163, 184, 0.24);
+          background: #F8FAFC;
+        }
+
+        .dark .lp-product-shot-web .lp-product-image-wrap,
+        .dark .lp-product-shot-mobile .lp-product-image-wrap {
+          background: white;
+        }
+
         .dark .lp-dashboard main,
         .dark .lp-chart-card,
         .dark .lp-metric,
@@ -1533,6 +1589,11 @@ export function LandingPage() {
           border-color: #283548;
           background: #0F172A;
           box-shadow: var(--shadow-strong);
+        }
+
+        .dark .lp-phone.lp-product-shot-mobile {
+          border-color: transparent;
+          background: transparent;
         }
 
         .dark .lp-phone-screen {
@@ -1675,6 +1736,22 @@ export function LandingPage() {
           .lp-visual .lp-phone {
             width: 220px;
             margin: 22px auto 0;
+          }
+
+          .lp-product-shot-web .lp-window-bar {
+            height: 36px;
+            padding: 0 12px;
+          }
+
+          .lp-product-shot-web .lp-window-bar span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .lp-platform-visual .lp-phone {
+            width: min(220px, 72vw);
+            margin: 18px auto 0;
           }
 
           .lp-floating-card,

@@ -1,6 +1,5 @@
 import { Plus, Edit2, Trash2, Filter, X, AlertTriangle, Loader2, Home, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { roomService, floorService, serviceService } from '../../services/api.service';
 import type { Floor } from '../../services/api.service';
 import type { Service } from '../../services/api.service';
@@ -8,6 +7,9 @@ import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { API_CONFIG } from '../../lib/api-config';
 import { fileService } from '../../services/feature.service';
+import { FilterSelect } from '../ui/FilterSelect';
+import { ImageViewer } from '../ui/ImageViewer';
+import { MoneyInput } from '../ui/MoneyInput';
 
 interface RoomData {
   id: number;
@@ -30,6 +32,7 @@ interface RoomData {
 
   amenities?: string[];
   serviceIds?: number[];
+  servicePrices?: { serviceId: number; price: number }[];
   imageUrls?: string[];
 }
 
@@ -95,9 +98,13 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [addBathroomCount, setAddBathroomCount] = useState('');
   const [addAmenities, setAddAmenities] = useState<string[]>([]);
   const [addServiceIds, setAddServiceIds] = useState<number[]>([]);
+  const [customizeServicePrices, setCustomizeServicePrices] = useState(false);
+  const [addServicePrices, setAddServicePrices] = useState<Record<number, string>>({});
   const [addImagePreviews, setAddImagePreviews] = useState<string[]>([]);
   const [addImageFiles, setAddImageFiles] = useState<File[]>([]);
+  const [addImageError, setAddImageError] = useState<string | null>(null);
   const [addDescription, setAddDescription] = useState<string>('');
+  const [addFieldErrors, setAddFieldErrors] = useState<Record<string, string>>({});
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -119,6 +126,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [editDescription, setEditDescription] = useState('');
   const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
   const [editImageFiles, setEditImageFiles] = useState<(File | null)[]>([]);
+  const [editImageError, setEditImageError] = useState<string | null>(null);
   const [editAmenities, setEditAmenities] = useState<string[]>([]);
   const [editServiceIds, setEditServiceIds] = useState<number[]>([]);
   const [editLoading, setEditLoading] = useState(false);
@@ -130,7 +138,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showCannotDeleteModal, setShowCannotDeleteModal] = useState(false);
   const [blockedDeleteRoom, setBlockedDeleteRoom] = useState<RoomData | null>(null);
-  const [previewImage, setPreviewImage] = useState<{ src: string; title: string } | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
 
   const isRentedRoomStatus = (status: string) => {
     const s = (status || '').trim().toLowerCase();
@@ -167,6 +175,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         },
         amenities: room.amenities || [],
         serviceIds: room.serviceIds || [],
+        servicePrices: room.servicePrices || [],
         imageUrls: Array.isArray(room.imageUrls)
           ? room.imageUrls.map((url: string) => resolveRoomImageUrl(url)).filter(Boolean)
           : [],
@@ -238,17 +247,80 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       return true;
     });
 
-  const parseCurrency = (value: string) => {
-    const normalized = String(value ?? '').replace(/[^\d]/g, '');
-    return normalized ? Number(normalized) : 0;
+  const setIntegerField = (
+    field: string,
+    value: string,
+    setter: (nextValue: string) => void,
+  ) => {
+    if (!/^\d*$/.test(value)) {
+      setAddFieldErrors((current) => ({
+        ...current,
+        [field]: 'Sai định dạng. Vui lòng điền định dạng số nguyên',
+      }));
+      return;
+    }
+
+    setter(value);
+    setAddFieldErrors((current) => ({ ...current, [field]: '' }));
   };
+
+  const setDecimalField = (
+    field: string,
+    value: string,
+    setter: (nextValue: string) => void,
+    maxDecimals = 2,
+  ) => {
+    const normalized = value.replace(',', '.');
+    const decimalPattern = new RegExp(`^\\d*(?:\\.\\d{0,${maxDecimals}})?$`);
+    if (!decimalPattern.test(normalized)) {
+      setAddFieldErrors((current) => ({
+        ...current,
+        [field]: 'Sai định dạng. Vui lòng điền định dạng số',
+      }));
+      return;
+    }
+
+    setter(normalized);
+    setAddFieldErrors((current) => ({ ...current, [field]: '' }));
+  };
+
+  const addPriceVnd = addPrice ? Math.round(Number(addPrice) * 1_000_000) : 0;
 
   const toggleAmenity = (amenity: string) => {
     setAddAmenities(prev => prev.includes(amenity) ? prev.filter(item => item !== amenity) : [...prev, amenity]);
   };
 
   const toggleService = (serviceId: number) => {
-    setAddServiceIds(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
+    setAddServiceIds((currentIds) => {
+      if (currentIds.includes(serviceId)) {
+        setAddServicePrices((currentPrices) => {
+          const nextPrices = { ...currentPrices };
+          delete nextPrices[serviceId];
+          return nextPrices;
+        });
+        return currentIds.filter((id) => id !== serviceId);
+      }
+
+      const service = serviceCatalog.find((item) => item.id === serviceId);
+      setAddServicePrices((currentPrices) => ({
+        ...currentPrices,
+        [serviceId]: String(service?.commonUnitPrice ?? 0),
+      }));
+      return [...currentIds, serviceId];
+    });
+  };
+
+  const updateRoomServicePrice = (serviceId: number, value: string) => {
+    if (!/^\d*$/.test(value)) {
+      setAddFieldErrors((current) => ({
+        ...current,
+        [`servicePrice-${serviceId}`]: 'Sai định dạng. Vui lòng điền định dạng số',
+      }));
+      return;
+    }
+
+    setAddServicePrices((current) => ({ ...current, [serviceId]: value }));
+    setAddFieldErrors((current) => ({ ...current, [`servicePrice-${serviceId}`]: '' }));
   };
 
   const handleAddImageChange = (files?: FileList | null) => {
@@ -256,7 +328,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
 
     const remaining = Math.max(0, ROOM_IMAGE_LIMIT - addImageFiles.length);
     if (remaining === 0) {
-      setAddError(`Chỉ được tải tối đa ${ROOM_IMAGE_LIMIT} ảnh cho một phòng`);
+      setAddImageError(`Chỉ được tải tối đa ${ROOM_IMAGE_LIMIT} ảnh cho một phòng`);
       return;
     }
 
@@ -265,11 +337,15 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     const rejectedFiles = selectedFiles.filter((file) => file.size > ROOM_IMAGE_MAX_BYTES);
 
     if (files.length > remaining) {
-      setAddError(`Chỉ thêm ${remaining} ảnh còn lại. Mỗi phòng tối đa ${ROOM_IMAGE_LIMIT} ảnh.`);
+      setAddImageError(
+        addImageFiles.length === 0
+          ? `Bạn đã chọn quá ${ROOM_IMAGE_LIMIT} ảnh. Hệ thống chỉ nhận ${ROOM_IMAGE_LIMIT} ảnh đầu tiên.`
+          : `Bạn chỉ còn có thể thêm ${remaining} ảnh. Mỗi phòng tối đa ${ROOM_IMAGE_LIMIT} ảnh.`,
+      );
     } else if (rejectedFiles.length > 0) {
-      setAddError(`Một số ảnh vượt quá 5MB: ${rejectedFiles.map((file) => file.name).join(', ')}`);
+      setAddImageError(`Một số ảnh vượt quá 5MB: ${rejectedFiles.map((file) => file.name).join(', ')}`);
     } else {
-      setAddError(null);
+      setAddImageError(null);
     }
 
     if (validFiles.length === 0) return;
@@ -298,7 +374,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
 
     const remaining = Math.max(0, ROOM_IMAGE_LIMIT - editImagePreviews.length);
     if (remaining === 0) {
-      setEditError(`Chỉ được tải tối đa ${ROOM_IMAGE_LIMIT} ảnh cho một phòng`);
+      setEditImageError(`Chỉ được tải tối đa ${ROOM_IMAGE_LIMIT} ảnh cho một phòng`);
       return;
     }
 
@@ -307,11 +383,15 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     const rejectedFiles = selectedFiles.filter((file) => file.size > ROOM_IMAGE_MAX_BYTES);
 
     if (files.length > remaining) {
-      setEditError(`Chỉ thêm ${remaining} ảnh còn lại. Mỗi phòng tối đa ${ROOM_IMAGE_LIMIT} ảnh.`);
+      setEditImageError(
+        editImagePreviews.length === 0
+          ? `Bạn đã chọn quá ${ROOM_IMAGE_LIMIT} ảnh. Hệ thống chỉ nhận ${ROOM_IMAGE_LIMIT} ảnh đầu tiên.`
+          : `Bạn chỉ còn có thể thêm ${remaining} ảnh. Mỗi phòng tối đa ${ROOM_IMAGE_LIMIT} ảnh.`,
+      );
     } else if (rejectedFiles.length > 0) {
-      setEditError(`Một số ảnh vượt quá 5MB: ${rejectedFiles.map((file) => file.name).join(', ')}`);
+      setEditImageError(`Một số ảnh vượt quá 5MB: ${rejectedFiles.map((file) => file.name).join(', ')}`);
     } else {
-      setEditError(null);
+      setEditImageError(null);
     }
 
     if (validFiles.length === 0) return;
@@ -362,17 +442,43 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     setAddKitchenCount('');
     setAddBathroomCount('');
     setAddServiceIds([]);
+    setCustomizeServicePrices(false);
+    setAddServicePrices({});
     setAddImagePreviews([]);
     setAddImageFiles([]);
+    setAddImageError(null);
     setAddDescription('');
+    setAddFieldErrors({});
     setAddError(null);
     await loadReferenceData();
     setShowAddModal(true);
   };
 
   const handleAddSubmit = async () => {
+    if (Object.values(addFieldErrors).some(Boolean)) {
+      setAddError('Vui lòng sửa các trường sai định dạng trước khi thêm phòng');
+      return;
+    }
     if (!addRoomCode.trim() || !addArea || !addPrice || !addMaxPeople) {
       setAddError('Vui lòng điền mã phòng, diện tích, số người tối đa và giá thuê');
+      return;
+    }
+    const areaValue = Number(addArea);
+    const maxPeopleValue = Number(addMaxPeople);
+    const priceMillionsValue = Number(addPrice);
+    const validationErrors: Record<string, string> = {};
+    if (!Number.isFinite(areaValue) || areaValue <= 0) {
+      validationErrors.area = 'Diện tích phải là số lớn hơn 0';
+    }
+    if (!Number.isInteger(maxPeopleValue) || maxPeopleValue < 1) {
+      validationErrors.maxPeople = 'Số người tối đa phải là số nguyên từ 1 trở lên';
+    }
+    if (!Number.isFinite(priceMillionsValue) || priceMillionsValue <= 0) {
+      validationErrors.price = 'Giá phòng phải là số lớn hơn 0';
+    }
+    if (Object.keys(validationErrors).length > 0) {
+      setAddFieldErrors((current) => ({ ...current, ...validationErrors }));
+      setAddError('Vui lòng kiểm tra lại các trường được cảnh báo');
       return;
     }
     if (!addFloorId) {
@@ -383,17 +489,30 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       setAddError('Vui lòng điền đầy đủ số phòng khách, ngủ, bếp và vệ sinh');
       return;
     }
+    if (customizeServicePrices) {
+      const invalidServiceId = addServiceIds.find((serviceId) => {
+        const price = Number(addServicePrices[serviceId]);
+        return !Number.isFinite(price) || price < 0;
+      });
+      if (invalidServiceId !== undefined) {
+        setAddFieldErrors((current) => ({
+          ...current,
+          [`servicePrice-${invalidServiceId}`]: 'Giá dịch vụ phải là số hợp lệ',
+        }));
+        setAddError('Vui lòng kiểm tra lại giá dịch vụ tùy chỉnh');
+        return;
+      }
+    }
     setAddLoading(true); setAddError(null);
     try {
-      const maxPeopleValue = parseInt(addMaxPeople, 10);
       const imageUrls = await Promise.all(addImageFiles.map((file) => fileService.upload(file)));
 
       await roomService.create({
         floorId: addFloorId,
         roomCode: addRoomCode.trim(),
-        area: parseFloat(addArea),
+        area: areaValue,
         maxOccupants: maxPeopleValue,
-        defaultRentPrice: parseCurrency(addPrice),
+        defaultRentPrice: addPriceVnd,
         status: addStatus,
         roomType: addRoomType,
         hasPrivateBathroom: addRoomType === 'single' ? addHasPrivateBathroom : false,
@@ -405,6 +524,12 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         description: addDescription,
         amenities: addAmenities,
         serviceIds: addServiceIds,
+        servicePrices: customizeServicePrices
+          ? addServiceIds.map((serviceId) => ({
+              serviceId,
+              price: Number(addServicePrices[serviceId] || 0),
+            }))
+          : [],
       } as any);
 
       await fetchRooms();
@@ -430,6 +555,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     const roomImagePreviews = (room.imageUrls ?? []).slice(0, ROOM_IMAGE_LIMIT).map((url) => resolveRoomImageUrl(url)).filter(Boolean);
     setEditImagePreviews(roomImagePreviews);
     setEditImageFiles(roomImagePreviews.map(() => null));
+    setEditImageError(null);
     setEditAmenities(room.amenities ?? []);
     setEditServiceIds(room.serviceIds ?? []);
     setEditError(null);
@@ -535,12 +661,12 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
           </h2>
           <div className="flex items-center space-x-2">
             <Filter size={16} className="text-gray-500" />
-            <select value={filter} onChange={e => setFilter(e.target.value)} className="px-3 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+            <FilterSelect value={filter} onChange={e => setFilter(e.target.value)} className="px-3 py-1 text-sm bg-white focus:outline-none">
               <option value="all">Tất cả</option>
               <option value="empty">Trống</option>
               <option value="rented">Đã thuê</option>
               <option value="maintenance">Bảo trì</option>
-            </select>
+            </FilterSelect>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -596,7 +722,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
 
       {showAddModal && (
         <div className="admin-content-modal-overlay">
-          <div className="admin-content-modal-panel admin-content-modal-panel--narrow">
+          <div className="admin-content-modal-panel">
             <div className="admin-content-modal-header flex items-center justify-between border-b border-gray-300 px-5 py-3">
               <div className="flex items-center space-x-2">
                 <Home size={20} className="text-gray-800" />
@@ -634,14 +760,19 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                     inputId="add-room-image"
                     previews={addImagePreviews}
                     onRemove={removeAddImage}
-                    onPreview={(src, index) => {
-                      setPreviewImage({ src, title: `Ảnh phòng ${index + 1}` });
+                    onPreview={(_, index) => {
+                      setPreviewImage({ images: addImagePreviews, index, titlePrefix: 'Ảnh phòng' });
                     }}
                   />
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-gray-500">Đã chọn {addImagePreviews.length}/{ROOM_IMAGE_LIMIT} ảnh</p>
                     <p className="text-xs text-gray-500">Có thể chọn tối đa 6 ảnh cùng lúc. JPG, PNG, tối đa 5MB/ảnh.</p>
                   </div>
+                  {addImageError && (
+                    <p className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      {addImageError}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -664,12 +795,16 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Diện tích (m²) *</label>
+                    {addFieldErrors.area && (
+                      <p className="mb-1.5 text-xs text-red-600">{addFieldErrors.area}</p>
+                    )}
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="VD: 45"
                       value={addArea}
-                      onChange={e => setAddArea(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                      onChange={(e) => setDecimalField('area', e.target.value, setAddArea)}
+                      className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${addFieldErrors.area ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'}`}
                     />
                   </div>
                 </div>
@@ -677,13 +812,16 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Số người tối đa *</label>
+                    {addFieldErrors.maxPeople && (
+                      <p className="mb-1.5 text-xs text-red-600">{addFieldErrors.maxPeople}</p>
+                    )}
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="VD: 4"
-                      min="1"
                       value={addMaxPeople}
-                      onChange={e => setAddMaxPeople(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                      onChange={(e) => setIntegerField('maxPeople', e.target.value, setAddMaxPeople)}
+                      className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${addFieldErrors.maxPeople ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'}`}
                     />
                   </div>
                   <div>
@@ -699,24 +837,42 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-gray-700 mb-2">Giá phòng (VNĐ/tháng) *</label>
-                  <input
-                    type="text"
-                    placeholder="VD: 8.500.000"
-                    value={addPrice}
-                    onChange={e => setAddPrice(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                  />
-                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Giá phòng (triệu VNĐ/tháng) *</label>
+                    {addFieldErrors.price && (
+                      <p className="mb-1.5 text-xs text-red-600">{addFieldErrors.price}</p>
+                    )}
+                    <div
+                      className={`flex overflow-hidden rounded border bg-white ${addFieldErrors.price ? 'border-red-400' : 'border-gray-300 focus-within:border-gray-500'}`}
+                    >
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="VD: 8.5"
+                        value={addPrice}
+                        onChange={(e) => setDecimalField('price', e.target.value, setAddPrice)}
+                        className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm focus:outline-none"
+                      />
+                      <span className="flex items-center border-l border-gray-300 bg-gray-50 px-3 text-sm text-gray-600">
+                        triệu/tháng
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs text-gray-500">
+                      {addPriceVnd > 0
+                        ? `Tương đương ${addPriceVnd.toLocaleString('vi-VN')} VNĐ/tháng`
+                        : 'Ví dụ: nhập 8.5 cho giá 8.500.000 VNĐ/tháng'}
+                    </p>
+                  </div>
 
-                <div>
-                  <label className="block text-sm text-gray-700 mb-2">Tình trạng phòng *</label>
-                  <select value={addStatus} onChange={e => setAddStatus(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
-                    <option value="Trống">Trống</option>
-                    <option value="Đã thuê">Đã thuê</option>
-                    <option value="Bảo trì">Bảo trì</option>
-                  </select>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Tình trạng phòng *</label>
+                    <select value={addStatus} onChange={e => setAddStatus(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+                      <option value="Trống">Trống</option>
+                      <option value="Đã thuê">Đã thuê</option>
+                      <option value="Bảo trì">Bảo trì</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -731,19 +887,23 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">Số phòng khách *</label>
-                      <input type="number" min="0" placeholder="VD: 1" value={addLivingRoomCount} onChange={(e) => setAddLivingRoomCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                      {addFieldErrors.livingRoom && <p className="mb-1.5 text-xs text-red-600">{addFieldErrors.livingRoom}</p>}
+                      <input type="text" inputMode="numeric" placeholder="VD: 1" value={addLivingRoomCount} onChange={(e) => setIntegerField('livingRoom', e.target.value, setAddLivingRoomCount)} className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${addFieldErrors.livingRoom ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'}`} />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">Số phòng ngủ *</label>
-                      <input type="number" min="0" placeholder="VD: 2" value={addBedroomCount} onChange={(e) => setAddBedroomCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                      {addFieldErrors.bedroom && <p className="mb-1.5 text-xs text-red-600">{addFieldErrors.bedroom}</p>}
+                      <input type="text" inputMode="numeric" placeholder="VD: 2" value={addBedroomCount} onChange={(e) => setIntegerField('bedroom', e.target.value, setAddBedroomCount)} className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${addFieldErrors.bedroom ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'}`} />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">Số phòng bếp *</label>
-                      <input type="number" min="0" placeholder="VD: 1" value={addKitchenCount} onChange={(e) => setAddKitchenCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                      {addFieldErrors.kitchen && <p className="mb-1.5 text-xs text-red-600">{addFieldErrors.kitchen}</p>}
+                      <input type="text" inputMode="numeric" placeholder="VD: 1" value={addKitchenCount} onChange={(e) => setIntegerField('kitchen', e.target.value, setAddKitchenCount)} className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${addFieldErrors.kitchen ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'}`} />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">Số phòng vệ sinh *</label>
-                      <input type="number" min="0" placeholder="VD: 2" value={addBathroomCount} onChange={(e) => setAddBathroomCount(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                      {addFieldErrors.bathroom && <p className="mb-1.5 text-xs text-red-600">{addFieldErrors.bathroom}</p>}
+                      <input type="text" inputMode="numeric" placeholder="VD: 2" value={addBathroomCount} onChange={(e) => setIntegerField('bathroom', e.target.value, setAddBathroomCount)} className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${addFieldErrors.bathroom ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'}`} />
                     </div>
                   </div>
                 )}
@@ -753,30 +913,101 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">Phí dịch vụ cơ bản</label>
-                  <div className="bg-blue-50 border border-blue-300 rounded px-3 py-2 mb-3">
-                    <p className="text-xs text-blue-800">
-                      💡 Danh sách dịch vụ được lấy từ <strong>Quản lý Hạ tầng → Quản lý dịch vụ</strong>
-                    </p>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label className="block text-sm text-gray-700">Phí dịch vụ cơ bản</label>
+                    <button
+                      type="button"
+                      onClick={() => setCustomizeServicePrices((enabled) => !enabled)}
+                      className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        customizeServicePrices
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {customizeServicePrices ? 'Đang chỉnh giá riêng' : 'Chỉnh giá theo khu'}
+                    </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded">
+                  <div className="max-h-40 overflow-x-hidden overflow-y-auto rounded border border-gray-200">
                     {serviceCatalog.length === 0 ? (
-                      <span className="text-xs text-gray-500">Chưa có dịch vụ nào</span>
+                      <div className="p-3 text-xs text-gray-500">Chưa có dịch vụ nào</div>
                     ) : (
-                      serviceCatalog.map((service) => (
-                        <div className="flex items-center space-x-2" key={service.id}>
-                          <input
-                            type="checkbox"
-                            id={`service-${service.id}`}
-                            className="w-4 h-4"
-                            checked={addServiceIds.includes(service.id)}
-                            onChange={() => toggleService(service.id)}
-                          />
-                          <label htmlFor={`service-${service.id}`} className="text-sm text-gray-700">
-                            {service.name} {service.unit ? `(${service.unit})` : ''}
-                          </label>
-                        </div>
-                      ))
+                      <table className="!min-w-0 w-full table-fixed">
+                        <colgroup>
+                          <col style={{ width: '32px' }} />
+                          <col style={{ width: '52%' }} />
+                          <col />
+                        </colgroup>
+                        <thead className="sticky top-0 bg-gray-50">
+                          <tr>
+                            <th className="px-1 py-1.5 text-[11px] text-gray-600"></th>
+                            <th className="px-2 py-1.5 text-[11px] text-gray-600" style={{ textAlign: 'left' }}>Tên dịch vụ</th>
+                            <th className="px-2 py-1.5 text-[11px] text-gray-600" style={{ textAlign: 'right' }}>Giá</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {serviceCatalog.map((service) => {
+                            const selected = addServiceIds.includes(service.id);
+                            const defaultPrice = Number(service.commonUnitPrice ?? 0);
+                            const fieldError = addFieldErrors[`servicePrice-${service.id}`];
+                            return (
+                              <tr key={service.id} className="border-t border-gray-200">
+                                <td className="px-1 py-1.5" style={{ textAlign: 'center' }}>
+                                  <input
+                                    type="checkbox"
+                                    id={`service-${service.id}`}
+                                    className="h-3.5 w-3.5"
+                                    checked={selected}
+                                    onChange={() => toggleService(service.id)}
+                                  />
+                                </td>
+                                <td className="min-w-0 px-2 py-1.5" style={{ textAlign: 'left' }}>
+                                  <label htmlFor={`service-${service.id}`} className="block cursor-pointer truncate text-xs text-gray-700">
+                                    {service.name}
+                                    {service.unit && <span className="ml-1 text-xs text-gray-500">/{service.unit}</span>}
+                                  </label>
+                                </td>
+                                <td className="px-2 py-1.5" style={{ textAlign: 'right' }}>
+                                  {customizeServicePrices && selected ? (
+                                    <div
+                                      className="relative"
+                                      style={{
+                                        width: '120px',
+                                        maxWidth: '100%',
+                                        marginLeft: 'auto',
+                                        marginRight: 'auto',
+                                      }}
+                                    >
+                                      {fieldError && <p className="mb-1 text-left text-[11px] text-red-600">{fieldError}</p>}
+                                      <div className="relative">
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          value={addServicePrices[service.id] ?? String(defaultPrice)}
+                                          onChange={(event) => updateRoomServicePrice(service.id, event.target.value)}
+                                          className={`rounded border px-2 py-1 pr-10 text-right text-xs focus:outline-none ${
+                                            fieldError ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'
+                                          }`}
+                                          style={{
+                                            display: 'block',
+                                            width: '120px',
+                                            maxWidth: '100%',
+                                            boxSizing: 'border-box',
+                                          }}
+                                        />
+                                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 bg-inherit pl-1 text-[10px] text-gray-500">VNĐ</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-700">
+                                      {defaultPrice.toLocaleString('vi-VN')} VNĐ
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     )}
                   </div>
                 </div>
@@ -868,14 +1099,19 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                     inputId="edit-room-image"
                     previews={editImagePreviews}
                     onRemove={removeEditImage}
-                    onPreview={(src, index) => {
-                      setPreviewImage({ src, title: `Ảnh phòng ${index + 1}` });
+                    onPreview={(_, index) => {
+                      setPreviewImage({ images: editImagePreviews, index, titlePrefix: 'Ảnh phòng' });
                     }}
                   />
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-gray-500">Đã chọn {editImagePreviews.length}/{ROOM_IMAGE_LIMIT} ảnh</p>
                     <p className="text-xs text-gray-500">Có thể chọn tối đa 6 ảnh cùng lúc. JPG, PNG, tối đa 5MB/ảnh.</p>
                   </div>
+                  {editImageError && (
+                    <p className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      {editImageError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -906,7 +1142,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Giá thuê (VNĐ/tháng) *</label>
-                    <input type="text" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500" />
+                    <MoneyInput value={editPrice} onChange={setEditPrice} defaultScale="million" />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Trạng thái *</label>
@@ -1027,35 +1263,14 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         </div>
       )}
 
-      {previewImage && typeof document !== 'undefined' && createPortal((
-        <div
-          className="fixed inset-0 flex items-center justify-center p-6"
-          style={{
-            zIndex: 2147483647,
-            backgroundColor: 'rgba(15, 23, 42, 0.78)',
-            backdropFilter: 'blur(8px)',
-          }}
-          onClick={() => setPreviewImage(null)}
-        >
-          <div
-            className="relative flex items-center justify-center"
-            style={{ maxHeight: '72vh', maxWidth: '78vw' }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={previewImage.src}
-              alt={previewImage.title}
-              className="rounded bg-white object-contain shadow-2xl"
-              style={{
-                maxHeight: 'min(72vh, 560px)',
-                maxWidth: 'min(78vw, 720px)',
-                width: 'auto',
-                height: 'auto',
-              }}
-            />
-          </div>
-        </div>
-      ), document.body)}
+      {previewImage && (
+        <ImageViewer
+          images={previewImage.images}
+          initialIndex={previewImage.index}
+          titlePrefix={previewImage.titlePrefix}
+          onClose={() => setPreviewImage(null)}
+        />
+      )}
 
       {showDeleteModal && deleteRoom && (
         <div className="admin-content-modal-overlay">

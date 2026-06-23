@@ -1,3 +1,82 @@
+export function ContractEditHistoryModal({ contract, onClose }: ContractModalProps) {
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    contractService.getHistory(Number(contract?.id))
+      .then((items: any) => setHistory(Array.isArray(items) ? items : []))
+      .catch((err: any) => setError(err.message || 'Không thể tải lịch sử chỉnh sửa'))
+      .finally(() => setLoading(false));
+  }, [contract?.id]);
+
+  return (
+    <div className="admin-content-modal-overlay z-[80]">
+      <div className="admin-content-modal-panel">
+        <div className="admin-content-modal-header flex items-center justify-between px-6 py-4">
+          <div>
+            <h3 className="text-lg text-gray-800">Lịch sử chỉnh sửa hợp đồng</h3>
+            <p className="text-xs text-gray-500">{contract?.code || contract?.contractCode}</p>
+          </div>
+          <button onClick={onClose} className="product-action-icon" aria-label="Đóng"><X size={18} /></button>
+        </div>
+        <div className="admin-content-modal-body space-y-4 p-6">
+          {loading && <div className="flex justify-center py-10 text-gray-600"><Loader2 className="mr-2 animate-spin" size={20} />Đang tải...</div>}
+          {error && <p className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+          {!loading && !error && history.length === 0 && (
+            <p className="rounded border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">Hợp đồng chưa có lần chỉnh sửa nào.</p>
+          )}
+          {history.map((item) => {
+            let snapshot: any = {};
+            try { snapshot = JSON.parse(item.snapshotJson || '{}'); } catch {}
+            let formula: any[] = [];
+            try {
+              formula = typeof snapshot.BillingFormulaJson === 'string'
+                ? JSON.parse(snapshot.BillingFormulaJson)
+                : (snapshot.BillingFormulaJson || []);
+            } catch {}
+            const residents = Array.isArray(snapshot.Residents) ? snapshot.Residents : [];
+
+            return (
+              <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-900">Phiên bản {item.version}</span>
+                      {item.isCurrent && <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">Hiện tại</span>}
+                    </div>
+                    <p className="mt-1 text-sm text-gray-700">{item.summary}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {new Date(item.changedAt).toLocaleString('vi-VN')}
+                      {item.changedByName ? ` · ${item.changedByName}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-gray-500">
+                    <p>{residents.length} cư dân</p>
+                    <p>{formula.filter((row: any) => row.itemType !== 'TienPhong').length} dịch vụ</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3 text-sm">
+                  <div>
+                    <p className="mb-1 font-medium text-gray-700">Thành viên</p>
+                    <p className="text-gray-600">{residents.map((resident: any) => resident.FullName).filter(Boolean).join(', ') || 'Không có dữ liệu'}</p>
+                  </div>
+                  <div>
+                    <p className="mb-1 font-medium text-gray-700">Danh mục dịch vụ</p>
+                    <p className="text-gray-600">{formula.filter((row: any) => row.itemType !== 'TienPhong').map((row: any) => row.serviceName).filter(Boolean).join(', ') || 'Không có dịch vụ'}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="admin-content-modal-footer flex justify-end px-6 py-4">
+          <button onClick={onClose} className="app-button-secondary">Đóng</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function EditContractModal({ contract, onClose, onSuccess }: ContractModalProps) {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
@@ -14,10 +93,10 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const [monthlyRent, setMonthlyRent] = useState('');
   const [deposit, setDeposit] = useState('');
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
-  const [formulaQuantities, setFormulaQuantities] = useState<Record<string, string>>({});
   const [vehicleCount, setVehicleCount] = useState('0');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showEditHistory, setShowEditHistory] = useState(false);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -79,17 +158,6 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     return rows;
   }, [selectedServices, monthlyRent]);
 
-  const updateFormulaQuantity = (key: string, value: string) => {
-    const digitsOnly = value.replace(/\D/g, '');
-    setFormulaQuantities(prev => ({ ...prev, [key]: digitsOnly }));
-  };
-
-  const getNaturalQuantity = (key: string) => {
-    const raw = formulaQuantities[key] || '1';
-    const parsed = parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-  };
-
   const getVehicleQuantity = () => {
     const digitsOnly = vehicleCount.replace(/\D/g, '');
     const parsed = parseInt(digitsOnly, 10);
@@ -113,7 +181,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       return getPersonQuantity();
     }
 
-    return getNaturalQuantity(row.key);
+    return 1;
   };
 
   const getFormulaTotalText = (row: BillingFormulaRow) => {
@@ -143,7 +211,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     });
 
     return parts.join(' + ');
-  }, [formulaRows, formulaQuantities, vehicleCount, householdMemberCount]);
+  }, [formulaRows, vehicleCount, householdMemberCount]);
 
   const toggleServiceSelection = (serviceId: number) => {
     setSelectedServiceIds(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
@@ -162,7 +230,6 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     if (!startDate || !monthlyRent) { setError('Vui lòng điền đầy đủ: Ngày bắt đầu, Tiền thuê'); return; }
     setLoading(true); setError(null);
     try {
-      const end = new Date(startDate); end.setMonth(end.getMonth() + parseInt(durationMonths));
       const currentResidents = tenantList || contract?.residents || [];
       const mainResident = currentResidents.find((r: any) => r.residencyRole === 'Người thuê chính');
       const existingResidentIds = new Set(
@@ -197,8 +264,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       }
 
       await contractService.update(Number(contract.id), {
-        startDate, expectedEndDate: formatLocalDateInput(end), actualRentPrice: parseFloat(monthlyRent.replace(/[^0-9.]/g, '')),
-        depositAmount: deposit ? parseFloat(deposit.replace(/[^0-9.]/g, '')) : undefined, selectedServiceIds,
+        selectedServiceIds,
         billingFormulaItems: formulaRows.map((row) => ({ sortOrder: row.sortOrder, itemType: row.itemType, serviceId: row.serviceId, serviceName: row.serviceName,
           unitPrice: row.unitPrice,
           quantity: row.quantityExpression === 'n' ? null : getRowQuantity(row),
@@ -236,6 +302,12 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
         <div className="p-6 space-y-6">
           <div className="bg-blue-50 border border-blue-300 rounded p-4">
             <p className="text-sm text-blue-900"><strong>ℹ️ Phòng {contract?.room}</strong> được cố định. Nếu cần chuyển phòng, vui lòng tạo hợp đồng mới.</p>
+            <p className="mt-1 text-sm text-blue-900">Giá thuê, tiền cọc và thời hạn là điều khoản đã ký nên không chỉnh tại đây. Dùng chức năng <strong>Gia hạn hợp đồng</strong> để kéo dài thời gian thuê.</p>
+            <div className="mt-3 flex justify-end border-t border-blue-200 pt-3">
+              <button type="button" onClick={() => setShowEditHistory(true)} className="text-sm font-semibold text-blue-700 hover:text-blue-900">
+                Xem lịch sử chỉnh sửa
+              </button>
+            </div>
           </div>
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
@@ -294,18 +366,18 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
               <div><label className="block text-sm text-gray-700 mb-2">Mã hợp đồng</label>
                 <input type="text" value={contract?.code || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
               <div><label className="block text-sm text-gray-700 mb-2">Ngày bắt đầu *</label>
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500" /></div>
+                <input type="date" value={startDate} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600" /></div>
               <div><label className="block text-sm text-gray-700 mb-2">Thời hạn *</label>
-                <select value={durationMonths} onChange={e => setDurationMonths(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500">
+                <select value={durationMonths} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600">
                   {durationOptions.map((m) => (<option key={m} value={String(m)}>{m % 12 === 0 ? `${m / 12} năm` : `${m} tháng`}</option>))}
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 mt-3">
-              <div><label className="block text-sm text-gray-700 mb-2">Tiền thuê/tháng (VNĐ) *</label>
-                <input type="text" value={monthlyRent} onChange={e => setMonthlyRent(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500" /></div>
-              <div><label className="block text-sm text-gray-700 mb-2">Tiền cọc (VNĐ)</label>
-                <input type="text" value={deposit} onChange={e => setDeposit(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-gray-500" /></div>
+              <div><label className="block text-sm text-gray-700 mb-2">Tiền thuê/tháng *</label>
+                <MoneyInput value={monthlyRent} onChange={setMonthlyRent} defaultScale="million" disabled /></div>
+              <div><label className="block text-sm text-gray-700 mb-2">Tiền cọc</label>
+                <MoneyInput value={deposit} onChange={setDeposit} defaultScale="million" disabled /></div>
             </div>
           </div>
 
@@ -314,10 +386,15 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
             <div className="space-y-2">
               {activePricingCatalog.map((service: any) => (
                 <button key={service.id || service.serviceId} type="button" onClick={() => toggleServiceSelection(Number(service.id ?? service.serviceId ?? 0))}
-                  className="w-full flex items-center justify-between text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50">
-                  <span className="flex items-center gap-2"><input type="checkbox" checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))} readOnly className="pointer-events-none" />
-                    <span>{service.name || service.serviceName}</span></span>
-                  <span className="text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
+                  className="w-full flex items-start justify-between gap-3 text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50">
+                  <span className="text-left">
+                    <span className="flex items-center gap-2">
+                      <input type="checkbox" checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))} readOnly className="pointer-events-none h-4 w-4 shrink-0" />
+                      <span>{service.name || service.serviceName}</span>
+                    </span>
+                    <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
+                  </span>
+                  <span className="shrink-0 text-right text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
                 </button>
               ))}
             </div>
@@ -364,19 +441,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                         ) : row.quantityMode === 'person' ? (
                           <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
                         ) : (
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={formulaQuantities[row.key] || '1'}
-                            onChange={(e) => updateFormulaQuantity(row.key, e.target.value)}
-                            onBlur={(e) => {
-                              if (!e.target.value || parseInt(e.target.value, 10) <= 0) {
-                                updateFormulaQuantity(row.key, '1');
-                              }
-                            }}
-                            className="w-20 px-2 py-1 text-center border border-gray-300 rounded"
-                          />
+                          <span className="font-bold text-gray-700">1</span>
                         )}
                       </td>
                       <td className="px-3 py-2 border-b border-gray-100 text-gray-700">{getRowFormulaText(row)}</td>
@@ -407,6 +472,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
         </div>
       </div>
       {showAddMemberModal && <AddFamilyMemberModal onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMember} />}
+      {showEditHistory && <ContractEditHistoryModal contract={contract} onClose={() => setShowEditHistory(false)} />}
     </div>
   );
 }
@@ -418,6 +484,7 @@ import { formatLocalDateInput } from '../../lib/date-utils';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { invoiceService, serviceService } from '../../services/api.service';
+import { MoneyInput } from '../ui/MoneyInput';
 
 interface ContractModalProps {
   contract?: any;
@@ -473,6 +540,14 @@ function isPerPersonService(service: any) {
   return unit.includes('nguoi') || unit.includes('person') || name.includes('nguoi') || type.includes('nguoi');
 }
 
+function formatServicePriceUpdatedAt(service: any) {
+  const value = service?.priceUpdatedAt || service?.effectiveDate || service?.applyFrom;
+  if (!value) return 'Chưa có';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Chưa có';
+  return date.toLocaleDateString('vi-VN');
+}
+
 function toNumber(value: any) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -494,6 +569,147 @@ function getNextSequence(contracts: any[], year: number) {
   });
 
   return max + 1;
+}
+
+export function ExtendContractModal({ contract, onClose, onSuccess }: ContractModalProps) {
+  const [currentEndDate, setCurrentEndDate] = useState('');
+  const [newEndDate, setNewEndDate] = useState('');
+  const [extensionMonths, setExtensionMonths] = useState('12');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadContract = async () => {
+      try {
+        setLoading(true);
+        const detail: any = await contractService.getById(Number(contract?.id));
+        const endDate = detail?.expectedEndDate || contract?.expectedEndDate;
+        if (!endDate) throw new Error('Hợp đồng chưa có ngày kết thúc');
+
+        const normalizedEndDate = formatLocalDateInput(new Date(endDate));
+        setCurrentEndDate(normalizedEndDate);
+        const extendedDate = new Date(`${normalizedEndDate}T00:00:00`);
+        extendedDate.setMonth(extendedDate.getMonth() + 12);
+        setNewEndDate(formatLocalDateInput(extendedDate));
+      } catch (err: any) {
+        setError(err.message || 'Không thể tải thông tin hợp đồng');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadContract();
+  }, [contract?.id]);
+
+  const applyExtensionMonths = (months: string) => {
+    setExtensionMonths(months);
+    if (!currentEndDate) return;
+    const date = new Date(`${currentEndDate}T00:00:00`);
+    date.setMonth(date.getMonth() + Number(months));
+    setNewEndDate(formatLocalDateInput(date));
+  };
+
+  const handleSubmit = async () => {
+    if (!currentEndDate || !newEndDate || newEndDate <= currentEndDate) {
+      setError('Ngày kết thúc mới phải sau ngày kết thúc hiện tại');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      await contractService.extend(Number(contract.id), newEndDate);
+      await onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Không thể gia hạn hợp đồng');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const minimumEndDate = currentEndDate
+    ? (() => {
+        const date = new Date(`${currentEndDate}T00:00:00`);
+        date.setDate(date.getDate() + 1);
+        return formatLocalDateInput(date);
+      })()
+    : undefined;
+
+  return (
+    <div className="admin-content-modal-overlay">
+      <div className="admin-content-modal-panel admin-content-modal-panel--narrow">
+        <div className="admin-content-modal-header flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+              <Calendar size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg text-gray-800">Gia hạn hợp đồng</h3>
+              <p className="text-xs text-gray-500">{contract?.code} · Phòng {contract?.room}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="product-action-icon" aria-label="Đóng"><X size={18} /></button>
+        </div>
+
+        <div className="admin-content-modal-body space-y-5 p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-10 text-gray-600">
+              <Loader2 size={22} className="mr-2 animate-spin" />Đang tải hợp đồng...
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                Gia hạn chỉ thay đổi ngày kết thúc. Giá thuê <strong>{Number(contract?.monthlyRent || 0).toLocaleString('vi-VN')} VNĐ/tháng</strong> và tiền cọc <strong>{Number(contract?.deposit || 0).toLocaleString('vi-VN')} VNĐ</strong> được giữ nguyên.
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-2 block text-sm text-gray-700">Ngày kết thúc hiện tại</label>
+                  <input type="date" value={currentEndDate} disabled className="w-full rounded border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600" />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm text-gray-700">Gia hạn thêm</label>
+                  <select value={extensionMonths} onChange={(event) => applyExtensionMonths(event.target.value)} className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm">
+                    <option value="1">1 tháng</option>
+                    <option value="3">3 tháng</option>
+                    <option value="6">6 tháng</option>
+                    <option value="12">1 năm</option>
+                    <option value="24">2 năm</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-gray-700">Ngày kết thúc mới *</label>
+                <input
+                  type="date"
+                  min={minimumEndDate}
+                  value={newEndDate}
+                  onChange={(event) => {
+                    setNewEndDate(event.target.value);
+                    setExtensionMonths('');
+                  }}
+                  className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+
+              {error && <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            </>
+          )}
+        </div>
+
+        <div className="admin-content-modal-footer flex justify-end gap-3 px-6 py-4">
+          <button onClick={onClose} disabled={submitting} className="app-button-secondary">Hủy</button>
+          <button onClick={handleSubmit} disabled={loading || submitting} className="app-button-primary">
+            {submitting && <Loader2 size={16} className="animate-spin" />}
+            <span>Xác nhận gia hạn</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) {
@@ -529,14 +745,94 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   const [customDurationUnit, setCustomDurationUnit] = useState<'months' | 'years'>('months');
   const [monthlyRent, setMonthlyRent] = useState('');
   const [deposit, setDeposit] = useState('');
+  const [depositPaid, setDepositPaid] = useState(false);
   const [contractSequence, setContractSequence] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
-  const [formulaQuantities, setFormulaQuantities] = useState<Record<string, string>>({});
   const [vehicleCount, setVehicleCount] = useState('0');
 
   // Loading/error
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const setFieldError = (field: string, message?: string) => {
+    setFieldErrors(prev => {
+      const next = { ...prev };
+      if (message) next[field] = message;
+      else delete next[field];
+      return next;
+    });
+  };
+
+  const handleNameInput = (value: string) => {
+    const normalized = value.replace(/\s+/g, ' ');
+    const validValue = normalized.replace(/[^\p{L}\s.'-]/gu, '');
+    setTenantName(validValue);
+    setFieldError('tenantName', value !== validValue ? 'Sai định dạng. Họ tên chỉ được nhập chữ và khoảng trắng' : undefined);
+  };
+
+  const handleDigitsInput = (field: string, value: string, setter: (next: string) => void, label: string, maxLength?: number) => {
+    const digitsOnly = value.replace(/\D/g, '');
+    const nextValue = maxLength ? digitsOnly.slice(0, maxLength) : digitsOnly;
+    setter(nextValue);
+
+    if (value !== digitsOnly) {
+      setFieldError(field, `Sai định dạng. Vui lòng chỉ nhập số cho ${label}`);
+      return;
+    }
+
+    if (maxLength && digitsOnly.length > maxLength) {
+      setFieldError(field, `${label} chỉ được tối đa ${maxLength} số`);
+      return;
+    }
+
+    setFieldError(field);
+  };
+
+  const handleEmailInput = (value: string) => {
+    const trimmed = value.trim();
+    setTenantEmail(trimmed);
+    const isValid = !trimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+    setFieldError('tenantEmail', isValid ? undefined : 'Sai định dạng. Vui lòng nhập đúng định dạng email');
+  };
+
+  const validateCreateContractFields = () => {
+    const nextErrors: Record<string, string> = {};
+
+    if (tenantType === 'new') {
+      if (tenantName.trim() && !/^[\p{L}\s.'-]+$/u.test(tenantName.trim())) {
+        nextErrors.tenantName = 'Sai định dạng. Họ tên chỉ được nhập chữ và khoảng trắng';
+      }
+      if (tenantIdCard && !/^\d{9}$|^\d{12}$/.test(tenantIdCard)) {
+        nextErrors.tenantIdCard = 'Sai định dạng. CMND/CCCD phải gồm 9 hoặc 12 số';
+      }
+      if (tenantPhone && !/^0\d{9}$/.test(tenantPhone)) {
+        nextErrors.tenantPhone = 'Sai định dạng. Số điện thoại phải gồm 10 số và bắt đầu bằng 0';
+      }
+      if (tenantEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tenantEmail)) {
+        nextErrors.tenantEmail = 'Sai định dạng. Vui lòng nhập đúng định dạng email';
+      }
+    }
+
+    if (!/^\d+$/.test(durationMonths) || Number(durationMonths) <= 0) {
+      nextErrors.durationMonths = 'Sai định dạng. Thời hạn phải là số nguyên dương';
+    }
+    if (showCustomDurationInput && customDurationValue && (!/^\d+$/.test(customDurationValue) || Number(customDurationValue) <= 0)) {
+      nextErrors.customDurationValue = 'Sai định dạng. Vui lòng nhập số nguyên dương';
+    }
+    if (vehicleCount && (!/^\d+$/.test(vehicleCount) || Number(vehicleCount) < 0)) {
+      nextErrors.vehicleCount = 'Sai định dạng. Số lượng xe phải là số nguyên không âm';
+    }
+    if (!monthlyRent || toNumber(monthlyRent) <= 0) {
+      nextErrors.monthlyRent = 'Sai định dạng. Tiền thuê phải lớn hơn 0';
+    }
+    if (deposit && toNumber(deposit) < 0) {
+      nextErrors.deposit = 'Sai định dạng. Tiền cọc không được âm';
+    }
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   useEffect(() => {
     buildingService.getAll().then((data: any) => setBuildings(Array.isArray(data) ? data : data?.data ?? [])).catch(() => {});
@@ -562,11 +858,16 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
   const addCustomDuration = () => {
     const n = parseInt(customDurationValue, 10);
-    if (!Number.isFinite(n) || n <= 0) return;
+    if (!Number.isFinite(n) || n <= 0) {
+      setFieldError('customDurationValue', 'Sai định dạng. Vui lòng nhập số nguyên dương');
+      return;
+    }
     const months = customDurationUnit === 'years' ? n * 12 : n;
     // Custom duration is only applied for current contract, not persisted to base option list.
     setAppliedCustomDurationMonths(String(months));
     setDurationMonths(String(months));
+    setFieldError('durationMonths');
+    setFieldError('customDurationValue');
     setCustomDurationValue('');
     setShowCustomDurationInput(false);
   };
@@ -621,17 +922,6 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     return rows;
   }, [selectedServices, monthlyRent]);
 
-  const updateFormulaQuantity = (key: string, value: string) => {
-    const digitsOnly = value.replace(/\D/g, '');
-    setFormulaQuantities(prev => ({ ...prev, [key]: digitsOnly }));
-  };
-
-  const getNaturalQuantity = (key: string) => {
-    const raw = formulaQuantities[key] || '1';
-    const parsed = parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-  };
-
   const getVehicleQuantity = () => {
     const digitsOnly = vehicleCount.replace(/\D/g, '');
     const parsed = parseInt(digitsOnly, 10);
@@ -655,7 +945,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       return getPersonQuantity();
     }
 
-    return getNaturalQuantity(row.key);
+    return 1;
   };
 
   const getFormulaTotalText = (row: BillingFormulaRow) => {
@@ -685,7 +975,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     });
 
     return parts.join(' + ');
-  }, [formulaRows, formulaQuantities, vehicleCount, householdMemberCount]);
+  }, [formulaRows, vehicleCount, householdMemberCount]);
 
   const toggleServiceSelection = (serviceId: number) => {
     setSelectedServiceIds(prev => prev.includes(serviceId)
@@ -758,6 +1048,11 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   };
 
   const handleSubmit = async () => {
+    if (!validateCreateContractFields()) {
+      setError('Vui lòng kiểm tra lại các trường sai định dạng');
+      return;
+    }
+
     if (!selectedRoomId || !startDate || !monthlyRent) {
       setError('Vui lòng điền đầy đủ: Phòng, Ngày bắt đầu, Tiền thuê');
       return;
@@ -838,6 +1133,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
         expectedEndDate: formatLocalDateInput(end),
         actualRentPrice: parseFloat(monthlyRent.replace(/[^0-9.]/g, '')),
         depositAmount: deposit ? parseFloat(deposit.replace(/[^0-9.]/g, '')) : undefined,
+        depositPaid,
         selectedServiceIds,
         billingFormulaItems: formulaRows.map((row) => ({
           sortOrder: row.sortOrder,
@@ -931,7 +1227,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
-                <input type="radio" name="tenantType" id="newTenant" checked={tenantType === 'new'} onChange={() => { setTenantType('new'); setSelectedResidentId(''); }} className="w-4 h-4" />
+                <input type="radio" name="tenantType" id="newTenant" checked={tenantType === 'new'} onChange={() => { setTenantType('new'); setSelectedResidentId(''); setFieldErrors({}); }} className="w-4 h-4" />
                 <label htmlFor="newTenant" className="text-sm text-gray-700 font-bold">Cư dân mới (Tự động tạo tài khoản)</label>
               </div>
 
@@ -942,10 +1238,11 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     type="text"
                     placeholder="VD: Nguyễn Văn A"
                     value={tenantName}
-                    onChange={e => setTenantName(e.target.value)}
+                    onChange={e => handleNameInput(e.target.value)}
                     disabled={tenantType !== 'new'}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
+                  {fieldErrors.tenantName && <p className="mt-1 text-xs text-red-600">{fieldErrors.tenantName}</p>}
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">CMND/CCCD *</label>
@@ -953,10 +1250,13 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     type="text"
                     placeholder="VD: 001234567890"
                     value={tenantIdCard}
-                    onChange={e => setTenantIdCard(e.target.value)}
+                    onChange={e => handleDigitsInput('tenantIdCard', e.target.value, setTenantIdCard, 'CMND/CCCD', 12)}
+                    inputMode="numeric"
+                    maxLength={12}
                     disabled={tenantType !== 'new'}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
+                  {fieldErrors.tenantIdCard && <p className="mt-1 text-xs text-red-600">{fieldErrors.tenantIdCard}</p>}
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Số điện thoại *</label>
@@ -964,10 +1264,13 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     type="text"
                     placeholder="VD: 0912345678"
                     value={tenantPhone}
-                    onChange={e => setTenantPhone(e.target.value)}
+                    onChange={e => handleDigitsInput('tenantPhone', e.target.value, setTenantPhone, 'số điện thoại', 10)}
+                    inputMode="numeric"
+                    maxLength={10}
                     disabled={tenantType !== 'new'}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
+                  {fieldErrors.tenantPhone && <p className="mt-1 text-xs text-red-600">{fieldErrors.tenantPhone}</p>}
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Email</label>
@@ -975,15 +1278,16 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     type="email"
                     placeholder="VD: email@example.com"
                     value={tenantEmail}
-                    onChange={e => setTenantEmail(e.target.value)}
+                    onChange={e => handleEmailInput(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
+                  {fieldErrors.tenantEmail && <p className="mt-1 text-xs text-red-600">{fieldErrors.tenantEmail}</p>}
                 </div>
               </div>
 
               <div className="border-t border-gray-300 pt-3">
                 <div className="flex items-center space-x-3">
-                  <input type="radio" name="tenantType" id="existingTenant" checked={tenantType === 'existing'} onChange={() => setTenantType('existing')} className="w-4 h-4" />
+                  <input type="radio" name="tenantType" id="existingTenant" checked={tenantType === 'existing'} onChange={() => { setTenantType('existing'); setFieldErrors({}); }} className="w-4 h-4" />
                   <label htmlFor="existingTenant" className="text-sm text-gray-700 font-bold">Chọn từ cư dân đã có</label>
                 </div>
                 {tenantType === 'existing' && (
@@ -1156,6 +1460,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     value={durationMonths}
                     onChange={e => {
                       setDurationMonths(e.target.value);
+                      setFieldError('durationMonths');
                       if (appliedCustomDurationMonths && e.target.value !== appliedCustomDurationMonths) {
                         setAppliedCustomDurationMonths('');
                       }
@@ -1188,7 +1493,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                       type="number"
                       min={1}
                       value={customDurationValue}
-                      onChange={e => setCustomDurationValue(e.target.value)}
+                      onChange={e => handleDigitsInput('customDurationValue', e.target.value, setCustomDurationValue, 'thời hạn')}
+                      inputMode="numeric"
                       placeholder="Thời hạn"
                       className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     />
@@ -1210,29 +1516,37 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     </button>
                   </div>
                 )}
+                {fieldErrors.durationMonths && <p className="mt-1 text-xs text-red-600">{fieldErrors.durationMonths}</p>}
+                {fieldErrors.customDurationValue && <p className="mt-1 text-xs text-red-600">{fieldErrors.customDurationValue}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-3">
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Tiền thuê/tháng (VNĐ) *</label>
-                <input 
-                  type="text"
-                  placeholder="VD: 8500000"
-                  value={monthlyRent}
-                  onChange={e => setMonthlyRent(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                />
+                <label className="block text-sm text-gray-700 mb-2">Tiền thuê/tháng *</label>
+                <MoneyInput value={monthlyRent} onChange={(value) => { setMonthlyRent(value); setFieldError('monthlyRent'); }} defaultScale="million" />
+                {fieldErrors.monthlyRent && <p className="mt-1 text-xs text-red-600">{fieldErrors.monthlyRent}</p>}
               </div>
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Tiền cọc (VNĐ)</label>
-                <input 
-                  type="text"
-                  placeholder="Thường = 1 tháng thuê"
-                  value={deposit}
-                  onChange={e => setDeposit(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                />
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block text-sm text-gray-700">Tiền cọc</label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={depositPaid}
+                      onChange={(event) => setDepositPaid(event.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <span>Đã nộp tiền cọc</span>
+                  </label>
+                </div>
+                <MoneyInput value={deposit} onChange={(value) => { setDeposit(value); setFieldError('deposit'); }} defaultScale="million" />
+                {fieldErrors.deposit && <p className="mt-1 text-xs text-red-600">{fieldErrors.deposit}</p>}
+                {depositPaid && (
+                  <p className="mt-1.5 text-xs text-green-700">
+                    Đã ghi nhận tiền cọc, cư dân không cần nộp thêm.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1255,18 +1569,21 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     type="button"
                     key={service.id || service.serviceId || service.name}
                     onClick={() => toggleServiceSelection(Number(service.id ?? service.serviceId ?? 0))}
-                    className="w-full flex items-center justify-between text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50"
+                    className="w-full flex items-start justify-between gap-3 text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50"
                   >
-                    <span className="flex items-center gap-2 cursor-pointer text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))}
-                        readOnly
-                        className="pointer-events-none"
-                      />
-                      <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
+                    <span className="cursor-pointer text-left">
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))}
+                          readOnly
+                          className="pointer-events-none h-4 w-4 shrink-0"
+                        />
+                        <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
+                      </span>
+                      <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
                     </span>
-                    <span className="text-gray-800 font-bold">
+                    <span className="shrink-0 text-right text-gray-800 font-bold">
                       {Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
                     </span>
                   </button>
@@ -1289,9 +1606,11 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                   min="0"
                   step="1"
                   value={vehicleCount}
-                  onChange={(e) => setVehicleCount(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => handleDigitsInput('vehicleCount', e.target.value, setVehicleCount, 'số lượng xe')}
+                  inputMode="numeric"
                   className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
+                {fieldErrors.vehicleCount && <p className="text-xs text-red-600 mt-1">{fieldErrors.vehicleCount}</p>}
                 <p className="text-xs text-gray-500 mt-1">Số lượng này sẽ tự động dùng cho tất cả dòng dịch vụ tính theo đầu xe.</p>
               </div>
             )}
@@ -1324,19 +1643,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                         ) : row.quantityMode === 'person' ? (
                           <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
                         ) : (
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={formulaQuantities[row.key] || '1'}
-                            onChange={(e) => updateFormulaQuantity(row.key, e.target.value)}
-                            onBlur={(e) => {
-                              if (!e.target.value || parseInt(e.target.value, 10) <= 0) {
-                                updateFormulaQuantity(row.key, '1');
-                              }
-                            }}
-                            className="w-20 px-2 py-1 text-center border border-gray-300 rounded"
-                          />
+                          <span className="font-bold text-gray-700">1</span>
                         )}
                       </td>
                       <td className="px-3 py-2 border-b border-gray-100 text-gray-700">{getRowFormulaText(row)}</td>
@@ -1630,7 +1937,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
     : (contractDetail?.endDate ? formatDateVi(contractDetail.endDate) : (contract?.endDate || '-'));
   const displayRent = contractDetail?.monthlyRent ?? contractDetail?.actualRentPrice ?? contract?.monthlyRent ?? 0;
   const displayDeposit = contractDetail?.deposit ?? contractDetail?.depositAmount ?? contract?.deposit ?? 0;
-
   const residentList: any[] = Array.isArray(contractDetail?.residents)
     ? contractDetail.residents
     : (Array.isArray(contract?.residents) ? contract.residents : []);
@@ -1868,8 +2174,11 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                 <div className="space-y-2 text-sm">
                   {activeServices.length > 0 ? (
                     activeServices.map((service: any) => (
-                      <div key={service.serviceId || service.id || service.name} className="flex justify-between items-center">
-                        <span className="text-gray-700">{service.serviceName || service.name || 'Dịch vụ'}</span>
+                      <div key={service.serviceId || service.id || service.name} className="flex justify-between items-start gap-3">
+                        <span className="text-gray-700">
+                          <span className="block">{service.serviceName || service.name || 'Dịch vụ'}</span>
+                          <span className="block text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
+                        </span>
                         <span className="text-gray-800 font-bold">
                           {fmtCurrency(service.unitPrice ?? service.commonUnitPrice ?? service.price ?? 0)} VNĐ{service.unit ? `/${service.unit}` : ''}
                         </span>

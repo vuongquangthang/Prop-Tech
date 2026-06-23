@@ -2,6 +2,7 @@ import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle, X, 
 import { useState, useEffect } from 'react';
 import { tatToanService, contractService, invoiceService } from '../../services/api.service';
 import { formatLocalDateInput } from '../../lib/date-utils';
+import { MoneyInput } from '../ui/MoneyInput';
 
 function parseAmount(input: string): number {
   const normalized = input.replace(/[^0-9.-]/g, '');
@@ -549,13 +550,7 @@ function CreateSettlementTab() {
               <h3 className="text-lg text-gray-800">1. Tiền cọc gốc</h3>
             </div>
             <div className="p-6">
-              <input
-                type="text"
-                value={formatAmount(depositRefundInput)}
-                onChange={(e) => setDepositRefundInput(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-lg text-gray-900 focus:outline-none focus:border-gray-500"
-              />
-              <p className="text-xs text-gray-600 mt-1">VNĐ</p>
+              <MoneyInput value={depositRefundInput} onChange={setDepositRefundInput} defaultScale="million" />
             </div>
           </div>
 
@@ -583,21 +578,11 @@ function CreateSettlementTab() {
               <div className="border-t border-gray-200 pt-2">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-gray-700">Khấu trừ khác</p>
-                  <input
-                    type="text"
-                    value={formatAmount(deductionsInput)}
-                    onChange={(e) => setDeductionsInput(e.target.value)}
-                    className="w-40 border border-gray-300 rounded px-3 py-2 text-right text-sm focus:outline-none focus:border-gray-500"
-                  />
+                  <MoneyInput value={deductionsInput} onChange={setDeductionsInput} defaultScale="thousand" compact className="w-48" />
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-gray-700">Bồi thường cộng thêm</p>
-                  <input
-                    type="text"
-                    value={formatAmount(compensationInput)}
-                    onChange={(e) => setCompensationInput(e.target.value)}
-                    className="w-40 border border-gray-300 rounded px-3 py-2 text-right text-sm focus:outline-none focus:border-gray-500"
-                  />
+                  <MoneyInput value={compensationInput} onChange={setCompensationInput} defaultScale="thousand" compact className="w-48" />
                 </div>
               </div>
 

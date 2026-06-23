@@ -431,6 +431,19 @@
     padding: 12px;
     background: var(--overlay);
     backdrop-filter: blur(4px);
+    overscroll-behavior: none;
+    touch-action: pan-y;
+  }
+
+  .admin-content-dialog-overlay {
+    overscroll-behavior: none;
+    touch-action: pan-y;
+  }
+
+  body:has(.admin-content-modal-overlay),
+  body:has(.admin-content-dialog-overlay) {
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   @media (min-width: 1280px) {
@@ -444,18 +457,38 @@
   }
 
   .admin-content-modal-panel {
-    width: min(100%, 820px);
+    width: min(100%, 960px) !important;
+    max-width: 960px !important;
     max-height: calc(100% - 24px);
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--surface-level-3);
     border: 1px solid var(--surface-level-3-border);
     border-radius: var(--radius-modal);
     box-shadow: var(--shadow-strong);
     animation: productModalIn 180ms var(--ease-product);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-content-modal-overlay > div:not(.admin-content-modal-panel),
+  .admin-content-dialog-content {
+    width: min(100%, 960px) !important;
+    max-width: 960px !important;
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
   }
 
   .admin-content-modal-panel--narrow {
-    width: min(100%, 760px);
+    width: min(100%, 960px) !important;
+    max-width: 960px !important;
   }
 
   .admin-content-modal-header,
@@ -1428,8 +1461,214 @@
     min-height: 42px;
     border: 1px solid var(--surface-level-3-border) !important;
     border-radius: var(--radius-input) !important;
-    background: var(--surface-level-3) !important;
+    background-color: var(--surface-level-3) !important;
     color: var(--text-primary) !important;
+  }
+
+  .admin-main-content select:not([multiple]) {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    appearance: auto !important;
+    -webkit-appearance: auto !important;
+    -moz-appearance: auto !important;
+    background-color: var(--surface-level-3) !important;
+  }
+
+  .admin-main-content select.filter-select {
+    width: auto;
+    padding-right: 38px !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    field-sizing: content;
+  }
+
+  select.filter-select {
+    padding-right: 38px !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    field-sizing: content;
+    font-weight: 400 !important;
+  }
+
+  select.filter-select option {
+    font-weight: 400;
+  }
+
+  .filter-select-wrapper {
+    position: relative;
+    display: inline-block;
+    border: 1px solid var(--surface-level-3-border);
+    border-radius: var(--radius-input);
+    background-color: var(--surface-level-3);
+    cursor: pointer;
+  }
+
+  .filter-select-wrapper .filter-select {
+    border: 0 !important;
+    background-color: transparent !important;
+    cursor: pointer;
+  }
+
+  .filter-select-wrapper:focus-within {
+    border-color: var(--surface-border-strong);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .filter-select-wrapper .filter-select:focus,
+  .filter-select-wrapper .filter-select:focus-visible {
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .filter-select-wrapper > svg {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    z-index: 1;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--text-secondary);
+  }
+
+  .service-price-control {
+    display: flex;
+    height: 48px;
+    min-height: 48px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .service-price-control:focus-within {
+    border-color: transparent;
+  }
+
+  .service-price-control.is-error {
+    border-color: transparent;
+  }
+
+  .admin-main-content .service-price-control .service-price-input {
+    position: relative;
+    z-index: 2;
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100% !important;
+    min-height: 0 !important;
+    border: 1px solid var(--surface-level-3-border) !important;
+    border-radius: var(--radius-input) !important;
+    outline: 0 !important;
+    background: var(--surface-level-3) !important;
+    box-shadow: none !important;
+  }
+
+  .admin-main-content .service-price-control .service-price-scale {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 120px;
+    width: 120px;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin-left: -14px;
+    padding-left: 24px !important;
+    border: 1px solid var(--surface-level-3-border) !important;
+    border-radius: var(--radius-input) !important;
+    outline: 0 !important;
+    background: var(--surface-level-4) !important;
+    box-shadow: none !important;
+  }
+
+  .admin-main-content .service-price-control .service-price-input:focus {
+    border-color: var(--surface-border-strong) !important;
+    box-shadow: none !important;
+  }
+
+  .admin-main-content .service-price-control .service-price-scale:focus {
+    border-color: var(--surface-border-strong) !important;
+    box-shadow: none !important;
+  }
+
+  .admin-main-content .service-price-control.is-error .service-price-input,
+  .admin-main-content .service-price-control.is-error .service-price-scale {
+    border-color: var(--error) !important;
+  }
+
+  .service-unit-trigger {
+    height: 48px;
+    min-height: 48px;
+    border: 1px solid var(--surface-level-3-border);
+    border-radius: var(--radius-input);
+    background: var(--surface-level-3);
+    color: var(--text-primary);
+  }
+
+  .service-unit-trigger:hover,
+  .service-unit-trigger:focus {
+    border-color: var(--surface-border-strong);
+    outline: none;
+    box-shadow: none;
+  }
+
+  .money-input-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 108px;
+    min-height: 42px;
+    align-items: stretch;
+    overflow: visible;
+    background: transparent;
+  }
+
+  .admin-main-content .money-input-control > input,
+  .admin-main-content .money-input-control > select {
+    width: 100%;
+    min-height: 42px !important;
+    border: 1px solid var(--surface-level-3-border) !important;
+    border-radius: var(--radius-input) !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .admin-main-content .money-input-control > input {
+    position: relative;
+    z-index: 2;
+    padding: 8px 12px;
+    background: var(--surface-level-3) !important;
+  }
+
+  .admin-main-content .money-input-control > select {
+    position: relative;
+    z-index: 1;
+    width: calc(100% + 12px);
+    margin-left: -12px;
+    padding: 8px 10px 8px 22px !important;
+    background: var(--surface-level-4) !important;
+  }
+
+  .admin-main-content .money-input-control > input:focus {
+    border-color: var(--surface-border-strong) !important;
+  }
+
+  .admin-main-content .money-input-control > select:focus,
+  .admin-main-content .money-input-control > select:focus-visible {
+    border-color: var(--surface-level-3-border) !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .money-input-control.is-compact {
+    grid-template-columns: minmax(0, 1fr) 82px;
+    min-height: 36px;
+  }
+
+  .admin-main-content .money-input-control.is-compact > input,
+  .admin-main-content .money-input-control.is-compact > select {
+    min-height: 36px !important;
+    padding-block: 5px !important;
+    font-size: 12px;
   }
 
   .admin-main-content .product-search input {
@@ -1506,7 +1745,11 @@
   .admin-main-content .fixed.inset-0 > .bg-white,
   .admin-main-content .admin-content-modal-overlay > .bg-white,
   .admin-main-content .admin-content-modal-overlay > div:not(.admin-content-modal-panel) {
-    overflow: hidden;
+    max-height: calc(100% - 24px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
     border: 1px solid var(--surface-level-3-border) !important;
     border-radius: var(--radius-modal) !important;
     background: var(--surface-level-3) !important;
@@ -1710,12 +1953,25 @@
     background: var(--surface-level-1);
   }
 
-  .admin-main-content .overflow-x-auto:has(> table),
+  .admin-main-content .overflow-x-auto:has(> table) {
+    overflow: auto;
+    border-block: 1px solid var(--surface-level-2-border);
+    border-inline: 0;
+    border-radius: 0;
+    background: var(--surface-level-2);
+  }
+
   .admin-main-content [class*="table-container"] {
     overflow: hidden;
     border: 1px solid var(--surface-level-2-border);
     border-radius: var(--radius-table);
     background: var(--surface-level-2);
+  }
+
+  .admin-main-content table thead,
+  .admin-main-content table thead tr,
+  .admin-main-content table thead th {
+    border-radius: 0 !important;
   }
 
   .app-text-muted {
