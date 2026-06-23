@@ -114,7 +114,9 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
   };
 
   const isActive = (path?: string) => {
-    return location.pathname === path;
+    if (!path) return false;
+    if (location.pathname === path) return true;
+    return path === '/post-management' && location.pathname.startsWith('/post-management/');
   };
   
   // Check if current route belongs to this parent menu

@@ -1,4 +1,4 @@
-import { Plus, Edit2, Trash2, Filter, X, AlertTriangle, Loader2, Home, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Filter, X, AlertTriangle, Loader2, Home, Upload, Eye } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { roomService, floorService, serviceService } from '../../services/api.service';
 import type { Floor } from '../../services/api.service';
@@ -14,6 +14,9 @@ import { MoneyInput } from '../ui/MoneyInput';
 interface RoomData {
   id: number;
   floorId: number;
+  buildingName?: string;
+  buildingAddress?: string;
+  floorNumber?: number;
   code: string;
   roomNumber: string;
   area: number;
@@ -73,9 +76,10 @@ const resolveRoomImageUrl = (url?: string) => {
 interface RoomTableProps {
   selectedFloorId?: number | null;
   selectedBuildingId?: number | null;
+  addRoomRequest?: { id: number; floorId: number } | null;
 }
 
-export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProps = {}) {
+export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest }: RoomTableProps = {}) {
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +142,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showCannotDeleteModal, setShowCannotDeleteModal] = useState(false);
   const [blockedDeleteRoom, setBlockedDeleteRoom] = useState<RoomData | null>(null);
+  const [detailRoom, setDetailRoom] = useState<RoomData | null>(null);
   const [previewImage, setPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
 
   const isRentedRoomStatus = (status: string) => {
@@ -158,6 +163,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
       const roomData: RoomData[] = data.map((room: any) => ({
         id: room.id || room.phongId || 0,
         floorId: room.floorId || room.tangId || 0,
+        buildingName: room.buildingName || '',
+        buildingAddress: room.buildingAddress || room.address || '',
+        floorNumber: room.floorNumber || room.soTang || undefined,
         code: room.roomCode || room.maPhong || '',
         roomNumber: room.roomNumber || room.soPhong || '',
         area: room.area || room.dienTich || 0,
@@ -416,7 +424,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
   };
 
 
-    const openAddModal = async () => {
+    const openAddModal = async (preferredFloorId?: number) => {
       try {
       const services = await serviceService.getAll();
       setServiceCatalog(services);
@@ -425,7 +433,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     }
 
     const defaultFloorId =
-      (selectedFloorId != null && selectableFloors.some(f => f.id === selectedFloorId) ? selectedFloorId : null)
+      (preferredFloorId != null && floors.some(f => f.id === preferredFloorId) ? preferredFloorId : null)
+      ?? (selectedFloorId != null && selectableFloors.some(f => f.id === selectedFloorId) ? selectedFloorId : null)
       ?? selectableFloors[0]?.id
       ?? 0;
 
@@ -453,6 +462,11 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     await loadReferenceData();
     setShowAddModal(true);
   };
+
+  useEffect(() => {
+    if (!addRoomRequest) return;
+    openAddModal(addRoomRequest.floorId);
+  }, [addRoomRequest?.id]);
 
   const handleAddSubmit = async () => {
     if (Object.values(addFieldErrors).some(Boolean)) {
@@ -625,6 +639,11 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
     finally { setDeleteLoading(false); }
   };
 
+  const openDetailModal = async (room: RoomData) => {
+    setDetailRoom(room);
+    await loadReferenceData();
+  };
+
   if (loading) {
     return (
       <div className="bg-white border-2 border-gray-300 rounded p-8">
@@ -699,7 +718,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 const cfg = getStatusConfig(room.status);
                 return (
                   <tr key={room.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-800">{room.code || room.roomNumber}</td>
+                    <td className="px-6 py-4 text-sm text-gray-800">
+                      <div className="font-semibold">{room.code || room.roomNumber}</div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{room.area}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{room.maxPeople || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-800 text-right">{room.price.toLocaleString('vi-VN')}</td>
@@ -708,6 +729,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                     </td>
                     <td className="px-6 py-4 text-center sticky right-0 bg-white">
                       <div className="flex items-center justify-center space-x-2">
+                        <button onClick={() => { void openDetailModal(room); }} className="p-2 hover:bg-gray-100 rounded" title="Xem chi tiết"><Eye size={16} className="text-gray-600" /></button>
                         <button onClick={() => openEditModal(room)} className="p-2 hover:bg-gray-100 rounded" title="Sửa"><Edit2 size={16} className="text-gray-600" /></button>
                         <button onClick={() => openDeleteModal(room)} className="p-2 hover:bg-gray-100 rounded" title="Xóa"><Trash2 size={16} className="text-gray-600" /></button>
                       </div>
@@ -1064,6 +1086,205 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
         </div>
       )}
 
+      {detailRoom && (
+        <div className="admin-content-modal-overlay">
+          <div className="bg-white rounded-lg w-full max-w-[760px] max-h-[90vh] overflow-y-auto">
+            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Chi tiết phòng - {detailRoom.code || detailRoom.roomNumber}</h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  {(() => {
+                    const floor = floors.find(item => item.id === detailRoom.floorId);
+                    const buildingName = detailRoom.buildingName || floor?.buildingName || 'Chưa xác định tòa';
+                    const floorNumber = detailRoom.floorNumber ?? floor?.floorNumber;
+                    return `${buildingName}${floorNumber ? ` • Tầng ${floorNumber}` : ''}`;
+                  })()}
+                </p>
+              </div>
+              <button onClick={() => setDetailRoom(null)} className="p-1 hover:bg-gray-100 rounded">
+                <X size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {(() => {
+                const floor = floors.find(item => item.id === detailRoom.floorId);
+                const buildingName = detailRoom.buildingName || floor?.buildingName || 'Chưa xác định tòa';
+                const floorNumber = detailRoom.floorNumber ?? floor?.floorNumber;
+                const locationParts = [
+                  buildingName,
+                  floorNumber ? `Tầng ${floorNumber}` : '',
+                  detailRoom.buildingAddress || '',
+                ].filter(Boolean);
+                const isApartment = detailRoom.type === 'apartment';
+                const selectedServiceIds = detailRoom.serviceIds ?? [];
+                const selectedServices = selectedServiceIds.map((serviceId) => {
+                  const service = serviceCatalog.find(item => item.id === serviceId);
+                  const customPrice = detailRoom.servicePrices?.find(item => item.serviceId === serviceId)?.price;
+                  return {
+                    id: serviceId,
+                    name: service?.name || `Dịch vụ #${serviceId}`,
+                    unit: service?.unit,
+                    price: customPrice ?? service?.commonUnitPrice ?? 0,
+                  };
+                });
+
+                return (
+                  <>
+                    <div className="bg-blue-50 border border-blue-300 rounded p-4">
+                      <p className="text-sm text-blue-800">
+                        <strong>Vị trí:</strong> {locationParts.join(' • ') || 'Chưa có vị trí địa chỉ'}
+                      </p>
+                    </div>
+
+                    <section className="space-y-4">
+                      <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Thông tin cơ bản</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Mã phòng</p>
+                          <p className="mt-1 font-semibold text-gray-900">{detailRoom.code || detailRoom.roomNumber || '—'}</p>
+                        </div>
+                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Loại phòng</p>
+                          <p className="mt-1 font-semibold text-gray-900">{isApartment ? 'Căn hộ' : 'Phòng đơn'}</p>
+                        </div>
+                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Diện tích</p>
+                          <p className="mt-1 font-semibold text-gray-900">{detailRoom.area || '—'} m²</p>
+                        </div>
+                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Số người tối đa</p>
+                          <p className="mt-1 font-semibold text-gray-900">{detailRoom.maxPeople || '—'} người</p>
+                        </div>
+                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Giá thuê</p>
+                          <p className="mt-1 font-semibold text-gray-900">{detailRoom.price.toLocaleString('vi-VN')} VNĐ/tháng</p>
+                        </div>
+                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Trạng thái</p>
+                          <p className="mt-1 font-semibold text-gray-900">{getStatusConfig(detailRoom.status).label}</p>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Chi tiết phòng</h4>
+                      {isApartment ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng khách</p>
+                            <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.living ?? '—'}</p>
+                          </div>
+                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng ngủ</p>
+                            <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.bedroom ?? '—'}</p>
+                          </div>
+                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng bếp</p>
+                            <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.kitchen ?? '—'}</p>
+                          </div>
+                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng vệ sinh</p>
+                            <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.bathroom ?? '—'}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Vệ sinh khép kín</p>
+                          <p className="mt-1 font-semibold text-gray-900">{detailRoom.hasPrivateBathroom ? 'Có' : 'Không'}</p>
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="space-y-4">
+                      <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Ảnh phòng</h4>
+                      {(detailRoom.imageUrls ?? []).length > 0 ? (
+                        <div className="flex gap-3 overflow-x-auto pb-1">
+                          {(detailRoom.imageUrls ?? []).map((url, index) => (
+                            <button
+                              key={`${url}-${index}`}
+                              type="button"
+                              onClick={() => setPreviewImage({ images: detailRoom.imageUrls ?? [], index, titlePrefix: `Ảnh phòng ${detailRoom.code}` })}
+                              className="h-24 w-24 shrink-0 overflow-hidden rounded border border-gray-300 bg-white"
+                              title="Xem ảnh"
+                            >
+                              <img src={resolveRoomImageUrl(url)} alt={`Ảnh phòng ${index + 1}`} className="h-full w-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">Chưa có ảnh phòng</p>
+                      )}
+                    </section>
+
+                    <section className="space-y-4">
+                      <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4>
+                      <div>
+                        <p className="mb-2 text-sm text-gray-700">Phí dịch vụ cơ bản</p>
+                        {selectedServices.length > 0 ? (
+                          <div className="overflow-hidden rounded border border-gray-200">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                                <tr>
+                                  <th className="px-3 py-2 text-left">Tên dịch vụ</th>
+                                  <th className="px-3 py-2 text-right">Giá</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {selectedServices.map((service) => (
+                                  <tr key={service.id} className="border-t border-gray-200">
+                                    <td className="px-3 py-2 font-medium text-gray-900">
+                                      {service.name}{service.unit ? ` /${service.unit}` : ''}
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-gray-800">
+                                      {service.price.toLocaleString('vi-VN')} VNĐ
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">Chưa chọn dịch vụ nào</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-sm text-gray-700">Tiện nghi</p>
+                        {(detailRoom.amenities ?? []).length > 0 ? (
+                          <div className="flex flex-wrap gap-2 rounded border border-gray-200 bg-gray-50 p-3">
+                            {(detailRoom.amenities ?? []).map((amenity) => (
+                              <span key={amenity} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">
+                                {amenity}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">Chưa có tiện nghi</p>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="space-y-2">
+                      <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Mô tả</h4>
+                      <p className="min-h-[72px] whitespace-pre-wrap rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800">
+                        {detailRoom.description?.trim() || 'Chưa có mô tả'}
+                      </p>
+                    </section>
+                  </>
+                );
+              })()}
+            </div>
+
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3 sticky bottom-0 bg-white">
+              <button onClick={() => { const room = detailRoom; setDetailRoom(null); openEditModal(room); }} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">
+                Chỉnh sửa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showEditModal && selectedRoom && (
         <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-full max-w-[900px] max-h-[90vh] overflow-y-auto">
@@ -1077,6 +1298,11 @@ export function RoomTable({ selectedFloorId, selectedBuildingId }: RoomTableProp
                 <p className="text-sm text-blue-800">
                   <strong>Vị trí:</strong> {floors.find(f => f.id === selectedRoom.floorId)?.buildingName ? `${floors.find(f => f.id === selectedRoom.floorId)?.buildingName} - ` : ''}Tầng {floors.find(f => f.id === selectedRoom.floorId)?.floorNumber ?? selectedRoom.floorId}
                 </p>
+                {selectedRoom.buildingAddress && (
+                  <p className="mt-1 text-sm text-blue-800">
+                    <strong>Địa chỉ:</strong> {selectedRoom.buildingAddress}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-4">

@@ -25,6 +25,7 @@ export interface Room {
   floorId: number;
   buildingId?: number;
   buildingName?: string;
+  buildingAddress?: string;
   floorNumber?: number;
   roomCode: string;
   area?: number;

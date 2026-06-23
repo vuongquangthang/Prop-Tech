@@ -2,6 +2,7 @@ import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, Fi
 import { useState, useEffect } from 'react';
 import { serviceService, ServicePriceHistory } from '../../services/api.service';
 import { formatLocalDateInput, toLocalIsoString } from '../../lib/date-utils';
+import { PageHeader } from '../ui/product-system';
 
 const DEFAULT_SERVICE_UNITS = ['Năm', 'Quý', 'Tháng', 'Người', 'kWh', 'm³'];
 const SERVICE_UNITS_STORAGE_KEY = 'prop-tech-service-units';
@@ -305,18 +306,20 @@ export function ServiceTable() {
 
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <div className="flex items-center justify-between">
-        <div></div>
-        
-        <button 
+      <PageHeader
+        eyebrow="Quản lý hạ tầng"
+        title="Dịch vụ & đơn giá"
+        description="Quản lý danh mục dịch vụ, đơn vị tính, đơn giá hiện tại và lịch sử cập nhật giá."
+        actions={
+          <button
           onClick={openAddModal}
           className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
-        >
-          <Plus size={16} />
-          <span>Thêm dịch vụ mới</span>
-        </button>
-      </div>
+          >
+            <Plus size={16} />
+            <span>Thêm dịch vụ mới</span>
+          </button>
+        }
+      />
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
@@ -845,15 +848,6 @@ export function ServiceTable() {
                   <p className="text-xs text-gray-500 mt-1">Lịch sử sẽ được lưu khi bạn cập nhật giá lần đầu</p>
                 </div>
               )}
-            </div>
-            
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end">
-              <button 
-                onClick={() => setShowHistoryModal(false)}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
-              >
-                Đóng
-              </button>
             </div>
           </div>
         </div>

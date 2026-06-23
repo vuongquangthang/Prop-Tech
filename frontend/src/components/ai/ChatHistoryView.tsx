@@ -1,6 +1,7 @@
 import { ThumbsUp, ThumbsDown, MessageSquare, Plus, X, Check } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { chatService, ChatMessage, UnansweredChatItem } from '../../services/feature.service';
+import { PageHeader } from '../ui/product-system';
 
 interface ChatSession {
   id: string;
@@ -206,7 +207,14 @@ export function ChatHistoryView() {
   const sessionMessages = selectedSession?.messages || [];
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <PageHeader
+        eyebrow="Trợ lý ảo AI"
+        title="Lịch sử hội thoại"
+        description="Rà soát hội thoại AI, các câu chưa đủ dữ liệu và bổ sung nhanh vào kho tri thức."
+      />
+
+      <div className="flex min-h-0 flex-1">
       {/* Chat List - Left Panel */}
       <div className="w-96 bg-white border-r-2 border-gray-300 flex flex-col">
         <div className="border-b border-gray-300 p-4">
@@ -379,6 +387,7 @@ export function ChatHistoryView() {
           onSaved={loadData}
         />
       )}
+      </div>
     </div>
   );
 }

@@ -73,6 +73,7 @@ public class RoomService : IRoomService
             .AsNoTracking()
             .Include(room => room.Floor)
                 .ThenInclude(floor => floor.Building)
+            .Include(room => room.HopDongs)
             .Include(room => room.ChiTietTaiSanPhongs)
                 .ThenInclude(detail => detail.TaiSan)
             .Where(room => room.Floor.Building.OwnerUserId == ownerUserId);
@@ -149,6 +150,7 @@ public class RoomService : IRoomService
             FloorId = baseDto.FloorId,
             BuildingId = floor?.BuildingId ?? baseDto.BuildingId,
             BuildingName = building?.BuildingName ?? baseDto.BuildingName,
+            BuildingAddress = building?.Address ?? baseDto.BuildingAddress,
             FloorNumber = baseDto.FloorNumber,
             RoomCode = baseDto.RoomCode,
             Area = baseDto.Area,
@@ -533,6 +535,11 @@ public class RoomService : IRoomService
         var servicePrices = DeserializeList<RoomServicePriceDto>(room.ServicePricesJson);
         var services = await ResolveServicesAsync(serviceIds, servicePrices);
         var imageUrls = DeserializeList<string>(room.ImageUrlsJson);
+        var now = DateTime.UtcNow;
+        var activeContract = room.HopDongs?
+            .Where(contract => contract.ExpectedEndDate == null || contract.ExpectedEndDate > now)
+            .OrderBy(contract => contract.ExpectedEndDate ?? DateTime.MaxValue)
+            .FirstOrDefault();
         var amenities = room.ChiTietTaiSanPhongs != null && room.ChiTietTaiSanPhongs.Count > 0
             ? room.ChiTietTaiSanPhongs
                 .Where(ct => ct.TaiSan != null)
@@ -547,6 +554,7 @@ public class RoomService : IRoomService
             FloorId = room.FloorId,
             BuildingId = floor?.BuildingId ?? 0,
             BuildingName = building?.BuildingName ?? "",
+            BuildingAddress = building?.Address ?? "",
             FloorNumber = floor?.FloorNumber ?? 0,
             RoomCode = room.RoomCode,
             Area = room.Area,
@@ -554,6 +562,7 @@ public class RoomService : IRoomService
             DefaultRentPrice = room.DefaultRentPrice,
             Description = room.Description,
             Status = room.Status,
+            ActiveContractEndDate = activeContract?.ExpectedEndDate,
             RoomType = NormalizeRoomType(room.RoomType),
             HasPrivateBathroom = room.HasPrivateBathroom,
             LivingRoomCount = room.LivingRoomCount,

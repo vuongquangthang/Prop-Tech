@@ -70,9 +70,6 @@ export function ContractEditHistoryModal({ contract, onClose }: ContractModalPro
             );
           })}
         </div>
-        <div className="admin-content-modal-footer flex justify-end px-6 py-4">
-          <button onClick={onClose} className="app-button-secondary">Đóng</button>
-        </div>
       </div>
     </div>
   );
@@ -2299,19 +2296,13 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
 
         </div>
         
-        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-between sticky bottom-0 bg-white">
+        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-start sticky bottom-0 bg-white">
           <div className="flex items-center space-x-2">
             <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-2">
               <Printer size={16} />
               <span>In hợp đồng</span>
             </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
-          >
-            Đóng
-          </button>
         </div>
       </div>
     </div>

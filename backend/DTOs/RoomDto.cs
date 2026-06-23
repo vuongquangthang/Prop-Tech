@@ -9,6 +9,7 @@ public class RoomDto
     public int FloorId { get; set; }
     public int BuildingId { get; set; }
     public string BuildingName { get; set; } = null!;
+    public string BuildingAddress { get; set; } = "";
     public int FloorNumber { get; set; }
     public string RoomCode { get; set; } = null!;
     public decimal? Area { get; set; }
@@ -16,6 +17,7 @@ public class RoomDto
     public decimal? DefaultRentPrice { get; set; }
     public string? Description { get; set; }
     public string Status { get; set; } = null!; // Trống, Đã thuê, Bảo trì, Khác
+    public DateTime? ActiveContractEndDate { get; set; }
     public string RoomType { get; set; } = "single";
     public bool HasPrivateBathroom { get; set; }
     public int? LivingRoomCount { get; set; }

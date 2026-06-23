@@ -2,6 +2,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useState, useEffect } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { roomService } from '../../services/api.service';
+import { PageHeader } from '../ui/product-system';
 
 interface OccupancyData {
   name: string;
@@ -124,6 +125,12 @@ export function OccupancyReportContent() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        eyebrow="Báo cáo & Thống kê"
+        title="Báo cáo tỷ lệ lấp đầy"
+        description="Theo dõi trạng thái phòng và tỷ lệ lấp đầy theo từng tòa nhà."
+      />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">

@@ -442,12 +442,6 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <button
-            onClick={onClose}
-            style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: 'var(--type-caption)', cursor: 'pointer', background: 'white', color: 'var(--text-primary)', fontWeight: 500 }}
-          >
-            Đóng
-          </button>
         </div>
       </div>
     </div>

@@ -11,12 +11,15 @@ export interface RoomOption {
   floorId: number;
   buildingId: number;
   buildingName: string;
+  buildingAddress?: string;
+  address?: string;
   floorNumber: number;
   roomCode: string;
   area?: number | null;
   maxOccupants?: number | null;
   defaultRentPrice?: number | null;
   status: string;
+  activeContractEndDate?: string | null;
   type?: 'single' | 'apartment' | string;
   hasPrivateBathroom?: boolean;
   rooms?: {
@@ -241,12 +244,15 @@ function mapRoomDto(room: any): RoomOption {
     floorId: Number(room.floorId ?? 0),
     buildingId: Number(room.buildingId ?? 0),
     buildingName: room.buildingName ?? room.building ?? 'Chưa xác định',
+    buildingAddress: room.buildingAddress ?? room.address ?? room.building?.address ?? '',
+    address: room.buildingAddress ?? room.address ?? room.building?.address ?? '',
     floorNumber: Number(room.floorNumber ?? 0),
     roomCode: room.roomCode ?? room.code ?? `R-${room.id ?? 'unknown'}`,
     area: room.area ?? null,
     maxOccupants: room.maxOccupants ?? room.maxPeople ?? null,
     defaultRentPrice: room.defaultRentPrice ?? room.price ?? null,
     status: room.status ?? 'Trống',
+    activeContractEndDate: room.activeContractEndDate ?? room.contractEndDate ?? room.expectedEndDate ?? null,
     type,
     hasPrivateBathroom: Boolean(room.hasPrivateBathroom ?? room.privateBathroom ?? room.coVeSinhKhepKin ?? false),
     rooms: normalizeRoomCounts(room),
@@ -372,6 +378,8 @@ function normalizePostRecord(post: any): PostRecord {
     post.address ??
     post.location ??
     post.roomAddress ??
+    post.buildingAddress ??
+    roomObj?.buildingAddress ??
     roomObj?.address ??
     `${resolvedBuildingName} - Tầng ${resolvedFloorNumber} - ${resolvedRoomCode}`;
 
@@ -452,6 +460,8 @@ export const postService = {
             const roomNormalized = mapRoomDto(room);
             postCopy.roomCode = room.roomCode ?? room.code ?? postCopy.roomCode;
             postCopy.buildingName = room.buildingName ?? room.building ?? postCopy.buildingName;
+            postCopy.buildingAddress = room.buildingAddress ?? room.address ?? postCopy.buildingAddress;
+            postCopy.address = postCopy.address ?? postCopy.buildingAddress;
             postCopy.floorNumber = postCopy.floorNumber ?? room.floorNumber ?? room.floor;
             if ((!Array.isArray(postCopy.servicePrices) || postCopy.servicePrices.length === 0) && roomNormalized.services?.length) {
               postCopy.servicePrices = roomNormalized.services;

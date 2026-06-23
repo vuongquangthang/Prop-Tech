@@ -5,6 +5,7 @@ import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
 import { FilterSelect } from '../ui/FilterSelect';
+import { PageHeader } from '../ui/product-system';
 import { buildingService, floorService, roomService, type Building, type Floor, type Room } from '../../services/api.service';
 
 interface LineItem {
@@ -251,15 +252,11 @@ export function InvoiceTable() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>Quản lý Hóa đơn</h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Tính toán, xem xét và theo dõi toàn bộ hóa đơn
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Hóa đơn & Tài chính"
+        title="Quản lý hóa đơn"
+        description="Tính toán, xem xét và theo dõi toàn bộ hóa đơn theo từng trạng thái."
+      />
 
       {/* Messages */}
       {successMsg && (

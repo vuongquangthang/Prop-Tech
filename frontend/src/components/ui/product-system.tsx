@@ -10,11 +10,10 @@ type PageHeaderProps = {
   className?: string;
 };
 
-export function PageHeader({ eyebrow, title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
   return (
     <div className={cn('product-page-header', className)}>
       <div>
-        {eyebrow && <p className="product-eyebrow">{eyebrow}</p>}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>

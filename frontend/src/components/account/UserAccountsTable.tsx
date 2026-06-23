@@ -2,6 +2,8 @@ import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, 
 import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
+import { useAuth } from '../../contexts/AuthContext';
+import { PageHeader } from '../ui/product-system';
 
 interface UserData {
   id: number | string;
@@ -45,6 +47,7 @@ const statusLabels = {
 };
 
 export function UserAccountsTable() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,6 +186,32 @@ export function UserAccountsTable() {
     return roleMatch && statusMatch && searchMatch;
   });
 
+  const isViewingCurrentUser = (viewUser: UserData | null) => {
+    if (!viewUser || !currentUser) return false;
+    return String(viewUser.id) === String(currentUser.id)
+      || (!!currentUser.phoneNumber && viewUser.username === currentUser.phoneNumber);
+  };
+
+  const getPasswordStatusText = (viewUser: UserData) => {
+    if (isViewingCurrentUser(viewUser)) {
+      return 'Bạn đang sử dụng mật khẩu riêng';
+    }
+    if (viewUser.role === 'CuDan' && viewUser.mustChangePassword) {
+      return 'Mật khẩu tạm còn hiệu lực';
+    }
+    return 'Người dùng đã tự đặt mật khẩu';
+  };
+
+  const getPasswordDisplayText = (viewUser: UserData) => {
+    if (isViewingCurrentUser(viewUser)) {
+      return 'Không thể xem vì lý do bảo mật';
+    }
+    if (viewUser.role === 'CuDan' && viewUser.mustChangePassword) {
+      return DEFAULT_RESIDENT_TEMP_PASSWORD;
+    }
+    return 'Không thể xem mật khẩu hiện tại';
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -215,6 +244,21 @@ export function UserAccountsTable() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        eyebrow="Quản lý tài khoản"
+        title="Danh sách tài khoản"
+        description="Quản lý tài khoản ban quản lý và cư dân, trạng thái đăng nhập và quyền truy cập."
+        actions={
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-black font-medium"
+            style={{ fontSize: 'var(--type-caption)' }}
+          >
+            + Thêm tài khoản
+          </button>
+        }
+      />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
@@ -277,13 +321,6 @@ export function UserAccountsTable() {
           />
         </div>
         
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-black font-medium"
-          style={{ fontSize: 'var(--type-caption)' }}
-        >
-          + Thêm tài khoản
-        </button>
       </div>
       
       {/* Table */}
@@ -383,7 +420,7 @@ export function UserAccountsTable() {
                 <div>
                   <p className="text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Trạng thái mật khẩu</p>
                   <p className="text-gray-900" style={{ fontSize: 'var(--type-body)' }}>
-                    {viewUser.role === 'CuDan' && viewUser.mustChangePassword ? 'Mật khẩu tạm còn hiệu lực' : 'Người dùng đã tự đặt mật khẩu'}
+                    {getPasswordStatusText(viewUser)}
                   </p>
                 </div>
                 <span
@@ -411,7 +448,7 @@ export function UserAccountsTable() {
                     <div className="min-w-0">
                       <p className="text-gray-500">Mật khẩu</p>
                       <p className="text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 600 }}>
-                        {viewUser.role === 'CuDan' && viewUser.mustChangePassword ? DEFAULT_RESIDENT_TEMP_PASSWORD : '(cư dân đã đổi hoặc không áp dụng)'}
+                        {getPasswordDisplayText(viewUser)}
                       </p>
                     </div>
                   </div>
@@ -440,15 +477,6 @@ export function UserAccountsTable() {
 
             </div>
 
-            <div className="border-t border-gray-300 px-6 py-4 flex justify-end bg-white shrink-0">
-              <button
-                onClick={() => setShowViewModal(false)}
-                className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-black"
-                style={{ fontSize: 'var(--type-caption)' }}
-              >
-                Đóng
-              </button>
-            </div>
           </div>
         </div>
       )}

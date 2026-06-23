@@ -49,11 +49,12 @@ export function AdminLayout() {
   return (
     <div
       className={`min-h-screen bg-surface-bg text-text-primary ${sidebarCollapsed ? 'sidebar-is-collapsed' : 'sidebar-is-expanded'}`}
+      style={{ minHeight: '100dvh', backgroundColor: 'var(--surface-level-1)' }}
     >
       <style>{`
         .admin-main-content {
-          margin-top: 64px;
-          min-height: calc(100vh - 64px);
+          margin-top: var(--admin-topbar-height);
+          min-height: calc(100dvh - var(--admin-topbar-height));
           transition: margin-left 0.2s ease;
         }
 
@@ -87,7 +88,10 @@ export function AdminLayout() {
         onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
       />
 
-      <main ref={mainRef} className="admin-main-content overflow-x-hidden">
+      <main
+        ref={mainRef}
+        className="admin-main-content overflow-x-hidden"
+      >
         <div className={needsPadding ? 'app-page-shell app-section' : ''}>
           <Outlet />
         </div>

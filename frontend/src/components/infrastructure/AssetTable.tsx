@@ -2,6 +2,7 @@ import { Plus, Edit2, Trash2, X, AlertTriangle, Package, Link2, Loader2, Pencil,
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
+import { PageHeader } from '../ui/product-system';
 
 interface TaiSanDto {
   id: number;
@@ -237,16 +238,20 @@ export function AssetTable() {
 
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <div className="flex items-center justify-end">
-        <button 
-          onClick={() => { setFormData({ assetName: '', assetCode: '' }); setShowAddModal(true); }}
-          className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
-        >
-          <Plus size={16} />
-          <span>Thêm tài sản</span>
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Quản lý hạ tầng"
+        title="Tài sản trong phòng"
+        description="Quản lý danh mục tài sản, số lượng và các phòng đang sử dụng."
+        actions={
+          <button
+            onClick={() => { setFormData({ assetName: '', assetCode: '' }); setShowAddModal(true); }}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+          >
+            <Plus size={16} />
+            <span>Thêm tài sản</span>
+          </button>
+        }
+      />
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
@@ -629,14 +634,6 @@ export function AssetTable() {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-gray-300 px-6 py-4 flex justify-end flex-shrink-0">
-              <button onClick={() => setShowAssignModal(false)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                Đóng
-              </button>
             </div>
           </div>
         </div>

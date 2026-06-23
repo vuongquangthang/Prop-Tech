@@ -99,6 +99,7 @@
   --space-between: 12px;
   --space-card: 20px;
   --space-layout: 24px;
+  --admin-topbar-height: 4rem;
 
   --radius-control: 10px;
   --radius-button: 10px;
@@ -240,6 +241,7 @@
 
   html {
     font-size: var(--font-size);
+    min-height: 100%;
     color: var(--text-primary);
     background: var(--surface-bg);
     -webkit-text-size-adjust: 100%;
@@ -247,6 +249,8 @@
   }
 
   body {
+    min-height: 100%;
+    margin: 0;
     min-width: 0;
     overflow-x: hidden;
     background:
@@ -258,6 +262,12 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--surface-level-1);
   }
 
   * {
@@ -420,7 +430,7 @@
 @layer components {
   .admin-content-modal-overlay {
     position: fixed;
-    top: 64px;
+    top: var(--admin-topbar-height);
     right: 0;
     bottom: 0;
     left: 0;
@@ -507,7 +517,7 @@
   }
 
   .admin-content-dialog-overlay {
-    top: 64px !important;
+    top: var(--admin-topbar-height) !important;
     right: 0 !important;
     bottom: 0 !important;
     left: 0 !important;
@@ -517,7 +527,7 @@
   }
 
   .admin-content-dialog-content {
-    top: calc(64px + ((100vh - 64px) / 2)) !important;
+    top: calc(var(--admin-topbar-height) + ((100vh - var(--admin-topbar-height)) / 2)) !important;
     left: 50% !important;
     z-index: 1001 !important;
     max-height: calc(100vh - 88px);
@@ -551,33 +561,41 @@
 
   .product-page-header {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 18px;
+    gap: 16px;
+    min-height: 52px;
+    margin-bottom: 12px;
+    padding-top: clamp(1.25rem, 2vw, 2rem);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--surface-level-2-border);
+  }
+
+  .product-page-header > div:first-child {
+    min-width: 0;
   }
 
   .product-page-header h1 {
     margin: 0;
-    font-size: clamp(24px, 2.2vw, 34px);
+    font-size: clamp(18px, 1.25vw, 22px);
     font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.035em;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
     color: var(--text-primary);
   }
 
   .product-page-header p {
     max-width: 760px;
-    margin-top: 8px;
+    margin-top: 2px;
     color: var(--text-secondary);
-    font-size: 14px;
-    line-height: 1.65;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .product-eyebrow {
-    margin: 0 0 8px !important;
+    margin: 0 0 2px !important;
     color: var(--brand-primary) !important;
-    font-size: 12px !important;
+    font-size: 11px !important;
     font-weight: 800 !important;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -898,6 +916,7 @@
 
   .theme-switcher {
     position: relative;
+    z-index: 1205;
   }
 
   .theme-switcher-trigger {
@@ -923,7 +942,7 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    z-index: 90;
+    z-index: 1205;
     width: 180px;
     padding: 6px;
     border: 1px solid var(--surface-level-4-border);
@@ -1941,12 +1960,14 @@
   }
 
   .app-section {
-    padding: clamp(1.25rem, 2vw, 2rem);
+    box-sizing: border-box;
+    padding: 0 clamp(1.25rem, 2vw, 2rem) 0;
   }
 
   .app-page-shell {
     width: min(100%, 1600px);
     margin-inline: auto;
+    background: var(--surface-level-1);
   }
 
   .admin-main-content {
@@ -2280,7 +2301,11 @@ select {
 
 @media (max-width: 767px) {
   .app-section {
-    padding: 12px;
+    padding: 0 12px 0;
+  }
+
+  .product-page-header {
+    padding-top: 12px;
   }
 
   .app-page-shell {
@@ -2290,7 +2315,7 @@ select {
 
   .admin-main-content {
     margin-top: 56px !important;
-    min-height: calc(100vh - 56px) !important;
+    min-height: calc(100dvh - 56px) !important;
   }
 
   .admin-content-modal-overlay {
@@ -2319,4 +2344,59 @@ select {
   .overflow-x-auto {
     -webkit-overflow-scrolling: touch;
   }
+}
+
+.dark .proptech-message-layout {
+  color: var(--text-primary);
+}
+
+.dark .proptech-conversation-sidebar,
+.dark .proptech-chat-panel {
+  background: var(--surface-level-2) !important;
+  border-color: var(--surface-level-2-border) !important;
+  box-shadow: var(--shadow-soft);
+}
+
+.dark .proptech-conversation-list,
+.dark .proptech-message-log {
+  background: var(--surface-level-1) !important;
+}
+
+.dark .proptech-chat-header,
+.dark .proptech-message-form,
+.dark .proptech-conversation-sidebar > div {
+  background: var(--surface-level-2) !important;
+  border-color: var(--surface-level-2-border) !important;
+}
+
+.dark .proptech-conversation-item {
+  border-color: var(--surface-level-2-border) !important;
+  color: var(--text-primary);
+}
+
+.dark .proptech-conversation-item:hover,
+.dark .proptech-conversation-item.is-active {
+  background: var(--surface-level-4) !important;
+}
+
+.dark .proptech-room-pill,
+.dark .proptech-message-input {
+  background: var(--surface-level-3) !important;
+  border-color: var(--surface-level-3-border) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark .proptech-message-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.dark .proptech-message-bubble.is-user {
+  background: var(--surface-level-3) !important;
+  border-color: var(--surface-level-3-border) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark .proptech-message-send:disabled {
+  background: var(--surface-level-4) !important;
+  color: var(--text-muted) !important;
 }

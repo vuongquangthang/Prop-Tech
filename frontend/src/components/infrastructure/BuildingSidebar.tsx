@@ -1,4 +1,4 @@
-import { Plus, ChevronRight, ChevronDown, X, Loader2, Building2 } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, X, Loader2, Building2, Trash2, AlertTriangle, Info, Edit2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { buildingService, floorService } from '../../services/api.service';
 
@@ -6,6 +6,9 @@ interface FloorData {
   id: number;
   floorNumber: number;
   floorCode: string;
+  totalRooms?: number;
+  buildingId?: number;
+  buildingName?: string;
 }
 
 interface BuildingData {
@@ -13,6 +16,8 @@ interface BuildingData {
   buildingName: string;
   buildingCode: string;
   totalFloors: number;
+  address?: string;
+  totalRooms?: number;
   floors: FloorData[];
 }
 
@@ -21,9 +26,10 @@ interface BuildingSidebarProps {
   onSelectFloor: (floorId: number | null) => void;
   selectedBuilding: number | null;
   onSelectBuilding: (buildingId: number | null) => void;
+  onRequestAddRoom?: (floorId: number) => void;
 }
 
-export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding, onSelectBuilding }: BuildingSidebarProps) {
+export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding, onSelectBuilding, onRequestAddRoom }: BuildingSidebarProps) {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +38,25 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
   const [addType, setAddType] = useState<'building' | 'floor'>('building');
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { type: 'building'; id: number; name: string }
+    | { type: 'floor'; id: number; name: string }
+    | null
+  >(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [detailTarget, setDetailTarget] = useState<
+    | { type: 'building'; building: BuildingData }
+    | { type: 'floor'; floor: FloorData; building: BuildingData }
+    | null
+  >(null);
+  const [detailEditMode, setDetailEditMode] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [editBuildingName, setEditBuildingName] = useState('');
+  const [editBuildingAddress, setEditBuildingAddress] = useState('');
+  const [editBuildingFloors, setEditBuildingFloors] = useState('');
+  const [editFloorNumber, setEditFloorNumber] = useState('');
   // Building form fields
   const [buildingName, setBuildingName] = useState('');
   const [totalFloorsInput, setTotalFloorsInput] = useState('');
@@ -62,10 +87,15 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
               buildingName: building.buildingName || building.tenToaNha || '',
               buildingCode: building.buildingCode || building.maToaNha || '',
               totalFloors: (building as any).numberOfFloors || building.totalFloors || building.soTang || 0,
+              address: building.address || building.diaChi || '',
+              totalRooms: building.totalRooms || building.tongSoPhong || 0,
               floors: floors.map((f: any) => ({
                 id: f.id || f.tangId || 0,
                 floorNumber: f.floorNumber || f.soTang || 0,
                 floorCode: f.floorCode || f.maTang || '',
+                totalRooms: f.totalRooms || f.tongSoPhong || 0,
+                buildingId: f.buildingId || building.id || building.toaNhaId || 0,
+                buildingName: f.buildingName || building.buildingName || building.tenToaNha || '',
               }))
             };
           } catch {
@@ -75,6 +105,8 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
               buildingName: building.buildingName || building.tenToaNha || '',
               buildingCode: building.buildingCode || building.maToaNha || '',
               totalFloors: (building as any).numberOfFloors || building.totalFloors || building.soTang || 0,
+              address: building.address || building.diaChi || '',
+              totalRooms: building.totalRooms || building.tongSoPhong || 0,
               floors: []
             };
           }
@@ -107,21 +139,46 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
     setFormError(null);
   };
 
+  const ensureFloorsForBuilding = async (buildingId: number, numberOfFloors: number) => {
+    const existingFloors = await floorService.getByBuilding(buildingId);
+    const existingFloorNumbers = new Set(
+      existingFloors.map((floor: any) => floor.floorNumber || floor.soTang)
+    );
+    const missingFloorNumbers = Array.from(
+      { length: numberOfFloors },
+      (_, index) => index + 1
+    ).filter((floorNumber) => !existingFloorNumbers.has(floorNumber));
+
+    await Promise.all(
+      missingFloorNumbers.map((floorNumber) =>
+        floorService.create({
+          buildingId,
+          floorNumber,
+        } as any)
+      )
+    );
+  };
+
   const handleSubmit = async () => {
     setFormError(null);
     setFormLoading(true);
     try {
       if (addType === 'building') {
-        if (!buildingName.trim() || !totalFloorsInput) {
-          setFormError('Vui lòng nhập tên tòa nhà và số tầng');
+        if (!buildingName.trim() || !totalFloorsInput || !address.trim()) {
+          setFormError('Vui lòng nhập tên tòa nhà, số tầng và địa chỉ');
           setFormLoading(false);
           return;
         }
-        await buildingService.create({
+        const numberOfFloors = parseInt(totalFloorsInput);
+        const createdBuilding = await buildingService.create({
           buildingName: buildingName.trim(),
-          address: address.trim() || '',
-          numberOfFloors: parseInt(totalFloorsInput),
+          address: address.trim(),
+          numberOfFloors,
         } as any);
+        const createdBuildingId = createdBuilding.id || (createdBuilding as any).toaNhaId || 0;
+        if (createdBuildingId) {
+          await ensureFloorsForBuilding(createdBuildingId, numberOfFloors);
+        }
       } else {
         const bid = selectedBuildingId || (buildings[0]?.id ?? 0);
         if (!bid || !floorNumber) {
@@ -140,6 +197,147 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
       setFormError(err.message || 'Có lỗi xảy ra, vui lòng thử lại');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const openDeleteModal = (
+    target:
+      | { type: 'building'; id: number; name: string }
+      | { type: 'floor'; id: number; name: string }
+  ) => {
+    setDeleteTarget(target);
+    setDeleteError(null);
+  };
+
+  const openDetailModal = (
+    target:
+      | { type: 'building'; building: BuildingData }
+      | { type: 'floor'; floor: FloorData; building: BuildingData }
+  ) => {
+    setDetailTarget(target);
+    setDetailEditMode(false);
+    setDetailError(null);
+    if (target.type === 'building') {
+      setEditBuildingName(target.building.buildingName);
+      setEditBuildingAddress(target.building.address || '');
+      setEditBuildingFloors(String(target.building.totalFloors || target.building.floors.length || 1));
+      setEditFloorNumber('');
+    } else {
+      setEditFloorNumber(String(target.floor.floorNumber));
+      setEditBuildingName('');
+      setEditBuildingAddress('');
+      setEditBuildingFloors('');
+    }
+  };
+
+  const handleContextAdd = () => {
+    if (!detailTarget) return;
+
+    setFormError(null);
+    setBuildingName('');
+    setTotalFloorsInput('');
+    setAddress('');
+    setFloorCode('');
+    setFloorNumber('');
+
+    if (detailTarget.type === 'building') {
+      setShowAddModal(true);
+      setAddType('floor');
+      setSelectedBuildingId(detailTarget.building.id);
+    } else {
+      onSelectFloor(detailTarget.floor.id);
+      onSelectBuilding(null);
+      onRequestAddRoom?.(detailTarget.floor.id);
+      setDetailTarget(null);
+      return;
+    }
+    setDetailTarget(null);
+  };
+
+  const handleDetailDelete = () => {
+    if (!detailTarget) return;
+
+    const target =
+      detailTarget.type === 'building'
+        ? {
+            type: 'building' as const,
+            id: detailTarget.building.id,
+            name: detailTarget.building.buildingName,
+          }
+        : {
+            type: 'floor' as const,
+            id: detailTarget.floor.id,
+            name: `Tầng ${detailTarget.floor.floorNumber}`,
+          };
+
+    setDetailTarget(null);
+    openDeleteModal(target);
+  };
+
+  const handleDetailUpdate = async () => {
+    if (!detailTarget) return;
+
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      if (detailTarget.type === 'building') {
+        if (!editBuildingName.trim() || !editBuildingAddress.trim() || !editBuildingFloors) {
+          setDetailError('Vui lòng nhập đủ tên tòa, địa chỉ và số tầng');
+          return;
+        }
+
+        const numberOfFloors = parseInt(editBuildingFloors);
+        await buildingService.update(detailTarget.building.id, {
+          buildingName: editBuildingName.trim(),
+          address: editBuildingAddress.trim(),
+          numberOfFloors,
+        } as any);
+        await ensureFloorsForBuilding(detailTarget.building.id, numberOfFloors);
+      } else {
+        if (!editFloorNumber) {
+          setDetailError('Vui lòng nhập số tầng');
+          return;
+        }
+
+        await floorService.update(detailTarget.floor.id, {
+          floorNumber: parseInt(editFloorNumber),
+        } as any);
+      }
+
+      await fetchBuildings();
+      setDetailEditMode(false);
+      setDetailTarget(null);
+    } catch (err: any) {
+      setDetailError(err.message || 'Không thể cập nhật, vui lòng thử lại');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!deleteTarget) return;
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      if (deleteTarget.type === 'building') {
+        await buildingService.delete(deleteTarget.id);
+        if (selectedBuilding === deleteTarget.id) {
+          onSelectBuilding(null);
+        }
+      } else {
+        await floorService.delete(deleteTarget.id);
+        if (selectedFloor === deleteTarget.id) {
+          onSelectFloor(null);
+        }
+      }
+
+      await fetchBuildings();
+      setDeleteTarget(null);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Không thể xóa, vui lòng thử lại');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -216,33 +414,49 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
             {buildings.map((building) => (
               <div key={building.id}>
                 {/* Building */}
-                <button
-                  onClick={() => {
-                    setExpandedBuilding(expandedBuilding === building.id ? null : building.id);
-                    onSelectBuilding(selectedBuilding === building.id ? null : building.id);
-                    onSelectFloor(null);
-                  }}
-                  className="w-full flex items-center justify-between rounded transition-colors hover:bg-[var(--brand-surface)]"
+                <div
+                  className="grid items-center rounded transition-colors hover:bg-[var(--brand-surface)]"
                   style={{
-                    padding: '12px 16px',
-                    fontSize: 'var(--type-body)',
-                    color: selectedBuilding === building.id && selectedFloor === null ? 'var(--brand-primary)' : 'var(--text-primary)',
+                    gridTemplateColumns: 'minmax(0, 1fr) 32px',
+                    columnGap: '8px',
                     backgroundColor: selectedBuilding === building.id && selectedFloor === null ? 'var(--brand-surface)' : 'transparent',
-                    fontWeight: selectedBuilding === building.id && selectedFloor === null ? 700 : 600,
-                    gap: '8px'
                   }}
                 >
-                  <div className="flex items-center" style={{ gap: '8px' }}>
-                    {expandedBuilding === building.id ? (
-                      <ChevronDown size={18} />
-                    ) : (
-                      <ChevronRight size={18} />
-                    )}
-                    <span style={{ fontWeight: 600 }}>
-                      {building.buildingName} ({building.floors.length}/{building.totalFloors} tầng)
-                    </span>
-                  </div>
-                </button>
+                  <button
+                    onClick={() => {
+                      setExpandedBuilding(expandedBuilding === building.id ? null : building.id);
+                      onSelectBuilding(selectedBuilding === building.id ? null : building.id);
+                      onSelectFloor(null);
+                    }}
+                    className="flex min-w-0 items-center justify-between rounded transition-colors"
+                    style={{
+                      padding: '12px 12px 12px 16px',
+                      fontSize: 'var(--type-body)',
+                      color: selectedBuilding === building.id && selectedFloor === null ? 'var(--brand-primary)' : 'var(--text-primary)',
+                      fontWeight: selectedBuilding === building.id && selectedFloor === null ? 700 : 600,
+                      gap: '8px'
+                    }}
+                  >
+                    <div className="flex min-w-0 items-center" style={{ gap: '8px' }}>
+                      {expandedBuilding === building.id ? (
+                        <ChevronDown size={18} className="shrink-0" />
+                      ) : (
+                        <ChevronRight size={18} className="shrink-0" />
+                      )}
+                      <span className="truncate" style={{ fontWeight: 600 }}>
+                        {building.buildingName} ({building.floors.length}/{building.totalFloors} tầng)
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => openDetailModal({ type: 'building', building })}
+                    className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-transparent text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                    title="Xem chi tiết tòa"
+                    aria-label={`Xem chi tiết tòa ${building.buildingName}`}
+                  >
+                    <Info size={16} />
+                  </button>
+                </div>
                 
                 {/* Floors */}
                 {expandedBuilding === building.id && (
@@ -251,20 +465,36 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
                       <div className="text-sm text-gray-400 px-4 py-2">Chưa có tầng nào</div>
                     ) : (
                       building.floors.map((floor) => (
-                        <button
+                        <div
                           key={floor.id}
-                          onClick={() => { onSelectFloor(selectedFloor === floor.id ? null : floor.id); onSelectBuilding(null); }}
-                          className="w-full text-left rounded transition-colors"
+                          className="grid items-center rounded transition-colors hover:bg-[var(--brand-surface)]"
                           style={{
-                            padding: '10px 16px',
-                            fontSize: 'var(--type-body)',
+                            gridTemplateColumns: 'minmax(0, 1fr) 32px',
+                            columnGap: '8px',
                             backgroundColor: selectedFloor === floor.id ? 'var(--brand-surface)' : 'transparent',
-                            color: selectedFloor === floor.id ? 'var(--brand-primary)' : 'var(--text-secondary)',
-                            fontWeight: selectedFloor === floor.id ? 600 : 400
                           }}
                         >
-                          Tầng {floor.floorNumber}
-                        </button>
+                          <button
+                            onClick={() => { onSelectFloor(selectedFloor === floor.id ? null : floor.id); onSelectBuilding(null); }}
+                            className="min-w-0 text-left rounded transition-colors"
+                            style={{
+                              padding: '10px 12px 10px 16px',
+                              fontSize: 'var(--type-body)',
+                              color: selectedFloor === floor.id ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                              fontWeight: selectedFloor === floor.id ? 600 : 400
+                            }}
+                          >
+                            Tầng {floor.floorNumber}
+                          </button>
+                          <button
+                            onClick={() => openDetailModal({ type: 'floor', floor, building })}
+                            className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-transparent text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                            title="Xem chi tiết tầng"
+                            aria-label={`Xem chi tiết tầng ${floor.floorNumber}`}
+                          >
+                            <Info size={15} />
+                          </button>
+                        </div>
                       ))
                     )}
                   </div>
@@ -343,12 +573,13 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
 
                   {/* Address */}
                   <div>
-                    <label className="block text-sm text-gray-700 mb-2">Địa chỉ</label>
+                    <label className="block text-sm text-gray-700 mb-2">Địa chỉ <span className="text-red-500">*</span></label>
                     <textarea 
                       rows={2}
                       placeholder="Nhập địa chỉ chi tiết..."
                       value={address}
                       onChange={e => setAddress(e.target.value)}
+                      required
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     />
                   </div>
@@ -433,6 +664,225 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
               >
                 {formLoading && <Loader2 size={14} className="animate-spin" />}
                 <span>Xác nhận thêm</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailTarget && (
+        <div className="admin-content-modal-overlay">
+          <div className="bg-white rounded-lg w-[560px]">
+            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg text-gray-800">
+                  {detailTarget.type === 'building' ? 'Chi tiết tòa nhà' : 'Chi tiết tầng'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {detailTarget.type === 'building'
+                    ? detailTarget.building.buildingName
+                    : `${detailTarget.building.buildingName} - Tầng ${detailTarget.floor.floorNumber}`}
+                </p>
+              </div>
+              <button
+                onClick={() => setDetailTarget(null)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {detailTarget.type === 'building' ? (
+                detailEditMode ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-2 block text-sm text-gray-700">Tên tòa *</label>
+                      <input
+                        value={editBuildingName}
+                        onChange={(event) => setEditBuildingName(event.target.value)}
+                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm text-gray-700">Địa chỉ *</label>
+                      <textarea
+                        rows={2}
+                        value={editBuildingAddress}
+                        onChange={(event) => setEditBuildingAddress(event.target.value)}
+                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm text-gray-700">Số tầng *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editBuildingFloors}
+                        onChange={(event) => setEditBuildingFloors(event.target.value)}
+                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Nếu tăng số tầng, hệ thống sẽ tự tạo thêm tầng còn thiếu.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Tên tòa</p>
+                      <p className="mt-1 font-semibold text-gray-900">{detailTarget.building.buildingName}</p>
+                    </div>
+                    <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Số tầng</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {detailTarget.building.floors.length}/{detailTarget.building.totalFloors}
+                      </p>
+                    </div>
+                    <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng</p>
+                      <p className="mt-1 font-semibold text-gray-900">{detailTarget.building.totalRooms || 0}</p>
+                    </div>
+                    <div className="col-span-2 rounded border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Địa chỉ</p>
+                      <p className="mt-1 font-semibold text-gray-900">{detailTarget.building.address || 'Chưa có địa chỉ'}</p>
+                    </div>
+                  </div>
+                )
+              ) : detailEditMode ? (
+                <div>
+                  <label className="mb-2 block text-sm text-gray-700">Số tầng *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editFloorNumber}
+                    onChange={(event) => setEditFloorNumber(event.target.value)}
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Tòa nhà</p>
+                    <p className="mt-1 font-semibold text-gray-900">{detailTarget.building.buildingName}</p>
+                  </div>
+                  <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Tầng</p>
+                    <p className="mt-1 font-semibold text-gray-900">Tầng {detailTarget.floor.floorNumber}</p>
+                  </div>
+                  <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng</p>
+                    <p className="mt-1 font-semibold text-gray-900">{detailTarget.floor.totalRooms || 0}</p>
+                  </div>
+                  <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Mã tầng</p>
+                    <p className="mt-1 font-semibold text-gray-900">{detailTarget.floor.floorCode || '—'}</p>
+                  </div>
+                </div>
+              )}
+
+              {detailError && (
+                <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600">{detailError}</p>
+              )}
+            </div>
+
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleDetailDelete}
+                  disabled={detailLoading}
+                  className="inline-flex items-center gap-2 rounded border border-red-300 bg-white px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                  <span>Xóa</span>
+                </button>
+                <button
+                  onClick={handleContextAdd}
+                  disabled={detailLoading}
+                  className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Plus size={16} />
+                  <span>{detailTarget.type === 'building' ? 'Thêm tầng' : 'Thêm phòng'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {detailEditMode && (
+                  <button
+                    onClick={() => {
+                      setDetailEditMode(false);
+                      setDetailError(null);
+                    }}
+                    disabled={detailLoading}
+                    className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Hủy sửa
+                  </button>
+                )}
+                <button
+                  onClick={detailEditMode ? handleDetailUpdate : () => setDetailEditMode(true)}
+                  disabled={detailLoading}
+                  className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:opacity-50"
+                >
+                  {detailLoading ? <Loader2 size={14} className="animate-spin" /> : <Edit2 size={16} />}
+                  <span>{detailEditMode ? 'Lưu thay đổi' : 'Sửa'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="admin-content-modal-overlay">
+          <div className="bg-white rounded-lg w-[500px]">
+            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg text-gray-800">Xác nhận xóa</h3>
+              <button onClick={() => setDeleteTarget(null)} className="p-1 hover:bg-gray-100 rounded">
+                <X size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-start space-x-3 rounded border border-red-300 bg-red-50 p-4">
+                <AlertTriangle size={24} className="text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-900">
+                    Bạn có chắc chắn muốn xóa {deleteTarget.type === 'building' ? 'tòa' : 'tầng'} này?
+                  </p>
+                  <p className="mt-1 text-sm text-red-700">
+                    {deleteTarget.type === 'building'
+                      ? 'Tòa chỉ xóa được khi các tầng bên trong chưa có phòng.'
+                      : 'Tầng chỉ xóa được khi chưa có phòng.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded border border-gray-300 bg-gray-50 p-4">
+                <p className="text-sm text-gray-600">Đối tượng sẽ bị xóa:</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900">{deleteTarget.name}</p>
+              </div>
+
+              {deleteError && (
+                <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600">{deleteError}</p>
+              )}
+            </div>
+
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDeleteSubmit}
+                disabled={deleteLoading}
+                className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                {deleteLoading && <Loader2 size={14} className="animate-spin" />}
+                <span>Xác nhận xóa</span>
               </button>
             </div>
           </div>

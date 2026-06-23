@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { tatToanService, contractService, invoiceService } from '../../services/api.service';
 import { formatLocalDateInput } from '../../lib/date-utils';
 import { MoneyInput } from '../ui/MoneyInput';
+import { PageHeader } from '../ui/product-system';
 
 function parseAmount(input: string): number {
   const normalized = input.replace(/[^0-9.-]/g, '');
@@ -40,6 +41,12 @@ export function SettlementForm() {
 
   return (
     <div className="h-full flex flex-col space-y-6">
+      <PageHeader
+        eyebrow="Cư dân & Hợp đồng"
+        title="Tất toán hợp đồng"
+        description="Tạo, theo dõi hồ sơ tất toán và các khoản hoàn cọc/khấu trừ khi kết thúc hợp đồng."
+      />
+
       {/* Tabs */}
       <div className="bg-white border-2 border-gray-300 rounded p-2">
         <div className="grid grid-cols-2 gap-2 max-w-[560px]">

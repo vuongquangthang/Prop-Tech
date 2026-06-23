@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { FilterSelect } from '../ui/FilterSelect';
+import { PageHeader } from '../ui/product-system';
 
 interface RoomUtilityReading {
   roomId: number;
@@ -180,6 +181,12 @@ export function UtilityReadingTable() {
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-between)' }}>
+        <PageHeader
+          eyebrow="Hóa đơn & Tài chính"
+          title="Chốt chỉ số điện/nước"
+          description="Nhập chỉ số theo tháng và chỉ tính hóa đơn cho các phòng có dữ liệu hợp lệ."
+        />
+
         {/* Filter Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
@@ -439,9 +446,6 @@ export function UtilityReadingTable() {
               )}
 
               <p className="text-xs text-gray-500">Vào trang <strong>Quản lý Hóa đơn</strong> để xem hóa đơn nháp và phê duyệt.</p>
-              <div className="flex justify-end pt-2 border-t">
-                <button onClick={() => setCalculateModal(false)} className="px-5 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">Đóng</button>
-              </div>
             </div>
           </div>
         </div>

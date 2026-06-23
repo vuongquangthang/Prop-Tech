@@ -2,6 +2,7 @@ import { FileDown, Printer, BarChart2, Filter } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { reportService, MonthlyRevenue } from '../../services/feature.service';
+import { PageHeader } from '../ui/product-system';
 
 interface RevenueRow {
   period: string;
@@ -256,6 +257,30 @@ export function RevenueReportContent() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        eyebrow="Báo cáo & Thống kê"
+        title="Báo cáo doanh thu"
+        description="Theo dõi doanh thu theo kỳ, cơ cấu tiền phòng, phí dịch vụ và khoản thu khác."
+        actions={
+          <>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-white border border-gray-800 text-gray-800 text-sm rounded hover:bg-gray-50 flex items-center space-x-2"
+            >
+              <Printer size={16} />
+              <span>In báo cáo</span>
+            </button>
+            <button
+              onClick={handleExportExcel}
+              className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2"
+            >
+              <FileDown size={16} />
+              <span>Xuất Excel</span>
+            </button>
+          </>
+        }
+      />
+
       {/* Filter Bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -266,7 +291,7 @@ export function RevenueReportContent() {
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             ref={dateFromInputRef}
-            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-32"
+            className="w-[152px] px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />
           
           <span className="text-sm text-gray-600">đến</span>
@@ -276,7 +301,7 @@ export function RevenueReportContent() {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             ref={dateToInputRef}
-            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-32"
+            className="w-[152px] px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />
         </div>
         
@@ -287,20 +312,6 @@ export function RevenueReportContent() {
           >
             <BarChart2 size={16} />
             <span>{viewMode === 'table' ? 'Xem biểu đồ' : 'Xem bảng'}</span>
-          </button>
-          <button 
-            onClick={handlePrint}
-            className="px-4 py-2 bg-white border border-gray-800 text-gray-800 text-sm rounded hover:bg-gray-50 flex items-center space-x-2"
-          >
-            <Printer size={16} />
-            <span>In báo cáo</span>
-          </button>
-          <button 
-            onClick={handleExportExcel}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2"
-          >
-            <FileDown size={16} />
-            <span>Xuất Excel</span>
           </button>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { Filter, Monitor, Smartphone } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { auditLogService, AuditLog } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
+import { PageHeader } from '../ui/product-system';
 
 interface AuditLogRow {
   time: string;
@@ -129,6 +130,12 @@ export function AuditLogsTable() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        eyebrow="Quản lý tài khoản"
+        title="Nhật ký hoạt động"
+        description="Theo dõi đăng nhập, thay đổi dữ liệu và các thao tác quan trọng trong hệ thống."
+      />
+
       {/* Summary Cards - Only showing 2 cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">

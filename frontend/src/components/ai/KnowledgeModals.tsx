@@ -624,14 +624,6 @@ export function ManageCategoryModal({ onClose, categories }: { onClose: () => vo
           </div>
         </div>
         
-        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
-          >
-            Đóng
-          </button>
-        </div>
       </div>
     </div>
   );

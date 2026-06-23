@@ -502,10 +502,7 @@ export function Dashboard() {
 
       <section className="dashboard-hero">
         <div>
-          <div className="dashboard-eyebrow-row">
-            <p className="dashboard-eyebrow">Bảng điều hành</p>
-            {dashboardDemoEnabled && <span className="dashboard-demo-badge">Dữ liệu demo</span>}
-          </div>
+          {dashboardDemoEnabled && <span className="dashboard-demo-badge">Dữ liệu demo</span>}
           <h1>Bảng điều khiển vận hành</h1>
           <p>Theo dõi sức khỏe tòa nhà, dòng tiền, bảo trì và hoạt động cư dân trong một giao diện tập trung.</p>
         </div>
@@ -698,7 +695,7 @@ export function Dashboard() {
 const dashboardStyles = `
   .dashboard-shell {
     display: grid;
-    gap: 24px;
+    gap: 14px;
     width: min(100%, 1600px);
     margin-inline: auto;
     padding: 4px;
@@ -720,17 +717,14 @@ const dashboardStyles = `
 
   .dashboard-hero {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    padding: 24px;
-    border: 1px solid var(--surface-level-2-border);
-    border-radius: 12px;
-    background:
-      radial-gradient(circle at 8% 10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 28%),
-      radial-gradient(circle at 82% 0%, color-mix(in srgb, var(--info) 12%, transparent), transparent 32%),
-      var(--surface-level-2);
-    box-shadow: var(--shadow-card);
+    gap: 16px;
+    min-height: 52px;
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--surface-level-2-border);
+    background: transparent;
+    box-shadow: none;
   }
 
   .dashboard-eyebrow,
@@ -765,20 +759,20 @@ const dashboardStyles = `
   }
 
   .dashboard-hero h1 {
-    margin-top: 8px;
+    margin-top: 2px;
     color: var(--foreground);
-    font-size: clamp(28px, 3vw, 42px);
+    font-size: clamp(18px, 1.25vw, 22px);
     font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.04em;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
   }
 
   .dashboard-hero p {
     max-width: 760px;
-    margin-top: 10px;
+    margin-top: 3px;
     color: var(--foreground-subtle);
-    font-size: 15px;
-    line-height: 1.7;
+    font-size: 12px;
+    line-height: 1.45;
     font-weight: 500;
   }
 
@@ -1301,11 +1295,11 @@ const dashboardStyles = `
     .dashboard-panel,
     .dashboard-kpi-card {
       border-radius: 12px;
-      padding: 16px;
+      padding: 12px;
     }
 
     .dashboard-hero h1 {
-      font-size: 28px;
+      font-size: 19px;
     }
 
     .dashboard-kpis {
