@@ -490,11 +490,17 @@ public class PostService : IPostService
             post.AmenitiesJson = nextAmenities;
         }
 
+        if (changes.Count > 0)
+        {
+            // Moc cap nhat cuoi: bump cho moi lan sua (ke ca bai do Admin/QuanLy dang)
+            // de TroUyTin phat hien bai duoc sua lai sau khi bi xoa -> mo lai de duyet.
+            post.PostDate = DateTime.UtcNow;
+        }
+
         if (changes.Count > 0 && IsResidentOwnedPost(post, changedByUserId))
         {
             var oldIsLocked = post.IsLocked;
             var oldStatus = post.Status;
-            post.PostDate = DateTime.UtcNow;
             post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
             post.IsLocked = true;
             post.Status = PendingReviewPostStatus;

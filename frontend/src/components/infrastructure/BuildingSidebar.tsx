@@ -1,6 +1,7 @@
 import { Plus, ChevronRight, ChevronDown, X, Loader2, Building2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { buildingService, floorService } from '../../services/api.service';
+import { LocationPicker } from '../LocationPicker';
 
 interface FloorData {
   id: number;
@@ -36,6 +37,8 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
   const [buildingName, setBuildingName] = useState('');
   const [totalFloorsInput, setTotalFloorsInput] = useState('');
   const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   // Floor form fields
   const [selectedBuildingId, setSelectedBuildingId] = useState<number>(0);
   const [floorCode, setFloorCode] = useState('');
@@ -101,6 +104,8 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
     setBuildingName('');
     setTotalFloorsInput('');
     setAddress('');
+    setLatitude(null);
+    setLongitude(null);
     setFloorCode('');
     setFloorNumber('');
     setSelectedBuildingId(buildings.length > 0 ? buildings[0].id : 0);
@@ -121,6 +126,8 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
           buildingName: buildingName.trim(),
           address: address.trim() || '',
           numberOfFloors: parseInt(totalFloorsInput),
+          latitude: latitude ?? undefined,
+          longitude: longitude ?? undefined,
         } as any);
       } else {
         const bid = selectedBuildingId || (buildings[0]?.id ?? 0);
@@ -344,12 +351,28 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
                   {/* Address */}
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Địa chỉ</label>
-                    <textarea 
+                    <textarea
                       rows={2}
                       placeholder="Nhập địa chỉ chi tiết..."
                       value={address}
                       onChange={e => setAddress(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    />
+                  </div>
+
+                  {/* Vi tri tren ban do */}
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">
+                      Vị trí trên bản đồ {latitude && longitude ? '(đã chọn)' : '(tuỳ chọn)'}
+                    </label>
+                    <LocationPicker
+                      lat={latitude}
+                      lng={longitude}
+                      addressQuery={address}
+                      onChange={(la, ln) => {
+                        setLatitude(la);
+                        setLongitude(ln);
+                      }}
                     />
                   </div>
                 </>

@@ -57,6 +57,8 @@ public class BuildingService : IBuildingService
             NumberOfFloors = building.NumberOfFloors,
             Description = building.Description,
             OwnerUserId = building.OwnerUserId,
+            Latitude = building.Latitude,
+            Longitude = building.Longitude,
             TotalRooms = floors.Sum(floor => floor.Rooms?.Count ?? 0),
             Floors = floors.Select(floor => new FloorDto
             {
@@ -86,7 +88,9 @@ public class BuildingService : IBuildingService
             Address = dto.Address.Trim(),
             NumberOfFloors = dto.NumberOfFloors,
             Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
-            OwnerUserId = ownerUserId
+            OwnerUserId = ownerUserId,
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude
         };
 
         await _context.Buildings.AddAsync(building);
@@ -120,6 +124,8 @@ public class BuildingService : IBuildingService
         if (!string.IsNullOrWhiteSpace(dto.Address)) building.Address = dto.Address.Trim();
         if (dto.NumberOfFloors.HasValue) building.NumberOfFloors = dto.NumberOfFloors.Value;
         if (dto.Description != null) building.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
+        if (dto.Latitude.HasValue) building.Latitude = dto.Latitude;
+        if (dto.Longitude.HasValue) building.Longitude = dto.Longitude;
 
         await _context.SaveChangesAsync();
         return MapToDto(building);
@@ -154,6 +160,8 @@ public class BuildingService : IBuildingService
             NumberOfFloors = building.NumberOfFloors,
             Description = building.Description,
             OwnerUserId = building.OwnerUserId,
+            Latitude = building.Latitude,
+            Longitude = building.Longitude,
             TotalRooms = building.Floors?.Sum(floor => floor.Rooms?.Count ?? 0) ?? 0
         };
     }

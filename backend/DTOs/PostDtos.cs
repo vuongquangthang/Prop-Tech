@@ -69,6 +69,14 @@ public class UpdatePostMessageCountDto
     public int Messages { get; set; }
 }
 
+// TroUyTin bao Prop-Tech gui thong bao cho chu bai khi admin xoa bai dang.
+public class ModerationDeleteNoticeDto
+{
+    public string Reason { get; set; } = string.Empty;
+    public string? ListingTitle { get; set; }
+    public DateTime? DeletedAt { get; set; }
+}
+
 public class UpdatePostDto
 {
     public string? Title { get; set; }

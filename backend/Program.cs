@@ -350,6 +350,10 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE [USER] ADD OWNER_USER_ID INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TOA_NHA') AND name = 'OWNER_USER_ID')
                     ALTER TABLE TOA_NHA ADD OWNER_USER_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TOA_NHA') AND name = 'VI_DO')
+                    ALTER TABLE TOA_NHA ADD VI_DO FLOAT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TOA_NHA') AND name = 'KINH_DO')
+                    ALTER TABLE TOA_NHA ADD KINH_DO FLOAT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('DICH_VU') AND name = 'OWNER_USER_ID')
                     ALTER TABLE DICH_VU ADD OWNER_USER_ID INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CU_DAN') AND name = 'OWNER_USER_ID')

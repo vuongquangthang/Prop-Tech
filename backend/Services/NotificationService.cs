@@ -21,6 +21,8 @@ public interface INotificationService
     Task SendToUserAsync(int recipientUserId, string title, string content, string type);
     /// <summary>Tạo thông báo DB chỉ hiển thị trên trang quản lý (ScopeType=ADMIN)</summary>
     Task CreateAdminNotificationAsync(string title, string content, string type, int ownerUserId);
+    /// <summary>Thông báo admin xóa bài: gửi cho cư dân đăng bài (USER) + chủ nhà/BQL quản lý (ADMIN scope)</summary>
+    Task SendPostDeleteNoticeAsync(int creatorUserId, string title, string content, string type);
     /// <summary>Số thông báo ADMIN chưa đọc (dùng cho badge BQL)</summary>
     Task<int> GetAdminUnreadCountAsync(int ownerUserId);
 }
@@ -181,6 +183,16 @@ public class NotificationService : INotificationService
     public async Task<int> GetAdminUnreadCountAsync(int ownerUserId)
     {
         return await _repo.GetAdminUnreadCountAsync(ownerUserId);
+    }
+
+    public async Task SendPostDeleteNoticeAsync(int creatorUserId, string title, string content, string type)
+    {
+        // 1) Cu dan dang bai -> thong bao ca nhan (USER scope): hien o thong bao ca nhan/mobile + chuong cua chinh ho.
+        await SendToUserAsync(creatorUserId, title, content, type);
+
+        // 2) Chu nha/BQL quan ly cu dan do -> thong bao ADMIN scope: hien o panel "Thong bao Admin" + chuong BQL.
+        var ownerUserId = await ResolveOwnerUserIdForUserAsync(creatorUserId) ?? creatorUserId;
+        await CreateAdminNotificationAsync(title, content, type, ownerUserId);
     }
 
     private static NotificationResponseDto MapToDto(Notification n) => new()

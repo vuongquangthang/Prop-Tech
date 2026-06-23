@@ -287,7 +287,7 @@ public class PublicRoomsController : ControllerBase
             Shared = isShared
                 ? BuildSharedRoom(post, room, servicePrices, maxOccupants, price)
                 : null,
-            Coords = GuessCoords(locationParts.City, locationParts.District),
+            Coords = ResolveCoords(building, locationParts.City, locationParts.District),
         };
     }
 
@@ -352,7 +352,7 @@ public class PublicRoomsController : ControllerBase
                 Avatar = building.OwnerUser?.AvatarUrl ?? "",
                 UserId = building.OwnerUserId.HasValue ? $"user-{building.OwnerUserId.Value}" : $"building-{building.Id}",
             },
-            Coords = GuessCoords(locationParts.City, locationParts.District),
+            Coords = ResolveCoords(building, locationParts.City, locationParts.District),
         };
     }
 
@@ -785,6 +785,16 @@ public class PublicRoomsController : ControllerBase
         }
 
         return builder.ToString().Normalize(NormalizationForm.FormC).Trim();
+    }
+
+    // Uu tien toa do that da luu cua toa nha (geocode + keo ghim); chua co thi doan theo city/district.
+    private static PublicRoomCoordsDto ResolveCoords(Building? building, string city, string district)
+    {
+        if (building?.Latitude is double lat && building?.Longitude is double lng)
+        {
+            return new PublicRoomCoordsDto { Lat = lat, Lng = lng };
+        }
+        return GuessCoords(city, district);
     }
 
     private static PublicRoomCoordsDto GuessCoords(string city, string district)

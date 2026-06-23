@@ -10,6 +10,8 @@ export interface Building {
   numberOfFloors: number;
   totalRooms?: number;
   description?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Floor {

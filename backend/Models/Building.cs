@@ -36,6 +36,13 @@ public class Building
     [Column("OWNER_USER_ID")]
     public int? OwnerUserId { get; set; }
 
+    // Toa do dia chi toa nha (geocode + keo ghim luc tao/sua). Dung cho ban do public.
+    [Column("VI_DO")]
+    public double? Latitude { get; set; }
+
+    [Column("KINH_DO")]
+    public double? Longitude { get; set; }
+
     // Navigation properties
     [ForeignKey("OwnerUserId")]
     public User? OwnerUser { get; set; }

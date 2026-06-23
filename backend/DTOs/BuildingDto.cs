@@ -12,6 +12,8 @@ public class BuildingDto
     public string? Description { get; set; }
     public int TotalRooms { get; set; }
     public int? OwnerUserId { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 
 /// <summary>
@@ -23,6 +25,8 @@ public class CreateBuildingDto
     public string Address { get; set; } = null!;
     public int NumberOfFloors { get; set; }
     public string? Description { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 
 /// <summary>
@@ -34,6 +38,8 @@ public class UpdateBuildingDto
     public string? Address { get; set; }
     public int? NumberOfFloors { get; set; }
     public string? Description { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 
 /// <summary>
