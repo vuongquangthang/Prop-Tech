@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&family=Roboto:wght@400;500;600;700;800&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -100,6 +100,7 @@
   --space-card: 20px;
   --space-layout: 24px;
   --admin-topbar-height: 4rem;
+  --font-heading: 'Inter', 'Roboto', Arial, sans-serif;
 
   --radius-control: 10px;
   --radius-button: 10px;
@@ -307,8 +308,9 @@
   h4,
   h5,
   h6 {
+    font-family: var(--font-heading) !important;
     color: var(--text-primary);
-    letter-spacing: 0;
+    letter-spacing: -0.025em;
   }
 
   h1 {
@@ -577,10 +579,11 @@
 
   .product-page-header h1 {
     margin: 0;
+    font-family: var(--font-heading) !important;
     font-size: clamp(18px, 1.25vw, 22px);
     font-weight: 800;
     line-height: 1.18;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.035em;
     color: var(--text-primary);
   }
 

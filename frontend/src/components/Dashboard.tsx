@@ -760,11 +760,12 @@ const dashboardStyles = `
 
   .dashboard-hero h1 {
     margin-top: 2px;
+    font-family: var(--font-heading) !important;
     color: var(--foreground);
     font-size: clamp(18px, 1.25vw, 22px);
     font-weight: 800;
     line-height: 1.18;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.035em;
   }
 
   .dashboard-hero p {

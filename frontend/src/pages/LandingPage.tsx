@@ -36,8 +36,6 @@ const navItems = [
   { label: 'Bảng giá', href: '#pricing' },
 ];
 
-const logos = ['Sunrise Residence', 'Metrohome', 'An Phú Tower', 'GreenView', 'Urban Nest'];
-
 const problems = [
   [ClipboardList, 'Quản lý thủ công rời rạc', 'Excel, Zalo, giấy tờ và nhiều file riêng khiến dữ liệu dễ lệch, khó bàn giao và khó kiểm soát.'],
   [MessageSquareText, 'Khiếu nại cư dân bị trôi', 'Phản ánh qua nhiều kênh không có SLA, không có trạng thái xử lý và thiếu lịch sử đối soát.'],
@@ -132,18 +130,30 @@ export function LandingPage() {
           --ink: #0B1220;
           --muted: #64748B;
           --line: rgba(148, 163, 184, 0.28);
+          --lp-heading-font: var(--font-heading, 'Inter', 'Roboto', Arial, sans-serif);
           min-height: 100vh;
           overflow-x: hidden;
           background: #F6F9FC;
           color: var(--ink);
-          font-family: Inter, Roboto, Arial, sans-serif;
+          font-family: Roboto, Arial, sans-serif;
         }
 
         .lp *,
         .lp *::before,
         .lp *::after {
           box-sizing: border-box;
-          font-family: Inter, Roboto, Arial, sans-serif !important;
+          font-family: Roboto, Arial, sans-serif !important;
+        }
+
+        .lp h1,
+        .lp h2,
+        .lp h3 {
+          font-family: var(--lp-heading-font) !important;
+          letter-spacing: -0.03em;
+        }
+
+        .lp p {
+          margin: 0;
         }
 
         .lp h1,
@@ -188,6 +198,7 @@ export function LandingPage() {
           gap: 12px;
           background: transparent;
           color: var(--ink);
+          font-family: var(--lp-heading-font) !important;
           font-size: 20px;
           font-weight: 900;
           letter-spacing: -0.04em;
@@ -243,7 +254,7 @@ export function LandingPage() {
           background: linear-gradient(135deg, var(--brand), #0EA5E9);
           color: white;
           font-size: 15px;
-          font-weight: 950;
+          font-weight: 800;
           box-shadow: 0 18px 44px rgba(30, 78, 140, 0.24);
           transition: transform 180ms ease, box-shadow 180ms ease;
         }
@@ -265,7 +276,7 @@ export function LandingPage() {
           background: rgba(255,255,255,0.82);
           color: #0F172A;
           font-size: 15px;
-          font-weight: 950;
+          font-weight: 800;
           box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
           transition: transform 180ms ease;
         }
@@ -320,24 +331,24 @@ export function LandingPage() {
           background: rgba(255,255,255,0.78);
           color: var(--brand);
           font-size: 13px;
-          font-weight: 950;
+          font-weight: 800;
           box-shadow: 0 10px 30px rgba(30, 78, 140, 0.08);
         }
 
         .lp-hero h1 {
           max-width: 760px;
           color: #07111F;
-          font-size: clamp(52px, 6vw, 82px);
-          font-weight: 950;
-          line-height: 0.96;
-          letter-spacing: -0.075em;
+          font-size: clamp(48px, 4.2vw, 70px);
+          font-weight: 800;
+          line-height: 1.08;
+          letter-spacing: -0.024em;
         }
 
         .lp-hero p {
           max-width: 650px;
           margin-top: 26px;
           color: #475569;
-          font-size: 19px;
+          font-size: 15px;
           line-height: 1.85;
           font-weight: 600;
         }
@@ -498,7 +509,7 @@ export function LandingPage() {
         .lp-chart-card b,
         .lp-metric b {
           color: white;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-dash-brand small,
@@ -516,7 +527,7 @@ export function LandingPage() {
           border-radius: 10px;
           color: rgba(226,232,240,0.72);
           font-size: 13px;
-          font-weight: 850;
+          font-weight: 800;
         }
 
         .lp-dashboard aside .active {
@@ -545,7 +556,7 @@ export function LandingPage() {
           color: #86EFAC;
           font-size: 12px;
           font-style: normal;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-metric-grid {
@@ -733,7 +744,7 @@ export function LandingPage() {
           margin-top: 2px;
           color: #0F172A;
           font-size: 14px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-phone-top svg {
@@ -764,7 +775,7 @@ export function LandingPage() {
           display: block;
           margin-top: 6px;
           font-size: 25px;
-          font-weight: 950;
+          font-weight: 800;
           letter-spacing: -0.05em;
         }
 
@@ -776,7 +787,7 @@ export function LandingPage() {
           background: white;
           color: var(--brand);
           font-size: 13px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-shortcuts {
@@ -826,7 +837,7 @@ export function LandingPage() {
         .lp-logo-inner p {
           color: #94A3B8;
           font-size: 12px;
-          font-weight: 950;
+          font-weight: 800;
           letter-spacing: 0.18em;
           text-transform: uppercase;
         }
@@ -845,7 +856,7 @@ export function LandingPage() {
           color: #64748B;
           text-align: center;
           font-size: 13px;
-          font-weight: 950;
+          font-weight: 800;
           box-shadow: 0 10px 24px rgba(15,23,42,0.04);
         }
 
@@ -878,7 +889,7 @@ export function LandingPage() {
         .lp-section-title span {
           color: var(--brand);
           font-size: 12px;
-          font-weight: 950;
+          font-weight: 800;
           letter-spacing: 0.22em;
           text-transform: uppercase;
         }
@@ -891,9 +902,9 @@ export function LandingPage() {
           margin-top: 14px;
           color: #07111F;
           font-size: clamp(34px, 4.4vw, 58px);
-          font-weight: 950;
+          font-weight: 800;
           line-height: 1.02;
-          letter-spacing: -0.06em;
+          letter-spacing: -0.03em;
         }
 
         .lp-dark .lp-section-title h2,
@@ -961,7 +972,7 @@ export function LandingPage() {
         .lp-card h3 {
           color: #07111F;
           font-size: 20px;
-          font-weight: 950;
+          font-weight: 800;
           line-height: 1.18;
           letter-spacing: -0.035em;
         }
@@ -984,9 +995,9 @@ export function LandingPage() {
         .lp-platform-copy h2,
         .lp-roi-copy h2 {
           font-size: clamp(36px, 4.8vw, 58px);
-          font-weight: 950;
+          font-weight: 800;
           line-height: 1.02;
-          letter-spacing: -0.06em;
+          letter-spacing: -0.03em;
         }
 
         .lp-platform-copy p,
@@ -1015,7 +1026,7 @@ export function LandingPage() {
           display: block;
           color: white;
           font-size: 16px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-platform-tags span {
@@ -1074,7 +1085,7 @@ export function LandingPage() {
         .lp-request-card h3 {
           color: #07111F;
           font-size: 17px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-request-card .status {
@@ -1084,7 +1095,7 @@ export function LandingPage() {
           background: #DCFCE7;
           color: #15803D;
           font-size: 11px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-request-card div {
@@ -1125,8 +1136,8 @@ export function LandingPage() {
         .lp-showcase-panel h3 {
           color: #07111F;
           font-size: 28px;
-          font-weight: 950;
-          letter-spacing: -0.05em;
+          font-weight: 800;
+          letter-spacing: -0.03em;
         }
 
         .lp-showcase-panel p {
@@ -1162,13 +1173,13 @@ export function LandingPage() {
           color: white;
           font-style: normal;
           font-size: 20px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-step h3 {
           color: #07111F;
           font-size: 19px;
-          font-weight: 950;
+          font-weight: 800;
           letter-spacing: -0.035em;
         }
 
@@ -1209,15 +1220,15 @@ export function LandingPage() {
           margin-top: 34px;
           color: white;
           font-size: 42px;
-          font-weight: 950;
-          letter-spacing: -0.06em;
+          font-weight: 800;
+          letter-spacing: -0.03em;
         }
 
         .lp-roi-card h3 {
           margin-top: 10px;
           color: white;
           font-size: 16px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-roi-card p {
@@ -1266,7 +1277,7 @@ export function LandingPage() {
 
         .lp-testimonial b {
           color: #0F172A;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-testimonial small {
@@ -1287,7 +1298,7 @@ export function LandingPage() {
         .lp-price h3 {
           color: #07111F;
           font-size: 25px;
-          font-weight: 950;
+          font-weight: 800;
           letter-spacing: -0.04em;
         }
 
@@ -1313,8 +1324,8 @@ export function LandingPage() {
           margin-top: 26px;
           color: #07111F;
           font-size: 46px;
-          font-weight: 950;
-          letter-spacing: -0.07em;
+          font-weight: 800;
+          letter-spacing: -0.03em;
         }
 
         .lp-price.featured strong {
@@ -1383,9 +1394,9 @@ export function LandingPage() {
           max-width: 820px;
           color: white;
           font-size: clamp(34px, 4.4vw, 56px);
-          font-weight: 950;
+          font-weight: 800;
           line-height: 1.03;
-          letter-spacing: -0.06em;
+          letter-spacing: -0.03em;
         }
 
         .lp-cta-box p {
@@ -1436,7 +1447,7 @@ export function LandingPage() {
           margin: 0 0 14px;
           color: #0F172A;
           font-size: 15px;
-          font-weight: 950;
+          font-weight: 800;
         }
 
         .lp-footer ul {
@@ -1487,9 +1498,20 @@ export function LandingPage() {
           color: var(--foreground);
         }
 
-        .dark .lp-header {
+        .dark .lp-nav {
           border-color: var(--border);
           background: color-mix(in srgb, var(--topbar) 92%, transparent);
+        }
+
+        .dark .lp-logo,
+        .dark .lp-menu a {
+          color: var(--foreground);
+        }
+
+        .dark .lp-login {
+          border: 1px solid var(--border);
+          background: var(--card);
+          color: var(--foreground);
         }
 
         .dark .lp-menu a,
@@ -1796,7 +1818,7 @@ export function LandingPage() {
           .lp-left-title h2,
           .lp-cta-box h2 {
             font-size: 34px;
-            letter-spacing: -0.052em;
+            letter-spacing: -0.03em;
           }
 
           .lp-card,
@@ -1878,24 +1900,9 @@ export function LandingPage() {
             <div className="lp-visual lp-reveal">
               <DashboardMockup />
               <PhoneMockup />
-              <div className="lp-floating-card">
-                <i><CheckCircle2 size={24} /></i>
-                <div>
-                  <b>128 giao dịch đã đối soát</b>
-                  <small>Cập nhật từ PayOS/VietQR</small>
-                </div>
-              </div>
             </div>
           </div>
 
-          <div className="lp-logo-strip">
-            <div className="lp-logo-inner">
-              <p>Được thiết kế cho</p>
-              <div className="lp-logo-grid">
-                {logos.map((logo) => <span key={logo}>{logo}</span>)}
-              </div>
-            </div>
-          </div>
         </section>
 
         <section id="problems" className="lp-section lp-white">
