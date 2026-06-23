@@ -31,7 +31,8 @@ public class ServiceService : IServiceService
     {
         var services = await _context.Services
             .AsNoTracking()
-            .Where(service => service.OwnerUserId == ownerUserId)
+            .Include(service => service.PriceHistories)
+            .Where(service => service.OwnerUserId == ownerUserId && service.IsActive)
             .OrderBy(service => service.Name)
             .ToListAsync();
 
@@ -42,6 +43,7 @@ public class ServiceService : IServiceService
     {
         var services = await _context.Services
             .AsNoTracking()
+            .Include(service => service.PriceHistories)
             .Where(service => service.OwnerUserId == ownerUserId && service.IsActive)
             .OrderBy(service => service.Name)
             .ToListAsync();
@@ -71,6 +73,7 @@ public class ServiceService : IServiceService
         var usagesQuery = _context.ChiTietSuDungDichVus
             .AsNoTracking()
             .Include(usage => usage.Service)
+                .ThenInclude(service => service!.PriceHistories)
             .Include(usage => usage.Resident)
             .Where(usage => usage.RoomId == contract.RoomId
                 && usage.ApplyFrom <= contractEnd
@@ -103,6 +106,7 @@ public class ServiceService : IServiceService
         var usages = await _context.ChiTietSuDungDichVus
             .AsNoTracking()
             .Include(usage => usage.Service)
+                .ThenInclude(service => service!.PriceHistories)
             .Include(usage => usage.Resident)
             .Where(usage => usage.RoomId == roomId
                 && usage.ApplyFrom <= to
@@ -118,6 +122,7 @@ public class ServiceService : IServiceService
     {
         var service = await _context.Services
             .AsNoTracking()
+            .Include(item => item.PriceHistories)
             .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
         return service == null ? null : MapToDto(service);
     }
@@ -274,6 +279,10 @@ public class ServiceService : IServiceService
             CommonUnitPrice = service.CommonUnitPrice,
             IsActive = service.IsActive,
             EffectiveDate = service.EffectiveDate,
+            PriceUpdatedAt = service.PriceHistories
+                .OrderByDescending(history => history.ChangedAt)
+                .Select(history => (DateTime?)history.ChangedAt)
+                .FirstOrDefault() ?? service.EffectiveDate,
             OwnerUserId = service.OwnerUserId
         };
     }
@@ -306,6 +315,10 @@ public class ServiceService : IServiceService
                     UnitPrice = latestWithOverride?.OverrideUnitPrice ?? latest.Service?.CommonUnitPrice,
                     ApplyFrom = group.Min(item => item.ApplyFrom),
                     ApplyTo = applyToValues.Count > 0 ? applyToValues.Max() : null,
+                    PriceUpdatedAt = latest.Service?.PriceHistories
+                        .OrderByDescending(history => history.ChangedAt)
+                        .Select(history => (DateTime?)history.ChangedAt)
+                        .FirstOrDefault() ?? latest.Service?.EffectiveDate,
                     TotalQuantity = group.Sum(item => item.Quantity ?? 1),
                     ResidentCount = group.Select(item => item.ResidentId).Distinct().Count(),
                     ResidentNames = group

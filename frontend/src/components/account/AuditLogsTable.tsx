@@ -1,6 +1,8 @@
 import { Filter, Monitor, Smartphone } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { auditLogService, AuditLog } from '../../services/api.service';
+import { FilterSelect } from '../ui/FilterSelect';
+import { PageHeader } from '../ui/product-system';
 
 interface AuditLogRow {
   time: string;
@@ -128,6 +130,12 @@ export function AuditLogsTable() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        eyebrow="Quản lý tài khoản"
+        title="Nhật ký hoạt động"
+        description="Theo dõi đăng nhập, thay đổi dữ liệu và các thao tác quan trọng trong hệ thống."
+      />
+
       {/* Summary Cards - Only showing 2 cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
@@ -153,8 +161,8 @@ export function AuditLogsTable() {
         <div className="flex items-center space-x-3 flex-wrap gap-3">
           <Filter size={16} className="text-gray-500" />
           
-          <select 
-            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-3 py-2 bg-white focus:outline-none"
             style={{ fontSize: 'var(--type-caption)' }}
             value={accountFilter}
             onChange={(e) => setAccountFilter(e.target.value)}
@@ -162,10 +170,10 @@ export function AuditLogsTable() {
             <option value="all">Tất cả tài khoản</option>
             <option value="admin">Admin</option>
             <option value="resident">Cư dân</option>
-          </select>
+          </FilterSelect>
           
-          <select 
-            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-3 py-2 bg-white focus:outline-none"
             style={{ fontSize: 'var(--type-caption)' }}
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
@@ -182,7 +190,7 @@ export function AuditLogsTable() {
             <option value="Khóa tài khoản">Khóa tài khoản</option>
             <option value="Phê duyệt &amp; Gửi hóa đơn">Phê duyệt &amp; Gửi hóa đơn</option>
             <option value="Cập nhật tri thức AI">Cập nhật tri thức AI</option>
-          </select>
+          </FilterSelect>
           
           <input 
             type="date"

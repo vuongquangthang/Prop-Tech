@@ -144,36 +144,42 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
         }
 
         int roomId;
-        
+        List<HopDong>? residentContracts = null;
+
+        if (user.ResidentId.HasValue)
+        {
+            residentContracts = await _context.HopDongs
+                .Include(hd => hd.ChiTietOs)
+                .Where(hd => hd.ChiTietOs.Any(ct => ct.ResidentId == user.ResidentId.Value
+                    && ct.FromDate <= DateTime.UtcNow
+                    && (ct.ToDate == null || ct.ToDate >= DateTime.UtcNow)))
+                .ToListAsync();
+        }
+
         // If roomId not provided, get from user's current residency
         if (!dto.RoomId.HasValue)
         {
-            // Get user's resident info
             if (!user.ResidentId.HasValue)
             {
                 throw new InvalidOperationException("Người dùng chưa được liên kết với cư dân nào");
             }
 
-            // Get active contract for this resident
-            var contracts = await _context.HopDongs
-                .Include(hd => hd.ChiTietOs)
-                .Where(hd => hd.ChiTietOs.Any(ct => ct.ResidentId == user.ResidentId.Value 
-                    && ct.FromDate <= DateTime.UtcNow 
-                    && (ct.ToDate == null || ct.ToDate >= DateTime.UtcNow)))
-                .ToListAsync();
-
-            if (contracts == null || !contracts.Any())
+            if (residentContracts == null || residentContracts.Count == 0)
             {
                 throw new InvalidOperationException("Không tìm thấy hợp đồng đang hoạt động của bạn. Vui lòng liên hệ ban quản lý.");
             }
 
-            roomId = contracts.First().RoomId;
+            roomId = residentContracts.First().RoomId;
         }
         else
         {
             roomId = dto.RoomId.Value;
-            
-            // Validate room exists
+
+            if (user.ResidentId.HasValue && (residentContracts == null || !residentContracts.Any(contract => contract.RoomId == roomId)))
+            {
+                throw new InvalidOperationException("Bạn không có hợp đồng đang hoạt động tại phòng đã chọn");
+            }
+
             var room = (await _roomRepository.FindAsync(item =>
                 item.Id == roomId && item.Floor.Building.OwnerUserId == user.OwnerUserId)).FirstOrDefault();
             if (room == null)

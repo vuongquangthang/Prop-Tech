@@ -182,6 +182,7 @@ export default function IssuesScreen() {
             return (
               <IssueCard
                 tag={maintenanceService.getIssueTypeLabel(request.issueType)}
+                roomLabel={request.roomNumber ? `Phòng ${request.roomNumber}` : `Phòng #${request.roomId}`}
                 title={request.description || 'Không có mô tả'}
                 id={`#${request.id} - ${new Date(request.createdAt).toLocaleDateString('vi-VN')}`}
                 status={statusInfo}

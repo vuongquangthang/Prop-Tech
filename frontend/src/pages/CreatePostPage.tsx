@@ -9,6 +9,9 @@ import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
 import { API_CONFIG } from '../lib/api-config';
 import { useAuth } from '../contexts/AuthContext';
+import { ImageViewer } from '../components/ui/ImageViewer';
+import { MoneyInput } from '../components/ui/MoneyInput';
+import { PageHeader } from '../components/ui/product-system';
 
 interface AssetOption {
   id: number;
@@ -46,6 +49,7 @@ export function CreatePostPage() {
   const [landlordRequirementsInput, setLandlordRequirementsInput] = useState<string>('');
   const [contactNameInput, setContactNameInput] = useState<string>('');
   const [contactPhoneInput, setContactPhoneInput] = useState<string>('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
   const [servicePrices, setServicePrices] = useState<{ [key: string]: string }>({});
   const [localServices, setLocalServices] = useState<any[]>([]);
@@ -55,15 +59,21 @@ export function CreatePostPage() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
-  const [postPreviewImage, setPostPreviewImage] = useState<{ src: string; title: string } | null>(null);
+  const [postPreviewImage, setPostPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
   const [showPostFormModal, setShowPostFormModal] = useState(false);
   const [roomStatusFilter, setRoomStatusFilter] = useState<RoomStatusFilter>('all');
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const selectedRoomImages = Array.isArray(selectedRoom?.imageUrls)
+    ? selectedRoom.imageUrls.map((url) => resolveImageUrl(url))
+    : [];
   const getRoomLocation = (room: RoomOption | any) => {
     const buildingName = room?.buildingName ?? room?.building ?? 'Chưa xác định';
     const floorNumber = room?.floorNumber ?? room?.floor;
     return floorNumber ? `${buildingName} - Tầng ${floorNumber}` : buildingName;
+  };
+  const getRoomAddress = (room: RoomOption | any) => {
+    return room?.buildingAddress ?? room?.address ?? room?.building?.address ?? room?.buildingDetail?.address ?? '';
   };
   const getRoomRentText = (room: RoomOption | any) => {
     const rent = room?.defaultRentPrice ?? room?.price;
@@ -81,6 +91,44 @@ export function CreatePostPage() {
   const isRentedRoom = (room: RoomOption | any) => {
     const status = normalizeRoomStatus(room?.status);
     return status === 'đã thuê' || status === 'da thue' || status === 'rented' || status === 'occupied';
+  };
+  const trimSpaces = (value: string) => value.replace(/\s+/g, ' ').trim();
+  const onlyDigits = (value: string) => value.replace(/\D/g, '');
+  const updateFieldError = (field: string, message: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      if (message) next[field] = message;
+      else delete next[field];
+      return next;
+    });
+  };
+  const handleContactPhoneChange = (value: string) => {
+    const digits = onlyDigits(value).slice(0, 10);
+    setContactPhoneInput(digits);
+    updateFieldError(
+      'contactPhone',
+      digits.length > 0 && digits.length < 10 ? 'Số điện thoại phải gồm đúng 10 chữ số' : ''
+    );
+  };
+  const toDateInputValue = (value?: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const applyDefaultMoveInForRoom = (room: RoomOption | any) => {
+    const contractEndDate = toDateInputValue(room?.activeContractEndDate ?? room?.contractEndDate ?? room?.expectedEndDate);
+    if (isRentedRoom(room) && contractEndDate) {
+      setMoveInType('from-date');
+      setMoveInDateInput(contractEndDate);
+      return;
+    }
+
+    setMoveInType('immediate');
+    setMoveInDateInput('');
   };
   const getRoomStatusLabel = (room: RoomOption | any) => {
     if (isAvailableRoom(room)) return 'Trống';
@@ -398,16 +446,36 @@ export function CreatePostPage() {
     if (isSubmitting) return; // chan double-submit -> tranh tao 2 bai trung
     if (!selectedRoom) return;
 
-    const contactName = contactType === 'current' ? currentAccountName : contactNameInput;
-    const contactPhone = contactType === 'current' ? currentAccountPhone : contactPhoneInput;
+    const normalizedTitle = trimSpaces(title);
+    const normalizedRequirements = trimSpaces(landlordRequirementsInput);
+    const contactName = trimSpaces(contactType === 'current' ? currentAccountName : contactNameInput);
+    const contactPhone = onlyDigits(contactType === 'current' ? currentAccountPhone : contactPhoneInput);
 
-    if (!title || title.trim().length === 0) {
+    setTitle(normalizedTitle);
+    setLandlordRequirementsInput(normalizedRequirements);
+    if (contactType === 'other') {
+      setContactNameInput(contactName);
+      setContactPhoneInput(contactPhone);
+    }
+
+    if (!normalizedTitle) {
       toast.error('Vui lòng nhập tiêu đề bài đăng');
       return;
     }
 
     if (!contactName.trim() || !contactPhone.trim()) {
       toast.error('Vui long nhap du thong tin lien he');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(contactPhone)) {
+      updateFieldError('contactPhone', 'Số điện thoại phải gồm đúng 10 chữ số');
+      toast.error('Số điện thoại phải gồm đúng 10 chữ số');
+      return;
+    }
+
+    if (moveInType === 'from-date' && !moveInDateInput) {
+      toast.error('Vui lòng chọn ngày có thể vào ở');
       return;
     }
 
@@ -420,12 +488,12 @@ export function CreatePostPage() {
 
     const payload = {
       roomId: selectedRoom.id,
-      title: title.trim(),
+      title: normalizedTitle,
       baseRentPrice: Number(selectedRoom.defaultRentPrice ?? 0),
       moveInType,
       moveInDate: moveInType === 'from-date' ? moveInDateInput : undefined,
       floodProne: floodProne === 'yes',
-      landlordRequirements: landlordRequirementsInput,
+      landlordRequirements: normalizedRequirements,
       contactType,
       contactName,
       contactPhone,
@@ -530,16 +598,22 @@ export function CreatePostPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6 flex items-center space-x-4">
-        <button onClick={() => navigate('/post-management')} className="rounded p-2 hover:bg-gray-200">
-          <ArrowLeft size={20} className="text-gray-600" />
-        </button>
-        <div>
-          <h1 className="mb-1 text-2xl font-bold text-gray-800">{isEditing ? 'Chỉnh sửa bài đăng' : 'Tạo bài đăng mới'}</h1>
-          <p className="text-sm text-gray-600">{isEditing ? 'Cập nhật thông tin bài đăng' : 'Đăng tin tìm người thuê phòng'}</p>
-        </div>
-      </div>
+    <div className="min-h-full bg-gray-50">
+      <PageHeader
+        eyebrow="Đăng bài tìm phòng"
+        title={isEditing ? 'Chỉnh sửa bài đăng' : 'Tạo bài đăng mới'}
+        description={isEditing ? 'Cập nhật thông tin bài đăng đang hiển thị.' : 'Chọn phòng, kiểm tra thông tin và đăng tin tìm người thuê phòng.'}
+        actions={
+          <button
+            type="button"
+            onClick={() => navigate('/post-management')}
+            className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            <ArrowLeft size={16} />
+            Quay lại
+          </button>
+        }
+      />
 
       <div className="max-w-5xl rounded border-2 border-gray-300 bg-white">
         <div className="p-6 space-y-6">
@@ -577,6 +651,7 @@ export function CreatePostPage() {
                         key={room.id}
                         onClick={() => {
                           setSelectedRoomId(room.id);
+                          applyDefaultMoveInForRoom(room);
                           setShowPostFormModal(true);
                         }}
                         className={`cursor-pointer rounded border-2 p-4 transition-all ${
@@ -593,18 +668,27 @@ export function CreatePostPage() {
                               {selectedRoomId === room.id && <Check size={14} className="text-white" />}
                             </div>
                             <div className="flex-1">
-                              <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <div className="mb-1 flex flex-wrap items-center gap-y-1">
                                 <span className="font-semibold text-gray-800">{(room as any).roomCode ?? (room as any).code}</span>
+                                <span className="mx-2 text-gray-300">•</span>
                                 <span className="text-sm text-gray-500">{getRoomLocation(room)}</span>
+                                <span className="mx-2 text-gray-300">•</span>
                                 <span className={`rounded px-2 py-1 text-xs font-medium ${getRoomStatusBadgeClass(room)}`}>
                                   {getRoomStatusLabel(room)}
                                 </span>
                               </div>
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                              <div className="flex flex-wrap items-center gap-y-1 text-sm text-gray-700">
                                 <span>{room.area ?? 0} m²</span>
+                                <span className="mx-2 text-gray-300">•</span>
                                 <span>Tối đa {room.maxOccupants ?? (room as any).maxPeople ?? 0} người</span>
+                                <span className="mx-2 text-gray-300">•</span>
                                 <span>{getRoomRentText(room)}</span>
                               </div>
+                              {getRoomAddress(room) && (
+                                <div className="mt-1 text-sm text-gray-500">
+                                  Địa chỉ: {getRoomAddress(room)}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -645,6 +729,7 @@ export function CreatePostPage() {
                       </h3>
                       <p className="mt-1 text-sm text-gray-600">
                         {(selectedRoom as any).roomCode ?? (selectedRoom as any).code} • {getRoomLocation(selectedRoom)}
+                        {getRoomAddress(selectedRoom) ? ` • ${getRoomAddress(selectedRoom)}` : ''}
                       </p>
                     </div>
                   </div>
@@ -669,6 +754,8 @@ export function CreatePostPage() {
                     placeholder="Hãy tạo điểm nhấn để người thuê ấn tượng với phòng của bạn"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
+                    onBlur={(e) => setTitle(trimSpaces(e.target.value))}
+                    maxLength={120}
                     className="w-full rounded border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none"
                   />
                   <p className="mt-1 text-xs text-gray-500">
@@ -690,6 +777,12 @@ export function CreatePostPage() {
                       <p className="mb-1 text-sm text-gray-600">Vị trí</p>
                       <p className="text-sm font-semibold text-gray-800">{getRoomLocation(selectedRoom)}</p>
                     </div>
+                    <div className="md:col-span-2">
+                      <p className="mb-1 text-sm text-gray-600">Địa chỉ chi tiết</p>
+                      <p className="text-sm font-semibold text-gray-800">
+                        {getRoomAddress(selectedRoom) || 'Chưa có địa chỉ chi tiết'}
+                      </p>
+                    </div>
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Diện tích</p>
                       <p className="text-sm font-semibold text-gray-800">{selectedRoom.area ?? 0} m²</p>
@@ -710,17 +803,25 @@ export function CreatePostPage() {
 
                   <div className="border-t border-gray-300 pt-4">
                     <p className="mb-2 text-sm text-gray-600">Ảnh phòng</p>
-                    {Array.isArray(selectedRoom.imageUrls) && selectedRoom.imageUrls.length > 0 ? (
+                    {selectedRoomImages.length > 0 ? (
                       <PostImagePreviewStrip
-                        images={selectedRoom.imageUrls.map((url) => resolveImageUrl(url))}
+                        images={selectedRoomImages}
                         altPrefix="Ảnh phòng"
-                        onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                        onPreview={(_, index) => setPostPreviewImage({
+                          images: selectedRoomImages,
+                          index,
+                          titlePrefix: 'Ảnh phòng',
+                        })}
                       />
                     ) : (
                       <PostImagePreviewStrip
                         images={[]}
                         altPrefix="Ảnh phòng"
-                        onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                        onPreview={(_, index) => setPostPreviewImage({
+                          images: [],
+                          index,
+                          titlePrefix: 'Ảnh phòng',
+                        })}
                       />
                     )}
                   </div>
@@ -829,13 +930,14 @@ export function CreatePostPage() {
                                   <div className="flex items-center justify-end gap-2">
                                     {editingServiceIndex === idx ? (
                                       <>
-                                        <input
-                                          type="text"
+                                        <MoneyInput
                                           value={getServicePrice(idx, service.price ?? service.unitPrice ?? service.amount ?? '')}
-                                          onChange={(e) => handleServicePriceChange(idx, e.target.value)}
-                                          className="w-32 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-blue-500 focus:outline-none"
+                                          onChange={(value) => handleServicePriceChange(idx, value)}
+                                          defaultScale="thousand"
+                                          compact
+                                          className="w-48"
                                         />
-                                        <span className="text-xs text-gray-600">VNĐ/{service.unit ?? ''}</span>
+                                        <span className="text-xs text-gray-600">/{service.unit ?? 'đơn vị'}</span>
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -935,20 +1037,28 @@ export function CreatePostPage() {
                 <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin bổ sung</h4>
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Có nằm trong khu vực dễ ngập lụt *</label>
-                  <div className="flex items-center space-x-6">
-                    <div className="flex items-center space-x-2">
-                      <input type="radio" id="flood-yes" name="flood" value="yes" checked={floodProne === 'yes'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4" />
-                      <label htmlFor="flood-yes" className="text-sm text-gray-700">Có</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="radio" id="flood-no" name="flood" value="no" checked={floodProne === 'no'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4" />
-                      <label htmlFor="flood-no" className="text-sm text-gray-700">Không</label>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '32px' }}>
+                    <label htmlFor="flood-yes" className="inline-flex items-center text-sm text-gray-700" style={{ marginRight: '8px' }}>
+                      <input type="radio" id="flood-yes" name="flood" value="yes" checked={floodProne === 'yes'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4 shrink-0" />
+                      <span style={{ marginLeft: '10px' }}>Có</span>
+                    </label>
+                    <label htmlFor="flood-no" className="inline-flex items-center text-sm text-gray-700">
+                      <input type="radio" id="flood-no" name="flood" value="no" checked={floodProne === 'no'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4 shrink-0" />
+                      <span style={{ marginLeft: '10px' }}>Không</span>
+                    </label>
                   </div>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Yêu cầu từ chủ nhà khi cho thuê (nếu có)</label>
-                  <textarea rows={3} placeholder="VD: Không nuôi thú cưng, không hút thuốc trong phòng..." value={landlordRequirementsInput} onChange={(e) => setLandlordRequirementsInput(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none" />
+                  <textarea
+                    rows={3}
+                    placeholder="VD: Không nuôi thú cưng, không hút thuốc trong phòng..."
+                    value={landlordRequirementsInput}
+                    onChange={(e) => setLandlordRequirementsInput(e.target.value)}
+                    onBlur={(e) => setLandlordRequirementsInput(trimSpaces(e.target.value))}
+                    maxLength={500}
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                  />
                 </div>
               </div>
 
@@ -959,7 +1069,7 @@ export function CreatePostPage() {
                   <div className="space-y-3">
                     <div className="flex items-center space-x-2">
                       <input type="radio" id="contact-current" name="contact" value="current" checked={contactType === 'current'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
-                      <label htmlFor="contact-current" className="text-sm text-gray-700">Lay tu tai khoan dang dung <span className="text-gray-500">({currentAccountLabel})</span></label>
+                      <label htmlFor="contact-current" className="text-sm text-gray-700">Lấy từ tài khoản đang dùng <span className="text-gray-500">({currentAccountLabel})</span></label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <input type="radio" id="contact-other" name="contact" value="other" checked={contactType === 'other'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
@@ -970,11 +1080,36 @@ export function CreatePostPage() {
                     <div className="mt-4 grid grid-cols-2 gap-4 border-l-2 border-gray-300 pl-6">
                       <div>
                         <label className="mb-2 block text-sm text-gray-700">Tên người liên hệ *</label>
-                        <input type="text" placeholder="VD: Nguyễn Văn B" value={contactNameInput} onChange={(e) => setContactNameInput(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none" />
+                        <input
+                          type="text"
+                          placeholder="VD: Nguyễn Văn B"
+                          value={contactNameInput}
+                          onChange={(e) => setContactNameInput(e.target.value)}
+                          onBlur={(e) => setContactNameInput(trimSpaces(e.target.value))}
+                          maxLength={80}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                        />
                       </div>
                       <div>
                         <label className="mb-2 block text-sm text-gray-700">Số điện thoại *</label>
-                        <input type="tel" placeholder="VD: 0987654321" value={contactPhoneInput} onChange={(e) => setContactPhoneInput(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none" />
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={10}
+                          placeholder="VD: 0987654321"
+                          value={contactPhoneInput}
+                          onChange={(e) => handleContactPhoneChange(e.target.value)}
+                          onBlur={(e) => {
+                            const digits = onlyDigits(e.target.value).slice(0, 10);
+                            setContactPhoneInput(digits);
+                            updateFieldError('contactPhone', digits.length === 10 ? '' : 'Số điện thoại phải gồm đúng 10 chữ số');
+                          }}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                        />
+                        {fieldErrors.contactPhone && (
+                          <p className="mt-1 text-xs text-red-600">{fieldErrors.contactPhone}</p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1001,7 +1136,11 @@ export function CreatePostPage() {
                     onAdd={() => fileInputRef.current?.click()}
                     onDrop={handleDrop}
                     onRemove={removeImage}
-                    onPreview={(src, index) => setPostPreviewImage({ src, title: `Ảnh bài đăng ${index + 1}` })}
+                    onPreview={(_, index) => setPostPreviewImage({
+                      images: imagePreviews,
+                      index,
+                      titlePrefix: 'Ảnh bài đăng',
+                    })}
                   />
                   <p className="mt-2 text-xs text-gray-500">
                     PNG, JPG, JPEG — tối đa {POST_IMAGE_LIMIT} ảnh. Bạn còn {Math.max(0, POST_IMAGE_LIMIT - imagePreviews.length)} ảnh có thể thêm.
@@ -1032,35 +1171,14 @@ export function CreatePostPage() {
           )}
         </div>
       </div>
-      {postPreviewImage && typeof document !== 'undefined' && createPortal((
-        <div
-          className="fixed inset-0 flex items-center justify-center p-6"
-          style={{
-            zIndex: 2147483647,
-            backgroundColor: 'rgba(15, 23, 42, 0.78)',
-            backdropFilter: 'blur(8px)',
-          }}
-          onClick={() => setPostPreviewImage(null)}
-        >
-          <div
-            className="relative flex items-center justify-center"
-            style={{ maxHeight: '72vh', maxWidth: '78vw' }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={postPreviewImage.src}
-              alt={postPreviewImage.title}
-              className="rounded bg-white object-contain shadow-2xl"
-              style={{
-                maxHeight: 'min(72vh, 560px)',
-                maxWidth: 'min(78vw, 720px)',
-                width: 'auto',
-                height: 'auto',
-              }}
-            />
-          </div>
-        </div>
-      ), document.body)}
+      {postPreviewImage && (
+        <ImageViewer
+          images={postPreviewImage.images}
+          initialIndex={postPreviewImage.index}
+          titlePrefix={postPreviewImage.titlePrefix}
+          onClose={() => setPostPreviewImage(null)}
+        />
+      )}
     </div>
   );
 }

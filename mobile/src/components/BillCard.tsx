@@ -4,18 +4,25 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface BillCardProps {
   month: string;
+  roomLabel?: string;
   status: string;
   amount: string;
   isActive?: boolean;
   onPress: () => void;
 }
 
-export function BillCard({ month, status, amount, isActive, onPress }: BillCardProps) {
+export function BillCard({ month, roomLabel, status, amount, isActive, onPress }: BillCardProps) {
   return (
     <TouchableOpacity onPress={onPress} style={styles.container}>
       <View style={styles.content}>
         <View style={styles.info}>
           <Text style={styles.month}>Hóa đơn {month}</Text>
+          {roomLabel && (
+            <View style={styles.roomRow}>
+              <Ionicons name="home-outline" size={14} color="#1A4B84" />
+              <Text style={styles.roomText}>{roomLabel}</Text>
+            </View>
+          )}
           <Text style={styles.status}>{status}</Text>
           <Text style={[styles.amount, isActive && styles.activeAmount]}>
             {amount}
@@ -59,6 +66,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginBottom: 8,
+  },
+  roomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 6,
+  },
+  roomText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A4B84',
   },
   amount: {
     fontSize: 16,

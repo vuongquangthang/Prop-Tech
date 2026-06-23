@@ -2,6 +2,9 @@ import { ArrowRight, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { fileService } from '../../services/feature.service';
+import { DataCard, DataTable, EmptyState, PageHeader, SegmentedTabs, Toolbar } from '../ui/product-system';
+import { FilterSelect } from '../ui/FilterSelect';
+import { ImageViewer } from '../ui/ImageViewer';
 
 // Modal Hoàn thành yêu cầu
 function CompleteModal({ request, onClose, onComplete }: { request: any; onClose: () => void; onComplete: (adminNote: string, completionImageUrl: string) => void }) {
@@ -71,16 +74,16 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
 
   return (
     <div className="admin-content-modal-overlay" onClick={onClose}>
-      <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl text-gray-900">Gửi kết quả sửa chữa cho cư dân</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
+      <div className="admin-content-modal-panel max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="admin-content-modal-header flex items-center justify-between px-6 py-4">
+          <h2>Gửi kết quả sửa chữa cho cư dân</h2>
+          <button onClick={onClose} className="product-action-icon">
             <X size={20} className="text-gray-600" />
           </button>
         </div>
 
-        <div className="space-y-4 mb-6">
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+        <div className="space-y-4 p-6">
+          <div className="app-card-subtle p-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-600">Mã yêu cầu:</p>
@@ -102,7 +105,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
               Ghi chú kết quả sửa chữa <span className="text-red-500">*</span>
             </label>
             <textarea
-              className="w-full px-4 py-3 border border-gray-300 rounded resize-none focus:outline-none focus:border-gray-500"
+              className="app-textarea resize-none"
               rows={4}
               placeholder="Mô tả kết quả sửa chữa để gửi cho cư dân xẮm xét (ví dụ: đã thay bóng đèn mới, đã sửa ổ khóa cửa...)"
               value={adminNote}
@@ -116,7 +119,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
             </label>
             <div className="space-y-3">
               {/* File picker button */}
-              <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded hover:border-gray-400 cursor-pointer">
+              <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-[var(--surface-border)] rounded-[10px] hover:border-[var(--brand-primary)] cursor-pointer bg-[var(--surface-card-2)]">
                 <Upload size={20} className="text-gray-500 mr-2" />
                 <span className="text-sm text-gray-600">
                   {selectedFile ? selectedFile.name : 'Chọn ảnh kết quả'}
@@ -143,7 +146,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
                       setImagePreview('');
                       setCompletionImageUrl('');
                     }}
-                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-[10px] hover:bg-red-600"
                   >
                     <X size={16} />
                   </button>
@@ -157,10 +160,10 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
           </div>
         </div>
 
-        <div className="flex justify-end space-x-3">
+        <div className="admin-content-modal-footer flex justify-end gap-3 px-6 py-4">
           <button
             onClick={onClose}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+            className="app-button-secondary"
             disabled={uploading}
           >
             Hủy
@@ -168,7 +171,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
           <button
             onClick={handleSubmit}
             disabled={!adminNote.trim() || uploading}
-            className="px-6 py-3 bg-gray-800 text-white rounded hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="app-button-primary disabled:cursor-not-allowed"
           >
             {uploading ? 'Đang gửi...' : 'Gửi cho cư dân'}
           </button>
@@ -207,7 +210,7 @@ export function MaintenanceRequestTable() {
   const [activeTab, setActiveTab] = useState('new');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [completeModalRequest, setCompleteModalRequest] = useState<any>(null);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
   const [filterType, setFilterType] = useState('all');
   
   // Get data from context
@@ -324,33 +327,47 @@ export function MaintenanceRequestTable() {
     }
   };
 
+  const evidenceImages = (() => {
+    const images: string[] = [];
+    const mediaUrls = selectedRequest?.fullIncident?.mediaUrls;
+
+    if (mediaUrls) {
+      try {
+        const parsedUrls = JSON.parse(mediaUrls) as string[];
+        if (Array.isArray(parsedUrls)) {
+          images.push(...parsedUrls.map((url) => resolveImageUrl(url)).filter(Boolean));
+        }
+      } catch {
+        // Fall back to the legacy single image below.
+      }
+    }
+
+    if (images.length === 0 && selectedRequest?.imageUrl) {
+      images.push(resolveImageUrl(selectedRequest.imageUrl));
+    }
+
+    const completionImageUrl = selectedRequest?.fullIncident?.completionImageUrl;
+    if (completionImageUrl) {
+      images.push(resolveImageUrl(completionImageUrl));
+    }
+
+    return images;
+  })();
+
   return (
-    <div className="flex h-full">
-      {/* Main Table Area */}
-      <div className="flex-1 flex flex-col p-8 overflow-hidden">
-        {/* Tabs */}
-        <div className="flex items-center space-x-2 mb-4">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm rounded-t border-2 border-b-0 transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-white border-gray-300 text-gray-900'
-                  : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {tab.label} <span className={`ml-1 ${activeTab === tab.key ? 'text-gray-900' : 'text-gray-500'}`}>({tab.count})</span>
-            </button>
-          ))}
-        </div>
-        
-        {/* Filter Bar */}
-        <div className="flex items-center space-x-4 mb-4">
-          <Filter size={16} className="text-gray-500" />
-          
-          <select 
-            className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Vận hành"
+        title="Quản lý yêu cầu sửa chữa"
+        description="Điều phối trạng thái, theo dõi SLA và gửi kết quả xử lý cho cư dân."
+      />
+
+      <Toolbar>
+        <SegmentedTabs items={tabs} activeKey={activeTab} onChange={setActiveTab} />
+        <div className="flex items-center gap-3">
+          <Filter size={16} className="text-[var(--text-muted)]" />
+          <FilterSelect
+            className="app-select w-auto min-w-[190px]"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
@@ -363,55 +380,54 @@ export function MaintenanceRequestTable() {
             <option value="Bãi xe">Bãi xe</option>
             <option value="Tiếng ồn">Tiếng ồn</option>
             <option value="Khác">Khác</option>
-          </select>
+          </FilterSelect>
         </div>
-        
-        {/* Table */}
-        <div className="bg-white border-2 border-gray-300 rounded flex-1 overflow-hidden flex flex-col">
-          <div className="border-b border-gray-300 px-6 py-4">
-            <h2 className="text-lg text-gray-800">Danh sách yêu cầu - {filteredRequests.length} yêu cầu</h2>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-300 sticky top-0">
+      </Toolbar>
+      
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_384px]">
+        <DataCard title={`Danh sách yêu cầu · ${filteredRequests.length} yêu cầu`} description="Chọn một dòng để xem nhanh chi tiết xử lý.">
+          {filteredRequests.length === 0 ? (
+            <EmptyState title="Không có yêu cầu phù hợp" description="Không có yêu cầu nào trong trạng thái hoặc loại sự cố đang chọn." />
+          ) : (
+            <DataTable>
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Mã yêu cầu</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Loại sự cố</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Mô tả</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Thời gian gửi</th>
+                  <th>Mã yêu cầu</th>
+                  <th>Phòng</th>
+                  <th>Loại sự cố</th>
+                  <th>Mô tả</th>
+                  <th>Thời gian gửi</th>
                   {activeTab === 'new' && (
-                    <th className="px-6 py-3 text-center text-sm text-gray-600">Thời gian chờ</th>
+                    <th>Thời gian chờ</th>
                   )}
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
+                  <th>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredRequests.map((request, index) => (
+                {filteredRequests.map((request) => (
                   <tr 
                     key={request.code} 
-                    className={`border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${selectedRequest?.code === request.code ? 'bg-blue-50' : ''}`}
+                    className={`cursor-pointer ${selectedRequest?.code === request.code ? 'bg-blue-50' : ''}`}
                     onClick={() => setSelectedRequest(request)}
                   >
-                    <td className="px-6 py-4 text-sm text-gray-800">{request.code}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{request.room}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{request.type}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{request.description}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{request.time}</td>
+                    <td className="font-semibold text-[var(--brand-primary)]">{request.code}</td>
+                    <td>{request.room}</td>
+                    <td>{request.type}</td>
+                    <td className="max-w-[280px] truncate">{request.description}</td>
+                    <td>{request.time}</td>
                     {activeTab === 'new' && (
-                      <td className="px-6 py-4 text-center">
+                      <td>
                         <span className={`text-sm ${request.waitingHours > 24 ? 'text-red-600 font-bold animate-pulse' : 'text-gray-700'}`}>
                           {request.waitingHours}h
                           {request.waitingHours > 24 && <AlertCircle size={14} className="inline ml-1" />}
                         </span>
                       </td>
                     )}
-                    <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <select
                         value={request.status}
                         onChange={(e) => handleStatusChange(request.code, e.target.value)}
-                        className={`px-3 py-1 text-xs rounded border cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 ${statusConfig[request.status as keyof typeof statusConfig].color}`}
+                        className={`cursor-pointer rounded-[10px] border px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ring)] ${statusConfig[request.status as keyof typeof statusConfig].color}`}
                       >
                         {getAvailableStatuses(request.status).map(status => (
                           <option key={status} value={status}>{statusConfig[status as keyof typeof statusConfig].label}</option>
@@ -421,18 +437,20 @@ export function MaintenanceRequestTable() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+            </DataTable>
+          )}
+        </DataCard>
       
       {/* Quick View Panel */}
       {selectedRequest && (
-        <div className="w-96 bg-white border-l-2 border-gray-300 flex flex-col">
-          <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between bg-gray-50">
-            <h3 className="text-base text-gray-800">Chi tiết yêu cầu</h3>
-            <button onClick={() => setSelectedRequest(null)} className="p-1 hover:bg-gray-200 rounded">
-              <X size={18} className="text-gray-600" />
+        <aside className="product-card flex flex-col overflow-hidden">
+          <div className="product-card-header">
+            <div>
+              <h2>Chi tiết yêu cầu</h2>
+              <p>Thông tin xử lý và bằng chứng ảnh</p>
+            </div>
+            <button onClick={() => setSelectedRequest(null)} className="product-action-icon">
+              <X size={18} />
             </button>
           </div>
           
@@ -456,7 +474,7 @@ export function MaintenanceRequestTable() {
             
             <div>
               <p className="text-xs text-gray-600 mb-1">Trạng thái</p>
-              <span className={`inline-block px-3 py-1 text-xs rounded border ${statusConfig[selectedRequest.status as keyof typeof statusConfig].color}`}>
+              <span className={`product-status-badge ${selectedRequest.status === 'completed' ? 'is-success' : selectedRequest.status === 'review' ? 'is-info' : selectedRequest.status === 'in_progress' ? 'is-warning' : 'is-brand'}`}>
                 {statusConfig[selectedRequest.status as keyof typeof statusConfig].label}
               </span>
             </div>
@@ -464,7 +482,7 @@ export function MaintenanceRequestTable() {
             {/* Description */}
             <div>
               <p className="text-xs text-gray-600 mb-2">Mô tả chi tiết</p>
-              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded border border-gray-300">
+              <p className="app-card-subtle p-3 text-sm text-gray-700">
                 {selectedRequest.description}
               </p>
             </div>
@@ -482,7 +500,7 @@ export function MaintenanceRequestTable() {
                       const urls = JSON.parse(selectedRequest.fullIncident.mediaUrls) as string[];
                       if (Array.isArray(urls) && urls.length > 0) {
                         return urls.map((url: string, idx: number) => (
-                          <button key={idx} type="button" onClick={() => setPreviewImageUrl(resolveImageUrl(url))} className="block w-full text-left">
+                          <button key={idx} type="button" onClick={() => setPreviewImage({ images: evidenceImages, index: idx, titlePrefix: 'Ảnh sửa chữa' })} className="block w-full text-left">
                             <img
                               src={resolveImageUrl(url)}
                               alt={`Ảnh trước khi sửa ${idx + 1}`}
@@ -497,7 +515,7 @@ export function MaintenanceRequestTable() {
                     return null;
                   })() : null}
                   {!selectedRequest.fullIncident?.mediaUrls && selectedRequest.imageUrl && (
-                    <button type="button" onClick={() => setPreviewImageUrl(resolveImageUrl(selectedRequest.imageUrl))} className="block w-full text-left">
+                    <button type="button" onClick={() => setPreviewImage({ images: evidenceImages, index: 0, titlePrefix: 'Ảnh sửa chữa' })} className="block w-full text-left">
                       <img 
                         src={resolveImageUrl(selectedRequest.imageUrl)}
                         alt="Trước khi sửa"
@@ -519,7 +537,11 @@ export function MaintenanceRequestTable() {
                   <p className="text-xs text-gray-500 mb-2">Sau khi sửa</p>
                   <button
                     type="button"
-                    onClick={() => setPreviewImageUrl(resolveImageUrl(selectedRequest.fullIncident.completionImageUrl))}
+                    onClick={() => setPreviewImage({
+                      images: evidenceImages,
+                      index: Math.max(evidenceImages.length - 1, 0),
+                      titlePrefix: 'Ảnh sửa chữa',
+                    })}
                     className="block w-full text-left"
                   >
                     <img 
@@ -551,8 +573,9 @@ export function MaintenanceRequestTable() {
             )}
             
           </div>
-        </div>
+        </aside>
       )}
+      </div>
 
       {/* Complete Modal */}
       {completeModalRequest && (
@@ -563,25 +586,13 @@ export function MaintenanceRequestTable() {
         />
       )}
 
-      {previewImageUrl && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6"
-          onClick={() => setPreviewImageUrl(null)}
-        >
-          <button
-            type="button"
-            onClick={() => setPreviewImageUrl(null)}
-            className="fixed top-4 right-4 z-[70] p-2 rounded bg-white/10 text-white hover:bg-white/20"
-          >
-            <X size={18} />
-          </button>
-          <img
-            src={previewImageUrl}
-            alt="Xem chi tiết"
-            className="max-w-[92vw] max-h-[88vh] object-contain rounded"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+      {previewImage && (
+        <ImageViewer
+          images={previewImage.images}
+          initialIndex={previewImage.index}
+          titlePrefix={previewImage.titlePrefix}
+          onClose={() => setPreviewImage(null)}
+        />
       )}
     </div>
   );

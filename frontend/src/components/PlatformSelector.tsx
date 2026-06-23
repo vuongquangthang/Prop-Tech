@@ -14,7 +14,7 @@ export function PlatformSelector() {
       <div className="max-w-4xl w-full">
         <div className="text-center mb-10 sm:mb-12">
           <div
-            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-[12px] flex items-center justify-center shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             <Home size={42} color="#FFF" />
@@ -34,7 +34,7 @@ export function PlatformSelector() {
             style={{ border: '1px solid var(--surface-border)' }}
           >
             <div
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-[12px] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform"
               style={{ backgroundColor: 'var(--brand-surface)' }}
             >
               <Monitor size={36} color="var(--brand-primary)" />
@@ -57,7 +57,7 @@ export function PlatformSelector() {
             </div>
 
             <div
-              className="mt-6 py-3 px-6 rounded-xl text-center"
+              className="mt-6 py-3 px-6 rounded-[10px] text-center"
               style={{
                 backgroundColor: 'var(--brand-primary)',
                 color: '#FFF',

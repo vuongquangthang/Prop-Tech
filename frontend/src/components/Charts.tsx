@@ -33,9 +33,9 @@ export function Charts() {
         setRevenueData(bars);
 
         setOccupancyData([
-          { name: 'Đã thuê', value: roomStats?.occupiedRooms || 0, color: '#1E4E8C' },
-          { name: 'Trống', value: roomStats?.availableRooms || 0, color: '#CBD5E1' },
-          { name: 'Bảo trì', value: roomStats?.maintenanceRooms || 0, color: '#94A3B8' },
+          { name: 'Đã thuê', value: roomStats?.occupiedRooms || 0, color: 'var(--chart-1)' },
+          { name: 'Trống', value: roomStats?.availableRooms || 0, color: 'var(--chart-2)' },
+          { name: 'Bảo trì', value: roomStats?.maintenanceRooms || 0, color: 'var(--chart-5)' },
         ]);
       })
       .catch(() => {
@@ -56,14 +56,20 @@ export function Charts() {
         <h2 style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '24px' }}>Biến động doanh thu 6 tháng gần nhất</h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={revenueData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="month" stroke="#64748b" />
-            <YAxis stroke="#64748b" tickFormatter={(value) => `${value / 1000000}M`} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="month" stroke="var(--chart-axis)" />
+            <YAxis stroke="var(--chart-axis)" tickFormatter={(value) => `${value / 1000000}M`} />
             <Tooltip 
               formatter={(value: number) => `${value.toLocaleString()} VNĐ`}
-              contentStyle={{ border: '1px solid #d7e0ea', borderRadius: '8px' }}
+              contentStyle={{
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                background: 'var(--chart-tooltip)',
+                color: 'var(--foreground)',
+                boxShadow: 'var(--shadow-soft)',
+              }}
             />
-            <Bar dataKey="revenue" fill="#1E4E8C" />
+            <Bar dataKey="revenue" fill="var(--chart-1)" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -80,14 +86,22 @@ export function Charts() {
               labelLine={false}
               label={({ name, value }) => `${name}: ${value}`}
               outerRadius={80}
-              fill="#1E4E8C"
+              fill="var(--chart-1)"
               dataKey="value"
             >
               {occupancyLabelData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip />
+            <Tooltip
+              contentStyle={{
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                background: 'var(--chart-tooltip)',
+                color: 'var(--foreground)',
+                boxShadow: 'var(--shadow-soft)',
+              }}
+            />
           </PieChart>
         </ResponsiveContainer>
         <div className="mt-4 space-y-2">

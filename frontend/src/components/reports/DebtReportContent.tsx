@@ -2,6 +2,7 @@ import { Send, Filter, Loader2, AlertTriangle, FileX } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { BatchSendReminderModal } from '../finance/DebtModals';
 import { invoiceService } from '../../services/api.service';
+import { FilterSelect } from '../ui/FilterSelect';
 
 interface DebtData {
   room: string;
@@ -177,8 +178,8 @@ export function DebtReportContent() {
         <div className="flex items-center space-x-4">
           <Filter size={16} className="text-gray-500" />
           
-          <select 
-            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-3 py-2 bg-white focus:outline-none"
             style={{ fontSize: 'var(--type-caption)' }}
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -187,10 +188,10 @@ export function DebtReportContent() {
             <option value="under5">Dưới 5 ngày</option>
             <option value="mid">5-15 ngày</option>
             <option value="hard">Trên 30 ngày</option>
-          </select>
+          </FilterSelect>
           
-          <select 
-            className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-3 py-2 bg-white focus:outline-none"
             style={{ fontSize: 'var(--type-caption)' }}
             value={buildingFilter}
             onChange={(e) => setBuildingFilter(e.target.value)}
@@ -200,7 +201,7 @@ export function DebtReportContent() {
             <option value="B">Tòa B</option>
             <option value="C">Tòa C</option>
             <option value="D">Tòa D</option>
-          </select>
+          </FilterSelect>
         </div>
         
         <div className="flex items-center space-x-3">

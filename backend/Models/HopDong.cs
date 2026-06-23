@@ -38,17 +38,24 @@ public class HopDong
     [Precision(18, 2)]
     public decimal? DepositAmount { get; set; }
 
+    [Column("DA_NOP_TIEN_COC")]
+    public bool DepositPaid { get; set; }
+
     [Column("NGAY_THANH_TOAN_HANG_THANG")]
     public int? PaymentDayOfMonth { get; set; }
 
     [Column("CONG_THUC_HOA_DON_JSON")]
     public string? BillingFormulaJson { get; set; }
 
+    [Column("CAP_NHAT_LUC")]
+    public DateTime? UpdatedAt { get; set; }
+
     // Navigation properties
     [ForeignKey("RoomId")]
     public Room Room { get; set; } = null!;
 
     public ICollection<ChiTietO> ChiTietOs { get; set; } = new List<ChiTietO>();
+    public ICollection<ContractEditHistory> EditHistories { get; set; } = new List<ContractEditHistory>();
     public ICollection<HoaDon> HoaDons { get; set; } = new List<HoaDon>();
     public TatToan? TatToan { get; set; }
 }

@@ -45,10 +45,10 @@ export function AppSelector() {
         <div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
           <button
             onClick={() => navigate('/dashboard')}
-            className="app-card w-full rounded-3xl p-8 sm:p-10 hover:-translate-y-1 transition-all"
+            className="app-card w-full rounded-[12px] p-8 sm:p-10 hover:-translate-y-1 transition-all"
           >
             <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6"
+              className="w-20 h-20 rounded-[12px] flex items-center justify-center mx-auto mb-6"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               <Building2 size={40} color="#FFF" strokeWidth={2} />
@@ -84,7 +84,7 @@ export function AppSelector() {
             </div>
 
             <div
-              className="mt-6 py-3 rounded-xl"
+              className="mt-6 py-3 rounded-[10px]"
               style={{
                 backgroundColor: 'var(--brand-primary)',
                 color: '#FFF',

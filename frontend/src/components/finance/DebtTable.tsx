@@ -2,6 +2,7 @@ import { Send, Ban, Eye, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ViewDebtModal, SendReminderModal, BlockAccountModal, BatchSendReminderModal } from './DebtModals';
 import { invoiceService } from '../../services/api.service';
+import { PageHeader } from '../ui/product-system';
 
 interface DebtData {
   invoiceId: number;
@@ -134,6 +135,20 @@ export function DebtTable() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        eyebrow="Hóa đơn & Tài chính"
+        title="Công nợ & nhắc nợ"
+        description="Theo dõi các hóa đơn chưa thanh toán, mức độ quá hạn và thao tác nhắc nợ."
+        actions={
+          <button
+            onClick={() => setIsBatchSendReminderModalOpen(true)}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2"
+          >
+            <Send size={16} />
+            <span>Gửi nhắc nợ hàng loạt</span>
+          </button>
+        }
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
@@ -152,19 +167,6 @@ export function DebtTable() {
           <p className="text-2xl text-red-600">{over30Days}</p>
           <p className="text-xs text-gray-600 mt-1">phòng</p>
         </div>
-      </div>
-      
-      {/* Filter Bar */}
-      <div className="flex items-center justify-between">
-        <div />
-        
-        <button 
-          onClick={() => setIsBatchSendReminderModalOpen(true)}
-          className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2"
-        >
-          <Send size={16} />
-          <span>Gửi nhắc nợ hàng loạt</span>
-        </button>
       </div>
       
       {/* Table */}

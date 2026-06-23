@@ -155,7 +155,7 @@ export function QuickAccessTables() {
     <>
       <div className="space-y-8">
         {/* Priority 1: Overdue Invoices - HIGHEST PRIORITY (Full Width, Red) */}
-        <div className="bg-surface-card border-2 rounded-[16px] shadow-sm" style={{ borderColor: 'var(--error)', overflow: 'hidden' }}>
+        <div className="bg-surface-card border-2 rounded-[var(--radius-table)] shadow-sm" style={{ borderColor: 'var(--error)', overflow: 'hidden' }}>
           <div className="border-b-2 px-6 py-5" style={{ borderColor: 'var(--error)', backgroundColor: '#FEF2F2' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>

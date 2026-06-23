@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, X, ChevronRight, Filter, FileText, AlertTriangle, Edit2 } from 'lucide-react';
 import { api } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
+import { FilterSelect } from '../components/ui/FilterSelect';
 
 interface LineItem {
   id: number;
@@ -166,20 +167,20 @@ export function DraftInvoicesPage() {
         </h2>
         <div className="flex items-center gap-4">
           <Filter size={18} style={{ color: 'var(--text-secondary)' }} />
-          <select
+          <FilterSelect
             value={selectedMonth}
             onChange={e => setSelectedMonth(Number(e.target.value))}
             style={{ padding: '10px 14px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
           >
             {monthOptions.map(m => <option key={m} value={m}>Tháng {String(m).padStart(2, '0')}</option>)}
-          </select>
-          <select
+          </FilterSelect>
+          <FilterSelect
             value={selectedYear}
             onChange={e => setSelectedYear(Number(e.target.value))}
             style={{ padding: '10px 14px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
           >
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          </FilterSelect>
           <button
             onClick={handleCalculate}
             disabled={calculating}

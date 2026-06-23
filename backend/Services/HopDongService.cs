@@ -16,7 +16,9 @@ public interface IHopDongService
     Task<List<HopDongDto>> GetActiveContractsAsync();
     Task<HopDongDto?> GetByIdAsync(int id);
     Task<HopDongDto> CreateAsync(CreateHopDongDto dto);
-    Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto);
+    Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto, int? changedByUserId = null);
+    Task<HopDongDto> ExtendAsync(int id, ExtendHopDongDto dto);
+    Task<List<ContractEditHistoryDto>> GetEditHistoryAsync(int id);
     Task DeleteAsync(int id);
     Task SendContractChangeProposalAsync(int contractId, SendContractChangeProposalDto dto, int senderUserId);
     Task<ContractChangeDetailDto> GetContractChangeDetailAsync(int notificationId, int userId);
@@ -172,6 +174,7 @@ public class HopDongService : IHopDongService
                     ExpectedEndDate = dto.ExpectedEndDate,
                     ActualRentPrice = dto.ActualRentPrice,
                     DepositAmount = dto.DepositAmount,
+                    DepositPaid = dto.DepositPaid,
                     PaymentDayOfMonth = dto.PaymentDayOfMonth,
                     BillingFormulaJson = SerializeBillingFormula(dto.BillingFormulaItems)
                 };
@@ -220,15 +223,7 @@ public class HopDongService : IHopDongService
 
                 var primaryResidentId = primaryResident.ResidentId;
 
-                // Only auto-create account for the primary resident (room owner/household head).
-                if (!string.IsNullOrWhiteSpace(primaryResident.Email))
-                {
-                    await EnsureResidentAccountWithEmailAsync(primaryResidentId, primaryResident.Email);
-                }
-                else
-                {
-                    await EnsureResidentAccountAsync(primaryResidentId);
-                }
+                await EnsureResidentAccountsAsync(dto.Residents);
 
                 if (defaultServices.Count > 0)
                 {
@@ -284,12 +279,27 @@ public class HopDongService : IHopDongService
         }
     }
 
-    public async Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto)
+    public async Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto, int? changedByUserId = null)
     {
         var contract = await _hopDongRepository.GetWithDetailsAsync(id);
         if (contract == null)
         {
             throw new InvalidOperationException("Hợp đồng không tồn tại");
+        }
+
+        var existingHistoryCount = await _context.ContractEditHistories.CountAsync(item => item.ContractId == id);
+        if (existingHistoryCount == 0)
+        {
+            _context.ContractEditHistories.Add(new ContractEditHistory
+            {
+                ContractId = id,
+                Version = 1,
+                Summary = "Phiên bản hợp đồng trước lần chỉnh sửa đầu tiên",
+                SnapshotJson = SerializeContractSnapshot(contract),
+                ChangedByUserId = changedByUserId,
+                ChangedByName = await ResolveChangedByNameAsync(changedByUserId),
+                ChangedAt = contract.UpdatedAt ?? contract.StartDate
+            });
         }
 
         if (dto.StartDate.HasValue)
@@ -303,6 +313,9 @@ public class HopDongService : IHopDongService
 
         if (dto.DepositAmount.HasValue)
             contract.DepositAmount = dto.DepositAmount;
+
+        if (dto.DepositPaid.HasValue)
+            contract.DepositPaid = dto.DepositPaid.Value;
 
         if (dto.PaymentDayOfMonth.HasValue)
             contract.PaymentDayOfMonth = dto.PaymentDayOfMonth;
@@ -453,8 +466,116 @@ public class HopDongService : IHopDongService
                     ToDate = null
                 });
             }
+
+            await EnsureResidentAccountsAsync(residentDtos);
         }
 
+        contract.UpdatedAt = DateTime.UtcNow;
+        _hopDongRepository.Update(contract);
+        await _hopDongRepository.SaveChangesAsync();
+
+        var updatedContract = await _hopDongRepository.GetWithDetailsAsync(id);
+        var nextVersion = await _context.ContractEditHistories
+            .Where(item => item.ContractId == id)
+            .Select(item => item.Version)
+            .DefaultIfEmpty(0)
+            .MaxAsync() + 1;
+        _context.ContractEditHistories.Add(new ContractEditHistory
+        {
+            ContractId = id,
+            Version = nextVersion,
+            Summary = BuildEditSummary(dto),
+            SnapshotJson = SerializeContractSnapshot(updatedContract!),
+            ChangedByUserId = changedByUserId,
+            ChangedByName = await ResolveChangedByNameAsync(changedByUserId),
+            ChangedAt = contract.UpdatedAt.Value
+        });
+        await _context.SaveChangesAsync();
+        return MapToDto(updatedContract!);
+    }
+
+    public async Task<List<ContractEditHistoryDto>> GetEditHistoryAsync(int id)
+    {
+        var histories = await _context.ContractEditHistories
+            .AsNoTracking()
+            .Where(item => item.ContractId == id)
+            .OrderByDescending(item => item.Version)
+            .ToListAsync();
+
+        var currentVersion = histories.Count == 0 ? 0 : histories.Max(item => item.Version);
+        return histories.Select(item => new ContractEditHistoryDto
+        {
+            Id = item.Id,
+            Version = item.Version,
+            Summary = item.Summary,
+            SnapshotJson = item.SnapshotJson,
+            ChangedByUserId = item.ChangedByUserId,
+            ChangedByName = item.ChangedByName,
+            ChangedAt = item.ChangedAt,
+            IsCurrent = item.Version == currentVersion
+        }).ToList();
+    }
+
+    public async Task<HopDongDto> ExtendAsync(int id, ExtendHopDongDto dto)
+    {
+        var contract = await _hopDongRepository.GetWithDetailsAsync(id);
+        if (contract == null)
+        {
+            throw new InvalidOperationException("Hợp đồng không tồn tại");
+        }
+
+        if (!contract.ExpectedEndDate.HasValue)
+        {
+            throw new InvalidOperationException("Hợp đồng chưa có ngày kết thúc để gia hạn");
+        }
+
+        var currentEndDate = contract.ExpectedEndDate.Value.Date;
+        var newEndDate = dto.NewEndDate.Date;
+        if (newEndDate <= currentEndDate)
+        {
+            throw new InvalidOperationException("Ngày kết thúc mới phải sau ngày kết thúc hiện tại");
+        }
+
+        var hasCompletedSettlement = await _context.TatToans
+            .AsNoTracking()
+            .AnyAsync(item =>
+                item.ResidencyId == id
+                && (item.Status == "Completed"
+                    || item.Status == "Hoàn thành"
+                    || item.Status == "Da hoan tien"));
+        if (hasCompletedSettlement)
+        {
+            throw new InvalidOperationException("Hợp đồng đã tất toán nên không thể gia hạn");
+        }
+
+        var hasOverlappingContract = await _context.HopDongs
+            .AsNoTracking()
+            .AnyAsync(item =>
+                item.Id != id
+                && item.RoomId == contract.RoomId
+                && item.StartDate <= newEndDate
+                && (item.ExpectedEndDate == null || item.ExpectedEndDate >= currentEndDate.AddDays(1)));
+        if (hasOverlappingContract)
+        {
+            throw new InvalidOperationException("Phòng đã có hợp đồng khác trong thời gian muốn gia hạn");
+        }
+
+        var endBoundary = currentEndDate.AddDays(1);
+        var serviceUsages = await _context.ChiTietSuDungDichVus
+            .Where(item =>
+                item.RoomId == contract.RoomId
+                && item.ApplyTo.HasValue
+                && item.ApplyTo.Value >= currentEndDate
+                && item.ApplyTo.Value < endBoundary)
+            .ToListAsync();
+
+        foreach (var usage in serviceUsages)
+        {
+            usage.ApplyTo = newEndDate;
+        }
+
+        contract.ExpectedEndDate = newEndDate;
+        contract.UpdatedAt = DateTime.UtcNow;
         _hopDongRepository.Update(contract);
         await _hopDongRepository.SaveChangesAsync();
 
@@ -1009,6 +1130,53 @@ public class HopDongService : IHopDongService
         return "contract-change:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
     }
 
+    private async Task<string?> ResolveChangedByNameAsync(int? userId)
+    {
+        if (!userId.HasValue) return null;
+        return await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId.Value)
+            .Select(user => user.DisplayName ?? user.Resident!.FullName ?? user.PhoneNumber)
+            .FirstOrDefaultAsync();
+    }
+
+    private static string BuildEditSummary(UpdateHopDongDto dto)
+    {
+        var changes = new List<string>();
+        if (dto.Residents != null) changes.Add("cập nhật thành viên");
+        if (dto.SelectedServiceIds != null) changes.Add("cập nhật danh mục dịch vụ");
+        if (dto.BillingFormulaItems != null || !string.IsNullOrWhiteSpace(dto.BillingFormulaJson)) changes.Add("cập nhật công thức hóa đơn");
+        if (dto.DepositPaid.HasValue) changes.Add("cập nhật trạng thái tiền cọc");
+        return changes.Count == 0 ? "Cập nhật hợp đồng" : string.Join(", ", changes);
+    }
+
+    private static string SerializeContractSnapshot(HopDong contract)
+    {
+        return JsonSerializer.Serialize(new
+        {
+            contract.Id,
+            contract.ContractCode,
+            contract.RoomId,
+            RoomNumber = contract.Room?.RoomCode,
+            contract.StartDate,
+            contract.ExpectedEndDate,
+            contract.ActualRentPrice,
+            contract.DepositAmount,
+            contract.DepositPaid,
+            contract.PaymentDayOfMonth,
+            contract.BillingFormulaJson,
+            contract.UpdatedAt,
+            Residents = contract.ChiTietOs.Select(item => new
+            {
+                item.ResidentId,
+                FullName = item.Resident?.FullName,
+                item.ResidencyRole,
+                item.FromDate,
+                item.ToDate
+            }).ToList()
+        });
+    }
+
     private static HopDongDto MapToDto(HopDong contract)
     {
         return new HopDongDto
@@ -1021,8 +1189,10 @@ public class HopDongService : IHopDongService
             ExpectedEndDate = contract.ExpectedEndDate,
             ActualRentPrice = contract.ActualRentPrice,
             DepositAmount = contract.DepositAmount,
+            DepositPaid = contract.DepositPaid,
             PaymentDayOfMonth = contract.PaymentDayOfMonth,
             BillingFormulaJson = contract.BillingFormulaJson,
+            UpdatedAt = contract.UpdatedAt,
             Residents = contract.ChiTietOs.Select(ct => new ResidentInContractDto
             {
                 ResidentId = ct.ResidentId,
@@ -1099,18 +1269,36 @@ public class HopDongService : IHopDongService
         return JsonSerializer.Serialize(normalized, options);
     }
 
+    private async Task EnsureResidentAccountsAsync(IEnumerable<CreateChiTietODto> residents)
+    {
+        foreach (var resident in residents
+            .Where(item => item.ResidentId > 0)
+            .GroupBy(item => item.ResidentId)
+            .Select(group => group.First()))
+        {
+            if (!string.IsNullOrWhiteSpace(resident.Email))
+            {
+                await EnsureResidentAccountWithEmailAsync(resident.ResidentId, resident.Email);
+            }
+            else
+            {
+                await EnsureResidentAccountAsync(resident.ResidentId);
+            }
+        }
+    }
+
     private async Task EnsureResidentAccountAsync(int residentId)
     {
         var resident = await _residentRepository.GetByIdAsync(residentId);
         if (resident == null)
         {
-            throw new InvalidOperationException("Không tìm thấy cư dân chủ hộ để tạo tài khoản");
+            throw new InvalidOperationException("Không tìm thấy cư dân để tạo tài khoản");
         }
 
         var phone = (resident.PhoneNumber ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(phone))
         {
-            throw new InvalidOperationException("Chủ hộ chưa có số điện thoại, không thể tự động tạo tài khoản");
+            throw new InvalidOperationException($"Cư dân {resident.FullName ?? ("#" + residentId)} chưa có số điện thoại, không thể tự động tạo tài khoản");
         }
 
         var existingByResident = await _userRepository.FirstOrDefaultAsync(u => u.ResidentId == residentId);

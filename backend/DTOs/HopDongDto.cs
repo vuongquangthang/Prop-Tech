@@ -13,8 +13,10 @@ public class HopDongDto
     public DateTime? ExpectedEndDate { get; set; }
     public decimal ActualRentPrice { get; set; }
     public decimal? DepositAmount { get; set; }
+    public bool DepositPaid { get; set; }
     public int? PaymentDayOfMonth { get; set; }
     public string? BillingFormulaJson { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     public List<ResidentInContractDto> Residents { get; set; } = new();
 }
 
@@ -28,6 +30,7 @@ public class CreateHopDongDto
     public DateTime? ExpectedEndDate { get; set; }
     public decimal ActualRentPrice { get; set; }
     public decimal? DepositAmount { get; set; }
+    public bool DepositPaid { get; set; }
     public int? PaymentDayOfMonth { get; set; }
     public List<int> SelectedServiceIds { get; set; } = new();
     public List<BillingFormulaItemDto> BillingFormulaItems { get; set; } = new();
@@ -43,11 +46,29 @@ public class UpdateHopDongDto
     public DateTime? ExpectedEndDate { get; set; }
     public decimal? ActualRentPrice { get; set; }
     public decimal? DepositAmount { get; set; }
+    public bool? DepositPaid { get; set; }
     public int? PaymentDayOfMonth { get; set; }
     public List<int> SelectedServiceIds { get; set; } = new();
     public List<BillingFormulaItemDto> BillingFormulaItems { get; set; } = new();
     public List<CreateChiTietODto> Residents { get; set; } = new();
     public string? BillingFormulaJson { get; set; }
+}
+
+public class ExtendHopDongDto
+{
+    public DateTime NewEndDate { get; set; }
+}
+
+public class ContractEditHistoryDto
+{
+    public long Id { get; set; }
+    public int Version { get; set; }
+    public string Summary { get; set; } = null!;
+    public string SnapshotJson { get; set; } = null!;
+    public int? ChangedByUserId { get; set; }
+    public string? ChangedByName { get; set; }
+    public DateTime ChangedAt { get; set; }
+    public bool IsCurrent { get; set; }
 }
 
 public class BillingFormulaItemDto

@@ -114,7 +114,9 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
   };
 
   const isActive = (path?: string) => {
-    return location.pathname === path;
+    if (!path) return false;
+    if (location.pathname === path) return true;
+    return path === '/post-management' && location.pathname.startsWith('/post-management/');
   };
   
   // Check if current route belongs to this parent menu
@@ -189,14 +191,14 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
       `}</style>
       <aside
         className={`admin-sidebar flex flex-col${isOpen ? ' open' : ''}${isCollapsed ? ' collapsed' : ''}`}
-        style={{ width: isCollapsed ? '80px' : '288px', minWidth: isCollapsed ? '80px' : '288px', height: '100vh', backgroundColor: 'rgba(255,255,255,0.92)', borderRight: '1px solid var(--surface-border)' }}>
+        style={{ width: isCollapsed ? '80px' : '288px', minWidth: isCollapsed ? '80px' : '288px', height: '100vh', backgroundColor: 'var(--sidebar)', borderRight: '1px solid var(--surface-border)' }}>
       {/* Logo */}
         <button
           type="button"
           className="sidebar-logo-toggle h-16 flex w-full items-center justify-between transition-colors hover:bg-[var(--brand-surface)]"
           style={{ border: 'none', borderBottom: '1px solid var(--surface-border)', background: 'transparent', cursor: 'pointer', paddingLeft: '20px', paddingRight: '12px', gap: '12px' }}
           onClick={onToggleCollapsed}
-          title={isCollapsed ? 'Mo rong sidebar' : 'Thu gon sidebar'}
+          title={isCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
         >
           <div className="flex min-w-0 items-center" style={{ gap: '12px' }}>
             {/* Icon Box */}
@@ -205,8 +207,9 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
               style={{ 
                 width: '40px', 
                 height: '40px', 
-                backgroundColor: 'var(--brand-primary)',
-                borderRadius: '12px'
+                background: 'linear-gradient(135deg, var(--primary), var(--info))',
+                borderRadius: '12px',
+                boxShadow: '0 12px 26px rgba(30, 78, 140, 0.22)'
               }}
             >
               <Home size={28} style={{ color: 'white', strokeWidth: 2 }} />
@@ -231,14 +234,14 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
                 className="sidebar-menu-button w-full flex items-center justify-between transition-colors"
                 style={{
                   padding: '12px 14px',
-                  borderRadius: '12px',
+                  borderRadius: '10px',
                   border: 'none',
                   backgroundColor: isParentActive(item) ? 'rgba(30, 78, 140, 0.1)' : 'transparent',
                   color: isParentActive(item) ? 'var(--brand-primary)' : 'var(--text-primary)',
                   fontSize: '14px',
                   fontWeight: 500,
                   textAlign: 'left',
-                  boxShadow: isParentActive(item) ? 'inset 0 0 0 1px rgba(30, 78, 140, 0.15)' : 'none'
+                  boxShadow: isParentActive(item) ? 'inset 0 0 0 1px rgba(30, 78, 140, 0.15), 0 10px 22px rgba(30, 78, 140, 0.08)' : 'none'
                 }}
                 title={item.label}
               >

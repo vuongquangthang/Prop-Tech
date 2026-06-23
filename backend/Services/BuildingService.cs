@@ -74,6 +74,17 @@ public class BuildingService : IBuildingService
     public async Task<BuildingDto> CreateAsync(CreateBuildingDto dto, int ownerUserId)
     {
         var buildingName = dto.BuildingName.Trim();
+        if (dto.NumberOfFloors <= 0)
+        {
+            throw new InvalidOperationException("Số tầng phải lớn hơn 0");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Address))
+        {
+            throw new InvalidOperationException("Vui lòng nhập địa chỉ tòa nhà");
+        }
+
+        var address = dto.Address.Trim();
         var existing = await _context.Buildings
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.BuildingName == buildingName);
@@ -85,12 +96,16 @@ public class BuildingService : IBuildingService
         var building = new Building
         {
             BuildingName = buildingName,
-            Address = dto.Address.Trim(),
+            Address = address,
             NumberOfFloors = dto.NumberOfFloors,
             Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
             OwnerUserId = ownerUserId,
-            Latitude = dto.Latitude,
-            Longitude = dto.Longitude
+            Floors = Enumerable.Range(1, dto.NumberOfFloors)
+                .Select(floorNumber => new Floor
+                {
+                    FloorNumber = floorNumber
+                })
+                .ToList()
         };
 
         await _context.Buildings.AddAsync(building);
@@ -135,15 +150,16 @@ public class BuildingService : IBuildingService
     {
         var building = await _context.Buildings
             .Include(item => item.Floors)
+                .ThenInclude(item => item.Rooms)
             .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
         if (building == null)
         {
             throw new InvalidOperationException("Tòa nhà không tồn tại");
         }
 
-        if (building.Floors.Any())
+        if (building.Floors.Any(floor => floor.Rooms.Any()))
         {
-            throw new InvalidOperationException("Không thể xóa tòa nhà đã có tầng");
+            throw new InvalidOperationException("Không thể xóa tòa nhà đã có phòng");
         }
 
         _context.Buildings.Remove(building);

@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -20,15 +21,41 @@ import { useNavigation } from '@react-navigation/native';
 import maintenanceService from '../services/maintenance.service';
 import apiService from '../services/api.service';
 import { useAuthStore } from '../store/authStore';
+import { contractService, ContractDetail } from '../services/contract.service';
 
 export default function ReportIssueScreen() {
   const navigation = useNavigation();
-  const { user } = useAuthStore();
+  const { activeContractId } = useAuthStore();
   const [description, setDescription] = useState('');
   const [selectedType, setSelectedType] = useState('');
+  const [contracts, setContracts] = useState<ContractDetail[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    contractService.getMyContracts()
+      .then((items) => {
+        if (!mounted) return;
+        setContracts(items);
+        const activeContract = items.find((item) => item.id === activeContractId);
+        setSelectedRoomId(activeContract?.roomId ?? items[0]?.roomId ?? null);
+      })
+      .catch(() => {
+        if (mounted) setContracts([]);
+      })
+      .finally(() => {
+        if (mounted) setIsLoadingRooms(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeContractId]);
 
   const pickImages = async (source: 'camera' | 'library') => {
     try {
@@ -107,6 +134,11 @@ export default function ReportIssueScreen() {
       return;
     }
 
+    if (!selectedRoomId) {
+      Alert.alert('Lỗi', 'Không tìm thấy phòng đang thuê để gửi sự cố');
+      return;
+    }
+
     if (!description.trim()) {
       Alert.alert('Lỗi', 'Vui lòng mô tả chi tiết sự cố');
       return;
@@ -129,6 +161,7 @@ export default function ReportIssueScreen() {
       }
 
       await maintenanceService.create({
+        roomId: selectedRoomId,
         issueType: selectedType,
         description: description.trim(),
         mediaUrls,
@@ -180,6 +213,49 @@ export default function ReportIssueScreen() {
         </Text>
 
         <View style={styles.form}>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Phòng xảy ra sự cố *</Text>
+            {isLoadingRooms ? (
+              <View style={styles.roomLoading}>
+                <ActivityIndicator size="small" color="#1A4B84" />
+                <Text style={styles.roomLoadingText}>Đang tải danh sách phòng...</Text>
+              </View>
+            ) : contracts.length > 0 ? (
+              <View style={styles.roomGrid}>
+                {contracts.map((contract) => {
+                  const selected = selectedRoomId === contract.roomId;
+                  return (
+                    <TouchableOpacity
+                      key={contract.id}
+                      style={[styles.roomButton, selected && styles.roomButtonActive]}
+                      onPress={() => setSelectedRoomId(contract.roomId)}
+                    >
+                      <Ionicons
+                        name="home-outline"
+                        size={20}
+                        color={selected ? '#1A4B84' : '#6B7280'}
+                      />
+                      <View style={styles.roomButtonContent}>
+                        <Text style={[styles.roomButtonTitle, selected && styles.roomButtonTitleActive]}>
+                          Phòng {contract.roomNumber || `#${contract.roomId}`}
+                        </Text>
+                        {contract.contractCode && (
+                          <Text style={styles.roomButtonSubtitle}>{contract.contractCode}</Text>
+                        )}
+                      </View>
+                      {selected && <Ionicons name="checkmark-circle" size={20} color="#1A4B84" />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.roomError}>
+                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+                <Text style={styles.roomErrorText}>Không tìm thấy phòng đang thuê</Text>
+              </View>
+            )}
+          </View>
+
           {/* Issue Type */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Loại sự cố *</Text>
@@ -332,6 +408,71 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: 20,
+  },
+  roomGrid: {
+    gap: 10,
+  },
+  roomButton: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  roomButtonActive: {
+    borderColor: '#1A4B84',
+    backgroundColor: '#E8F0FB',
+  },
+  roomButtonContent: {
+    flex: 1,
+  },
+  roomButtonTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  roomButtonTitleActive: {
+    color: '#1A4B84',
+  },
+  roomButtonSubtitle: {
+    marginTop: 2,
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  roomLoading: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+  },
+  roomLoadingText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  roomError: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+  },
+  roomErrorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   label: {
     fontSize: 14,

@@ -106,6 +106,28 @@ public class FloorsController : ControllerBase
     }
 
     /// <summary>
+    /// Cập nhật tầng
+    /// </summary>
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<FloorDto>> Update(int id, [FromBody] UpdateFloorDto dto)
+    {
+        try
+        {
+            var floor = await _floorService.UpdateAsync(id, dto, GetUserId());
+            return Ok(floor);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Xóa tầng
     /// </summary>
     [HttpDelete("{id}")]

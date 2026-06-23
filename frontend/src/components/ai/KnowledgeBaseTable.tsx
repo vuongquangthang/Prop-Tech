@@ -2,6 +2,7 @@ import { Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { UploadFileModal } from './KnowledgeModals';
 import { knowledgeService, KnowledgeBase } from '../../services/feature.service';
+import { PageHeader } from '../ui/product-system';
 
 export function KnowledgeBaseTable() {
   const [knowledgeData, setKnowledgeData] = useState<KnowledgeBase[]>([]);
@@ -24,27 +25,20 @@ export function KnowledgeBaseTable() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border-2 border-gray-300 rounded p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl text-gray-900">Quản lý kho tri thức</h2>
-            <p className="text-sm text-gray-600 mt-2 max-w-2xl">
-              Hệ thống hiện vận hành theo mô hình đồng bộ tài liệu với AI. Bạn chỉ cần tải tài liệu lên,
-              hệ thống sẽ gửi sang n8n và cập nhật vào luồng RAG để chatbot sử dụng.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setUploadModal(true)}
-              className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center gap-2"
-            >
-              <Upload size={16} />
-              <span>Tải tài liệu lên AI</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Trợ lý ảo AI"
+        title="Kho tri thức"
+        description="Đồng bộ tài liệu với AI, gửi sang n8n và cập nhật luồng RAG để chatbot sử dụng."
+        actions={
+          <button
+            onClick={() => setUploadModal(true)}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center gap-2"
+          >
+            <Upload size={16} />
+            <span>Tải tài liệu lên AI</span>
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">

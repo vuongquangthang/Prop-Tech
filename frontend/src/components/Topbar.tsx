@@ -6,13 +6,14 @@ import { createPortal } from 'react-dom';
 import { NotificationPanel } from './NotificationPanel';
 import { notificationService } from '../services/feature.service';
 import { notificationHub } from '../lib/signalr-service';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface TopbarProps {
   title?: string;
   onMenuToggle?: () => void;
 }
 
-export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps) {
+export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: TopbarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,6 +24,7 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
 
   const adminName = user?.displayName || user?.fullName || user?.residentName || user?.phoneNumber || 'Admin';
   const adminRole = user?.role || 'Admin';
+  const avatarUrl = user?.avatarUrl?.trim();
 
   const refreshUnreadCount = useCallback(() => {
     notificationService.getUnreadCount().then(setUnreadCount);
@@ -129,14 +131,14 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
             <div className="admin-content-modal-footer flex items-center justify-end gap-3 border-t border-gray-300 px-6 py-4">
               <button
                 type="button"
-                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="app-button-secondary"
                 onClick={() => setShowLogoutConfirm(false)}
               >
                 Hủy
               </button>
               <button
                 type="button"
-                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="app-button-danger"
                 onClick={confirmExitAdmin}
               >
                 Đăng xuất
@@ -151,7 +153,7 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
   return (
     <header
       className="admin-topbar app-navbar fixed left-0 right-0 top-0 z-[60] flex h-16 flex-shrink-0 items-center justify-between px-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
-      style={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
+      style={{ backgroundColor: 'var(--topbar)' }}
     >
       <div className="flex items-center" style={{ gap: '12px', minWidth: 0 }}>
         <style>{`
@@ -177,6 +179,7 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
       </div>
 
       <div className="flex flex-shrink-0 items-center" style={{ gap: '8px' }}>
+        <ThemeSwitcher />
         <button
           type="button"
           className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]"
@@ -214,17 +217,21 @@ export function Topbar({ title = 'Bang dieu khien', onMenuToggle }: TopbarProps)
             style={{ gap: '8px', padding: '6px 10px', cursor: 'pointer' }}
             aria-haspopup="menu"
             aria-expanded={showUserMenu}
-            aria-label="Menu tai khoan"
+            aria-label="Menu tài khoản"
             onClick={() => {
               setShowNotifications(false);
               setShowUserMenu((current) => !current);
             }}
           >
             <div
-              className="flex items-center justify-center rounded-full"
+              className="flex items-center justify-center overflow-hidden rounded-full"
               style={{ width: '28px', height: '28px', backgroundColor: 'var(--brand-surface)' }}
             >
-              <User size={14} style={{ color: 'var(--brand-primary)' }} />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={adminName} className="h-full w-full object-cover" />
+              ) : (
+                <User size={14} style={{ color: 'var(--brand-primary)' }} />
+              )}
             </div>
             <span
               className="topbar-label max-w-[160px] truncate"

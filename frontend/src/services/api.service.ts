@@ -4,11 +4,18 @@ import { API_ENDPOINTS } from '../lib/api-config';
 // Types
 export interface Building {
   id: number;
+  toaNhaId?: number;
   buildingCode?: string;
+  maToaNha?: string;
   buildingName: string;
+  tenToaNha?: string;
   address?: string;
+  diaChi?: string;
   numberOfFloors: number;
+  totalFloors?: number;
+  soTang?: number;
   totalRooms?: number;
+  tongSoPhong?: number;
   description?: string;
   latitude?: number;
   longitude?: number;
@@ -27,6 +34,7 @@ export interface Room {
   floorId: number;
   buildingId?: number;
   buildingName?: string;
+  buildingAddress?: string;
   floorNumber?: number;
   roomCode: string;
   area?: number;
@@ -77,6 +85,7 @@ export interface Contract {
   status?: string;
   terminatedDate?: string;
   notes?: string;
+  updatedAt?: string;
 }
 
 export interface ContractChangeTrackingItem {
@@ -170,6 +179,7 @@ export interface Service {
   commonUnitPrice?: number;
   isActive: boolean;
   effectiveDate?: string;
+  priceUpdatedAt?: string;
 }
 
 export interface ServicePriceHistory {
@@ -189,6 +199,7 @@ export interface ServiceInContract {
   unitPrice?: number;
   applyFrom: string;
   applyTo?: string;
+  priceUpdatedAt?: string;
   totalQuantity: number;
   residentCount: number;
   residentNames: string[];
@@ -535,6 +546,15 @@ export const contractService = {
     }
   },
 
+  getHistory: async (id: number) => {
+    try {
+      const response = await api.get(API_ENDPOINTS.CONTRACTS.HISTORY(id));
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
   terminate: async (id: number, terminatedDate: string, notes?: string) => {
     try {
       const response = await api.post<Contract>(API_ENDPOINTS.CONTRACTS.TERMINATE(id), { 
@@ -825,7 +845,7 @@ export const authService = {
       throw new Error(handleApiError(error));
     }
   },
-  updateProfile: async (data: { email?: string; address?: string; avatarUrl?: string }) => {
+  updateProfile: async (data: { fullName?: string; email?: string; address?: string; avatarUrl?: string }) => {
     try {
       const response = await api.put<User>(API_ENDPOINTS.AUTH.PROFILE, data);
       return response.data;

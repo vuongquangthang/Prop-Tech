@@ -11,6 +11,7 @@ public interface IFloorService
     Task<List<FloorDto>> GetByBuildingIdAsync(int buildingId, int ownerUserId);
     Task<FloorDetailDto?> GetByIdAsync(int id, int ownerUserId);
     Task<FloorDto> CreateAsync(CreateFloorDto dto, int ownerUserId);
+    Task<FloorDto> UpdateAsync(int id, UpdateFloorDto dto, int ownerUserId);
     Task DeleteAsync(int id, int ownerUserId);
 }
 
@@ -117,6 +118,45 @@ public class FloorService : IFloorService
         };
 
         await _context.Floors.AddAsync(floor);
+        await _context.SaveChangesAsync();
+        return MapToDto(floor);
+    }
+
+    public async Task<FloorDto> UpdateAsync(int id, UpdateFloorDto dto, int ownerUserId)
+    {
+        var floor = await _context.Floors
+            .Include(item => item.Building)
+            .Include(item => item.Rooms)
+            .FirstOrDefaultAsync(item => item.Id == id && item.Building.OwnerUserId == ownerUserId);
+        if (floor == null)
+        {
+            throw new InvalidOperationException("Tầng không tồn tại");
+        }
+
+        if (dto.FloorNumber.HasValue)
+        {
+            if (dto.FloorNumber.Value <= 0)
+            {
+                throw new InvalidOperationException("Số tầng phải lớn hơn 0");
+            }
+
+            if (dto.FloorNumber.Value != floor.FloorNumber)
+            {
+                var existing = await _context.Floors
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item =>
+                        item.BuildingId == floor.BuildingId &&
+                        item.FloorNumber == dto.FloorNumber.Value &&
+                        item.Id != floor.Id);
+                if (existing != null)
+                {
+                    throw new InvalidOperationException($"Tầng {dto.FloorNumber.Value} đã tồn tại trong tòa nhà này");
+                }
+
+                floor.FloorNumber = dto.FloorNumber.Value;
+            }
+        }
+
         await _context.SaveChangesAsync();
         return MapToDto(floor);
     }

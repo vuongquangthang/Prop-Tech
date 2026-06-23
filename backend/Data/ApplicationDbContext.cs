@@ -22,6 +22,7 @@ public class ApplicationDbContext : DbContext
     // Hợp đồng
     public DbSet<HopDong> HopDongs { get; set; } = null!;
     public DbSet<ChiTietO> ChiTietOs { get; set; } = null!;
+    public DbSet<ContractEditHistory> ContractEditHistories { get; set; } = null!;
 
     // Xe
     public DbSet<Xe> Xes { get; set; } = null!;
@@ -175,6 +176,16 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.CreatedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ContractEditHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ContractId, e.Version }).IsUnique();
+            entity.HasOne(e => e.Contract)
+                .WithMany(e => e.EditHistories)
+                .HasForeignKey(e => e.ContractId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ========== DỊCH VỤ ==========

@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router';
 import { getDefaultRoute } from '../lib/roles';
 import { Eye, EyeOff } from 'lucide-react';
+import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
 export function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -40,84 +41,85 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full relative flex items-center justify-center font-sans">
-      <div className="absolute inset-0 z-0">
+    <div className="auth-shell">
+      <div className="auth-background" aria-hidden="true">
         <img 
           src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1920&auto=format&fit=crop" 
-          alt="Background" 
-          className="w-full h-full object-cover"
+          alt="" 
         />
-        <div className="absolute inset-0 bg-black/50"></div>
       </div>
 
-      <div className="relative z-10 px-4" style={{ width: '100%', maxWidth: '560px' }}>
-        <div className="rounded-3xl shadow-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '0.5px solid rgba(255,255,255,0.2)', padding: '80px 48px' }}>
-          <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow text-center mb-10">Đăng nhập</h1>
+      <div className="auth-theme-switcher">
+        <ThemeSwitcher />
+      </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+      <main className="auth-content">
+        <section className="auth-panel" aria-labelledby="login-title">
+          <h1 id="login-title" className="auth-title">Đăng nhập</h1>
+
+          <form onSubmit={handleSubmit} className="auth-form">
             {error && (
-              <p className="text-red-400 text-sm text-center bg-red-500/10 rounded-lg p-3">{error}</p>
+              <p className="auth-alert auth-alert-error" role="alert">{error}</p>
             )}
 
-            <div>
+            <div className="auth-field">
               <input 
                 type="text" 
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="Số điện thoại hoặc email" 
-                className="w-full bg-transparent border-0 border-b border-white/50 py-3 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
+                className="auth-input"
+                autoComplete="username"
                 required
               />
             </div>
 
-            <div className="relative">
+            <div className="auth-field auth-password-field">
               <input 
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mật khẩu" 
-                className="w-full bg-transparent border-0 border-b border-white/50 py-3 pr-12 text-white font-medium placeholder-white/60 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-white/90 transition-colors text-base appearance-none"
+                className="auth-input"
+                autoComplete="current-password"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((current) => !current)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-white transition hover:text-white"
+                className="auth-password-toggle"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
-                {showPassword ? <EyeOff size={20} className="text-white" /> : <Eye size={20} className="text-white" />}
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-              <label className="flex items-center space-x-2 cursor-pointer">
+            <div className="auth-options">
+              <label className="auth-checkbox">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border border-white/50 accent-white cursor-pointer"
                 />
-                <span className="text-sm font-normal" style={{ color: 'rgba(255,255,255,0.85)' }}>Ghi nhớ đăng nhập</span>
+                <span>Ghi nhớ đăng nhập</span>
               </label>
-              <Link to="/forgot-password" className="text-sm transition-colors" style={{ color: 'rgba(255,255,255,0.85)' }}>Quên mật khẩu?</Link>
+              <Link to="/forgot-password" className="auth-link">Quên mật khẩu?</Link>
             </div>
 
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-white text-gray-900 font-bold py-3 rounded-lg mt-8 hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-50"
+              className="auth-submit"
             >
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
 
-            <div className="text-center pt-4">
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Tài khoản được cấp bởi quản trị viên. Vui lòng liên hệ ban quản lý nếu cần hỗ trợ.
-              </p>
-            </div>
+            <p className="auth-help">
+              Tài khoản được cấp bởi quản trị viên. Vui lòng liên hệ ban quản lý nếu cần hỗ trợ.
+            </p>
           </form>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

@@ -192,6 +192,7 @@ public class HoaDonService : IHoaDonService
                 decimal total = 0;
                 var formulaItems = ParseBillingFormula(contract.BillingFormulaJson);
                 var hasFormula = formulaItems.Count > 0;
+                var missingReadingReasons = new List<string>();
 
                 if (hasFormula)
                 {
@@ -238,7 +239,7 @@ public class HoaDonService : IHoaDonService
                                             UnitPrice = item.UnitPrice
                                         };
                                     }
-                                    else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số điện tháng {month}/{year}");
+                                    else missingReadingReasons.Add($"Chưa chốt chỉ số điện tháng {month}/{year}");
                                 }
                                 else result.Warnings.Add($"Phòng {room.RoomCode}: Có công thức tính điện nhưng không tìm thấy dịch vụ điện đang hoạt động");
                             }
@@ -267,7 +268,7 @@ public class HoaDonService : IHoaDonService
                                             UnitPrice = item.UnitPrice
                                         };
                                     }
-                                    else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số nước tháng {month}/{year}");
+                                    else missingReadingReasons.Add($"Chưa chốt chỉ số nước tháng {month}/{year}");
                                 }
                                 else result.Warnings.Add($"Phòng {room.RoomCode}: Có công thức tính nước nhưng không tìm thấy dịch vụ nước đang hoạt động");
                             }
@@ -322,7 +323,7 @@ public class HoaDonService : IHoaDonService
                                 var cons = curr.NewReading - (prev?.NewReading ?? 0);
                                 lineItems.Add(new ChiTietHoaDon { ItemType = "Dien", ServiceId = usage.ServiceId, ServiceUsageDetailId = usage.Id, Description = $"Điện tháng {month}/{year}: {prev?.NewReading ?? 0} → {curr.NewReading} = {cons} kWh", Quantity = cons, UnitPrice = unitPrice });
                                 total += cons * unitPrice;
-                            } else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số điện tháng {month}/{year}");
+                            } else missingReadingReasons.Add($"Chưa chốt chỉ số điện tháng {month}/{year}");
                         }
                         else if (IsWaterService(usage.Service))
                         {
@@ -332,7 +333,7 @@ public class HoaDonService : IHoaDonService
                                 var cons = curr.NewReading - (prev?.NewReading ?? 0);
                                 lineItems.Add(new ChiTietHoaDon { ItemType = "Nuoc", ServiceId = usage.ServiceId, ServiceUsageDetailId = usage.Id, Description = $"Nước tháng {month}/{year}: {prev?.NewReading ?? 0} → {curr.NewReading} = {cons} m³", Quantity = cons, UnitPrice = unitPrice });
                                 total += cons * unitPrice;
-                            } else result.Errors.Add($"Phòng {room.RoomCode}: Chưa chốt chỉ số nước tháng {month}/{year}");
+                            } else missingReadingReasons.Add($"Chưa chốt chỉ số nước tháng {month}/{year}");
                         }
                         else {
                             var qty = usage.Quantity ?? 1;
@@ -340,6 +341,13 @@ public class HoaDonService : IHoaDonService
                             total += qty * unitPrice;
                         }
                     }
+                }
+
+                if (missingReadingReasons.Any())
+                {
+                    result.Skipped++;
+                    result.SkippedReasons.Add($"Phòng {room.RoomCode}: {string.Join("; ", missingReadingReasons)}");
+                    continue;
                 }
 
                 // Tạo hóa đơn nháp

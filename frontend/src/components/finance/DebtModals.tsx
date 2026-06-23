@@ -182,7 +182,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
 
         </div>
         
-        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-between sticky bottom-0 bg-white">
+        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-start sticky bottom-0 bg-white">
           <div className="flex items-center space-x-2">
             <button 
               onClick={() => setShowSendReminderModal(true)}
@@ -201,12 +201,6 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
               </button>
             )}
           </div>
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
-          >
-            Đóng
-          </button>
         </div>
       </div>
     </div>
@@ -388,12 +382,6 @@ function ContractDetailModal({ debt, onClose }: DebtModalProps) {
         </div>
 
         <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
-          >
-            Đóng
-          </button>
           <button className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">
             In hợp đồng
           </button>
@@ -575,12 +563,6 @@ function InvoiceDetailModal({ debt, onClose }: DebtModalProps) {
         </div>
 
         <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
-          >
-            Đóng
-          </button>
           <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
             Gửi lại hóa đơn
           </button>
@@ -845,12 +827,6 @@ function TransactionHistoryModal({ debt, onClose }: DebtModalProps) {
         </div>
 
         <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
-          >
-            Đóng
-          </button>
           <button className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">
             Xuất Excel
           </button>
@@ -1012,7 +988,15 @@ Trân trọng,\nBan quản lý`,
   if (showSuccess) {
     return (
       <div className="admin-content-modal-overlay">
-        <div className="bg-white rounded-lg w-[500px]">
+        <div className="relative bg-white rounded-lg w-[500px]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded p-1 hover:bg-gray-100"
+            aria-label="Đóng"
+          >
+            <X size={20} className="text-gray-600" />
+          </button>
           <div className="p-6 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1030,12 +1014,6 @@ Trân trọng,\nBan quản lý`,
                 ✓ Thời gian: {new Date().toLocaleString('vi-VN')}
               </p>
             </div>
-            <button 
-              onClick={onClose}
-              className="w-full px-4 py-3 bg-green-600 text-white text-base rounded hover:bg-green-700"
-            >
-              Đóng
-            </button>
           </div>
         </div>
       </div>
@@ -1345,7 +1323,15 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
   if (showSuccess) {
     return (
       <div className="admin-content-modal-overlay">
-        <div className="bg-white rounded-lg w-[600px]">
+        <div className="relative bg-white rounded-lg w-[600px]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded p-1 hover:bg-gray-100"
+            aria-label="Đóng"
+          >
+            <X size={20} className="text-gray-600" />
+          </button>
           <div className="p-6 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1376,12 +1362,6 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
                 </div>
               </div>
             </div>
-            <button 
-              onClick={onClose}
-              className="w-full px-6 py-3 bg-green-600 text-white text-base rounded hover:bg-green-700"
-            >
-              Đóng
-            </button>
           </div>
         </div>
       </div>

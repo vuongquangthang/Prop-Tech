@@ -101,3 +101,4 @@ start-all.ps1
 loi.txt
 mobile/src/services/api.service.ts
 mobile/tsconfig.json
+docs/use-case-specification.md

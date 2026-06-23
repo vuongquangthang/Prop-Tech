@@ -1,7 +1,9 @@
-import { Save, Calculator, Upload, Filter, CheckCircle, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Save, Calculator, Upload, Filter, CheckCircle, X, AlertTriangle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
+import { FilterSelect } from '../ui/FilterSelect';
+import { PageHeader } from '../ui/product-system';
 
 interface RoomUtilityReading {
   roomId: number;
@@ -179,32 +181,34 @@ export function UtilityReadingTable() {
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-between)' }}>
+        <PageHeader
+          eyebrow="Hóa đơn & Tài chính"
+          title="Chốt chỉ số điện/nước"
+          description="Nhập chỉ số theo tháng và chỉ tính hóa đơn cho các phòng có dữ liệu hợp lệ."
+        />
+
         {/* Filter Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
             <Filter size={20} style={{ color: 'var(--text-secondary)' }} />
 
-            <select
+            <FilterSelect
               className="focus:outline-none"
               style={{ padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
               value={selectedMonth}
               onChange={e => setSelectedMonth(Number(e.target.value))}
             >
               {monthOptions.map(m => <option key={m} value={m}>Tháng {String(m).padStart(2, '0')}</option>)}
-            </select>
+            </FilterSelect>
 
-            <select
+            <FilterSelect
               className="focus:outline-none"
               style={{ padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
               value={selectedYear}
               onChange={e => setSelectedYear(Number(e.target.value))}
             >
               {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-
-            <button onClick={loadReadings} disabled={loading} style={{ padding: '8px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', cursor: 'pointer' }}>
-              <RefreshCw size={16} style={{ color: 'var(--text-secondary)', animation: loading ? 'spin 1s linear infinite' : undefined }} />
-            </button>
+            </FilterSelect>
 
             <div style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)', marginLeft: '16px' }}>
               Đã nhập: <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filledCount}/{rooms.length}</span> phòng
@@ -414,37 +418,34 @@ export function UtilityReadingTable() {
 
               {/* Skipped reasons */}
               {calcResult.skippedReasons.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded p-3">
-                  <p className="text-xs font-semibold text-gray-600 mb-2">Chi tiết xử lý:</p>
+                <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
+                  <p className="text-xs font-semibold text-yellow-700 mb-2">⚠️ Phòng bị bỏ qua, không tạo hóa đơn:</p>
                   <div className="space-y-0.5 max-h-32 overflow-y-auto">
-                    {calcResult.skippedReasons.map((r, i) => <p key={i} className="text-xs text-gray-500">• {r}</p>)}
+                    {calcResult.skippedReasons.map((r, i) => <p key={i} className="text-xs text-yellow-600">• {r}</p>)}
                   </div>
                 </div>
               )}
 
-              {/* Meter-reading errors */}
+              {/* Calculation errors */}
               {calcResult.errors.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
-                  <p className="text-xs font-semibold text-yellow-700 mb-1">⚠️ Một số phòng chưa chốt chỉ số (hóa đơn vẫn được tạo không có khoản điện/nước):</p>
+                <div className="bg-red-50 border border-red-300 rounded p-3">
+                  <p className="text-xs font-semibold text-red-700 mb-1">⚠️ Lỗi không tạo được hóa đơn:</p>
                   <div className="space-y-0.5 max-h-28 overflow-y-auto">
-                    {calcResult.errors.map((e, i) => <p key={i} className="text-xs text-yellow-600">• {e}</p>)}
+                    {calcResult.errors.map((e, i) => <p key={i} className="text-xs text-red-600">• {e}</p>)}
                   </div>
                 </div>
               )}
 
               {calcResult.warnings.length > 0 && (
-                <div className="bg-red-50 border border-red-300 rounded p-3">
-                  <p className="text-xs font-semibold text-red-700 mb-1">⚠️ Cảnh báo bất thường:</p>
+                <div className="bg-orange-50 border border-orange-300 rounded p-3">
+                  <p className="text-xs font-semibold text-orange-700 mb-1">⚠️ Cảnh báo cần kiểm tra công thức/dịch vụ:</p>
                   <div className="space-y-0.5 max-h-28 overflow-y-auto">
-                    {calcResult.warnings.map((w, i) => <p key={i} className="text-xs text-red-600">• {w}</p>)}
+                    {calcResult.warnings.map((w, i) => <p key={i} className="text-xs text-orange-600">• {w}</p>)}
                   </div>
                 </div>
               )}
 
               <p className="text-xs text-gray-500">Vào trang <strong>Quản lý Hóa đơn</strong> để xem hóa đơn nháp và phê duyệt.</p>
-              <div className="flex justify-end pt-2 border-t">
-                <button onClick={() => setCalculateModal(false)} className="px-5 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">Đóng</button>
-              </div>
             </div>
           </div>
         </div>

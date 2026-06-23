@@ -1,6 +1,5 @@
 import { Plus, Eye, Lock, Unlock, X, MessageCircle } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { usePosts } from '../hooks/usePosts';
@@ -8,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatMoneyVnd } from '../lib/postValidation';
 import { postService, type PostEditHistoryDto } from '../services/postService';
 import { buildPropTechPartnerUserId, loadRoomConversations } from '../services/roomConversationService';
+import { ImageViewer } from '../components/ui/ImageViewer';
+import { PageHeader } from '../components/ui/product-system';
 
 const roomStatusConfig = {
   'Trống': { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
@@ -40,7 +41,7 @@ export function PostManagementPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [pendingMessagesByPost, setPendingMessagesByPost] = useState<Record<string, number>>({});
-  const [detailPreviewImage, setDetailPreviewImage] = useState<{ src: string; title: string } | null>(null);
+  const [detailPreviewImage, setDetailPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
 
   const sorted = useMemo(() => [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [posts]);
 
@@ -135,6 +136,18 @@ export function PostManagementPage() {
 
   return (
     <div className="space-y-6">
+        <PageHeader
+          eyebrow="Đăng bài tìm phòng"
+          title="Quản lý bài đăng"
+          description="Theo dõi bài đăng, trạng thái phòng và tin nhắn từ người quan tâm."
+          actions={
+            <button onClick={() => navigate('/post-management/create')} className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-white">
+              <Plus size={16} />
+              Tạo bài đăng
+            </button>
+          }
+        />
+
         <div className="flex items-end gap-8 border-b border-gray-300">
             <button
               className="-mb-px border-b-2 px-2 pb-3 text-sm font-semibold"
@@ -153,15 +166,11 @@ export function PostManagementPage() {
         {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
         {loading ? (
-          <div className="rounded-2xl border-2 border-gray-300 bg-white p-10 text-center text-gray-500">Đang tải danh sách...</div>
+          <div className="rounded-[12px] border-2 border-gray-300 bg-white p-10 text-center text-gray-500">Đang tải danh sách...</div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border-2 border-gray-300 bg-white">
+          <div className="overflow-hidden rounded-[12px] border-2 border-gray-300 bg-white">
             <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
               <h2 className="text-lg font-semibold">Danh sách bài đăng</h2>
-              <button onClick={() => navigate('/post-management/create')} className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-white">
-                <Plus size={16} />
-                Tạo bài đăng
-              </button>
             </div>
 
             <div className="overflow-x-auto">
@@ -180,8 +189,7 @@ export function PostManagementPage() {
                   {sorted.map((p) => (
                     <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        <div className="font-semibold">{p.roomCode ?? p.room}</div>
-                        <div className="text-xs text-gray-500">{p.buildingName ?? p.building}</div>
+                        <div className="font-semibold">{p.roomCode}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">{new Date(p.postDate ?? p.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-6 py-4 text-center">
@@ -312,7 +320,10 @@ export function PostManagementPage() {
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-300 bg-white px-6 py-4">
               <div>
                 <h3 className="text-lg text-gray-800 font-semibold">Chi tiết bài đăng</h3>
-                <p className="text-sm text-gray-600">{selectedPost.roomCode ?? '—'} • {selectedPost.buildingName ?? '—'}</p>
+                <p className="text-sm text-gray-600">
+                  {selectedPost.roomCode ?? '—'} • {selectedPost.buildingName ?? '—'}
+                  {selectedPost.address ? ` • ${selectedPost.address}` : ''}
+                </p>
               </div>
               <button onClick={() => setSelectedPost(null)} className="rounded p-1 hover:bg-gray-100"><X size={18} /></button>
             </div>
@@ -374,7 +385,11 @@ export function PostManagementPage() {
                   <PostDetailImageStrip
                     images={(selectedPost as any).roomImageUrls}
                     altPrefix="Ảnh phòng"
-                    onPreview={(src, index) => setDetailPreviewImage({ src, title: `Ảnh phòng ${index + 1}` })}
+                    onPreview={(_, index) => setDetailPreviewImage({
+                      images: (selectedPost as any).roomImageUrls,
+                      index,
+                      titlePrefix: 'Ảnh phòng',
+                    })}
                   />
                 </div>
               )}
@@ -393,10 +408,6 @@ export function PostManagementPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Khu vực ngập lụt</span>
                     <span className="text-gray-800">{selectedPost.floodProne ? 'Có' : 'Không'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Kiểu liên hệ</span>
-                    <span className="text-gray-800">{selectedPost.contactType === 'other' ? 'Nhập thủ công' : 'Theo tài khoản hiện tại'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ngày đăng</span>
@@ -444,14 +455,17 @@ export function PostManagementPage() {
                   <PostDetailImageStrip
                     images={selectedPost.imageUrls}
                     altPrefix="Ảnh minh họa"
-                    onPreview={(src, index) => setDetailPreviewImage({ src, title: `Ảnh minh họa ${index + 1}` })}
+                    onPreview={(_, index) => setDetailPreviewImage({
+                      images: selectedPost.imageUrls,
+                      index,
+                      titlePrefix: 'Ảnh minh họa',
+                    })}
                   />
                 </div>
               )}
             </div>
 
             <div className="sticky bottom-0 flex justify-end gap-3 border-t border-gray-300 bg-white px-6 py-4">
-              <button onClick={() => setSelectedPost(null)} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Đóng</button>
               <button onClick={() => void handleShowHistory()} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Lịch sử</button>
               <button onClick={() => { setSelectedPost(null); navigate(`/post-management/create?edit=${selectedPost.id}`); }} className="rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700">Chỉnh sửa</button>
             </div>
@@ -494,9 +508,15 @@ export function PostManagementPage() {
                           <span className="rounded-full bg-blue-600 px-2 py-1 text-sm font-semibold text-white">Hiện tại</span>
                         )}
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                        <span>{new Date(item.changedAt).toLocaleString('vi-VN')}</span>
-                        {item.changedBy ? <span>Bởi {item.changedBy}</span> : null}
+                      <div className="mt-2 flex flex-wrap items-center text-xs text-gray-500" style={{ columnGap: '1px', rowGap: '4px' }}>
+                        <span className="inline-flex rounded bg-gray-100 px-2 py-1">
+                          {new Date(item.changedAt).toLocaleString('vi-VN')}
+                        </span>
+                        {item.changedBy ? (
+                          <span className="inline-flex rounded bg-gray-100 px-2 py-1">
+                            Bởi {item.changedBy}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="mt-3 space-y-1">
                         {item.changes.map((change, index) => (
@@ -511,51 +531,18 @@ export function PostManagementPage() {
               )}
             </div>
 
-            <div className="flex justify-end border-t border-gray-300 px-6 py-4">
-              <button
-                onClick={() => {
-                  setShowHistory(false);
-                  setHistoryItems([]);
-                  setHistoryError(null);
-                }}
-                className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Đóng
-              </button>
-            </div>
           </div>
         </div>
       )}
 
-      {detailPreviewImage && typeof document !== 'undefined' && createPortal((
-        <div
-          className="fixed inset-0 flex items-center justify-center p-6"
-          style={{
-            zIndex: 2147483647,
-            backgroundColor: 'rgba(15, 23, 42, 0.78)',
-            backdropFilter: 'blur(8px)',
-          }}
-          onClick={() => setDetailPreviewImage(null)}
-        >
-          <div
-            className="relative flex items-center justify-center"
-            style={{ maxHeight: '72vh', maxWidth: '78vw' }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={detailPreviewImage.src}
-              alt={detailPreviewImage.title}
-              className="rounded bg-white object-contain shadow-2xl"
-              style={{
-                maxHeight: 'min(72vh, 560px)',
-                maxWidth: 'min(78vw, 720px)',
-                width: 'auto',
-                height: 'auto',
-              }}
-            />
-          </div>
-        </div>
-      ), document.body)}
+      {detailPreviewImage && (
+        <ImageViewer
+          images={detailPreviewImage.images}
+          initialIndex={detailPreviewImage.index}
+          titlePrefix={detailPreviewImage.titlePrefix}
+          onClose={() => setDetailPreviewImage(null)}
+        />
+      )}
     </div>
   );
 }

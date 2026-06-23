@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Send, CheckCircle, AlertTriangle, User, Clock, ChevronRight } from 'lucide-react';
+import { X, Send, CheckCircle, AlertTriangle, User, Clock, ChevronRight, Home, CalendarDays, ReceiptText, Wallet } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 
@@ -86,8 +86,8 @@ const ITEM_LABELS: Record<string, string> = {
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  Draft:          { label: 'Nhập',          color: '#374151', bg: '#f3f4f6' },
-  Nháp:           { label: 'Nhập',          color: '#374151', bg: '#f3f4f6' },
+  Draft:          { label: 'Nháp',          color: '#374151', bg: '#f3f4f6' },
+  Nháp:           { label: 'Nháp',          color: '#374151', bg: '#f3f4f6' },
   Issued:         { label: 'Chờ thanh toán', color: '#92400e', bg: '#fef3c7' },
   'Chưa thanh toán': { label: 'Chờ thanh toán', color: '#92400e', bg: '#fef3c7' },
   PartiallyPaid:  { label: 'Đã TT một phần', color: '#1e40af', bg: '#dbeafe' },
@@ -120,21 +120,21 @@ function billingPeriod(inv: InvoiceDetail) {
 /* ─── Sub-components ─────────────────────────────────────── */
 function InfoCard({ title, headerRight, children }: { title: string; headerRight?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px' }}>
-      <div style={{ backgroundColor: '#f9fafb', padding: '10px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontWeight: 600, fontSize: 'var(--type-caption)', color: '#374151' }}>{title}</span>
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+      <div style={{ backgroundColor: '#f8fafc', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontWeight: 700, fontSize: '13px', color: '#111827', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</span>
         {headerRight}
       </div>
-      <div style={{ padding: '12px 16px' }}>{children}</div>
+      <div style={{ padding: '14px 16px' }}>{children}</div>
     </div>
   );
 }
 
 function InfoRow({ label, value, bold }: { label: string; value: React.ReactNode; bold?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 'var(--type-caption)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '6px 0', fontSize: '13px' }}>
       <span style={{ color: '#6b7280' }}>{label}:</span>
-      <span style={{ fontWeight: bold ? 700 : 500, color: '#111827' }}>{value}</span>
+      <span style={{ fontWeight: bold ? 700 : 500, color: '#111827', textAlign: 'right' }}>{value}</span>
     </div>
   );
 }
@@ -142,21 +142,45 @@ function InfoRow({ label, value, bold }: { label: string; value: React.ReactNode
 function LineItemCard({ item }: { item: LineItem }) {
   const label = ITEM_LABELS[item.itemType] || item.itemType;
   const lines = item.description ? item.description.split('\n') : [];
+  const subtotal = item.subtotal ?? (item.quantity ?? 0) * (item.unitPrice ?? 0);
+  const displayName = item.serviceName || lines[0] || label;
+  const normalizeText = (value: string) => value.trim().toLowerCase();
+  const hiddenDescriptions = new Set([normalizeText(displayName), normalizeText(label)]);
+  const detailLines = (item.serviceName ? lines : lines.slice(1))
+    .filter(line => line.trim())
+    .filter(line => !hiddenDescriptions.has(normalizeText(line)));
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px 14px', marginBottom: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>{label}</span>
-        <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827', flexShrink: 0, marginLeft: '12px' }}>
-          {fmt(item.subtotal ?? (item.quantity ?? 0) * (item.unitPrice ?? 0))}
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px', backgroundColor: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.03)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '15px', fontWeight: 800, color: '#111827', lineHeight: 1.35 }}>{displayName}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: '999px', backgroundColor: '#eef2ff', color: '#3730a3', padding: '3px 9px', fontWeight: 700, fontSize: '11px' }}>{label}</span>
+          </div>
+          {detailLines.map((ln, i) => (
+            <div key={i} style={{ fontSize: '13px', color: '#6b7280', marginTop: i === 0 ? '6px' : '3px', lineHeight: 1.45 }}>{ln}</div>
+          ))}
+          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+            SL: <strong>{fmt(item.quantity ?? 0)}</strong>{item.unit ? ` ${item.unit}` : ''} · Đơn giá: <strong>{fmt(item.unitPrice ?? 0)} đ</strong>
+          </div>
+        </div>
+        <span style={{ fontWeight: 800, fontSize: '15px', color: '#111827', flexShrink: 0, whiteSpace: 'nowrap' }}>
+          {fmt(subtotal)} đ
         </span>
       </div>
-      {lines.map((ln, i) => (
-        <div key={i} style={{ fontSize: 'var(--type-caption)', color: '#6b7280', marginTop: '2px', lineHeight: 1.5 }}>{ln}</div>
-      ))}
-      {item.unit && (
-        <div style={{ fontSize: 'var(--type-caption)', color: '#6b7280', marginTop: '2px' }}>{item.unit}</div>
-      )}
+    </div>
+  );
+}
+
+function SummaryTile({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: React.ReactNode; accent?: boolean }) {
+  return (
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '14px 16px', backgroundColor: accent ? '#eff6ff' : '#fff', display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: accent ? '#dbeafe' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent ? '#1d4ed8' : '#4b5563' }}>{icon}</div>
+      <div>
+        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827' }}>{value}</div>
+      </div>
     </div>
   );
 }
@@ -218,32 +242,51 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '16px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '900px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 80px rgba(0,0,0,0.25)' }}>
+      <div style={{ backgroundColor: '#f8fafc', borderRadius: '18px', width: '100%', maxWidth: '1080px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 80px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Eye24 />
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
-              Chi tiết hóa đơn{detail ? ` — ${billingPeriod(detail)}` : invoiceNumber ? ` — ${invoiceNumber}` : ''}
-            </h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d4ed8' }}>
+              <ReceiptText size={21} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0 }}>
+                Chi tiết hóa đơn{detail ? ` tháng ${billingPeriod(detail)}` : invoiceNumber ? ` — ${invoiceNumber}` : ''}
+              </h2>
+              <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#6b7280' }}>{invoiceNumber || (detail ? `HD-${String(detail.id).padStart(5,'0')}` : 'Đang tải...')}</p>
+            </div>
           </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px', color: '#6b7280' }}>
+          <button onClick={onClose} style={{ border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', padding: '8px', color: '#6b7280', borderRadius: 10 }}>
             <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '22px 24px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: '#9ca3af', fontSize: '14px' }}>Đang tải...</div>
           ) : !detail ? (
             <div style={{ textAlign: 'center', padding: '60px', color: '#9ca3af', fontSize: '14px' }}>Không tải được dữ liệu.</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+            <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px', marginBottom: '18px' }}>
+              <SummaryTile icon={<Home size={18} />} label="Phòng" value={room?.roomCode || detail.roomNumber || '—'} />
+              <SummaryTile icon={<CalendarDays size={18} />} label="Kỳ thanh toán" value={billingPeriod(detail)} />
+              <SummaryTile icon={<Wallet size={18} />} label="Tổng tiền" value={`${fmt(detail.totalAmount)} đ`} accent />
+              <SummaryTile
+                icon={<CheckCircle size={18} />}
+                label="Trạng thái"
+                value={statusInfo ? (
+                  <span style={{ color: statusInfo.color }}>{statusInfo.label}</span>
+                ) : '—'}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.35fr', gap: '20px', alignItems: 'start' }}>
 
               {/* LEFT column */}
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {/* Thông tin hóa đơn */}
                 <InfoCard title="Thông tin hóa đơn">
                   <InfoRow label="Mã hóa đơn" value={`HD-${String(detail.id).padStart(5,'0')}`} bold />
@@ -273,7 +316,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                 <InfoCard
                   title="Thành viên trong hộ"
                   headerRight={members.length > 0 ? (
-                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '12px' }}>
+                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 'var(--radius-badge)' }}>
                       {members.length} người
                     </span>
                   ) : undefined}
@@ -338,19 +381,26 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
 
               {/* RIGHT column — Chi tiết khoản thu */}
               <div>
-                <div style={{ marginBottom: '12px', fontSize: 'var(--type-caption)', fontWeight: 600, color: '#374151' }}>Chi tiết các khoản thu</div>
+                <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827' }}>Chi tiết các khoản thu</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: 2 }}>{(detail.lineItems ?? []).length} khoản trong hóa đơn</div>
+                  </div>
+                </div>
 
                 {(detail.lineItems ?? []).length > 0 ? (
-                  (detail.lineItems ?? []).map(item => <LineItemCard key={item.id} item={item} />)
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(detail.lineItems ?? []).map(item => <LineItemCard key={item.id} item={item} />)}
+                  </div>
                 ) : (
                   <div style={{ fontSize: 'var(--type-caption)', color: '#9ca3af', textAlign: 'center', padding: '24px 0' }}>Không có chi tiết khoản thu</div>
                 )}
 
                 {/* Tổng cộng */}
-                <div style={{ border: '1px solid rgba(30, 78, 140, 0.24)', borderRadius: '12px', padding: '16px 14px', backgroundColor: 'rgba(30, 78, 140, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--brand-primary)', letterSpacing: '0.05em' }}>TỔNG CỘNG</span>
-                  <span style={{ fontWeight: 800, fontSize: '20px', color: 'var(--brand-primary)' }}>
-                    {fmt(detail.totalAmount)} VND
+                <div style={{ border: '1px solid rgba(37, 99, 235, 0.24)', borderRadius: '16px', padding: '18px 16px', background: 'linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                  <span style={{ fontWeight: 800, fontSize: '14px', color: '#1d4ed8', letterSpacing: '0.06em' }}>TỔNG THANH TOÁN</span>
+                  <span style={{ fontWeight: 900, fontSize: '22px', color: '#1d4ed8' }}>
+                    {fmt(detail.totalAmount)} VNĐ
                   </span>
                 </div>
 
@@ -363,27 +413,28 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                 )}
               </div>
             </div>
+            </>
           )}
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#fff' }}>
           <button
-            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
             onClick={() => window.print()}
           >
             <Printer size={14} />
             In hóa đơn
           </button>
           <button
-            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Send size={14} />
             Gửi lại cho {sendCount > 0 ? `${sendCount} người` : 'cư dân'}
           </button>
           {isDraft && detail && (
             <button
-              style={{ padding: '8px 16px', backgroundColor: 'var(--info)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '8px 16px', backgroundColor: 'var(--info)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
               onClick={() => { onApprove(detail.id); onClose(); }}
             >
               <CheckCircle size={14} />
@@ -391,12 +442,6 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <button
-            onClick={onClose}
-            style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: '12px', fontSize: 'var(--type-caption)', cursor: 'pointer', background: 'white', color: 'var(--text-primary)', fontWeight: 500 }}
-          >
-            Đóng
-          </button>
         </div>
       </div>
     </div>

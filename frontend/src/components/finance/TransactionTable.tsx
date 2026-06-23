@@ -2,6 +2,8 @@ import { CheckCircle, AlertCircle, Link2, Filter, X, Loader2, AlertTriangle, Fil
 import { useState, useEffect } from 'react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { paymentService } from '../../services/api.service';
+import { FilterSelect } from '../ui/FilterSelect';
+import { PageHeader } from '../ui/product-system';
 
 interface TransactionData {
   id: number;
@@ -169,23 +171,29 @@ export function TransactionTable() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        eyebrow="Hóa đơn & Tài chính"
+        title="Lịch sử giao dịch"
+        description="Theo dõi giao dịch thanh toán, trạng thái khớp hóa đơn và phương thức thanh toán."
+      />
+
       {/* Filter Bar */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <Filter size={16} className="text-gray-500" />
           
-          <select
-            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-2 py-1.5 text-xs bg-white focus:outline-none"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'all' | 'matched' | 'unmatched')}
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="matched">Đã khớp dữ liệu</option>
             <option value="unmatched">Chưa khớp</option>
-          </select>
+          </FilterSelect>
 
-          <select
-            className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
+          <FilterSelect
+            className="px-2 py-1.5 text-xs bg-white focus:outline-none"
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
           >
@@ -193,7 +201,7 @@ export function TransactionTable() {
             {methodOptions.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
-          </select>
+          </FilterSelect>
 
           <input
             type="text"

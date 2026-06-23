@@ -98,7 +98,8 @@ public class PaymentController : ControllerBase
     {
         try
         {
-            await _paymentService.CancelPaymentAsync(transactionId);
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            await _paymentService.CancelPaymentAsync(transactionId, userId);
             return Ok(new { message = "Đã hủy giao dịch" });
         }
         catch (InvalidOperationException ex)

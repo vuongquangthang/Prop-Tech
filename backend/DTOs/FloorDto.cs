@@ -21,6 +21,11 @@ public class CreateFloorDto
     public int FloorNumber { get; set; }
 }
 
+public class UpdateFloorDto
+{
+    public int? FloorNumber { get; set; }
+}
+
 /// <summary>
 /// DTO chi tiết tầng (bao gồm phòng)
 /// </summary>

@@ -1,8 +1,10 @@
-import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX, Pencil } from 'lucide-react';
+import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX, Pencil, Filter, CalendarPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal } from './ContractModals';
+import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal, ExtendContractModal } from './ContractModals';
 import { contractService, tatToanService } from '../../services/api.service';
+import { DataCard, DataTable, EmptyState, LoadingState, PageHeader, StatusBadge } from '../ui/product-system';
+import { FilterSelect } from '../ui/FilterSelect';
 
 interface ContractData {
   id: number;
@@ -13,6 +15,7 @@ interface ContractData {
   tenant: string;
   startDate: string;
   endDate: string;
+  expectedEndDate?: string;
   deposit: number;
   monthlyRent: number;
   daysLeft: number;
@@ -25,6 +28,8 @@ export function ContractList() {
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     fetchContracts();
@@ -89,6 +94,7 @@ export function ContractList() {
           tenant: tenantName,
           startDate: contract.startDate ? new Date(contract.startDate).toLocaleDateString('vi-VN') : '-',
           endDate: endDateRaw ? new Date(endDateRaw).toLocaleDateString('vi-VN') : '-',
+          expectedEndDate: endDateRaw || undefined,
           deposit: contract.depositAmount ?? contract.deposit ?? contract.tienCoc ?? 0,
           monthlyRent: contract.actualRentPrice ?? contract.monthlyRent ?? contract.giaThue ?? 0,
           daysLeft,
@@ -114,30 +120,24 @@ export function ContractList() {
 
   const getStatusBadge = (daysLeft: number, status: string) => {
     if (status === 'ended') {
-      return <span className="inline-flex items-center px-3 py-1 text-xs rounded border bg-gray-100 text-gray-700 border-gray-300">
-        Đã hết
-      </span>;
+      return <StatusBadge tone="neutral">Đã hết</StatusBadge>;
     }
     if (status === 'expired') {
-      return <span className="inline-flex items-center px-3 py-1 text-xs rounded border bg-red-100 text-red-800 border-red-300">
+      return <StatusBadge tone="danger">
         <AlertCircle size={14} className="mr-1" />
         Quá hạn {Math.abs(daysLeft)} ngày
-      </span>;
+      </StatusBadge>;
     }
     if (status === 'danger') {
-      return <span className="inline-flex items-center px-3 py-1 text-xs rounded border bg-yellow-100 text-yellow-800 border-yellow-300">
+      return <StatusBadge tone="warning">
         <AlertCircle size={14} className="mr-1" />
         Còn {daysLeft} ngày
-      </span>;
+      </StatusBadge>;
     }
     if (status === 'warning') {
-      return <span className="inline-flex items-center px-3 py-1 text-xs rounded border bg-orange-100 text-orange-800 border-orange-300">
-        Còn {daysLeft} ngày
-      </span>;
+      return <StatusBadge tone="warning">Còn {daysLeft} ngày</StatusBadge>;
     }
-    return <span className="inline-flex items-center px-3 py-1 text-xs rounded border bg-green-100 text-green-800 border-green-300">
-      Còn {daysLeft} ngày
-    </span>;
+    return <StatusBadge tone="success">Còn {daysLeft} ngày</StatusBadge>;
   };
 
   const [selectedContract, setSelectedContract] = useState<any>(null);
@@ -145,6 +145,7 @@ export function ContractList() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ContractData | null>(null);
 
   const openCreateModal = () => {
@@ -166,6 +167,11 @@ export function ContractList() {
     setIsEditModalOpen(true);
   };
 
+  const openExtendModal = (contract: ContractData) => {
+    setSelectedContract(contract);
+    setIsExtendModalOpen(true);
+  };
+
   // FIX: Handle contract creation success - reload list and navigate
   const handleContractCreateSuccess = async () => {
     setIsCreateModalOpen(false);
@@ -174,124 +180,135 @@ export function ContractList() {
     navigate('/contract-management', { replace: true });
   };
 
+  const filteredContracts = contracts.filter((contract) => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      normalizedSearch.length === 0 ||
+      contract.code.toLowerCase().includes(normalizedSearch) ||
+      contract.room.toLowerCase().includes(normalizedSearch) ||
+      contract.tenant.toLowerCase().includes(normalizedSearch);
+    const matchesStatus = statusFilter === 'all' || contract.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   // Loading state
   if (loading) {
     return (
-      <div className="bg-white border-2 border-gray-300 rounded p-8">
-        <div className="flex flex-col items-center justify-center py-16 space-y-4">
-          <Loader2 size={48} className="animate-spin text-gray-400" />
-          <span className="text-gray-600">Đang tải danh sách hợp đồng...</span>
-        </div>
-      </div>
+      <DataCard>
+        <LoadingState label="Đang tải danh sách hợp đồng..." />
+      </DataCard>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <div className="bg-white border-2 border-gray-300 rounded p-8">
-        <div className="flex flex-col items-center justify-center py-16 space-y-4">
-          <AlertTriangle size={48} className="text-red-500" />
-          <p className="text-red-600 text-center">{error}</p>
-          <button
-            onClick={fetchContracts}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700"
-          >
-            Thử lại
-          </button>
-        </div>
-      </div>
+      <DataCard>
+        <EmptyState
+          icon={<AlertTriangle size={26} />}
+          title="Không thể tải danh sách hợp đồng"
+          description={error}
+          action={<button onClick={fetchContracts} className="app-button-primary">Thử lại</button>}
+        />
+      </DataCard>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Filter Bar */}
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Hợp đồng"
+        title="Quản lý hợp đồng"
+        description="Theo dõi hợp đồng đang hiệu lực, sắp hết hạn và các nghiệp vụ in/sửa hợp đồng."
+      />
+
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Tìm theo mã hợp đồng, phòng hoặc chủ hộ..."
-              className="w-96 pl-10 pr-4 py-2 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
-          
-          <select className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+        <div className="flex flex-wrap items-center gap-4">
+          <Filter size={16} className="text-gray-500" />
+          <FilterSelect
+            className="app-select"
+            style={{ width: '220px', flex: '0 0 220px' }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Đang hoạt động</option>
             <option value="warning">Sắp hết hạn (&lt;30 ngày)</option>
+            <option value="danger">Sắp hết hạn (&lt;7 ngày)</option>
             <option value="expired">Đã quá hạn</option>
-          </select>
+            <option value="ended">Đã hết</option>
+          </FilterSelect>
+          <input
+            type="text"
+            placeholder="Tìm theo mã hợp đồng, phòng hoặc chủ hộ..."
+            className="app-input"
+            style={{ width: '360px', flex: '0 0 360px' }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-        
-        <button className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700" onClick={openCreateModal}>
+        <button className="app-button-primary" onClick={openCreateModal}>
           <Plus size={16} />
           <span>Tạo hợp đồng mới</span>
         </button>
       </div>
       
       {/* Table */}
-      <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Danh sách hợp đồng - {contracts.length} hợp đồng</h2>
-        </div>
-        
-        {contracts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 space-y-4">
-            <FileX size={48} className="text-gray-300" />
-            <p className="text-gray-500">Chưa có hợp đồng nào</p>
-          </div>
+      <DataCard title={`Danh sách hợp đồng · ${filteredContracts.length} hợp đồng`} description="Các cảnh báo ngày hết hạn được tính theo ngày kết thúc dự kiến.">
+        {filteredContracts.length === 0 ? (
+          <EmptyState icon={<FileX size={26} />} title="Chưa có hợp đồng nào" description="Tạo hợp đồng đầu tiên để bắt đầu quản lý cư trú và thanh toán." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-300">
+            <DataTable>
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Mã hợp đồng</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày bắt đầu</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày kết thúc</th>
-                  <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền cọc (VNĐ)</th>
-                  <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền thuê/tháng</th>
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Trạng thái</th>
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
+                  <th>Mã hợp đồng</th>
+                  <th>Phòng</th>
+                  <th>Chủ hộ</th>
+                  <th>Ngày bắt đầu</th>
+                  <th>Ngày kết thúc</th>
+                  <th>Tiền cọc (VNĐ)</th>
+                  <th>Tiền thuê/tháng</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {contracts.map((contract) => (
-                  <tr key={contract.id} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(contract.status)}`}>
-                    <td className="px-6 py-4 text-sm text-gray-800">{contract.code}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{contract.room}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{contract.tenant}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{contract.startDate}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{contract.endDate}</td>
-                    <td className="px-6 py-4 text-sm text-gray-800 text-right">{contract.deposit.toLocaleString('vi-VN')}</td>
-                    <td className="px-6 py-4 text-sm text-gray-800 text-right">{contract.monthlyRent.toLocaleString('vi-VN')}</td>
-                    <td className="px-6 py-4 text-center">
+                {filteredContracts.map((contract) => (
+                  <tr key={contract.id} className={getRowColor(contract.status)}>
+                    <td className="font-semibold text-[var(--brand-primary)]">{contract.code}</td>
+                    <td>{contract.room}</td>
+                    <td>{contract.tenant}</td>
+                    <td>{contract.startDate}</td>
+                    <td>{contract.endDate}</td>
+                    <td className="font-semibold">{contract.deposit.toLocaleString('vi-VN')}</td>
+                    <td className="font-semibold">{contract.monthlyRent.toLocaleString('vi-VN')}</td>
+                    <td>
                       {getStatusBadge(contract.daysLeft, contract.status)}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button className="p-2 hover:bg-gray-100 rounded" title="Xem chi tiết" onClick={() => openViewModal(contract)}>
-                          <Eye size={16} className="text-gray-600" />
+                    <td>
+                      <div className="flex items-center justify-center gap-2">
+                        <button className="product-action-icon" title="Xem chi tiết" onClick={() => openViewModal(contract)}>
+                          <Eye size={16} />
                         </button>
-                        <button className="p-2 hover:bg-gray-100 rounded" title="In hợp đồng" onClick={() => openPrintModal(contract)}>
-                          <FileText size={16} className="text-gray-600" />
+                        <button className="product-action-icon" title="In hợp đồng" onClick={() => openPrintModal(contract)}>
+                          <FileText size={16} />
                         </button>
-                        <button className="p-2 hover:bg-blue-50 rounded" title="Cập nhật hợp đồng" onClick={() => openEditModal(contract)}>
-                          <Pencil size={16} className="text-blue-600" />
+                        <button className="product-action-icon" title="Cập nhật hợp đồng" onClick={() => openEditModal(contract)}>
+                          <Pencil size={16} />
                         </button>
+                        {contract.status !== 'ended' && (
+                          <button className="product-action-icon" title="Gia hạn hợp đồng" onClick={() => openExtendModal(contract)}>
+                            <CalendarPlus size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         )}
-      </div>
+      </DataCard>
       
       {/* Create Contract Button - Opens Modal */}
       <button 
@@ -317,6 +334,10 @@ export function ContractList() {
 
       {isEditModalOpen && editTarget && (
         <EditContractModal contract={editTarget} onClose={() => setIsEditModalOpen(false)} onSuccess={fetchContracts} />
+      )}
+
+      {isExtendModalOpen && selectedContract && (
+        <ExtendContractModal contract={selectedContract} onClose={() => setIsExtendModalOpen(false)} onSuccess={fetchContracts} />
       )}
     </div>
   );

@@ -17,6 +17,9 @@ import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navig
 import invoiceService, { Invoice } from '../services/invoice.service';
 import paymentService, { InitiatePaymentResponse } from '../services/payment.service';
 import signalRService from '../services/signalr.service';
+import { contractService } from '../services/contract.service';
+import { useAuthStore } from '../store/authStore';
+import { canResidentManageFinancialActions } from '../utils/residentPermissions';
 
 type RootStackParamList = {
   BillDetail: { id: number };
@@ -28,14 +31,17 @@ export default function BillDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<BillDetailScreenRouteProp>();
   const invoiceId = route.params?.id;
+  const currentUser = useAuthStore(state => state.user);
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<InitiatePaymentResponse | null>(null);
+  const [canPayInvoice, setCanPayInvoice] = useState(false);
+  const paymentPermissionMessage = 'Chỉ chủ hộ/người thuê chính được thanh toán hóa đơn. Thành viên cần được chủ hộ hoặc chủ nhà xử lý.';
 
-  const loadInvoice = async () => {
+  const loadInvoice = useCallback(async () => {
     if (!invoiceId) {
       setError('Không tìm thấy thông tin hóa đơn');
       setIsLoading(false);
@@ -44,18 +50,30 @@ export default function BillDetailScreen() {
 
     try {
       setError(null);
+      setCanPayInvoice(false);
       const data = await invoiceService.getById(invoiceId);
       setInvoice(data);
+      try {
+        const contract = await contractService.getById(data.contractId);
+        setCanPayInvoice(canResidentManageFinancialActions(contract, currentUser?.residentId));
+      } catch {
+        setCanPayInvoice(false);
+      }
     } catch (err: any) {
       setError(err.message || 'Không thể tải thông tin hóa đơn');
       console.error('Load invoice error:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [invoiceId, currentUser?.residentId]);
 
   const handlePayment = async () => {
     if (!invoice || invoice.status === 'Đã thanh toán') return;
+    if (!canPayInvoice) {
+      Alert.alert('Không có quyền thanh toán', paymentPermissionMessage);
+      return;
+    }
+
     try {
       setIsPaymentProcessing(true);
       const response = await paymentService.initiatePayment({
@@ -90,7 +108,7 @@ export default function BillDetailScreen() {
 
   useEffect(() => {
     loadInvoice();
-  }, [invoiceId]);
+  }, [loadInvoice]);
 
   // Auto-refresh when PayOS webhook fires PaymentSuccess via SignalR
   useEffect(() => {
@@ -101,7 +119,7 @@ export default function BillDetailScreen() {
       }
     });
     return unsub;
-  }, [invoiceId]);
+  }, [invoiceId, loadInvoice]);
 
   // Re-fetch when user returns to screen (e.g., after pressing Home then back)
   useFocusEffect(
@@ -109,7 +127,7 @@ export default function BillDetailScreen() {
       if (paymentInfo) {
         loadInvoice();
       }
-    }, [paymentInfo])
+    }, [paymentInfo, loadInvoice])
   );
 
   return (
@@ -141,6 +159,14 @@ export default function BillDetailScreen() {
             <Text style={styles.invoiceTitle}>
               Hóa đơn {invoiceService.formatPeriod(invoice.month, invoice.year)}
             </Text>
+            {(invoice.roomNumber || invoice.roomId) && (
+              <View style={styles.roomBadge}>
+                <Ionicons name="home-outline" size={15} color="#1A4B84" />
+                <Text style={styles.roomBadgeText}>
+                  Phòng {invoice.roomNumber || `#${invoice.roomId}`}
+                </Text>
+              </View>
+            )}
             <Text style={[styles.deadline, invoice.status === 'Đã thanh toán' && styles.paidStatus]}>
               {invoice.status === 'Đã thanh toán'
                 ? `Đã thanh toán: ${invoice.paidDate ? new Date(invoice.paidDate).toLocaleDateString('vi-VN') : ''}`
@@ -313,7 +339,7 @@ export default function BillDetailScreen() {
                   <Ionicons name="checkmark-circle" size={24} color="#059669" />
                   <Text style={styles.paidBadgeText}>Đã thanh toán</Text>
                 </View>
-              ) : !paymentInfo ? (
+              ) : !paymentInfo && canPayInvoice ? (
                 <TouchableOpacity 
                   style={[styles.primaryButton, isPaymentProcessing && styles.buttonDisabled]} 
                   onPress={handlePayment}
@@ -325,6 +351,11 @@ export default function BillDetailScreen() {
                     <Text style={styles.primaryButtonText}>Thanh toán ngay</Text>
                   )}
                 </TouchableOpacity>
+              ) : !paymentInfo ? (
+                <View style={styles.permissionNotice}>
+                  <Ionicons name="lock-closed-outline" size={18} color="#92400E" />
+                  <Text style={styles.permissionNoticeText}>{paymentPermissionMessage}</Text>
+                </View>
               ) : null}
             </View>
           </>
@@ -362,6 +393,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 4,
+  },
+  roomBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#E8F0FB',
+  },
+  roomBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A4B84',
   },
   deadline: {
     fontSize: 14,
@@ -579,6 +627,24 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  permissionNotice: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  permissionNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#92400E',
   },
   paidBadge: {
     flex: 1,

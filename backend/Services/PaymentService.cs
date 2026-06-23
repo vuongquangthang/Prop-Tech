@@ -1,9 +1,13 @@
 using backend.DTOs;
+using backend.Data;
 using backend.Models;
 using backend.Repositories;
 using backend.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
 
 namespace backend.Services;
 
@@ -12,7 +16,7 @@ public interface IPaymentService
     Task<InitiatePaymentResponseDto> InitiatePaymentAsync(InitTransactionDto dto, int userId);
     Task<PaymentCallbackResponseDto> ProcessPaymentCallbackAsync(PaymentCallbackDto dto);
     Task<ThanhToanDto?> GetPendingPaymentByInvoiceIdAsync(int invoiceId);
-    Task CancelPaymentAsync(long transactionId);
+    Task CancelPaymentAsync(long transactionId, int userId);
 }
 
 public class PaymentService : IPaymentService
@@ -26,6 +30,7 @@ public class PaymentService : IPaymentService
     private readonly IPayOSService _payOSService;
     private readonly IConfiguration _config;
     private readonly IVietQRService _vietQRService;
+    private readonly ApplicationDbContext _context;
 
     public PaymentService(
         IThanhToanRepository thanhToanRepository,
@@ -36,7 +41,8 @@ public class PaymentService : IPaymentService
         ILogger<PaymentService> logger,
         IPayOSService payOSService,
         IConfiguration config,
-        IVietQRService vietQRService)
+        IVietQRService vietQRService,
+        ApplicationDbContext context)
     {
         _thanhToanRepository = thanhToanRepository;
         _hoaDonRepository = hoaDonRepository;
@@ -47,6 +53,7 @@ public class PaymentService : IPaymentService
         _payOSService = payOSService;
         _config = config;
         _vietQRService = vietQRService;
+        _context = context;
     }
 
     public async Task<InitiatePaymentResponseDto> InitiatePaymentAsync(InitTransactionDto dto, int userId)
@@ -59,6 +66,8 @@ public class PaymentService : IPaymentService
         {
             throw new InvalidOperationException("Hóa đơn không tồn tại");
         }
+
+        await EnsureResidentCanPayInvoiceAsync(invoice, userId);
 
         // Check if already paid
         if (invoice.Status == "Đã thanh toán")
@@ -304,7 +313,7 @@ public class PaymentService : IPaymentService
         };
     }
 
-    public async Task CancelPaymentAsync(long transactionId)
+    public async Task CancelPaymentAsync(long transactionId, int userId)
     {
         var transaction = await _thanhToanRepository.GetByIdAsync(transactionId);
         if (transaction == null)
@@ -317,11 +326,92 @@ public class PaymentService : IPaymentService
             throw new InvalidOperationException("Chỉ có thể hủy giao dịch đang chờ");
         }
 
+        if (transaction.InvoiceId.HasValue)
+        {
+            var invoice = await _hoaDonRepository.GetByIdAsync(transaction.InvoiceId.Value);
+            if (invoice != null)
+            {
+                await EnsureResidentCanPayInvoiceAsync(invoice, userId);
+            }
+        }
+
         transaction.Status = "FAILED";
         _thanhToanRepository.Update(transaction);
         await _thanhToanRepository.SaveChangesAsync();
 
         _logger.LogInformation($"❌ Payment cancelled: {transaction.TransactionCode}");
+    }
+
+    private async Task EnsureResidentCanPayInvoiceAsync(HoaDon invoice, int userId)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+        {
+            throw new InvalidOperationException("Không xác định được tài khoản thanh toán");
+        }
+
+        if (!string.Equals(user.Role, "CuDan", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!user.ResidentId.HasValue)
+        {
+            throw new InvalidOperationException("Tài khoản cư dân chưa được gắn với hồ sơ cư dân");
+        }
+
+        var now = DateTime.UtcNow;
+        var residency = await _context.ChiTietOs
+            .AsNoTracking()
+            .Where(ct => ct.ContractId == invoice.ContractId
+                && ct.ResidentId == user.ResidentId.Value
+                && ct.FromDate <= now
+                && (ct.ToDate == null || ct.ToDate >= now.Date))
+            .OrderByDescending(ct => ct.ToDate == null)
+            .FirstOrDefaultAsync();
+
+        if (residency == null)
+        {
+            throw new InvalidOperationException("Bạn không thuộc hợp đồng của hóa đơn này");
+        }
+
+        if (!IsPrimaryResidentRole(residency.ResidencyRole))
+        {
+            throw new InvalidOperationException("Chỉ chủ hộ/người thuê chính được thanh toán hóa đơn. Thành viên cần được chủ hộ hoặc chủ nhà xử lý.");
+        }
+    }
+
+    private static bool IsPrimaryResidentRole(string? role)
+    {
+        var normalized = RemoveDiacritics(role).ToLowerInvariant();
+        return normalized.Contains("nguoi thue chinh")
+            || normalized.Contains("chu ho")
+            || normalized.Contains("chu phong")
+            || normalized.Contains("primary")
+            || normalized.Contains("owner");
+    }
+
+    private static string RemoveDiacritics(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     /// <summary>
