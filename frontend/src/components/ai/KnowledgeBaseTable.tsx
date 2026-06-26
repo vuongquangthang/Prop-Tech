@@ -58,15 +58,7 @@ export function KnowledgeBaseTable() {
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded p-4">
-        <div className="flex items-start gap-3">
-          <CheckCircle2 size={18} className="text-blue-600 mt-0.5" />
-          <div className="text-sm text-blue-800">
-            <p className="font-semibold">Quy trình hiện tại</p>
-            <p className="mt-1">1) Tải file tài liệu lên 2) Hệ thống đồng bộ sang AI qua n8n 3) Chatbot sử dụng dữ liệu mới.</p>
-          </div>
-        </div>
-      </div>
+      
 
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">

@@ -327,6 +327,27 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setAddFieldErrors((current) => ({ ...current, [field]: '' }));
   };
 
+  const handleAddMaxPeopleChange = (value: string) => {
+    if (!/^\d*$/.test(value)) {
+      setAddFieldErrors((current) => ({
+        ...current,
+        maxPeople: 'Sai định dạng. Vui lòng điền định dạng số nguyên',
+      }));
+      return;
+    }
+
+    if (value !== '' && Number(value) < 1) {
+      setAddFieldErrors((current) => ({
+        ...current,
+        maxPeople: 'Số người tối đa phải từ 1 trở lên',
+      }));
+      return;
+    }
+
+    setAddMaxPeople(value);
+    setAddFieldErrors((current) => ({ ...current, maxPeople: '' }));
+  };
+
   const setDecimalField = (
     field: string,
     value: string,
@@ -757,7 +778,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <button onClick={openAddModal} className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700">
+          <button onClick={() => { void openAddModal(); }} className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700">
             <Plus size={16} /><span>Thêm Phòng</span>
           </button>
         </div>
@@ -793,7 +814,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                     <td className="px-6 py-4 text-sm text-gray-700">{room.maxPeople || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-800 text-right">{room.price.toLocaleString('vi-VN')}</td>
                     <td className="px-6 py-4 text-center">
-                      <span className="inline-block rounded px-3 py-1 text-xs font-semibold" style={{ backgroundColor: cfg.bgColor, color: cfg.textColor, border: `1px solid ${cfg.borderColor}` }}>{cfg.label}</span>
+                      <span className="admin-status-badge inline-block rounded px-3 py-1 text-xs font-semibold" style={{ backgroundColor: cfg.bgColor, color: cfg.textColor, border: `1px solid ${cfg.borderColor}` }}>{cfg.label}</span>
                     </td>
                     <td className="px-6 py-4 text-center sticky right-0 bg-white">
                       <div className="flex items-center justify-center space-x-2">
@@ -910,7 +931,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                       inputMode="numeric"
                       placeholder="VD: 4"
                       value={addMaxPeople}
-                      onChange={(e) => setIntegerField('maxPeople', e.target.value, setAddMaxPeople)}
+                      onChange={(e) => handleAddMaxPeopleChange(e.target.value)}
                       className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${addFieldErrors.maxPeople ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'}`}
                     />
                   </div>

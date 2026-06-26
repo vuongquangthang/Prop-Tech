@@ -45,6 +45,13 @@ export function PostManagementPage() {
 
   const sorted = useMemo(() => [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [posts]);
 
+  const getPostLocationAddress = (post: any) => {
+    const roomCode = post?.roomCode || '—';
+    const buildingName = post?.buildingName || '—';
+    const address = post?.address;
+    return address ? `${roomCode} - ${buildingName} - ${address}` : `${roomCode} - ${buildingName}`;
+  };
+
   useEffect(() => {
     // If navigated back with a refresh flag, reload posts from server
     if ((location as any)?.state?.refresh) {
@@ -321,8 +328,7 @@ export function PostManagementPage() {
               <div>
                 <h3 className="text-lg text-gray-800 font-semibold">Chi tiết bài đăng</h3>
                 <p className="text-sm text-gray-600">
-                  {selectedPost.roomCode ?? '—'} • {selectedPost.buildingName ?? '—'}
-                  {selectedPost.address ? ` • ${selectedPost.address}` : ''}
+                  {getPostLocationAddress(selectedPost)}
                 </p>
               </div>
               <button onClick={() => setSelectedPost(null)} className="rounded p-1 hover:bg-gray-100"><X size={18} /></button>
@@ -349,19 +355,13 @@ export function PostManagementPage() {
                     <span className="text-gray-600">Số người tối đa</span>
                     <span className="text-gray-800">{selectedPost.maxOccupants ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between text-sm border-t border-gray-300 pt-2">
-                    <span className="text-gray-600">Trạng thái</span>
-                    <span className={`font-semibold ${selectedPost.isLocked ? 'text-red-700' : 'text-green-700'}`}>
-                      {selectedPost.isLocked ? 'Đang khóa' : 'Đang hoạt động'}
-                    </span>
-                  </div>
                 </div>
 
                 <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-3">
                   <h4 className="text-sm font-semibold text-gray-700">Thông tin liên hệ</h4>
                   <div className="text-sm">
-                    <p className="text-gray-600">Địa chỉ</p>
-                    <p className="text-gray-800">{selectedPost.address ?? `${selectedPost.buildingName ?? '—'} - ${selectedPost.roomCode ?? '—'}`}</p>
+                    <p className="text-gray-600">Vị trí</p>
+                    <p className="text-gray-800">{getPostLocationAddress(selectedPost)}</p>
                   </div>
                   <div className="text-sm">
                     <p className="text-gray-600">Người liên hệ</p>

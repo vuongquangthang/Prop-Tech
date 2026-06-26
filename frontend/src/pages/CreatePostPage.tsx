@@ -75,6 +75,11 @@ export function CreatePostPage() {
   const getRoomAddress = (room: RoomOption | any) => {
     return room?.buildingAddress ?? room?.address ?? room?.building?.address ?? room?.buildingDetail?.address ?? '';
   };
+  const getRoomLocationAddress = (room: RoomOption | any) => {
+    const location = getRoomLocation(room);
+    const address = getRoomAddress(room);
+    return address ? `${location} - ${address}` : location;
+  };
   const getRoomRentText = (room: RoomOption | any) => {
     const rent = room?.defaultRentPrice ?? room?.price;
     if (rent === null || rent === undefined || rent === '') return '—';
@@ -728,8 +733,7 @@ export function CreatePostPage() {
                         {isEditing ? 'Đăng bài tìm phòng - Chỉnh sửa bài đăng' : 'Đăng bài tìm phòng - Tạo bài đăng'}
                       </h3>
                       <p className="mt-1 text-sm text-gray-600">
-                        {(selectedRoom as any).roomCode ?? (selectedRoom as any).code} • {getRoomLocation(selectedRoom)}
-                        {getRoomAddress(selectedRoom) ? ` • ${getRoomAddress(selectedRoom)}` : ''}
+                        {(selectedRoom as any).roomCode ?? (selectedRoom as any).code} • {getRoomLocationAddress(selectedRoom)}
                       </p>
                     </div>
                   </div>
@@ -775,12 +779,8 @@ export function CreatePostPage() {
                     </div>
                     <div>
                       <p className="mb-1 text-sm text-gray-600">Vị trí</p>
-                      <p className="text-sm font-semibold text-gray-800">{getRoomLocation(selectedRoom)}</p>
-                    </div>
-                    <div className="md:col-span-2">
-                      <p className="mb-1 text-sm text-gray-600">Địa chỉ chi tiết</p>
                       <p className="text-sm font-semibold text-gray-800">
-                        {getRoomAddress(selectedRoom) || 'Chưa có địa chỉ chi tiết'}
+                        {getRoomLocationAddress(selectedRoom)}
                       </p>
                     </div>
                     <div>
@@ -987,132 +987,136 @@ export function CreatePostPage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thời gian vào ở</h4>
-                <div>
-                  <label className="mb-3 block text-sm text-gray-700">Có thể vào ở *</label>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="movein-immediate"
-                        name="movein"
-                        value="immediate"
-                        checked={moveInType === 'immediate'}
-                        onChange={(e) => {
-                          setMoveInType(e.target.value as 'immediate' | 'from-date');
-                          if (e.target.value === 'immediate') {
-                            setMoveInDateInput('');
-                          }
-                        }}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor="movein-immediate" className="text-sm text-gray-700">Ở luôn</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="movein-fromdate"
-                        name="movein"
-                        value="from-date"
-                        checked={moveInType === 'from-date'}
-                        onChange={(e) => setMoveInType(e.target.value as 'immediate' | 'from-date')}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor="movein-fromdate" className="text-sm text-gray-700">Từ</label>
-                      {moveInType === 'from-date' && (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-3 block text-sm text-gray-700">Có thể vào ở *</label>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
                         <input
-                          type="date"
-                          value={moveInDateInput}
-                          onChange={(e) => setMoveInDateInput(e.target.value)}
-                          className="rounded border border-gray-300 px-3 py-1 text-sm focus:border-gray-500 focus:outline-none"
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin bổ sung</h4>
-                <div>
-                  <label className="mb-2 block text-sm text-gray-700">Có nằm trong khu vực dễ ngập lụt *</label>
-                  <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '32px' }}>
-                    <label htmlFor="flood-yes" className="inline-flex items-center text-sm text-gray-700" style={{ marginRight: '8px' }}>
-                      <input type="radio" id="flood-yes" name="flood" value="yes" checked={floodProne === 'yes'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4 shrink-0" />
-                      <span style={{ marginLeft: '10px' }}>Có</span>
-                    </label>
-                    <label htmlFor="flood-no" className="inline-flex items-center text-sm text-gray-700">
-                      <input type="radio" id="flood-no" name="flood" value="no" checked={floodProne === 'no'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4 shrink-0" />
-                      <span style={{ marginLeft: '10px' }}>Không</span>
-                    </label>
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm text-gray-700">Yêu cầu từ chủ nhà khi cho thuê (nếu có)</label>
-                  <textarea
-                    rows={3}
-                    placeholder="VD: Không nuôi thú cưng, không hút thuốc trong phòng..."
-                    value={landlordRequirementsInput}
-                    onChange={(e) => setLandlordRequirementsInput(e.target.value)}
-                    onBlur={(e) => setLandlordRequirementsInput(trimSpaces(e.target.value))}
-                    maxLength={500}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="border-b pb-2 text-base font-semibold text-gray-800">Thông tin liên hệ</h4>
-                <div>
-                  <label className="mb-3 block text-sm text-gray-700">Chọn thông tin liên hệ *</label>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <input type="radio" id="contact-current" name="contact" value="current" checked={contactType === 'current'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
-                      <label htmlFor="contact-current" className="text-sm text-gray-700">Lấy từ tài khoản đang dùng <span className="text-gray-500">({currentAccountLabel})</span></label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="radio" id="contact-other" name="contact" value="other" checked={contactType === 'other'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
-                      <label htmlFor="contact-other" className="text-sm text-gray-700">Khác (Nhập thủ công)</label>
-                    </div>
-                  </div>
-                  {contactType === 'other' && (
-                    <div className="mt-4 grid grid-cols-2 gap-4 border-l-2 border-gray-300 pl-6">
-                      <div>
-                        <label className="mb-2 block text-sm text-gray-700">Tên người liên hệ *</label>
-                        <input
-                          type="text"
-                          placeholder="VD: Nguyễn Văn B"
-                          value={contactNameInput}
-                          onChange={(e) => setContactNameInput(e.target.value)}
-                          onBlur={(e) => setContactNameInput(trimSpaces(e.target.value))}
-                          maxLength={80}
-                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-sm text-gray-700">Số điện thoại *</label>
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          maxLength={10}
-                          placeholder="VD: 0987654321"
-                          value={contactPhoneInput}
-                          onChange={(e) => handleContactPhoneChange(e.target.value)}
-                          onBlur={(e) => {
-                            const digits = onlyDigits(e.target.value).slice(0, 10);
-                            setContactPhoneInput(digits);
-                            updateFieldError('contactPhone', digits.length === 10 ? '' : 'Số điện thoại phải gồm đúng 10 chữ số');
+                          type="radio"
+                          id="movein-immediate"
+                          name="movein"
+                          value="immediate"
+                          checked={moveInType === 'immediate'}
+                          onChange={(e) => {
+                            setMoveInType(e.target.value as 'immediate' | 'from-date');
+                            if (e.target.value === 'immediate') {
+                              setMoveInDateInput('');
+                            }
                           }}
-                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                          className="h-4 w-4"
                         />
-                        {fieldErrors.contactPhone && (
-                          <p className="mt-1 text-xs text-red-600">{fieldErrors.contactPhone}</p>
+                        <label htmlFor="movein-immediate" className="text-sm text-gray-700">Ở luôn</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="movein-fromdate"
+                          name="movein"
+                          value="from-date"
+                          checked={moveInType === 'from-date'}
+                          onChange={(e) => setMoveInType(e.target.value as 'immediate' | 'from-date')}
+                          className="h-4 w-4"
+                        />
+                        <label htmlFor="movein-fromdate" className="text-sm text-gray-700">Từ</label>
+                        {moveInType === 'from-date' && (
+                          <input
+                            type="date"
+                            value={moveInDateInput}
+                            onChange={(e) => setMoveInDateInput(e.target.value)}
+                            className="rounded border border-gray-300 px-3 py-1 text-sm focus:border-gray-500 focus:outline-none"
+                          />
                         )}
                       </div>
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-2 block text-sm text-gray-700">Có nằm trong khu vực dễ ngập lụt *</label>
+                    <div className="flex flex-wrap items-center gap-y-2" style={{ columnGap: '32px' }}>
+                      <label htmlFor="flood-yes" className="inline-flex items-center text-sm text-gray-700" style={{ marginRight: '8px' }}>
+                        <input type="radio" id="flood-yes" name="flood" value="yes" checked={floodProne === 'yes'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4 shrink-0" />
+                        <span style={{ marginLeft: '10px' }}>Có</span>
+                      </label>
+                      <label htmlFor="flood-no" className="inline-flex items-center text-sm text-gray-700">
+                        <input type="radio" id="flood-no" name="flood" value="no" checked={floodProne === 'no'} onChange={(e) => setFloodProne(e.target.value as 'yes' | 'no')} className="h-4 w-4 shrink-0" />
+                        <span style={{ marginLeft: '10px' }}>Không</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-2 block text-sm text-gray-700">Yêu cầu từ chủ nhà khi cho thuê (nếu có)</label>
+                    <textarea
+                      rows={3}
+                      placeholder="VD: Không nuôi thú cưng, không hút thuốc trong phòng..."
+                      value={landlordRequirementsInput}
+                      onChange={(e) => setLandlordRequirementsInput(e.target.value)}
+                      onBlur={(e) => setLandlordRequirementsInput(trimSpaces(e.target.value))}
+                      maxLength={500}
+                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-3 block text-sm text-gray-700">Chọn thông tin liên hệ *</label>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <input type="radio" id="contact-current" name="contact" value="current" checked={contactType === 'current'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
+                        <label htmlFor="contact-current" className="text-sm text-gray-700">Lấy từ tài khoản đang dùng <span className="text-gray-500">({currentAccountLabel})</span></label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input type="radio" id="contact-other" name="contact" value="other" checked={contactType === 'other'} onChange={(e) => setContactType(e.target.value as 'current' | 'other')} className="h-4 w-4" />
+                        <label htmlFor="contact-other" className="text-sm text-gray-700">Khác (Nhập thủ công)</label>
+                      </div>
+                    </div>
+                    {contactType === 'other' && (
+                      <div className="mt-4 grid grid-cols-2 gap-4 border-l-2 border-gray-300 pl-6">
+                        <div>
+                          <label className="mb-2 block text-sm text-gray-700">Tên người liên hệ *</label>
+                          <input
+                            type="text"
+                            placeholder="VD: Nguyễn Văn B"
+                            value={contactNameInput}
+                            onChange={(e) => setContactNameInput(e.target.value)}
+                            onBlur={(e) => setContactNameInput(trimSpaces(e.target.value))}
+                            maxLength={80}
+                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-sm text-gray-700">Số điện thoại *</label>
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={10}
+                            placeholder="VD: 0987654321"
+                            value={contactPhoneInput}
+                            onChange={(e) => handleContactPhoneChange(e.target.value)}
+                            onBlur={(e) => {
+                              const digits = onlyDigits(e.target.value).slice(0, 10);
+                              setContactPhoneInput(digits);
+                              updateFieldError('contactPhone', digits.length === 10 ? '' : 'Số điện thoại phải gồm đúng 10 chữ số');
+                            }}
+                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                          />
+                          {fieldErrors.contactPhone && (
+                            <p className="mt-1 text-xs text-red-600">{fieldErrors.contactPhone}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

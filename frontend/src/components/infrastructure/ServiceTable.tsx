@@ -550,7 +550,7 @@ export function ServiceTable() {
                       {service.buildingNames.length > 0 ? `${service.buildingNames.length} tòa nhà` : 'Chưa gắn tòa'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      <span className={`inline-block px-3 py-1 text-xs rounded border ${
+                      <span className={`admin-status-badge inline-block px-3 py-1 text-xs rounded border ${
                         service.type === 'Điện'
                           ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
                           : service.type === 'Nước'

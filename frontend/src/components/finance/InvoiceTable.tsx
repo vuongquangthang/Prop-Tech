@@ -488,8 +488,8 @@ export function InvoiceTable() {
                         {inv.totalAmount.toLocaleString('vi-VN')}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 10px', fontSize: 'var(--type-caption)', borderRadius: '4px', border: '1px solid' }}
-                          className={STATUS_DISPLAY[inv.status]?.color || 'bg-gray-100 text-gray-800 border-gray-300'}
+                        <span style={{ display: 'inline-block', padding: '2px 10px', fontSize: 'var(--type-caption)', borderRadius: 'var(--radius-status-badge)', border: 0 }}
+                          className={`admin-status-badge ${STATUS_DISPLAY[inv.status]?.color || 'bg-gray-100 text-gray-800 border-gray-300'}`}
                         >
                           {STATUS_DISPLAY[inv.status]?.label || inv.status}
                         </span>
@@ -499,7 +499,7 @@ export function InvoiceTable() {
                           <button
                             onClick={() => setModalInvoiceId(inv.id)}
                             title="Xem chi tiết"
-                            style={{ padding: '5px', border: '1px solid #e5e7eb', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#4b5563', display: 'flex' }}
+                            style={{ padding: '5px', border: 0, borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#4b5563', display: 'flex' }}
                           >
                             <Eye size={14} />
                           </button>
@@ -511,14 +511,14 @@ export function InvoiceTable() {
                                   setEditingInvoice(inv);
                                 }}
                                 title="Chỉnh sửa"
-                                style={{ padding: '5px', border: '1px solid #e5e7eb', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#4b5563', display: 'flex' }}
+                                style={{ padding: '5px', border: 0, borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#4b5563', display: 'flex' }}
                               >
                                 <Pencil size={14} />
                               </button>
                               <button
                                 onClick={() => handleApprove(inv.id, inv.roomCode)}
                                 title="Phê duyệt & Gửi"
-                                style={{ padding: '5px', border: '1px solid #e5e7eb', borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#16a34a', display: 'flex' }}
+                                style={{ padding: '5px', border: 0, borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#16a34a', display: 'flex' }}
                               >
                                 <Send size={14} />
                               </button>

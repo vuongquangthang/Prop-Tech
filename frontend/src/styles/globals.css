@@ -110,6 +110,7 @@
   --radius-modal: 16px;
   --radius-drawer: 16px;
   --radius-badge: 999px;
+  --radius-status-badge: 999px;
   --radius-avatar: 999px;
   --radius-icon: 10px;
   --radius-large: 16px;
@@ -286,7 +287,7 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    border: 1px solid transparent;
+    border: 0;
     border-radius: var(--radius-badge);
     background: var(--scrollbar-thumb);
     background-clip: padding-box;
@@ -817,7 +818,7 @@
     min-height: 26px;
     padding: 4px 10px;
     border: 1px solid transparent;
-    border-radius: var(--radius-icon);
+    border-radius: var(--radius-status-badge);
     font-size: 12px !important;
     font-weight: 800;
     white-space: nowrap;
@@ -2542,7 +2543,9 @@ table :is(thead, tbody, tfoot, tr, th, td),
 
 .product-status-badge,
 .dashboard-kpi-bottom em,
-.admin-main-content :is(span, em, small, div):is(.rounded, .rounded-lg, .rounded-full):is(
+.admin-main-content td :is(span, em, small):is(.rounded, .rounded-md, .rounded-lg, .rounded-full, .rounded-\[10px\], .rounded-\[12px\]),
+.admin-content-modal-overlay td :is(span, em, small):is(.rounded, .rounded-md, .rounded-lg, .rounded-full, .rounded-\[10px\], .rounded-\[12px\]),
+.admin-main-content :is(span, em, small):is(.rounded, .rounded-lg, .rounded-full):is(
   .bg-green-50,
   .bg-green-100,
   .bg-emerald-50,
@@ -2562,7 +2565,7 @@ table :is(thead, tbody, tfoot, tr, th, td),
   .bg-orange-50,
   .bg-orange-100
 ),
-.admin-content-modal-overlay :is(span, em, small, div):is(.rounded, .rounded-lg, .rounded-full):is(
+.admin-content-modal-overlay :is(span, em, small):is(.rounded, .rounded-lg, .rounded-full):is(
   .bg-green-50,
   .bg-green-100,
   .bg-emerald-50,
@@ -2582,7 +2585,8 @@ table :is(thead, tbody, tfoot, tr, th, td),
   .bg-orange-50,
   .bg-orange-100
 ) {
-  border-radius: var(--radius-badge) !important;
+  border-color: transparent !important;
+  border-radius: var(--radius-status-badge) !important;
 }
 
 .account-lock-toggle .account-lock-switch,
@@ -2618,4 +2622,77 @@ table :is(thead, tbody, tfoot, tr, th, td),
 
 .account-lock-toggle input:checked + .account-lock-switch::after {
   transform: translateX(20px) !important;
+}
+
+table td > :is(span, em, small)[class*="rounded"],
+table td :is(span, em, small)[class*="rounded"].inline-block,
+table td :is(span, em, small)[class*="rounded"].inline-flex {
+  border-color: transparent !important;
+  border-radius: var(--radius-status-badge) !important;
+  clip-path: inset(0 round var(--radius-status-badge)) !important;
+  overflow: hidden !important;
+}
+
+.admin-status-badge,
+table td .admin-status-badge,
+.admin-main-content table td .admin-status-badge {
+  border-color: transparent !important;
+  border-radius: var(--radius-status-badge) !important;
+  clip-path: inset(0 round var(--radius-status-badge)) !important;
+  overflow: hidden !important;
+}
+
+table td > span.rounded,
+table td > span.rounded-md,
+table td > span.rounded-lg,
+table td > span.rounded-full,
+table td > span.inline-block.text-xs,
+table td > span.inline-flex.text-xs,
+.admin-main-content table td > span.rounded,
+.admin-main-content table td > span.rounded-md,
+.admin-main-content table td > span.rounded-lg,
+.admin-main-content table td > span.rounded-full,
+.admin-main-content table td > span.inline-block.text-xs,
+.admin-main-content table td > span.inline-flex.text-xs,
+.admin-content-modal-overlay table td > span.rounded,
+.admin-content-modal-overlay table td > span.rounded-md,
+.admin-content-modal-overlay table td > span.rounded-lg,
+.admin-content-modal-overlay table td > span.rounded-full,
+.admin-content-modal-overlay table td > span.inline-block.text-xs,
+.admin-content-modal-overlay table td > span.inline-flex.text-xs {
+  border-color: transparent !important;
+  border-radius: var(--radius-status-badge) !important;
+  clip-path: inset(0 round var(--radius-status-badge)) !important;
+  overflow: hidden !important;
+}
+
+.product-table td .product-status-badge,
+.admin-main-content .product-table td .product-status-badge,
+.admin-main-content table td .product-status-badge {
+  border-color: transparent !important;
+  border-radius: var(--radius-status-badge) !important;
+  clip-path: inset(0 round var(--radius-status-badge)) !important;
+  overflow: hidden !important;
+}
+
+[data-slot="badge"],
+.product-status-badge,
+.admin-status-badge,
+table td > :is(span, em, small)[class*="rounded"],
+table td :is(span, em, small)[class*="rounded"].inline-block,
+table td :is(span, em, small)[class*="rounded"].inline-flex {
+  border-color: transparent !important;
+}
+
+.product-table td .product-action-icon,
+.admin-main-content .product-table td .product-action-icon,
+.admin-main-content table td .product-action-icon {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.product-table td .product-action-icon:hover,
+.admin-main-content .product-table td .product-action-icon:hover,
+.admin-main-content table td .product-action-icon:hover {
+  border-color: transparent !important;
 }
