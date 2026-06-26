@@ -10,6 +10,6 @@ namespace backend.Repositories
         Task<TaiSan> CreateAsync(TaiSan taiSan);
         Task<TaiSan> UpdateAsync(TaiSan taiSan);
         Task<bool> DeleteAsync(int id, int ownerUserId);
-        Task<bool> ExistsByCodeAsync(string assetCode, int ownerUserId);
+        Task<bool> ExistsByCodeAsync(string assetCode, int ownerUserId, int? buildingId = null, int? excludeId = null);
     }
 }

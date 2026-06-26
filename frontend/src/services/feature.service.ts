@@ -59,6 +59,8 @@ export interface MonthlyRevenue {
   month: number;
   year: number;
   totalRevenue: number;
+  collectedRevenue?: number;
+  outstandingRevenue?: number;
   roomRentRevenue: number;
   serviceRevenue: number;
   otherRevenue: number;

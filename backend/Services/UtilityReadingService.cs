@@ -62,19 +62,23 @@ public class UtilityReadingService : IUtilityReadingService
 
             // Tìm usage detail cho điện có hiệu lực trong kỳ (ServiceId = 1)
             var elecUsage = room.ChiTietSuDungDichVus
-                .Where(u => IsElectricityService(u.Service)
+                .Where(u => u.Service.IsActive
+                            && IsElectricityService(u.Service)
                             && u.ApplyFrom <= periodEnd
                             && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                 .OrderByDescending(u => u.ApplyFrom)
                 .FirstOrDefault();
+            elecUsage ??= await EnsureUtilityUsageAsync(room, activeContract, periodStart, periodEnd, ownerUserId, IsElectricityService);
 
             // Tìm usage detail cho nước có hiệu lực trong kỳ
             var waterUsage = room.ChiTietSuDungDichVus
-                .Where(u => IsWaterService(u.Service)
+                .Where(u => u.Service.IsActive
+                            && IsWaterService(u.Service)
                             && u.ApplyFrom <= periodEnd
                             && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                 .OrderByDescending(u => u.ApplyFrom)
                 .FirstOrDefault();
+            waterUsage ??= await EnsureUtilityUsageAsync(room, activeContract, periodStart, periodEnd, ownerUserId, IsWaterService);
 
             // Lấy chỉ số cũ (tháng trước)
             decimal? oldElec = null;
@@ -169,6 +173,7 @@ public class UtilityReadingService : IUtilityReadingService
             try
             {
                 var room = await _context.Rooms
+                    .Include(r => r.Floor).ThenInclude(f => f.Building)
                     .Include(r => r.ChiTietSuDungDichVus).ThenInclude(u => u.Service)
                     .FirstOrDefaultAsync(r => r.Id == dto.RoomId && r.Floor.Building.OwnerUserId == ownerUserId);
 
@@ -186,11 +191,13 @@ public class UtilityReadingService : IUtilityReadingService
                     var periodStart = new DateTime(dto.Year, dto.Month, 1);
                     var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
                     var elecUsage = room.ChiTietSuDungDichVus
-                        .Where(u => IsElectricityService(u.Service)
+                        .Where(u => u.Service.IsActive
+                                    && IsElectricityService(u.Service)
                                     && u.ApplyFrom <= periodEnd 
                                     && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                         .OrderByDescending(u => u.ApplyFrom)
                         .FirstOrDefault();
+                    elecUsage ??= await EnsureUtilityUsageAsync(room, null, periodStart, periodEnd, ownerUserId, IsElectricityService);
 
                     if (elecUsage == null)
                     {
@@ -259,11 +266,13 @@ public class UtilityReadingService : IUtilityReadingService
                     var periodStart = new DateTime(dto.Year, dto.Month, 1);
                     var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
                     var waterUsage = room.ChiTietSuDungDichVus
-                        .Where(u => IsWaterService(u.Service)
+                        .Where(u => u.Service.IsActive
+                                    && IsWaterService(u.Service)
                                     && u.ApplyFrom <= periodEnd 
                                     && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                         .OrderByDescending(u => u.ApplyFrom)
                         .FirstOrDefault();
+                    waterUsage ??= await EnsureUtilityUsageAsync(room, null, periodStart, periodEnd, ownerUserId, IsWaterService);
 
                     if (waterUsage == null)
                     {
@@ -421,6 +430,87 @@ public class UtilityReadingService : IUtilityReadingService
         }
 
         return monthReading.NewReading - (previousReading?.NewReading ?? 0);
+    }
+
+    private async Task<ChiTietSuDungDichVu?> EnsureUtilityUsageAsync(
+        Room room,
+        HopDong? activeContract,
+        DateTime periodStart,
+        DateTime periodEnd,
+        int ownerUserId,
+        Func<Service?, bool> serviceMatcher)
+    {
+        var contract = activeContract ?? await _context.HopDongs
+            .Include(hd => hd.ChiTietOs)
+            .Where(hd => hd.RoomId == room.Id
+                && hd.StartDate <= periodEnd
+                && (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStart))
+            .OrderByDescending(hd => hd.StartDate)
+            .FirstOrDefaultAsync();
+
+        if (contract == null)
+        {
+            return null;
+        }
+
+        var primaryResidentId = contract.ChiTietOs
+            .Where(ct => ct.FromDate <= periodEnd && (ct.ToDate == null || ct.ToDate >= periodStart))
+            .OrderBy(ct => ct.ResidencyRole == "Người thuê chính" ? 0 : 1)
+            .ThenBy(ct => ct.FromDate)
+            .Select(ct => ct.ResidentId)
+            .FirstOrDefault();
+
+        if (primaryResidentId <= 0)
+        {
+            return null;
+        }
+
+        var roomBuildingId = room.Floor?.BuildingId;
+        var service = await _context.Services
+            .AsNoTracking()
+            .Include(item => item.BuildingScopes)
+            .Where(item => item.OwnerUserId == ownerUserId
+                && item.IsActive
+                && (item.BuildingScopes.Count == 0 || item.BuildingScopes.Any(scope => scope.BuildingId == roomBuildingId)))
+            .OrderByDescending(item => item.BuildingScopes.Any(scope => scope.BuildingId == roomBuildingId))
+            .ThenBy(item => item.Id)
+            .ToListAsync();
+
+        var matchedService = service.FirstOrDefault(serviceMatcher);
+        if (matchedService == null)
+        {
+            return null;
+        }
+
+        var existingUsage = await _context.ChiTietSuDungDichVus
+            .Include(item => item.Service)
+            .FirstOrDefaultAsync(item => item.RoomId == room.Id
+                && item.ServiceId == matchedService.Id
+                && item.ApplyFrom <= periodEnd
+                && (item.ApplyTo == null || item.ApplyTo >= periodStart));
+        if (existingUsage != null)
+        {
+            return existingUsage;
+        }
+
+        var usage = new ChiTietSuDungDichVu
+        {
+            ServiceId = matchedService.Id,
+            ResidentId = primaryResidentId,
+            RoomId = room.Id,
+            ApplyFrom = contract.StartDate > periodStart ? contract.StartDate : periodStart,
+            ApplyTo = contract.ExpectedEndDate,
+            Quantity = 1,
+            CreatedAt = DateTime.UtcNow,
+            Note = "Tự tạo khi chốt chỉ số điện/nước"
+        };
+
+        _context.ChiTietSuDungDichVus.Add(usage);
+        await _context.SaveChangesAsync();
+        usage.Service = matchedService;
+        room.ChiTietSuDungDichVus.Add(usage);
+
+        return usage;
     }
 
     private static bool IsElectricityService(Service? service)

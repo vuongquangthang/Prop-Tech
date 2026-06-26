@@ -29,6 +29,7 @@ export interface CreateMaintenanceRequest {
 export interface UpdateMaintenanceRequest {
   status?: string;
   adminNote?: string;
+  completionImageUrl?: string;
 }
 
 class MaintenanceService {

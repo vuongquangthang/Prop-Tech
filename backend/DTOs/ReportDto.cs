@@ -133,6 +133,8 @@ public class MonthlyRevenueDto
     public int Month { get; set; }
     public int Year { get; set; }
     public decimal TotalRevenue { get; set; }
+    public decimal CollectedRevenue { get; set; }
+    public decimal OutstandingRevenue { get; set; }
     public decimal RoomRentRevenue { get; set; }
     public decimal ServiceRevenue { get; set; }
     public decimal OtherRevenue { get; set; }

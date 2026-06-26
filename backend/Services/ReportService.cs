@@ -40,43 +40,43 @@ public class ReportService : IReportService
     {
         var invoices = await InvoicesForOwner(ownerUserId)
             .AsNoTracking()
-            .Include(invoice => invoice.ChiTietHoaDons)
+            .Include(invoice => invoice.ThanhToans)
+            .Where(invoice => invoice.Year == year)
             .ToListAsync();
         var payments = await PaymentsForOwner(ownerUserId)
             .AsNoTracking()
+            .Where(IsSuccessfulPaymentExpression())
+            .Include(payment => payment.HoaDon!)
+                .ThenInclude(invoice => invoice.ChiTietHoaDons)
             .ToListAsync();
 
         var monthlyRevenue = new List<MonthlyRevenueDto>();
 
         for (var month = 1; month <= 12; month++)
         {
-            var monthInvoices = invoices.Where(invoice => invoice.Year == year && invoice.Month == month).ToList();
+            var monthInvoices = invoices
+                .Where(invoice => invoice.Month == month && !IsDraftOrRejectedInvoice(invoice))
+                .ToList();
             var monthPayments = payments
                 .Where(payment => payment.PaidAt.HasValue
                     && payment.PaidAt.Value.Year == year
-                    && payment.PaidAt.Value.Month == month
-                    && payment.InvoiceId != null)
+                    && payment.PaidAt.Value.Month == month)
                 .ToList();
 
-            var lineItems = monthInvoices.SelectMany(invoice => invoice.ChiTietHoaDons).ToList();
-
-            var roomRent = lineItems
-                .Where(item => item.ItemType == "TienPhong")
-                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m));
-
-            var serviceFee = lineItems
-                .Where(item => item.ItemType == "Dien" || item.ItemType == "Nuoc" || item.ItemType == "DichVu")
-                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m));
-
-            var other = lineItems
-                .Where(item => item.ItemType == "PhatSinh" || item.ItemType == "KhauTru")
-                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m));
+            var (roomRent, serviceFee, other) = CalculatePaidRevenueBreakdown(monthPayments);
+            var totalReceivable = monthInvoices.Sum(invoice => invoice.TotalAmount);
+            var totalCollectedForInvoiceMonth = monthInvoices.Sum(invoice => invoice.ThanhToans
+                .Where(payment => IsSuccessfulPayment(payment))
+                .Sum(payment => payment.Amount));
+            var outstanding = Math.Max(0, totalReceivable - totalCollectedForInvoiceMonth);
 
             monthlyRevenue.Add(new MonthlyRevenueDto
             {
                 Month = month,
                 Year = year,
-                TotalRevenue = roomRent + serviceFee + other,
+                TotalRevenue = totalReceivable,
+                CollectedRevenue = totalCollectedForInvoiceMonth,
+                OutstandingRevenue = outstanding,
                 RoomRentRevenue = roomRent,
                 ServiceRevenue = serviceFee,
                 OtherRevenue = other
@@ -106,26 +106,27 @@ public class ReportService : IReportService
 
     public async Task<RevenueStatsDto> GetRevenueStatsAsync(int ownerUserId)
     {
-        var payments = await PaymentsForOwner(ownerUserId).AsNoTracking().ToListAsync();
+        var payments = await PaymentsForOwner(ownerUserId)
+            .AsNoTracking()
+            .Where(IsSuccessfulPaymentExpression())
+            .ToListAsync();
         var now = DateTime.UtcNow;
 
         var currentMonthPayments = payments
             .Where(payment => payment.PaidAt.HasValue
                 && payment.PaidAt.Value.Year == now.Year
-                && payment.PaidAt.Value.Month == now.Month
-                && payment.InvoiceId != null)
+                && payment.PaidAt.Value.Month == now.Month)
             .Sum(payment => payment.Amount);
 
         var lastMonth = now.AddMonths(-1);
         var lastMonthPayments = payments
             .Where(payment => payment.PaidAt.HasValue
                 && payment.PaidAt.Value.Year == lastMonth.Year
-                && payment.PaidAt.Value.Month == lastMonth.Month
-                && payment.InvoiceId != null)
+                && payment.PaidAt.Value.Month == lastMonth.Month)
             .Sum(payment => payment.Amount);
 
         var yearToDatePayments = payments
-            .Where(payment => payment.PaidAt.HasValue && payment.PaidAt.Value.Year == now.Year && payment.InvoiceId != null)
+            .Where(payment => payment.PaidAt.HasValue && payment.PaidAt.Value.Year == now.Year)
             .Sum(payment => payment.Amount);
 
         var growthRate = lastMonthPayments > 0
@@ -144,23 +145,31 @@ public class ReportService : IReportService
 
     public async Task<DebtStatsDto> GetDebtStatsAsync(int ownerUserId)
     {
-        var invoices = await InvoicesForOwner(ownerUserId).AsNoTracking().ToListAsync();
+        var invoices = await InvoicesForOwner(ownerUserId)
+            .AsNoTracking()
+            .Include(invoice => invoice.ThanhToans)
+            .ToListAsync();
         var now = DateTime.UtcNow;
 
-        var unpaidInvoices = invoices.Where(invoice =>
-            invoice.Status == "Chưa thanh toán"
-            || invoice.Status == "ChÆ°a thanh toÃ¡n"
-            || invoice.Status == "Đã thanh toán một phần"
-            || invoice.Status == "ÄÃ£ thanh toÃ¡n má»™t pháº§n").ToList();
+        var unpaidInvoices = invoices
+            .Select(invoice => new
+            {
+                Invoice = invoice,
+                RemainingAmount = invoice.TotalAmount - invoice.ThanhToans
+                    .Where(payment => IsSuccessfulPayment(payment))
+                    .Sum(payment => payment.Amount)
+            })
+            .Where(item => !IsDraftOrRejectedInvoice(item.Invoice) && item.RemainingAmount > 0)
+            .ToList();
 
-        var overdueInvoices = unpaidInvoices.Where(invoice =>
-            invoice.DueDate.HasValue && invoice.DueDate.Value < now).ToList();
+        var overdueInvoices = unpaidInvoices.Where(item =>
+            item.Invoice.DueDate.HasValue && item.Invoice.DueDate.Value < now).ToList();
 
         return new DebtStatsDto
         {
-            TotalOutstanding = unpaidInvoices.Sum(invoice => invoice.TotalAmount),
+            TotalOutstanding = unpaidInvoices.Sum(item => item.RemainingAmount),
             OverdueInvoicesCount = overdueInvoices.Count,
-            OverdueAmount = overdueInvoices.Sum(invoice => invoice.TotalAmount),
+            OverdueAmount = overdueInvoices.Sum(item => item.RemainingAmount),
             UnpaidInvoicesCount = unpaidInvoices.Count
         };
     }
@@ -232,5 +241,68 @@ public class ReportService : IReportService
             payment.InvoiceId != null
             && payment.HoaDon != null
             && payment.HoaDon.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId);
+    }
+
+    private static System.Linq.Expressions.Expression<Func<ThanhToan, bool>> IsSuccessfulPaymentExpression()
+    {
+        return payment => payment.Status == "SUCCESS" && payment.PaidAt.HasValue;
+    }
+
+    private static bool IsSuccessfulPayment(ThanhToan payment)
+    {
+        return payment.Status == "SUCCESS" && payment.PaidAt.HasValue;
+    }
+
+    private static bool IsDraftOrRejectedInvoice(HoaDon invoice)
+    {
+        return invoice.Status == "Nháp"
+            || invoice.Status == "Draft"
+            || invoice.Status == "Bị từ chối"
+            || invoice.Status == "Rejected";
+    }
+
+    private static (decimal RoomRent, decimal ServiceFee, decimal Other) CalculatePaidRevenueBreakdown(List<ThanhToan> payments)
+    {
+        decimal roomRent = 0;
+        decimal serviceFee = 0;
+        decimal other = 0;
+
+        foreach (var payment in payments)
+        {
+            var invoice = payment.HoaDon;
+            var lineItems = invoice?.ChiTietHoaDons?.ToList() ?? new List<ChiTietHoaDon>();
+            var lineTotal = lineItems.Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m));
+            var denominator = lineTotal > 0 ? lineTotal : invoice?.TotalAmount ?? payment.Amount;
+
+            if (denominator <= 0)
+            {
+                other += payment.Amount;
+                continue;
+            }
+
+            var ratio = payment.Amount / denominator;
+
+            roomRent += lineItems
+                .Where(item => item.ItemType == "TienPhong")
+                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m) * ratio);
+
+            serviceFee += lineItems
+                .Where(item => item.ItemType == "Dien" || item.ItemType == "Nuoc" || item.ItemType == "DichVu")
+                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m) * ratio);
+
+            other += lineItems
+                .Where(item => item.ItemType != "TienPhong"
+                    && item.ItemType != "Dien"
+                    && item.ItemType != "Nuoc"
+                    && item.ItemType != "DichVu")
+                .Sum(item => (item.Quantity ?? 1m) * (item.UnitPrice ?? 0m) * ratio);
+
+            if (lineItems.Count == 0)
+            {
+                other += payment.Amount;
+            }
+        }
+
+        return (roomRent, serviceFee, other);
     }
 }

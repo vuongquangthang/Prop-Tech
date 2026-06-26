@@ -304,7 +304,7 @@ public class RoomService : IRoomService
         await _roomRepository.AddAsync(room);
         await _roomRepository.SaveChangesAsync();
 
-        await SyncRoomAssetsAsync(room.Id, dto.Amenities, ownerUserId);
+        await SyncRoomAssetsAsync(room.Id, dto.Amenities, ownerUserId, floor.BuildingId);
         await _roomRepository.SaveChangesAsync();
 
         await transaction.CommitAsync();
@@ -387,7 +387,7 @@ public class RoomService : IRoomService
 
         if (dto.Amenities != null)
         {
-            await SyncRoomAssetsAsync(room.Id, dto.Amenities, ownerUserId);
+            await SyncRoomAssetsAsync(room.Id, dto.Amenities, ownerUserId, room.Floor.BuildingId);
             await _roomRepository.SaveChangesAsync();
         }
 
@@ -577,7 +577,7 @@ public class RoomService : IRoomService
         };
     }
 
-    private async Task SyncRoomAssetsAsync(int roomId, List<string>? amenityNames, int ownerUserId)
+    private async Task SyncRoomAssetsAsync(int roomId, List<string>? amenityNames, int ownerUserId, int roomBuildingId)
     {
         var selectedAmenityNames = (amenityNames ?? new List<string>())
             .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -590,10 +590,12 @@ public class RoomService : IRoomService
 
         foreach (var amenityName in selectedAmenityNames)
         {
-            var asset = allAssets.FirstOrDefault(x => string.Equals(x.AssetName?.Trim(), amenityName, StringComparison.OrdinalIgnoreCase));
+            var asset = allAssets.FirstOrDefault(x =>
+                string.Equals(x.AssetName?.Trim(), amenityName, StringComparison.OrdinalIgnoreCase)
+                && AppliesToBuilding(x, roomBuildingId));
             if (asset == null)
             {
-                throw new InvalidOperationException($"Tiện nghi '{amenityName}' không tồn tại trong kho tài sản");
+                throw new InvalidOperationException($"Tiện nghi '{amenityName}' không tồn tại trong kho tài sản của tòa này");
             }
 
             selectedAssets.Add(asset);
@@ -623,6 +625,16 @@ public class RoomService : IRoomService
                 Condition = "Tốt"
             });
         }
+    }
+
+    private static bool AppliesToBuilding(TaiSan asset, int buildingId)
+    {
+        if (asset.BuildingScopes != null && asset.BuildingScopes.Count > 0)
+        {
+            return asset.BuildingScopes.Any(scope => scope.BuildingId == buildingId);
+        }
+
+        return !asset.BuildingId.HasValue || asset.BuildingId.Value == buildingId;
     }
 
     private static string NormalizeRoomType(string? roomType)

@@ -7,6 +7,7 @@ export function BuildingManagementPage() {
   const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [addRoomRequest, setAddRoomRequest] = useState<{ id: number; floorId: number } | null>(null);
+  const [structureRefreshKey, setStructureRefreshKey] = useState(0);
 
   const handleRequestAddRoom = (floorId: number) => {
     setSelectedFloorId(floorId);
@@ -30,6 +31,7 @@ export function BuildingManagementPage() {
             selectedBuilding={selectedBuildingId}
             onSelectBuilding={setSelectedBuildingId}
             onRequestAddRoom={handleRequestAddRoom}
+            onStructureChange={() => setStructureRefreshKey((current) => current + 1)}
           />
         </div>
 
@@ -38,6 +40,7 @@ export function BuildingManagementPage() {
             selectedFloorId={selectedFloorId}
             selectedBuildingId={selectedBuildingId}
             addRoomRequest={addRoomRequest}
+            structureRefreshKey={structureRefreshKey}
           />
         </div>
       </div>

@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
+import { AdminTabs } from './AdminTabs';
 import BillsScreen from '../screens/BillsScreen';
 import BillDetailScreen from '../screens/BillDetailScreen';
 import IssueDetailScreen from '../screens/IssueDetailScreen';
@@ -21,6 +22,7 @@ import RoommateMessagesScreen from '../screens/RoommateMessagesScreen';
 import RoommateConversationScreen from '../screens/RoommateConversationScreen';
 import { useAuthStore } from '../store/authStore';
 import signalrService from '../services/signalr.service';
+import { isAdminAppUser } from '../utils/roleUtils';
 
 const Stack = createNativeStackNavigator();
 
@@ -43,6 +45,14 @@ const MainStack = () => {
       <Stack.Screen name="RoommateHistory" component={RoommateHistoryScreen} />
       <Stack.Screen name="RoommateMessages" component={RoommateMessagesScreen} />
       <Stack.Screen name="RoommateConversation" component={RoommateConversationScreen} />
+    </Stack.Navigator>
+  );
+};
+
+const AdminStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="AdminTabs" component={AdminTabs} />
     </Stack.Navigator>
   );
 };
@@ -117,6 +127,8 @@ export const RootNavigator = () => {
       {isAuthenticated ? (
         user?.mustChangePassword ? (
           <AuthStack initialRouteName="ForceChangePassword" />
+        ) : isAdminAppUser(user) ? (
+          <AdminStack />
         ) : (
           <MainStack />
         )

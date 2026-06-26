@@ -179,6 +179,8 @@ const demoMonthlyRevenue: MonthlyRevenue[] = [
   month,
   year: new Date().getFullYear(),
   totalRevenue: total * 1_000_000,
+  collectedRevenue: Math.round(total * 0.82) * 1_000_000,
+  outstandingRevenue: Math.round(total * 0.18) * 1_000_000,
   roomRentRevenue: roomRent * 1_000_000,
   serviceRevenue: service * 1_000_000,
   otherRevenue: other * 1_000_000,
@@ -335,9 +337,9 @@ export function Dashboard() {
       icon: Building2,
     },
     {
-      label: 'Doanh thu tháng',
+      label: 'Đã thu tháng này',
       value: `${compactCurrency(monthlyRevenueValue)} đ`,
-      sub: `Tháng trước ${compactCurrency(lastMonthRevenueValue)} đ`,
+      sub: `Đã thu tháng trước ${compactCurrency(lastMonthRevenueValue)} đ`,
       trend: `${(revenueStats?.growthRate ?? 0) >= 0 ? '+' : ''}${(revenueStats?.growthRate ?? 0).toFixed(1)}%`,
       positive: (revenueStats?.growthRate ?? 0) >= 0,
       icon: ReceiptText,
@@ -356,38 +358,62 @@ export function Dashboard() {
     if (monthlyRevenue.length > 0) {
       return monthlyRevenue.slice(-12).map((item) => ({
         month: `T${item.month}`,
-        collected: Math.round((item.totalRevenue ?? 0) / 1_000_000),
-        service: Math.round((item.serviceRevenue ?? 0) / 1_000_000),
+        collected: Math.round((item.collectedRevenue ?? item.totalRevenue ?? 0) / 1_000_000),
+        outstanding: Math.round((item.outstandingRevenue ?? 0) / 1_000_000),
+        total: Math.round((item.totalRevenue ?? 0) / 1_000_000),
       }));
     }
     return ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].map((month, index) => ({
       month,
       collected: [82, 96, 91, 108, 124, 138][index],
-      service: [18, 22, 20, 24, 29, 34][index],
+      outstanding: [18, 22, 20, 24, 29, 34][index],
+      total: [100, 118, 111, 132, 153, 172][index],
     }));
   }, [monthlyRevenue]);
 
   const debtByBuilding = useMemo(() => {
+    const roomBuildingMap = new Map<string, string>();
+    rooms.forEach((room) => {
+      const buildingName = room.buildingName || room.building || room.toaNha || room.buildingText;
+      const roomKeys = [
+        room.id,
+        room.roomId,
+        room.roomCode,
+        room.roomNumber,
+        room.soPhong,
+      ]
+        .filter((value) => value !== undefined && value !== null && String(value).trim() !== '')
+        .map((value) => String(value).trim());
+
+      if (buildingName) {
+        roomKeys.forEach((key) => roomBuildingMap.set(key, String(buildingName)));
+      }
+    });
+
     const grouped = new Map<string, number>();
     invoices.forEach((invoice) => {
-      const building = invoice.buildingName || invoice.building || String(invoice.roomNumber ?? 'Tòa A').split('-')[0] || 'Tòa A';
+      const building =
+        invoice.buildingName ||
+        invoice.building ||
+        invoice.toaNha ||
+        roomBuildingMap.get(String(invoice.roomId ?? '').trim()) ||
+        roomBuildingMap.get(String(invoice.roomCode ?? '').trim()) ||
+        roomBuildingMap.get(String(invoice.roomNumber ?? '').trim()) ||
+        roomBuildingMap.get(String(invoice.soPhong ?? '').trim()) ||
+        'Chưa xác định';
       const amount = Number(invoice.remainingAmount ?? invoice.totalAmount - (invoice.paidAmount ?? 0) ?? 0);
       grouped.set(building, (grouped.get(building) ?? 0) + Math.max(0, amount));
     });
 
-    const data = Array.from(grouped.entries()).map(([name, value]) => ({
-      name,
-      value: Math.round(value / 1_000_000),
-    }));
-
-    return data.length > 0
-      ? data
-      : [
-          { name: 'Tòa A', value: 42 },
-          { name: 'Tòa B', value: 28 },
-          { name: 'Tòa C', value: 16 },
-        ];
-  }, [invoices]);
+    return Array.from(grouped.entries())
+      .map(([name, value]) => ({
+        name,
+        value: Math.round(value / 1_000_000),
+        rawValue: value,
+      }))
+      .filter((item) => item.rawValue > 0)
+      .sort((a, b) => b.rawValue - a.rawValue);
+  }, [invoices, rooms]);
 
   const newTickets = maintenanceStats?.pendingRequests ?? maintenance.filter((item) => isNewMaintenance(item.status)).length;
   const processingTickets = maintenanceStats?.inProgressRequests ?? maintenance.filter((item) => isProcessingMaintenance(item.status)).length;
@@ -539,7 +565,7 @@ export function Dashboard() {
           <div className="dashboard-panel-header">
             <div>
               <span>Phân tích vận hành</span>
-              <h2>Thu phí hằng tháng</h2>
+              <h2>Doanh thu đã thu hằng tháng</h2>
             </div>
             <button onClick={() => navigate('/revenue-report')}>Báo cáo doanh thu <ChevronRight size={16} /></button>
           </div>
@@ -551,13 +577,17 @@ export function Dashboard() {
                 <YAxis tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} unit="M" />
                 <Tooltip
                   cursor={{ fill: 'color-mix(in srgb, var(--primary) 8%, transparent)' }}
-                  formatter={(value, name) => [`${value} triệu đồng`, name]}
+                  formatter={(value, name) => [`${value} triệu đồng`, name === 'collected' ? 'Đã nhận' : 'Chưa nộp']}
                   labelFormatter={(label) => `Kỳ ${label}`}
                 />
-                <Bar dataKey="collected" name="Đã thu" fill="var(--chart-1)" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="service" name="Dịch vụ" fill="var(--chart-2)" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="collected" name="Đã nhận" stackId="monthly-receivable" fill="var(--success)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="outstanding" name="Chưa nộp" stackId="monthly-receivable" fill="var(--error)" radius={[0, 0, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            <div className="dashboard-chart-legend">
+              <span><i className="collected" /> Đã nhận</span>
+              <span><i className="outstanding" /> Chưa nộp</span>
+            </div>
           </div>
         </article>
 
@@ -568,25 +598,33 @@ export function Dashboard() {
               <h2>Công nợ theo tòa nhà</h2>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={230}>
-            <PieChart>
-              <Pie data={debtByBuilding} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={4}>
-                {debtByBuilding.map((_, index) => (
-                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
+          {debtByBuilding.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={230}>
+                <PieChart>
+                  <Pie data={debtByBuilding} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={4}>
+                    {debtByBuilding.map((_, index) => (
+                      <Cell key={index} fill={chartColors[index % chartColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`${value}M đ`, 'Công nợ']} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="debt-legend">
+                {debtByBuilding.map((item, index) => (
+                  <div key={item.name}>
+                    <i style={{ background: chartColors[index % chartColors.length] }} />
+                    <span>{item.name}</span>
+                    <b>{currency(item.rawValue)} đ</b>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip formatter={(value) => [`${value}M đ`, 'Công nợ']} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="debt-legend">
-            {debtByBuilding.map((item, index) => (
-              <div key={item.name}>
-                <i style={{ background: chartColors[index % chartColors.length] }} />
-                <span>{item.name}</span>
-                <b>{item.value}M đ</b>
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="dashboard-empty-panel">
+              Chưa có công nợ từ dữ liệu hóa đơn trong hệ thống.
+            </div>
+          )}
         </article>
       </section>
 
@@ -749,7 +787,7 @@ const dashboardStyles = `
     min-height: 24px;
     padding: 3px 9px;
     border: 1px solid color-mix(in srgb, var(--success) 34%, var(--surface-level-3-border));
-    border-radius: 999px;
+    border-radius: 0;
     background: var(--success-soft);
     color: var(--success-foreground);
     font-size: 10px;
@@ -793,7 +831,7 @@ const dashboardStyles = `
     min-height: 40px;
     padding: 0 14px;
     border: 1px solid var(--surface-level-3-border);
-    border-radius: 12px;
+    border-radius: var(--radius-button);
     background: var(--surface-level-3);
     color: var(--foreground-muted);
     font-size: 13px;
@@ -825,7 +863,7 @@ const dashboardStyles = `
   .dashboard-kpi-card,
   .dashboard-panel {
     border: 1px solid var(--surface-level-2-border);
-    border-radius: 12px;
+    border-radius: 0;
     background: var(--surface-level-2);
     box-shadow: var(--shadow-soft);
   }
@@ -865,7 +903,7 @@ const dashboardStyles = `
     place-items: center;
     width: 38px;
     height: 38px;
-    border-radius: 10px;
+    border-radius: 0;
     background: var(--primary-soft);
     color: var(--primary);
   }
@@ -897,7 +935,7 @@ const dashboardStyles = `
     align-items: center;
     gap: 4px;
     padding: 4px 7px;
-    border-radius: 999px;
+    border-radius: var(--radius-badge);
     font-size: 11px;
     font-style: normal;
     font-weight: 800;
@@ -952,13 +990,43 @@ const dashboardStyles = `
     min-height: 300px;
     padding: 14px 10px 4px;
     border: 1px solid var(--surface-level-3-border);
-    border-radius: 12px;
+    border-radius: 0;
     background: var(--surface-level-3);
+  }
+
+  .dashboard-chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    padding: 2px 0 8px;
+    color: var(--foreground-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .dashboard-chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .dashboard-chart-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 0;
+  }
+
+  .dashboard-chart-legend i.collected {
+    background: var(--success);
+  }
+
+  .dashboard-chart-legend i.outstanding {
+    background: var(--error);
   }
 
   .dashboard-shell .recharts-default-tooltip {
     border: 1px solid var(--border) !important;
-    border-radius: var(--radius-card);
+    border-radius: 0 !important;
     background: var(--chart-tooltip) !important;
     color: var(--foreground) !important;
     box-shadow: var(--shadow-card);
@@ -977,7 +1045,7 @@ const dashboardStyles = `
     gap: 10px;
     padding: 10px 12px;
     border: 1px solid var(--surface-level-3-border);
-    border-radius: 12px;
+    border-radius: 0;
     background: var(--surface-level-3);
     transition: background 160ms ease, border-color 160ms ease;
   }
@@ -1000,6 +1068,21 @@ const dashboardStyles = `
     font-weight: 700;
   }
 
+  .dashboard-empty-panel {
+    display: grid;
+    place-items: center;
+    min-height: 230px;
+    padding: 18px;
+    border: 1px dashed var(--border-hover);
+    border-radius: 0;
+    background: var(--surface-level-3);
+    color: var(--foreground-subtle);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+  }
+
   .ticket-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1010,7 +1093,7 @@ const dashboardStyles = `
   .ticket-summary div {
     padding: 16px;
     border: 1px solid var(--surface-level-3-border);
-    border-radius: 12px;
+    border-radius: 0;
     background: var(--surface-level-3);
   }
 
@@ -1044,7 +1127,7 @@ const dashboardStyles = `
   .kanban-column {
     min-height: 260px;
     border: 1px solid var(--surface-level-3-border);
-    border-radius: 12px;
+    border-radius: 0;
     background: var(--surface-level-3);
     padding: 14px;
   }
@@ -1085,7 +1168,7 @@ const dashboardStyles = `
     gap: 10px;
     padding: 12px;
     border: 1px solid var(--surface-level-4-border);
-    border-radius: 10px;
+    border-radius: 0;
     background: var(--surface-level-4);
     transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
   }
@@ -1114,7 +1197,7 @@ const dashboardStyles = `
   .empty-state {
     padding: 18px;
     border: 1px dashed var(--border-hover);
-    border-radius: 10px;
+    border-radius: 0;
     text-align: center;
   }
 
@@ -1131,7 +1214,7 @@ const dashboardStyles = `
     gap: 12px;
     padding: 12px;
     border: 1px solid var(--surface-level-3-border);
-    border-radius: 10px;
+    border-radius: 0;
     background: var(--surface-level-3);
     transition: background 160ms ease, border-color 160ms ease;
   }
@@ -1146,7 +1229,7 @@ const dashboardStyles = `
     place-items: center;
     width: 36px;
     height: 36px;
-    border-radius: 12px;
+    border-radius: 0;
     color: var(--foreground-on-color);
   }
 
@@ -1186,7 +1269,7 @@ const dashboardStyles = `
     gap: 14px;
     padding: 14px;
     border: 1px solid var(--surface-level-3-border);
-    border-radius: 12px;
+    border-radius: 0;
     background: var(--surface-level-3);
     transition: background 160ms ease, border-color 160ms ease;
   }
@@ -1205,7 +1288,7 @@ const dashboardStyles = `
     place-items: center;
     width: 38px;
     height: 38px;
-    border-radius: 10px;
+    border-radius: 0;
     flex: none;
   }
 
@@ -1234,7 +1317,7 @@ const dashboardStyles = `
     place-items: center;
     min-height: 420px;
     border: 1px solid var(--surface-level-2-border);
-    border-radius: 12px;
+    border-radius: 0;
     background: var(--surface-level-2);
   }
 
@@ -1295,7 +1378,7 @@ const dashboardStyles = `
     .dashboard-hero,
     .dashboard-panel,
     .dashboard-kpi-card {
-      border-radius: 12px;
+      border-radius: 0;
       padding: 12px;
     }
 

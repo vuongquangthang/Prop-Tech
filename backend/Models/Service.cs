@@ -8,7 +8,6 @@ namespace backend.Models;
 /// Dịch vụ - Quản lý các dịch vụ
 /// </summary>
 [Table("DICH_VU")]
-[Index(nameof(OwnerUserId), nameof(Name), IsUnique = true)]
 public class Service
 {
     [Key]
@@ -43,11 +42,18 @@ public class Service
     [Column("OWNER_USER_ID")]
     public int? OwnerUserId { get; set; }
 
+    [Column("BUILDING_ID")]
+    public int? BuildingId { get; set; }
+
     // Navigation properties
     [ForeignKey("OwnerUserId")]
     public User? OwnerUser { get; set; }
 
+    [ForeignKey("BuildingId")]
+    public Building? Building { get; set; }
+
     public ICollection<ChiTietSuDungDichVu> ChiTietSuDungDichVus { get; set; } = new List<ChiTietSuDungDichVu>();
     public ICollection<ChiTietHoaDon> ChiTietHoaDons { get; set; } = new List<ChiTietHoaDon>();
     public ICollection<ServicePriceHistory> PriceHistories { get; set; } = new List<ServicePriceHistory>();
+    public ICollection<ServiceBuildingScope> BuildingScopes { get; set; } = new List<ServiceBuildingScope>();
 }

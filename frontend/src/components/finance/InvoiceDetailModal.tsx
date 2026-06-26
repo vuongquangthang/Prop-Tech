@@ -347,11 +347,11 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                       </div>
                     ))
                   )}
-                  {members.length > 0 && (
+                  {/* {members.length > 0 && (
                     <div style={{ marginTop: '10px', padding: '8px 10px', backgroundColor: 'rgba(21, 128, 61, 0.08)', border: '1px solid rgba(21, 128, 61, 0.18)', borderRadius: '8px', fontSize: 'var(--type-caption)', color: 'var(--success)' }}>
                       Tất cả {members.length} người đã nhận thông báo qua App cư dân. Chỉ chủ hộ có quyền thanh toán.
                     </div>
-                  )}
+                  )} */}
                 </InfoCard>
 
                 {/* Lịch sử thông báo */}

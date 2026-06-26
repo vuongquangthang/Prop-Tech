@@ -4,6 +4,14 @@ import { CreatePostDto, PostDto, PostEditHistoryDto, UpdatePostDto, UpdatePostLo
 class PostService {
   private baseUrl = '/api/posts';
 
+  async getAll(): Promise<PostDto[]> {
+    return apiService.get<PostDto[]>(this.baseUrl);
+  }
+
+  async getById(id: number): Promise<PostDto> {
+    return apiService.get<PostDto>(`${this.baseUrl}/${id}`);
+  }
+
   async getMyPost(): Promise<PostDto> {
     return apiService.get<PostDto>(`${this.baseUrl}/my`);
   }

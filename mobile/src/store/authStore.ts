@@ -104,10 +104,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await apiService.getUser();
 
       if (accessToken && user) {
+        let currentUser = user;
+        try {
+          currentUser = await apiService.get<UserDto>('/api/auth/me');
+          await apiService.saveUser(currentUser);
+        } catch (error) {
+          console.warn('Could not refresh current user, using cached user', error);
+        }
+
         const activeStr = await secureStorage.getItemAsync('active_contract_id');
         const activeId = activeStr ? parseInt(activeStr, 10) : null;
         set({
-          user,
+          user: currentUser,
           isAuthenticated: true,
           isLoading: false,
           error: null,

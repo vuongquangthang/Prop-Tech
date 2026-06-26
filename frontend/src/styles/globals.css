@@ -104,8 +104,8 @@
 
   --radius-control: 10px;
   --radius-button: 10px;
-  --radius-input: 10px;
-  --radius-card: 12px;
+  --radius-input: 0px;
+  --radius-card: 0px;
   --radius-table: 12px;
   --radius-modal: 16px;
   --radius-drawer: 16px;
@@ -466,6 +466,12 @@
     body:has(.sidebar-is-collapsed) .admin-content-modal-overlay {
       left: 80px;
     }
+
+    body:has(.sidebar-is-expanded) .admin-content-modal-overlay .admin-content-modal-overlay,
+    body:has(.sidebar-is-collapsed) .admin-content-modal-overlay .admin-content-modal-overlay {
+      top: 0 !important;
+      left: 0 !important;
+    }
   }
 
   .admin-content-modal-panel {
@@ -485,6 +491,14 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  .admin-content-modal-overlay .admin-content-modal-overlay {
+    inset: 0 !important;
+    z-index: 1100 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 12px !important;
+  }
+
   .admin-content-modal-overlay > div:not(.admin-content-modal-panel),
   .admin-content-dialog-content {
     width: min(100%, 960px) !important;
@@ -501,6 +515,17 @@
   .admin-content-modal-panel--narrow {
     width: min(100%, 960px) !important;
     max-width: 960px !important;
+  }
+
+  .asset-assign-modal-panel {
+    width: min(100%, 1280px) !important;
+    max-width: 1280px !important;
+    overflow: hidden !important;
+  }
+
+  .asset-assign-modal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 65fr) minmax(280px, 35fr);
   }
 
   .admin-content-modal-header,
@@ -701,6 +726,7 @@
     width: 100%;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+    border-radius: 0 !important;
   }
 
   .product-table {
@@ -709,6 +735,7 @@
     border-collapse: separate;
     border-spacing: 0;
     background: transparent;
+    border-radius: 0 !important;
   }
 
   .product-table thead th {
@@ -948,9 +975,9 @@
     z-index: 1205;
     width: 180px;
     padding: 6px;
-    border: 1px solid var(--surface-level-4-border);
+    border: 1px solid var(--surface-level-3-border);
     border-radius: var(--radius-card);
-    background: var(--surface-level-4);
+    background: var(--surface-level-2);
     box-shadow: var(--shadow-strong);
   }
 
@@ -980,6 +1007,11 @@
   }
 
   .theme-switcher-menu button:hover,
+  .theme-switcher-menu button:focus {
+    background: var(--surface-level-3);
+    color: var(--text-primary);
+  }
+
   .theme-switcher-menu button[aria-checked="true"] {
     background: var(--primary-soft);
     color: var(--primary);
@@ -1951,15 +1983,41 @@
   [role="listbox"],
   [data-radix-menu-content],
   [data-radix-popper-content-wrapper] > [data-state] {
-    background: var(--surface-level-4);
-    border-color: var(--surface-level-4-border);
+    background: var(--surface-level-2);
+    border-color: var(--surface-level-3-border);
   }
 
   [role="menuitem"]:hover,
   [role="menuitemradio"]:hover,
   [role="option"]:hover,
   [role="option"][data-highlighted] {
-    background: var(--surface-level-4);
+    background: var(--surface-level-3);
+  }
+
+  .app-dropdown-menu {
+    overflow: hidden;
+    border: 1px solid var(--surface-level-3-border) !important;
+    background: var(--surface-level-2) !important;
+    box-shadow: var(--shadow-card);
+  }
+
+  .app-dropdown-item {
+    background: transparent !important;
+    color: var(--text-primary) !important;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .app-dropdown-item:hover,
+  .app-dropdown-item:focus,
+  .app-dropdown-item[data-highlighted="true"] {
+    background: var(--surface-level-3) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .app-dropdown-item.is-selected,
+  .app-dropdown-item[aria-selected="true"] {
+    background: var(--primary-soft) !important;
+    color: var(--primary) !important;
   }
 
   .app-section {
@@ -1988,8 +2046,31 @@
   .admin-main-content [class*="table-container"] {
     overflow: hidden;
     border: 1px solid var(--surface-level-2-border);
-    border-radius: var(--radius-table);
+    border-radius: 0 !important;
     background: var(--surface-level-2);
+  }
+
+  .admin-main-content :is(.rounded, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-\[12px\]):has(table),
+  .admin-main-content :is(.overflow-hidden, .overflow-x-auto):has(> table),
+  .admin-content-modal-overlay :is(.rounded, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-\[12px\]):has(table),
+  .admin-content-modal-overlay :is(.overflow-hidden, .overflow-x-auto):has(> table),
+  :is(.rounded, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-\[12px\]):has(table),
+  :is(.overflow-hidden, .overflow-x-auto):has(> table),
+  .admin-main-content [data-slot="table-container"],
+  [data-slot="table-container"],
+  .admin-main-content .product-table-wrap {
+    border-radius: 0 !important;
+  }
+
+  .admin-main-content table,
+  .admin-main-content table *,
+  .admin-content-modal-overlay table,
+  .admin-content-modal-overlay table *,
+  table,
+  table *,
+  .product-table,
+  .product-table * {
+    border-radius: 0 !important;
   }
 
   .admin-main-content table thead,
@@ -2402,4 +2483,139 @@ select {
 .dark .proptech-message-send:disabled {
   background: var(--surface-level-4) !important;
   color: var(--text-muted) !important;
+}
+
+/* Table corner normalization: any wrapper that visually owns a table must stay square. */
+[class*="rounded"]:has(table),
+[class*="overflow-hidden"]:has(table),
+[class*="overflow-x-auto"]:has(table),
+[class*="table-container"]:has(table),
+[data-slot="table-container"],
+.product-table-wrap,
+.product-card:has(table),
+.product-card:has(.product-table-wrap),
+.product-card:has([data-slot="table-container"]),
+.admin-main-content :is(section, article):has(table) {
+  border-radius: 0 !important;
+}
+
+table,
+table :is(thead, tbody, tfoot, tr, th, td),
+.product-table,
+.product-table :is(thead, tbody, tfoot, tr, th, td) {
+  border-radius: 0 !important;
+}
+
+.product-card,
+.app-card,
+.app-card-subtle {
+  border-radius: 0 !important;
+}
+
+.app-button-primary,
+.app-button-secondary,
+.app-button-ghost,
+.app-button-outline,
+.app-button-danger,
+.product-action-icon,
+.admin-main-content button:is(.rounded, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-full),
+.admin-content-modal-overlay button:is(.rounded, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-full) {
+  border-radius: var(--radius-button) !important;
+}
+
+.admin-main-content input,
+.admin-main-content select,
+.admin-main-content textarea,
+.admin-main-content .app-input,
+.admin-main-content .app-select,
+.admin-main-content .service-unit-trigger,
+.admin-main-content .service-price-control,
+.admin-main-content .product-search input,
+.admin-content-modal-overlay input,
+.admin-content-modal-overlay select,
+.admin-content-modal-overlay textarea,
+.admin-content-modal-overlay .service-unit-trigger,
+.admin-content-modal-overlay .service-price-control,
+.admin-content-modal-overlay :is(.rounded, .rounded-lg, .rounded-xl):is(input, select, textarea) {
+  border-radius: 0 !important;
+}
+
+.product-status-badge,
+.dashboard-kpi-bottom em,
+.admin-main-content :is(span, em, small, div):is(.rounded, .rounded-lg, .rounded-full):is(
+  .bg-green-50,
+  .bg-green-100,
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-red-50,
+  .bg-red-100,
+  .bg-yellow-50,
+  .bg-yellow-100,
+  .bg-amber-50,
+  .bg-amber-100,
+  .bg-blue-50,
+  .bg-blue-100,
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-purple-50,
+  .bg-purple-100,
+  .bg-orange-50,
+  .bg-orange-100
+),
+.admin-content-modal-overlay :is(span, em, small, div):is(.rounded, .rounded-lg, .rounded-full):is(
+  .bg-green-50,
+  .bg-green-100,
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-red-50,
+  .bg-red-100,
+  .bg-yellow-50,
+  .bg-yellow-100,
+  .bg-amber-50,
+  .bg-amber-100,
+  .bg-blue-50,
+  .bg-blue-100,
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-purple-50,
+  .bg-purple-100,
+  .bg-orange-50,
+  .bg-orange-100
+) {
+  border-radius: var(--radius-badge) !important;
+}
+
+.account-lock-toggle .account-lock-switch,
+.account-lock-switch {
+  position: relative !important;
+  display: inline-block !important;
+  width: 44px !important;
+  height: 24px !important;
+  background: #f87171 !important;
+  border-radius: 9999px !important;
+  clip-path: inset(0 round 9999px) !important;
+  overflow: hidden !important;
+  transition: background-color 160ms ease !important;
+}
+
+.account-lock-toggle .account-lock-switch::after,
+.account-lock-switch::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 2px !important;
+  left: 2px !important;
+  width: 20px !important;
+  height: 20px !important;
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 9999px !important;
+  transition: transform 160ms ease !important;
+}
+
+.account-lock-toggle input:checked + .account-lock-switch {
+  background: #22c55e !important;
+}
+
+.account-lock-toggle input:checked + .account-lock-switch::after {
+  transform: translateX(20px) !important;
 }

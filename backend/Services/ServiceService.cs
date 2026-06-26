@@ -2,6 +2,7 @@ using backend.Data;
 using backend.DTOs;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace backend.Services;
 
@@ -32,6 +33,9 @@ public class ServiceService : IServiceService
         var services = await _context.Services
             .AsNoTracking()
             .Include(service => service.PriceHistories)
+            .Include(service => service.Building)
+            .Include(service => service.BuildingScopes)
+                .ThenInclude(scope => scope.Building)
             .Where(service => service.OwnerUserId == ownerUserId && service.IsActive)
             .OrderBy(service => service.Name)
             .ToListAsync();
@@ -44,6 +48,9 @@ public class ServiceService : IServiceService
         var services = await _context.Services
             .AsNoTracking()
             .Include(service => service.PriceHistories)
+            .Include(service => service.Building)
+            .Include(service => service.BuildingScopes)
+                .ThenInclude(scope => scope.Building)
             .Where(service => service.OwnerUserId == ownerUserId && service.IsActive)
             .OrderBy(service => service.Name)
             .ToListAsync();
@@ -123,6 +130,9 @@ public class ServiceService : IServiceService
         var service = await _context.Services
             .AsNoTracking()
             .Include(item => item.PriceHistories)
+            .Include(item => item.Building)
+            .Include(item => item.BuildingScopes)
+                .ThenInclude(scope => scope.Building)
             .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
         return service == null ? null : MapToDto(service);
     }
@@ -130,26 +140,63 @@ public class ServiceService : IServiceService
     public async Task<ServiceDto> CreateAsync(CreateServiceDto dto, int ownerUserId)
     {
         var serviceName = dto.Name.Trim();
+        var buildingIds = NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId);
+        await EnsureOwnsBuildingsAsync(buildingIds, ownerUserId);
+
         var existingService = await _context.Services
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.Name == serviceName);
+            .Include(service => service.PriceHistories)
+            .Include(service => service.Building)
+            .Include(service => service.BuildingScopes)
+                .ThenInclude(scope => scope.Building)
+            .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId
+                && item.Name == serviceName);
         if (existingService != null)
         {
-            throw new InvalidOperationException($"Dịch vụ '{serviceName}' đã tồn tại");
+            if (existingService.IsActive)
+            {
+                throw new InvalidOperationException($"Dịch vụ '{serviceName}' đã tồn tại");
+            }
+
+            var effectiveDate = dto.EffectiveDate ?? DateTime.UtcNow;
+            var newPrice = dto.CommonUnitPrice ?? existingService.CommonUnitPrice;
+            if (newPrice.HasValue && newPrice.Value != (existingService.CommonUnitPrice ?? 0))
+            {
+                _context.ServicePriceHistories.Add(new ServicePriceHistory
+                {
+                    ServiceId = existingService.Id,
+                    OldPrice = existingService.CommonUnitPrice ?? 0,
+                    NewPrice = newPrice.Value,
+                    EffectiveDate = effectiveDate,
+                    Reason = "Khôi phục dịch vụ đã xóa",
+                    ChangedAt = DateTime.UtcNow
+                });
+            }
+
+            existingService.ServiceType = NormalizeServiceType(dto.ServiceType, serviceName);
+            existingService.Unit = string.IsNullOrWhiteSpace(dto.Unit) ? null : dto.Unit.Trim();
+            existingService.CommonUnitPrice = newPrice;
+            existingService.EffectiveDate = effectiveDate;
+            existingService.IsActive = true;
+            await SyncServiceBuildingScopesAsync(existingService, buildingIds);
+
+            await _context.SaveChangesAsync();
+            return MapToDto(existingService);
         }
 
         var service = new Service
         {
             Name = serviceName,
-            ServiceType = NormalizeServiceType(dto.ServiceType),
+            ServiceType = NormalizeServiceType(dto.ServiceType, serviceName),
             Unit = string.IsNullOrWhiteSpace(dto.Unit) ? null : dto.Unit.Trim(),
             CommonUnitPrice = dto.CommonUnitPrice,
             IsActive = true,
             EffectiveDate = dto.EffectiveDate ?? DateTime.UtcNow,
-            OwnerUserId = ownerUserId
+            OwnerUserId = ownerUserId,
+            BuildingId = null
         };
 
         await _context.Services.AddAsync(service);
+        await SyncServiceBuildingScopesAsync(service, buildingIds);
         await _context.SaveChangesAsync();
 
         return MapToDto(service);
@@ -158,6 +205,8 @@ public class ServiceService : IServiceService
     public async Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto, int ownerUserId)
     {
         var service = await _context.Services
+            .Include(item => item.BuildingScopes)
+                .ThenInclude(scope => scope.Building)
             .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
         if (service == null)
         {
@@ -169,7 +218,8 @@ public class ServiceService : IServiceService
         {
             var existingService = await _context.Services
                 .AsNoTracking()
-                .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.Name == nextName);
+                .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId
+                    && item.Name == nextName);
             if (existingService != null)
             {
                 throw new InvalidOperationException($"Dịch vụ '{nextName}' đã tồn tại");
@@ -180,7 +230,15 @@ public class ServiceService : IServiceService
 
         if (!string.IsNullOrWhiteSpace(dto.ServiceType))
         {
-            service.ServiceType = NormalizeServiceType(dto.ServiceType);
+            service.ServiceType = NormalizeServiceType(dto.ServiceType, service.Name);
+        }
+
+        if (dto.BuildingIds != null || dto.BuildingId.HasValue)
+        {
+            var buildingIds = NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId);
+            await EnsureOwnsBuildingsAsync(buildingIds, ownerUserId);
+            await SyncServiceBuildingScopesAsync(service, buildingIds);
+            service.BuildingId = null;
         }
 
         if (dto.Unit != null)
@@ -257,19 +315,72 @@ public class ServiceService : IServiceService
             .ToListAsync();
     }
 
-    private static string NormalizeServiceType(string? serviceType)
+    private static string NormalizeServiceType(string? serviceType, string? serviceName = null)
     {
         var value = (serviceType ?? string.Empty).Trim().ToLowerInvariant();
-        if (value.Contains("biến") || value.Contains("bien") || value.Contains("variable"))
+        var searchableValue = NormalizeKey($"{serviceType} {serviceName}");
+        if (string.IsNullOrWhiteSpace(value))
         {
-            return "Biến đổi";
+            return "Cố định khác";
         }
 
-        return "Cố định";
+        if (searchableValue.Contains("dien") || searchableValue.Contains("electric"))
+        {
+            return "Điện";
+        }
+
+        if (searchableValue.Contains("nuoc") || searchableValue.Contains("water"))
+        {
+            return "Nước";
+        }
+
+        if (searchableValue.Contains("xe") || searchableValue.Contains("parking"))
+        {
+            return "Gửi xe";
+        }
+
+        if (searchableValue.Contains("nguoi") || searchableValue.Contains("person"))
+        {
+            return "Theo người";
+        }
+
+        if (value.Contains("biến") || value.Contains("bien") || value.Contains("variable"))
+        {
+            return "Điện";
+        }
+
+        if (value.Contains("cố định") || value.Contains("co dinh") || value.Contains("fixed"))
+        {
+            return "Cố định khác";
+        }
+
+        return serviceType!.Trim();
+    }
+
+    private static string NormalizeKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character == 'đ' ? 'd' : character);
+            }
+        }
+
+        return builder.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
     private static ServiceDto MapToDto(Service service)
     {
+        var scopedBuildings = service.BuildingScopes?
+            .Where(scope => scope.Building != null)
+            .OrderBy(scope => scope.Building.BuildingName)
+            .ToList() ?? new List<ServiceBuildingScope>();
+
         return new ServiceDto
         {
             Id = service.Id,
@@ -283,8 +394,54 @@ public class ServiceService : IServiceService
                 .OrderByDescending(history => history.ChangedAt)
                 .Select(history => (DateTime?)history.ChangedAt)
                 .FirstOrDefault() ?? service.EffectiveDate,
-            OwnerUserId = service.OwnerUserId
+            OwnerUserId = service.OwnerUserId,
+            BuildingId = scopedBuildings.Count == 1 ? scopedBuildings[0].BuildingId : service.BuildingId,
+            BuildingName = scopedBuildings.Count == 1 ? scopedBuildings[0].Building.BuildingName : service.Building?.BuildingName,
+            BuildingIds = scopedBuildings.Select(scope => scope.BuildingId).ToList(),
+            BuildingNames = scopedBuildings.Select(scope => scope.Building.BuildingName).ToList()
         };
+    }
+
+    private static List<int> NormalizeBuildingIds(List<int>? buildingIds, int? buildingId)
+    {
+        var ids = buildingIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+        if (ids.Count == 0 && buildingId.HasValue && buildingId.Value > 0)
+        {
+            ids.Add(buildingId.Value);
+        }
+
+        return ids;
+    }
+
+    private async Task EnsureOwnsBuildingsAsync(List<int> buildingIds, int ownerUserId)
+    {
+        if (buildingIds.Count == 0)
+        {
+            return;
+        }
+
+        var ownedCount = await _context.Buildings
+            .AsNoTracking()
+            .CountAsync(building => buildingIds.Contains(building.Id) && building.OwnerUserId == ownerUserId);
+        if (ownedCount != buildingIds.Count)
+        {
+            throw new InvalidOperationException("Có tòa nhà không tồn tại hoặc không thuộc quyền quản lý");
+        }
+    }
+
+    private async Task SyncServiceBuildingScopesAsync(Service service, List<int> buildingIds)
+    {
+        service.BuildingScopes.Clear();
+        foreach (var buildingId in buildingIds.Distinct())
+        {
+            service.BuildingScopes.Add(new ServiceBuildingScope
+            {
+                Service = service,
+                BuildingId = buildingId
+            });
+        }
+
+        await Task.CompletedTask;
     }
 
     private static List<ServiceInContractDto> AggregateServices(List<ChiTietSuDungDichVu> usages)

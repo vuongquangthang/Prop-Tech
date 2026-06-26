@@ -20,6 +20,9 @@ export interface RefreshTokenRequest {
 export interface UserDto {
   id: number;
   phoneNumber: string;
+  username?: string;
+  fullName?: string;
+  displayName?: string;
   residentName?: string;
   role: string;
   residentId?: number;

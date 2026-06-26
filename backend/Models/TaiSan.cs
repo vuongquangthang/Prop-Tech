@@ -8,7 +8,6 @@ namespace backend.Models;
 /// Tài sản - Quản lý danh mục tài sản
 /// </summary>
 [Table("TAI_SAN")]
-[Index(nameof(OwnerUserId), nameof(AssetCode), IsUnique = true)]
 public class TaiSan
 {
     [Key]
@@ -28,9 +27,16 @@ public class TaiSan
     [Column("OWNER_USER_ID")]
     public int? OwnerUserId { get; set; }
 
+    [Column("BUILDING_ID")]
+    public int? BuildingId { get; set; }
+
     // Navigation properties
     [ForeignKey(nameof(OwnerUserId))]
     public User? OwnerUser { get; set; }
 
+    [ForeignKey(nameof(BuildingId))]
+    public Building? Building { get; set; }
+
     public ICollection<ChiTietTaiSanPhong> ChiTietTaiSanPhongs { get; set; } = new List<ChiTietTaiSanPhong>();
+    public ICollection<TaiSanBuildingScope> BuildingScopes { get; set; } = new List<TaiSanBuildingScope>();
 }

@@ -369,20 +369,23 @@ export function UserAccountsTable() {
                     </td>
                     <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.lastLogin}</td>
                     <td className="px-6 py-4 text-center">
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <label className="account-lock-toggle relative inline-flex items-center cursor-pointer">
                         <input 
                           type="checkbox" 
                           checked={!user.isLocked}
                           onChange={() => handleToggleLock(user)}
-                          className="sr-only peer"
+                          className="sr-only"
                         />
-                        <div className="w-11 h-6 bg-red-400 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        <span
+                          className="account-lock-switch"
+                          style={{ clipPath: 'inset(0 round 9999px)' }}
+                        ></span>
                       </label>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button
                         type="button"
-                        className="inline-flex items-center justify-center p-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+                        className="inline-flex items-center justify-center p-2 !rounded-lg border-0 hover:bg-gray-100 text-gray-700"
                         title="Xem thông tin tài khoản"
                         onClick={() => handleViewUser(user)}
                       >

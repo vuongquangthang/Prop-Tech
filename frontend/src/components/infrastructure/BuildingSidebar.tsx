@@ -28,9 +28,10 @@ interface BuildingSidebarProps {
   selectedBuilding: number | null;
   onSelectBuilding: (buildingId: number | null) => void;
   onRequestAddRoom?: (floorId: number) => void;
+  onStructureChange?: () => void;
 }
 
-export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding, onSelectBuilding, onRequestAddRoom }: BuildingSidebarProps) {
+export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding, onSelectBuilding, onRequestAddRoom, onStructureChange }: BuildingSidebarProps) {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,6 +200,7 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
         } as any);
       }
       await fetchBuildings();
+      onStructureChange?.();
       setShowAddModal(false);
     } catch (err: any) {
       setFormError(err.message || 'Có lỗi xảy ra, vui lòng thử lại');
@@ -312,6 +314,7 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
       }
 
       await fetchBuildings();
+      onStructureChange?.();
       setDetailEditMode(false);
       setDetailTarget(null);
     } catch (err: any) {
@@ -340,6 +343,7 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
       }
 
       await fetchBuildings();
+      onStructureChange?.();
       setDeleteTarget(null);
     } catch (err: any) {
       setDeleteError(err.message || 'Không thể xóa, vui lòng thử lại');

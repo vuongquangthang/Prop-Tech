@@ -32,6 +32,7 @@ public class ApplicationDbContext : DbContext
 
     // Dịch vụ
     public DbSet<Service> Services { get; set; } = null!;
+    public DbSet<ServiceBuildingScope> ServiceBuildingScopes { get; set; } = null!;
     public DbSet<ServicePriceHistory> ServicePriceHistories { get; set; } = null!;
     public DbSet<ChiTietSuDungDichVu> ChiTietSuDungDichVus { get; set; } = null!;
     public DbSet<ChiSoDien> ChiSoDiens { get; set; } = null!;
@@ -46,6 +47,7 @@ public class ApplicationDbContext : DbContext
 
     // Tài sản
     public DbSet<TaiSan> TaiSans { get; set; } = null!;
+    public DbSet<TaiSanBuildingScope> TaiSanBuildingScopes { get; set; } = null!;
     public DbSet<ChiTietTaiSanPhong> ChiTietTaiSanPhongs { get; set; } = null!;
 
     // Yêu cầu sửa chữa
@@ -200,6 +202,19 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<ServiceBuildingScope>(entity =>
+        {
+            entity.HasKey(e => new { e.ServiceId, e.BuildingId });
+            entity.HasOne(e => e.Service)
+                .WithMany(e => e.BuildingScopes)
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Building)
+                .WithMany()
+                .HasForeignKey(e => e.BuildingId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<ServicePriceHistory>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -342,11 +357,24 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<TaiSan>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.OwnerUserId, e.AssetCode }).IsUnique();
+            entity.HasIndex(e => new { e.OwnerUserId, e.AssetCode });
             entity.HasOne(e => e.OwnerUser)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<TaiSanBuildingScope>(entity =>
+        {
+            entity.HasKey(e => new { e.AssetId, e.BuildingId });
+            entity.HasOne(e => e.Asset)
+                .WithMany(e => e.BuildingScopes)
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Building)
+                .WithMany()
+                .HasForeignKey(e => e.BuildingId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ChiTietTaiSanPhong>(entity =>

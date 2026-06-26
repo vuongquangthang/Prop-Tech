@@ -18,6 +18,7 @@ export interface Invoice {
   contractId: number;
   roomId?: number;
   roomNumber?: string;
+  residentName?: string;
   month: number;
   year: number;
   totalAmount: number;
@@ -27,6 +28,9 @@ export interface Invoice {
   dueDate?: string;
   paidDate?: string;
   qrCodeUrl?: string;
+  approvedBy?: number;
+  approvedAt?: string;
+  rejectedReason?: string;
   lineItems: InvoiceLineItem[];
 }
 
@@ -52,6 +56,29 @@ export interface PayInvoice {
   transactionCode?: string;
 }
 
+export interface CalculateInvoiceResult {
+  totalContracts: number;
+  totalInvoices: number;
+  totalAmount: number;
+  skipped: number;
+  skippedReasons: string[];
+  errors: string[];
+  warnings: string[];
+}
+
+export interface BatchApproveResult {
+  success: number;
+  failed: number;
+  errors: string[];
+  warnings?: string[];
+}
+
+export interface SendReminderResult {
+  invoiceId: number;
+  sentCount: number;
+  recipientUserIds: number[];
+}
+
 class InvoiceService {
   private baseUrl = '/api/HoaDon';
 
@@ -69,6 +96,48 @@ class InvoiceService {
    */
   async getUnpaid(): Promise<Invoice[]> {
     return apiService.get<Invoice[]>(`${this.baseUrl}/unpaid`);
+  }
+
+  /**
+   * Get all invoices for manager/admin.
+   */
+  async getAdminAll(): Promise<Invoice[]> {
+    return apiService.get<Invoice[]>(this.baseUrl);
+  }
+
+  /**
+   * Get draft invoices for manager/admin.
+   */
+  async getDrafts(): Promise<Invoice[]> {
+    return apiService.get<Invoice[]>(`${this.baseUrl}/drafts`);
+  }
+
+  /**
+   * Calculate draft invoices from recorded utility readings.
+   */
+  async calculateDrafts(year: number, month: number): Promise<CalculateInvoiceResult> {
+    return apiService.post<CalculateInvoiceResult>(`${this.baseUrl}/calculate/${year}/${month}`);
+  }
+
+  /**
+   * Approve one draft invoice and notify resident.
+   */
+  async approve(id: number): Promise<Invoice> {
+    return apiService.put<Invoice>(`${this.baseUrl}/${id}/approve`);
+  }
+
+  /**
+   * Approve multiple draft invoices.
+   */
+  async approveBatch(invoiceIds: number[]): Promise<BatchApproveResult> {
+    return apiService.post<BatchApproveResult>(`${this.baseUrl}/approve-batch`, { invoiceIds });
+  }
+
+  /**
+   * Send reminder for an approved/unpaid invoice.
+   */
+  async sendReminder(id: number, content?: string): Promise<SendReminderResult> {
+    return apiService.post<SendReminderResult>(`${this.baseUrl}/${id}/send-reminder`, { content });
   }
 
   /**

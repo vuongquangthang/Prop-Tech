@@ -91,6 +91,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const [deposit, setDeposit] = useState('');
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
   const [vehicleCount, setVehicleCount] = useState('0');
+  const [contractBuildingId, setContractBuildingId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEditHistory, setShowEditHistory] = useState(false);
@@ -101,6 +102,17 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       try {
         setLoading(true); setError(null);
         const detail = await contractService.getById(Number(contract.id));
+        const roomId = detail?.roomId ?? (contract as any)?.roomId;
+        if (roomId) {
+          try {
+            const room = await roomService.getById(Number(roomId));
+            const buildingId = (room as any)?.buildingId ?? (room as any)?.floor?.buildingId ?? (contract as any)?.buildingId;
+            setContractBuildingId(buildingId ? String(buildingId) : '');
+          } catch {
+            const buildingId = (contract as any)?.buildingId;
+            setContractBuildingId(buildingId ? String(buildingId) : '');
+          }
+        }
         const services = await serviceService.getAll();
         const active = Array.isArray(services) ? services : [];
         setActivePricingCatalog(active.filter((s: any) => s.isActive !== false));
@@ -135,20 +147,31 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     initializeData();
   }, [contract?.id]);
 
+  const availablePricingCatalog = useMemo(() => {
+    return activePricingCatalog.filter((service: any) => appliesToBuilding(service, contractBuildingId));
+  }, [activePricingCatalog, contractBuildingId]);
+
   const selectedServices = useMemo(() => {
     const selected = new Set(selectedServiceIds);
-    return activePricingCatalog.filter((s: any) => selected.has(Number(s.id ?? s.serviceId ?? 0)));
-  }, [activePricingCatalog, selectedServiceIds]);
+    return availablePricingCatalog.filter((s: any) => selected.has(Number(s.id ?? s.serviceId ?? 0)));
+  }, [availablePricingCatalog, selectedServiceIds]);
 
   const householdMemberCount = useMemo(() => 1 + familyMembers.length, [familyMembers.length]);
   const hasVehicleServiceSelected = useMemo(() => selectedServices.some((s: any) => isVehicleService(s) && !isMeterService(s)), [selectedServices]);
+
+  useEffect(() => {
+    const availableServiceIds = new Set(
+      availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
+    );
+    setSelectedServiceIds(current => current.filter(serviceId => availableServiceIds.has(serviceId)));
+  }, [availablePricingCatalog]);
 
   const formulaRows = useMemo<BillingFormulaRow[]>(() => {
     const rows: BillingFormulaRow[] = [{ key: 'rent', sortOrder: 1, itemType: 'TienPhong', serviceName: 'Tiền phòng', unitPrice: toNumber(monthlyRent), quantityExpression: 'fixed', quantityMode: 'fixed' }];
     selectedServices.forEach((service: any, index: number) => {
       const id = Number(service.id ?? service.serviceId ?? 0), name = service.name || service.serviceName || 'Dịch vụ', price = toNumber(service.commonUnitPrice ?? service.unitPrice);
       const meter = isMeterService(service), vehicleBased = !meter && isVehicleService(service), personBased = !meter && !vehicleBased && isPerPersonService(service);
-      rows.push({ key: `svc-${id}`, sortOrder: index + 2, itemType: meter ? (normalizeText(name).includes('nuoc') || normalizeText(name).includes('water') ? 'Nuoc' : 'Dien') : 'DichVu',
+      rows.push({ key: `svc-${id}`, sortOrder: index + 2, itemType: meter ? (isWaterService(service) ? 'Nuoc' : 'Dien') : 'DichVu',
         serviceId: id, serviceName: name, unitPrice: price, quantityExpression: meter ? 'n' : 'fixed', quantityMode: vehicleBased ? 'vehicle' : (personBased ? 'person' : 'fixed')
       });
     });
@@ -381,19 +404,23 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><DollarSign size={16} className="mr-2" />BƯỚC 4: Danh mục đơn giá</h4>
             <div className="space-y-2">
-              {activePricingCatalog.map((service: any) => (
-                <button key={service.id || service.serviceId} type="button" onClick={() => toggleServiceSelection(Number(service.id ?? service.serviceId ?? 0))}
-                  className="w-full flex items-start justify-between gap-3 text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50">
-                  <span className="text-left">
-                    <span className="flex items-center gap-2">
-                      <input type="checkbox" checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))} readOnly className="pointer-events-none h-4 w-4 shrink-0" />
-                      <span>{service.name || service.serviceName}</span>
+              {availablePricingCatalog.length > 0 ? (
+                availablePricingCatalog.map((service: any) => (
+                  <button key={service.id || service.serviceId} type="button" onClick={() => toggleServiceSelection(Number(service.id ?? service.serviceId ?? 0))}
+                    className="w-full flex items-start justify-between gap-3 text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50">
+                    <span className="text-left">
+                      <span className="flex items-center gap-2">
+                        <input type="checkbox" checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))} readOnly className="pointer-events-none h-4 w-4 shrink-0" />
+                        <span>{service.name || service.serviceName}</span>
+                      </span>
+                      <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
                     </span>
-                    <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
-                  </span>
-                  <span className="shrink-0 text-right text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
-                </button>
-              ))}
+                    <span className="shrink-0 text-right text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">Chưa có dữ liệu danh mục đơn giá cho tòa này.</p>
+              )}
             </div>
             <p className="text-xs text-gray-500 mt-1">Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục</p>
             {hasVehicleServiceSelected && (
@@ -468,13 +495,20 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           </button>
         </div>
       </div>
-      {showAddMemberModal && <AddFamilyMemberModal onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMember} />}
-      {showEditHistory && <ContractEditHistoryModal contract={contract} onClose={() => setShowEditHistory(false)} />}
+      {showAddMemberModal && createPortal(
+        <AddFamilyMemberModal onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMember} />,
+        document.body,
+      )}
+      {showEditHistory && createPortal(
+        <ContractEditHistoryModal contract={contract} onClose={() => setShowEditHistory(false)} />,
+        document.body,
+      )}
     </div>
   );
 }
 import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Plus, Users } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
 import { formatLocalDateInput } from '../../lib/date-utils';
@@ -521,7 +555,15 @@ function normalizeText(value: string | undefined) {
 
 function isMeterService(service: any) {
   const name = normalizeText(service?.name || service?.serviceName || '');
-  return name.includes('dien') || name.includes('nuoc') || name.includes('water') || name.includes('electric');
+  const type = normalizeText(service?.serviceType || service?.loai || '');
+  return type.includes('dien') || type.includes('nuoc') || type.includes('water') || type.includes('electric')
+    || name.includes('dien') || name.includes('nuoc') || name.includes('water') || name.includes('electric');
+}
+
+function isWaterService(service: any) {
+  const name = normalizeText(service?.name || service?.serviceName || '');
+  const type = normalizeText(service?.serviceType || service?.loai || '');
+  return type.includes('nuoc') || type.includes('water') || name.includes('nuoc') || name.includes('water');
 }
 
 function isVehicleService(service: any) {
@@ -548,6 +590,24 @@ function formatServicePriceUpdatedAt(service: any) {
 function toNumber(value: any) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function appliesToBuilding(item: any, buildingId?: string | number | null) {
+  const targetBuildingId = buildingId == null || buildingId === '' ? '' : String(buildingId);
+  if (!targetBuildingId) return true;
+
+  const scopedBuildingIds = Array.isArray(item?.buildingIds)
+    ? item.buildingIds
+    : Array.isArray(item?.BuildingIds)
+      ? item.BuildingIds
+      : [];
+
+  if (scopedBuildingIds.length > 0) {
+    return scopedBuildingIds.map((id: any) => String(id)).includes(targetBuildingId);
+  }
+
+  const itemBuildingId = item?.buildingId ?? item?.BuildingId;
+  return !itemBuildingId || String(itemBuildingId) === targetBuildingId;
 }
 
 function getNextSequence(contracts: any[], year: number) {
@@ -762,10 +822,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   };
 
   const handleNameInput = (value: string) => {
-    const normalized = value.replace(/\s+/g, ' ');
-    const validValue = normalized.replace(/[^\p{L}\s.'-]/gu, '');
-    setTenantName(validValue);
-    setFieldError('tenantName', value !== validValue ? 'Sai định dạng. Họ tên chỉ được nhập chữ và khoảng trắng' : undefined);
+    setTenantName(value);
+    setFieldError('tenantName');
   };
 
   const handleDigitsInput = (field: string, value: string, setter: (next: string) => void, label: string, maxLength?: number) => {
@@ -797,7 +855,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     const nextErrors: Record<string, string> = {};
 
     if (tenantType === 'new') {
-      if (tenantName.trim() && !/^[\p{L}\s.'-]+$/u.test(tenantName.trim())) {
+      if (tenantName.trim() && !/^[\p{L}\p{M}\s.'-]+$/u.test(tenantName.trim())) {
         nextErrors.tenantName = 'Sai định dạng. Họ tên chỉ được nhập chữ và khoảng trắng';
       }
       if (tenantIdCard && !/^\d{9}$|^\d{12}$/.test(tenantIdCard)) {
@@ -869,14 +927,25 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     setShowCustomDurationInput(false);
   };
 
+  const availablePricingCatalog = useMemo(() => {
+    return activePricingCatalog.filter((service: any) => appliesToBuilding(service, selectedBuildingId));
+  }, [activePricingCatalog, selectedBuildingId]);
+
   const selectedServices = useMemo(() => {
     const selected = new Set(selectedServiceIds);
-    return activePricingCatalog.filter((s: any) => selected.has(Number(s.id ?? s.serviceId ?? 0)));
-  }, [activePricingCatalog, selectedServiceIds]);
+    return availablePricingCatalog.filter((s: any) => selected.has(Number(s.id ?? s.serviceId ?? 0)));
+  }, [availablePricingCatalog, selectedServiceIds]);
 
   const hasVehicleServiceSelected = useMemo(() => {
     return selectedServices.some((s: any) => isVehicleService(s) && !isMeterService(s));
   }, [selectedServices]);
+
+  useEffect(() => {
+    const availableServiceIds = new Set(
+      availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
+    );
+    setSelectedServiceIds(current => current.filter(serviceId => availableServiceIds.has(serviceId)));
+  }, [availablePricingCatalog]);
 
   const householdMemberCount = useMemo(() => {
     // Chủ hộ ở bước 2 luôn được thêm vào hợp đồng, bước 2B là thành viên ở cùng.
@@ -907,7 +976,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       rows.push({
         key: `svc-${id}`,
         sortOrder: index + 2,
-        itemType: meter ? (normalizeText(name).includes('nuoc') || normalizeText(name).includes('water') ? 'Nuoc' : 'Dien') : 'DichVu',
+        itemType: meter ? (isWaterService(service) ? 'Nuoc' : 'Dien') : 'DichVu',
         serviceId: id,
         serviceName: name,
         unitPrice: price,
@@ -1560,8 +1629,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
             </h4>
 
             <div className="space-y-2">
-              {activePricingCatalog.length > 0 ? (
-                activePricingCatalog.map((service: any) => (
+              {availablePricingCatalog.length > 0 ? (
+                availablePricingCatalog.map((service: any) => (
                   <button
                     type="button"
                     key={service.id || service.serviceId || service.name}
@@ -1586,7 +1655,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                   </button>
                 ))
               ) : (
-                <p className="text-sm text-gray-500">Chưa có dữ liệu danh mục đơn giá.</p>
+                <p className="text-sm text-gray-500">Chưa có dữ liệu danh mục đơn giá cho tòa này.</p>
               )}
             </div>
             <p className="text-xs text-gray-500 mt-3">
@@ -1687,8 +1756,9 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       </div>
 
       {/* Add Member Modal */}
-      {showAddMemberModal && (
-        <AddFamilyMemberModal onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMember} />
+      {showAddMemberModal && createPortal(
+        <AddFamilyMemberModal onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMember} />,
+        document.body,
       )}
     </div>
   );
@@ -1704,13 +1774,79 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
     email: '',
     avatar: '👤'
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.phone || !formData.idCard) {
-      alert('Vui lòng điền đầy đủ thông tin bắt buộc!');
+  const clearFieldError = (field: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const setFieldError = (field: string, message: string) => {
+    setFieldErrors((current) => ({ ...current, [field]: message }));
+  };
+
+  const handleNameChange = (value: string) => {
+    setFormData((current) => ({ ...current, name: value }));
+    if (value.trim() && !/^[\p{L}\p{M}\s.'-]+$/u.test(value.trim())) {
+      setFieldError('name', 'Sai định dạng. Họ tên chỉ được nhập chữ và khoảng trắng');
       return;
     }
-    onAdd(formData);
+    clearFieldError('name');
+  };
+
+  const handleDigitsChange = (field: 'phone' | 'idCard', value: string, maxLength: number, label: string) => {
+    const digitsOnly = value.replace(/\D/g, '').slice(0, maxLength);
+    setFormData((current) => ({ ...current, [field]: digitsOnly }));
+
+    if (value !== value.replace(/\D/g, '')) {
+      setFieldError(field, `Sai định dạng. Vui lòng chỉ nhập số cho ${label}`);
+      return;
+    }
+    clearFieldError(field);
+  };
+
+  const handleEmailChange = (value: string) => {
+    const trimmed = value.trim();
+    setFormData((current) => ({ ...current, email: trimmed }));
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setFieldError('email', 'Sai định dạng. Vui lòng nhập đúng định dạng email');
+      return;
+    }
+    clearFieldError('email');
+  };
+
+  const handleSubmit = () => {
+    const nextErrors: Record<string, string> = {};
+    const name = formData.name.trim().replace(/\s+/g, ' ');
+
+    if (!name) {
+      nextErrors.name = 'Vui lòng nhập họ và tên';
+    } else if (!/^[\p{L}\p{M}\s.'-]+$/u.test(name)) {
+      nextErrors.name = 'Sai định dạng. Họ tên chỉ được nhập chữ và khoảng trắng';
+    }
+    if (!/^0\d{9}$/.test(formData.phone)) {
+      nextErrors.phone = 'Sai định dạng. Số điện thoại phải gồm 10 số và bắt đầu bằng 0';
+    }
+    if (!/^\d{9}$|^\d{12}$/.test(formData.idCard)) {
+      nextErrors.idCard = 'Sai định dạng. CMND/CCCD phải gồm 9 hoặc 12 số';
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      nextErrors.email = 'Sai định dạng. Vui lòng nhập đúng định dạng email';
+    }
+
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    onAdd({
+      ...formData,
+      name,
+      email: formData.email.trim(),
+    });
   };
 
   const relationshipOptions = [
@@ -1760,19 +1896,22 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
                 type="text"
                 placeholder="VD: Trần Thị B"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => handleNameChange(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
               />
+              {fieldErrors.name && <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>}
             </div>
             <div>
               <label className="block text-sm text-gray-700 mb-2">CMND/CCCD *</label>
               <input 
                 type="text"
+                inputMode="numeric"
                 placeholder="VD: 001234567891"
                 value={formData.idCard}
-                onChange={(e) => setFormData({ ...formData, idCard: e.target.value })}
+                onChange={(e) => handleDigitsChange('idCard', e.target.value, 12, 'CMND/CCCD')}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
               />
+              {fieldErrors.idCard && <p className="mt-1 text-xs text-red-600">{fieldErrors.idCard}</p>}
             </div>
           </div>
 
@@ -1781,12 +1920,14 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
               <label className="block text-sm text-gray-700 mb-2">Số điện thoại *</label>
               <input 
                 type="text"
+                inputMode="numeric"
                 placeholder="VD: 0923456789"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => handleDigitsChange('phone', e.target.value, 10, 'Số điện thoại')}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
               />
               <p className="text-xs text-gray-500 mt-1">Dùng để đăng nhập App cư dân</p>
+              {fieldErrors.phone && <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>}
             </div>
             <div>
               <label className="block text-sm text-gray-700 mb-2">Email (Tùy chọn)</label>
@@ -1794,9 +1935,10 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
                 type="email"
                 placeholder="VD: tranthib@email.com"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => handleEmailChange(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
               />
+              {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
             </div>
           </div>
         </div>

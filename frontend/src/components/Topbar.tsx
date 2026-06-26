@@ -248,7 +248,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
 
           {showUserMenu && (
             <div
-              className="absolute right-0 z-[80] mt-2 w-64 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
+              className="app-dropdown-menu absolute right-0 z-[80] mt-2 w-64 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
               role="menu"
             >
               <div className="border-b border-gray-100 px-4 py-3">
@@ -257,7 +257,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
               </div>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-700 transition-colors hover:bg-red-50"
+                className="app-dropdown-item flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-700 transition-colors"
                 role="menuitem"
                 onClick={handleExitAdmin}
               >

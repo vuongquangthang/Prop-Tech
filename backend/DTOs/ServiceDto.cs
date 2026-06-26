@@ -14,6 +14,10 @@ public class ServiceDto
     public DateTime? EffectiveDate { get; set; }
     public DateTime? PriceUpdatedAt { get; set; }
     public int? OwnerUserId { get; set; }
+    public int? BuildingId { get; set; }
+    public string? BuildingName { get; set; }
+    public List<int> BuildingIds { get; set; } = new();
+    public List<string> BuildingNames { get; set; } = new();
 }
 
 /// <summary>
@@ -22,10 +26,12 @@ public class ServiceDto
 public class CreateServiceDto
 {
     public string Name { get; set; } = null!;
-    public string ServiceType { get; set; } = null!; // Cố định | Biến đổi
+    public string ServiceType { get; set; } = null!; // Điện | Nước | Gửi xe | Theo người | Cố định khác
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
     public DateTime? EffectiveDate { get; set; }
+    public int? BuildingId { get; set; }
+    public List<int>? BuildingIds { get; set; }
 }
 
 /// <summary>
@@ -40,6 +46,8 @@ public class UpdateServiceDto
     public bool? IsActive { get; set; }
     public DateTime? EffectiveDate { get; set; }
     public string? Reason { get; set; }
+    public int? BuildingId { get; set; }
+    public List<int>? BuildingIds { get; set; }
 }
 
 /// <summary>

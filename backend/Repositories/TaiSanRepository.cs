@@ -17,6 +17,9 @@ namespace backend.Repositories
         {
             return await _context.TaiSans
                 .Include(t => t.ChiTietTaiSanPhongs)
+                .Include(t => t.Building)
+                .Include(t => t.BuildingScopes)
+                    .ThenInclude(scope => scope.Building)
                 .Where(t => t.OwnerUserId == ownerUserId)
                 .OrderBy(t => t.AssetName)
                 .ToListAsync();
@@ -26,6 +29,9 @@ namespace backend.Repositories
         {
             return await _context.TaiSans
                 .Include(t => t.ChiTietTaiSanPhongs)
+                .Include(t => t.Building)
+                .Include(t => t.BuildingScopes)
+                    .ThenInclude(scope => scope.Building)
                 .FirstOrDefaultAsync(t => t.Id == id && t.OwnerUserId == ownerUserId);
         }
 
@@ -33,6 +39,9 @@ namespace backend.Repositories
         {
             return await _context.TaiSans
                 .Include(t => t.ChiTietTaiSanPhongs)
+                .Include(t => t.Building)
+                .Include(t => t.BuildingScopes)
+                    .ThenInclude(scope => scope.Building)
                 .FirstOrDefaultAsync(t => t.AssetCode == assetCode && t.OwnerUserId == ownerUserId);
         }
 
@@ -61,9 +70,13 @@ namespace backend.Repositories
             return true;
         }
 
-        public async Task<bool> ExistsByCodeAsync(string assetCode, int ownerUserId)
+        public async Task<bool> ExistsByCodeAsync(string assetCode, int ownerUserId, int? buildingId = null, int? excludeId = null)
         {
-            return await _context.TaiSans.AnyAsync(t => t.AssetCode == assetCode && t.OwnerUserId == ownerUserId);
+            return await _context.TaiSans.AnyAsync(t =>
+                t.AssetCode == assetCode
+                && t.OwnerUserId == ownerUserId
+                && t.BuildingId == buildingId
+                && (!excludeId.HasValue || t.Id != excludeId.Value));
         }
     }
 }

@@ -45,6 +45,10 @@ interface AssetOption {
   assetCode: string;
   totalRooms: number;
   totalQuantity: number;
+  buildingId?: number | null;
+  buildingName?: string | null;
+  buildingIds?: number[];
+  buildingNames?: string[];
 }
 
 const statusConfig = {
@@ -73,13 +77,33 @@ const resolveRoomImageUrl = (url?: string) => {
   return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
+const appliesToBuilding = (
+  item: { buildingId?: number | null; buildingIds?: number[] },
+  buildingId?: number | null,
+) => {
+  if (!buildingId) return true;
+
+  if (Array.isArray(item.buildingIds) && item.buildingIds.length > 0) {
+    return item.buildingIds.includes(buildingId);
+  }
+
+  return !item.buildingId || item.buildingId === buildingId;
+};
+
+const uniqueAssetNames = (assets: AssetOption[]) => Array.from(new Set(assets.map((asset) => asset.assetName)));
+
+const getDefaultServicePrices = (services: Service[]) => Object.fromEntries(
+  services.map((service) => [service.id, String(service.commonUnitPrice ?? 0)]),
+);
+
 interface RoomTableProps {
   selectedFloorId?: number | null;
   selectedBuildingId?: number | null;
   addRoomRequest?: { id: number; floorId: number } | null;
+  structureRefreshKey?: number;
 }
 
-export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest }: RoomTableProps = {}) {
+export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest, structureRefreshKey = 0 }: RoomTableProps = {}) {
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,7 +177,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
   useEffect(() => {
     fetchRooms();
     fetchFloors();
-  }, []);
+  }, [structureRefreshKey]);
 
   const fetchRooms = async () => {
     try {
@@ -236,9 +260,40 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
     : floors;
 
   const selectedAddFloor = floors.find(f => f.id === addFloorId);
+  const selectedAddBuildingId = selectedAddFloor?.buildingId ?? null;
+  const availableAddServices = serviceCatalog.filter(
+    service => appliesToBuilding(service, selectedAddBuildingId),
+  );
+  const availableAddAssets = assetCatalog.filter(
+    asset => appliesToBuilding(asset, selectedAddBuildingId),
+  );
+  const selectedEditFloor = selectedRoom ? floors.find(f => f.id === selectedRoom.floorId) : undefined;
+  const selectedEditBuildingId = selectedEditFloor?.buildingId ?? null;
+  const availableEditServices = serviceCatalog.filter(
+    service => appliesToBuilding(service, selectedEditBuildingId),
+  );
+  const availableEditAssets = assetCatalog.filter(
+    asset => appliesToBuilding(asset, selectedEditBuildingId),
+  );
   const addLocationLabel = selectedAddFloor
     ? `${selectedAddFloor.buildingName ? selectedAddFloor.buildingName : 'Tòa'} - Tầng ${selectedAddFloor.floorNumber}`
     : 'Chưa chọn tầng';
+
+  const handleAddFloorChange = (nextFloorId: number) => {
+    const nextFloor = floors.find(f => f.id === nextFloorId);
+    const nextBuildingId = nextFloor?.buildingId ?? null;
+    const nextServices = serviceCatalog.filter(
+      service => appliesToBuilding(service, nextBuildingId),
+    );
+    const nextAssets = assetCatalog.filter(
+      asset => appliesToBuilding(asset, nextBuildingId),
+    );
+
+    setAddFloorId(nextFloorId);
+    setAddServiceIds(nextServices.map(service => service.id));
+    setAddServicePrices(getDefaultServicePrices(nextServices));
+    setAddAmenities(uniqueAssetNames(nextAssets));
+  };
 
   const filteredRooms = rooms
     .filter(room =>
@@ -425,11 +480,20 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
 
 
     const openAddModal = async (preferredFloorId?: number) => {
-      try {
-      const services = await serviceService.getAll();
+    let services: Service[] = [];
+    let assets: AssetOption[] = [];
+    try {
+      const [serviceData, assetRes] = await Promise.all([
+        serviceService.getAll(),
+        api.get<AssetOption[]>(API_ENDPOINTS.ASSETS.BASE),
+      ]);
+      services = serviceData;
+      assets = assetRes.data ?? [];
       setServiceCatalog(services);
+      setAssetCatalog(assets);
     } catch {
       setServiceCatalog([]);
+      setAssetCatalog([]);
     }
 
     const defaultFloorId =
@@ -437,6 +501,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
       ?? (selectedFloorId != null && selectableFloors.some(f => f.id === selectedFloorId) ? selectedFloorId : null)
       ?? selectableFloors[0]?.id
       ?? 0;
+    const defaultFloor = floors.find(f => f.id === defaultFloorId);
+    const defaultBuildingId = defaultFloor?.buildingId ?? null;
+    const defaultServices = services.filter(service => appliesToBuilding(service, defaultBuildingId));
+    const defaultAssets = assets.filter(asset => appliesToBuilding(asset, defaultBuildingId));
 
     setAddFloorId(defaultFloorId);
     setAddRoomCode('');
@@ -450,16 +518,16 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
     setAddBedroomCount('');
     setAddKitchenCount('');
     setAddBathroomCount('');
-    setAddServiceIds([]);
+    setAddServiceIds(defaultServices.map(service => service.id));
     setCustomizeServicePrices(false);
-    setAddServicePrices({});
+    setAddServicePrices(getDefaultServicePrices(defaultServices));
     setAddImagePreviews([]);
     setAddImageFiles([]);
     setAddImageError(null);
     setAddDescription('');
     setAddFieldErrors({});
     setAddError(null);
-    await loadReferenceData();
+    setAddAmenities(uniqueAssetNames(defaultAssets));
     setShowAddModal(true);
   };
 
@@ -799,7 +867,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tầng *</label>
-                  <select value={addFloorId} onChange={e => setAddFloorId(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+                  <select value={addFloorId} onChange={e => handleAddFloorChange(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
                     {selectableFloors.length === 0 ? <option value={0}>Chưa có tầng nào</option> : selectableFloors.map(f => <option key={f.id} value={f.id}>Tầng {f.floorNumber}{f.buildingName ? ` - ${f.buildingName}` : ''}</option>)}
                   </select>
                 </div>
@@ -950,8 +1018,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
                     </button>
                   </div>
                   <div className="max-h-40 overflow-x-hidden overflow-y-auto rounded border border-gray-200">
-                    {serviceCatalog.length === 0 ? (
-                      <div className="p-3 text-xs text-gray-500">Chưa có dịch vụ nào</div>
+                    {availableAddServices.length === 0 ? (
+                      <div className="p-3 text-xs text-gray-500">Chưa có dịch vụ nào cho tòa này</div>
                     ) : (
                       <table className="!min-w-0 w-full table-fixed">
                         <colgroup>
@@ -967,7 +1035,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
                           </tr>
                         </thead>
                         <tbody>
-                          {serviceCatalog.map((service) => {
+                          {availableAddServices.map((service) => {
                             const selected = addServiceIds.includes(service.id);
                             const defaultPrice = Number(service.commonUnitPrice ?? 0);
                             const fieldError = addFieldErrors[`servicePrice-${service.id}`];
@@ -1037,10 +1105,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
                   <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded">
-                    {assetCatalog.length === 0 ? (
-                      <span className="text-xs text-gray-500">Chưa có tài sản nào trong kho</span>
+                    {availableAddAssets.length === 0 ? (
+                      <span className="text-xs text-gray-500">Chưa có tài sản nào cho tòa này</span>
                     ) : (
-                      assetCatalog.map((asset) => (
+                      availableAddAssets.map((asset) => (
                         <div className="flex items-center space-x-2" key={asset.id}>
                           <input
                             type="checkbox"
@@ -1421,10 +1489,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
-                    {serviceCatalog.length === 0 ? (
-                      <span className="text-xs text-gray-500">Chưa có dịch vụ nào</span>
+                    {availableEditServices.length === 0 ? (
+                      <span className="text-xs text-gray-500">Chưa có dịch vụ nào cho tòa này</span>
                     ) : (
-                      serviceCatalog.map((service) => (
+                      availableEditServices.map((service) => (
                         <div className="flex items-center space-x-2" key={service.id}>
                           <input
                             type="checkbox"
@@ -1445,10 +1513,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
-                    {assetCatalog.length === 0 ? (
-                      <span className="text-xs text-gray-500">Chưa có tài sản nào trong kho</span>
+                    {availableEditAssets.length === 0 ? (
+                      <span className="text-xs text-gray-500">Chưa có tài sản nào cho tòa này</span>
                     ) : (
-                      assetCatalog.map((asset) => (
+                      availableEditAssets.map((asset) => (
                         <div className="flex items-center space-x-2" key={asset.id}>
                           <input
                             type="checkbox"

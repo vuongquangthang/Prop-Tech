@@ -180,6 +180,10 @@ export interface Service {
   isActive: boolean;
   effectiveDate?: string;
   priceUpdatedAt?: string;
+  buildingId?: number | null;
+  buildingName?: string | null;
+  buildingIds?: number[];
+  buildingNames?: string[];
 }
 
 export interface ServicePriceHistory {

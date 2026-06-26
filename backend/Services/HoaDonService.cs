@@ -232,7 +232,7 @@ public class HoaDonService : IHoaDonService
                                         lineItem = new ChiTietHoaDon
                                         {
                                             ItemType = "Dien",
-                                            ServiceId = item.ServiceId,
+                                            ServiceId = elecUsage.ServiceId,
                                             ServiceUsageDetailId = elecUsage.Id,
                                             Description = $"Điện tháng {month}/{year}: {oldReading} → {curr.NewReading} = {consumption} kWh",
                                             Quantity = consumption,
@@ -261,7 +261,7 @@ public class HoaDonService : IHoaDonService
                                         lineItem = new ChiTietHoaDon
                                         {
                                             ItemType = "Nuoc",
-                                            ServiceId = item.ServiceId,
+                                            ServiceId = waterUsage.ServiceId,
                                             ServiceUsageDetailId = waterUsage.Id,
                                             Description = $"Nước tháng {month}/{year}: {oldReading} → {curr.NewReading} = {consumption} m³",
                                             Quantity = consumption,
@@ -856,7 +856,9 @@ public class HoaDonService : IHoaDonService
         var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
 
         return usages
-            .Where(u => u.ApplyFrom <= periodEnd && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+            .Where(u => u.Service.IsActive
+                && u.ApplyFrom <= periodEnd
+                && (u.ApplyTo == null || u.ApplyTo >= periodStart))
             .ToList();
     }
 

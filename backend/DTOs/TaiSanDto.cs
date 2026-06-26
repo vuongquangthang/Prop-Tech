@@ -6,6 +6,10 @@ namespace backend.DTOs
         public string AssetName { get; set; } = null!;
         public string AssetCode { get; set; } = null!;
         public int? OwnerUserId { get; set; }
+        public int? BuildingId { get; set; }
+        public string? BuildingName { get; set; }
+        public List<int> BuildingIds { get; set; } = new();
+        public List<string> BuildingNames { get; set; } = new();
         
         // Aggregated info
         public int TotalRooms { get; set; }
@@ -16,12 +20,16 @@ namespace backend.DTOs
     {
         public string AssetName { get; set; } = null!;
         public string AssetCode { get; set; } = null!;
+        public int? BuildingId { get; set; }
+        public List<int>? BuildingIds { get; set; }
     }
 
     public class UpdateTaiSanDto
     {
         public string? AssetName { get; set; }
         public string? AssetCode { get; set; }
+        public int? BuildingId { get; set; }
+        public List<int>? BuildingIds { get; set; }
     }
 
     public class ChiTietTaiSanPhongDto
