@@ -2,6 +2,7 @@ import { X, CheckCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { notificationService, Notification } from '../services/feature.service';
+import { formatDisplayDate } from '../lib/date-utils';
 
 interface NotificationPanelProps {
   onClose: () => void;
@@ -92,7 +93,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
     if (diff < 60) return 'Vừa xong';
     if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
     if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
-    return date.toLocaleDateString('vi-VN');
+    return formatDisplayDate(date);
   };
 
   return (

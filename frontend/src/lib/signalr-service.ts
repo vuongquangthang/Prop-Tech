@@ -1,6 +1,7 @@
 // SignalR Service for Real-time Updates
 import * as signalR from '@microsoft/signalr';
 import { API_CONFIG } from './api-config';
+import { getStoredAuthToken } from './api-client';
 
 export class SignalRService {
   private connection: signalR.HubConnection | null = null;
@@ -9,7 +10,7 @@ export class SignalRService {
   constructor(private hubUrl: string) {
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(`${API_CONFIG.BASE_URL}${hubUrl}`, {
-        accessTokenFactory: () => localStorage.getItem('token') || '',
+        accessTokenFactory: () => getStoredAuthToken() || '',
       })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {

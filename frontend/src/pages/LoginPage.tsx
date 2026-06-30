@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from 'react-router';
 import { getDefaultRoute } from '../lib/roles';
 import { Eye, EyeOff } from 'lucide-react';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import { getStoredUser } from '../lib/api-client';
 
 export function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -22,8 +23,8 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(phoneNumber, password);
-      const userDataStr = localStorage.getItem('user');
+      await login(phoneNumber, password, rememberMe);
+      const userDataStr = getStoredUser();
       if (userDataStr) {
         const userData = JSON.parse(userDataStr);
         const defaultRoute = getDefaultRoute(userData.role);
@@ -63,7 +64,9 @@ export function LoginPage() {
             )}
 
             <div className="auth-field">
+              <label className="auth-label" htmlFor="login-phone-number">Tài khoản</label>
               <input 
+                id="login-phone-number"
                 type="text" 
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
@@ -75,7 +78,9 @@ export function LoginPage() {
             </div>
 
             <div className="auth-field auth-password-field">
+              <label className="auth-label" htmlFor="login-password">Mật khẩu</label>
               <input 
+                id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

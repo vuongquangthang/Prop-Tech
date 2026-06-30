@@ -195,7 +195,6 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Service>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.OwnerUserId, e.Name }).IsUnique();
             entity.HasOne(e => e.OwnerUser)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerUserId)

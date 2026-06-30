@@ -3,6 +3,7 @@ import { maintenanceService, notificationService } from '../services/feature.ser
 import { invoiceService, paymentService } from '../services/api.service';
 import { notificationHub, initializeSignalR, disconnectSignalR } from '../lib/signalr-service';
 import { useAuth } from './AuthContext';
+import { formatDisplayDate } from '../lib/date-utils';
 
 // Types
 export interface Incident {
@@ -225,7 +226,7 @@ function formatTime(dateString: string): string {
   if (diffInHours < 24) return `${diffInHours} giờ trước`;
   if (diffInDays < 7) return `${diffInDays} ngày trước`;
   
-  return date.toLocaleDateString('vi-VN');
+  return formatDisplayDate(date);
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {

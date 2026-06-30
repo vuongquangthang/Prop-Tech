@@ -1,19 +1,18 @@
-import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX, ChevronDown, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX, Filter } from 'lucide-react';
 import { useMemo, useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { buildingService, serviceService, ServicePriceHistory } from '../../services/api.service';
-import { formatLocalDateInput, toLocalIsoString } from '../../lib/date-utils';
+import { formatDisplayDate, formatLocalDateInput, toLocalIsoString } from '../../lib/date-utils';
 import { PageHeader } from '../ui/product-system';
+import { FilterSelect } from '../ui/FilterSelect';
+import { DateTextInput } from '../ui/DateTextInput';
 
-const DEFAULT_SERVICE_UNITS = ['Năm', 'Quý', 'Tháng', 'Người', 'kWh', 'm³'];
-const SERVICE_UNITS_STORAGE_KEY = 'prop-tech-service-units';
-const SERVICE_TYPES = ['Điện', 'Nước', 'Gửi xe', 'Theo người', 'Cố định khác'] as const;
+const SERVICE_TYPES = ['Điện', 'Nước', 'Cần nhập số lượng', 'Theo tháng'] as const;
 type ServiceTypeValue = typeof SERVICE_TYPES[number];
 const SERVICE_TYPE_DEFAULT_UNITS: Record<ServiceTypeValue, string> = {
   'Điện': 'kWh',
   'Nước': 'm³',
-  'Gửi xe': 'Tháng',
-  'Theo người': 'Người',
-  'Cố định khác': 'Tháng',
+  'Cần nhập số lượng': 'Lần',
+  'Theo tháng': 'Tháng',
 };
 
 interface ServiceData {
@@ -64,16 +63,16 @@ const normalizeServiceType = (raw: string | undefined, serviceName?: string): Se
     return 'Nước';
   }
   if (searchable.includes('xe') || searchable.includes('parking')) {
-    return 'Gửi xe';
+    return 'Cần nhập số lượng';
   }
   if (searchable.includes('nguoi') || searchable.includes('person')) {
-    return 'Theo người';
+    return 'Cần nhập số lượng';
   }
   if (value.includes('cố định') || value.includes('co dinh') || value.includes('fixed')) {
-    return 'Cố định khác';
+    return 'Theo tháng';
   }
 
-  return raw?.trim() || 'Cố định khác';
+  return raw?.trim() || 'Theo tháng';
 };
 
 export function ServiceTable() {
@@ -85,8 +84,11 @@ export function ServiceTable() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
-  const [serviceType, setServiceType] = useState<ServiceTypeValue>('Cố định khác');
+  const [serviceType, setServiceType] = useState<ServiceTypeValue>('Theo tháng');
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<'all' | ServiceTypeValue>('all');
+  const [serviceBuildingFilter, setServiceBuildingFilter] = useState('all');
 
   // Add form state
   const [addName, setAddName] = useState('');
@@ -97,10 +99,6 @@ export function ServiceTable() {
   const [addBuildingIds, setAddBuildingIds] = useState<number[]>([]);
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [unitOptions, setUnitOptions] = useState<string[]>(DEFAULT_SERVICE_UNITS);
-  const [unitMenuOpen, setUnitMenuOpen] = useState(false);
-  const [addingCustomUnit, setAddingCustomUnit] = useState(false);
-  const [customUnit, setCustomUnit] = useState('');
   const [priceScale, setPriceScale] = useState<'unit' | 'thousand' | 'million'>('thousand');
   const [priceError, setPriceError] = useState('');
 
@@ -114,13 +112,10 @@ export function ServiceTable() {
   const [updatePriceScale, setUpdatePriceScale] = useState<'unit' | 'thousand' | 'million'>('thousand');
   const [updatePriceFormatError, setUpdatePriceFormatError] = useState('');
   const [editName, setEditName] = useState('');
-  const [editServiceType, setEditServiceType] = useState<ServiceTypeValue>('Cố định khác');
+  const [editServiceType, setEditServiceType] = useState<ServiceTypeValue>('Theo tháng');
   const [editUnit, setEditUnit] = useState('');
   const [editScopeMode, setEditScopeMode] = useState<'common' | 'private'>('common');
   const [editBuildingIds, setEditBuildingIds] = useState<number[]>([]);
-  const [editUnitMenuOpen, setEditUnitMenuOpen] = useState(false);
-  const [editAddingCustomUnit, setEditAddingCustomUnit] = useState(false);
-  const [editCustomUnit, setEditCustomUnit] = useState('');
 
   // Price history state
   const [priceHistory, setPriceHistory] = useState<ServicePriceHistory[]>([]);
@@ -133,14 +128,6 @@ export function ServiceTable() {
   useEffect(() => {
     fetchServices();
     fetchBuildings();
-    try {
-      const savedUnits = JSON.parse(localStorage.getItem(SERVICE_UNITS_STORAGE_KEY) || '[]') as string[];
-      if (Array.isArray(savedUnits)) {
-        setUnitOptions(Array.from(new Set([...DEFAULT_SERVICE_UNITS, ...savedUnits.filter(Boolean)])));
-      }
-    } catch {
-      setUnitOptions(DEFAULT_SERVICE_UNITS);
-    }
   }, []);
 
   const fetchBuildings = async () => {
@@ -163,38 +150,101 @@ export function ServiceTable() {
   const serviceGroups = useMemo<ServiceGroup[]>(() => {
     const grouped = new Map<string, ServiceData[]>();
     services.forEach((service) => {
-      const key = `${normalizeText(service.name)}__${normalizeText(service.type)}__${normalizeText(service.unit)}`;
+      const scopedBuildingIds = service.buildingIds?.length
+        ? service.buildingIds
+        : typeof service.buildingId === 'number'
+          ? [service.buildingId]
+          : [];
+      const scopeKey = scopedBuildingIds.length > 0
+        ? `private:${[...scopedBuildingIds].sort((a, b) => a - b).join(',')}`
+        : 'common';
+      const key = `${normalizeText(service.name)}__${normalizeText(service.type)}__${normalizeText(service.unit)}__${scopeKey}`;
       grouped.set(key, [...(grouped.get(key) || []), service]);
     });
 
-    return Array.from(grouped.values()).map((items) => {
-      const first = items[0];
-      const prices = Array.from(new Set(items.map((item) => Number(item.price || 0))));
-      const buildingIds = items.flatMap((item) =>
-        item.buildingIds?.length
-          ? item.buildingIds
-          : typeof item.buildingId === 'number'
-            ? [item.buildingId]
-            : [],
-      );
-      const buildingNames = items.flatMap((item) =>
-        item.buildingNames?.length
-          ? item.buildingNames
-          : item.buildingName
-            ? [item.buildingName]
-            : [],
-      );
+    return Array.from(grouped.values())
+      .map((items) => {
+        const first = items[0];
+        const prices = Array.from(new Set(items.map((item) => Number(item.price || 0))));
+        const buildingIds = items.flatMap((item) =>
+          item.buildingIds?.length
+            ? item.buildingIds
+            : typeof item.buildingId === 'number'
+              ? [item.buildingId]
+              : [],
+        );
+        const buildingNames = items.flatMap((item) =>
+          item.buildingNames?.length
+            ? item.buildingNames
+            : item.buildingName
+              ? [item.buildingName]
+              : [],
+        );
 
-      return {
-        ...first,
-        items,
-        serviceIds: items.map((item) => item.id),
-        buildingIds: Array.from(new Set(buildingIds)),
-        buildingNames: Array.from(new Set(buildingNames)),
-        hasMixedPrices: prices.length > 1,
-      };
-    });
+        return {
+          ...first,
+          items,
+          serviceIds: items.map((item) => item.id),
+          buildingIds: Array.from(new Set(buildingIds)),
+          buildingNames: Array.from(new Set(buildingNames)),
+          hasMixedPrices: prices.length > 1,
+        };
+      })
+      .sort((first, second) => {
+        const firstIsCommon = first.buildingIds.length === 0;
+        const secondIsCommon = second.buildingIds.length === 0;
+        if (firstIsCommon !== secondIsCommon) return firstIsCommon ? -1 : 1;
+
+        const firstBuilding = firstIsCommon ? 'Áp dụng chung' : (first.buildingNames[0] || `Tòa #${first.buildingIds[0]}`);
+        const secondBuilding = secondIsCommon ? 'Áp dụng chung' : (second.buildingNames[0] || `Tòa #${second.buildingIds[0]}`);
+        const buildingCompare = firstBuilding.localeCompare(secondBuilding, 'vi');
+        if (buildingCompare !== 0) return buildingCompare;
+
+        return first.name.localeCompare(second.name, 'vi');
+      });
   }, [services]);
+
+  const getServiceBuildingDisplay = (service: ServiceGroup) => {
+    if (service.buildingIds.length === 0) {
+      return 'Áp dụng chung';
+    }
+
+    if (service.buildingIds.length > 1) {
+      return `${service.buildingIds.length} tòa nhà`;
+    }
+
+    if (service.buildingNames.length > 0) {
+      return service.buildingNames[0];
+    }
+
+    return `Tòa #${service.buildingIds[0]}`;
+  };
+
+  const filteredServiceGroups = useMemo(() => {
+    const normalizedSearch = normalizeText(serviceSearch);
+
+    return serviceGroups.filter((service) => {
+      const buildingDisplay = getServiceBuildingDisplay(service);
+      const searchableText = normalizeText([
+        service.name,
+        service.type,
+        service.unit,
+        service.date,
+        buildingDisplay,
+        service.hasMixedPrices ? 'Nhiều mức giá' : String(service.price ?? ''),
+      ].join(' '));
+
+      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+      const matchesType = serviceTypeFilter === 'all' || service.type === serviceTypeFilter;
+      const matchesBuilding =
+        serviceBuildingFilter === 'all'
+          || (serviceBuildingFilter === 'common' && service.buildingIds.length === 0)
+          || (serviceBuildingFilter !== 'common'
+            && service.buildingIds.includes(Number(serviceBuildingFilter)));
+
+      return matchesSearch && matchesType && matchesBuilding;
+    });
+  }, [serviceGroups, serviceSearch, serviceTypeFilter, serviceBuildingFilter]);
 
   const getBuildingLabel = (building: BuildingOption) => building.buildingName || building.name || `Tòa #${building.id}`;
 
@@ -237,47 +287,11 @@ export function ServiceTable() {
   const handleServiceTypeChange = (nextType: ServiceTypeValue) => {
     setServiceType(nextType);
     setAddUnit(SERVICE_TYPE_DEFAULT_UNITS[nextType]);
-    setUnitMenuOpen(false);
-    setAddingCustomUnit(false);
   };
 
   const handleEditServiceTypeChange = (nextType: ServiceTypeValue) => {
     setEditServiceType(nextType);
     setEditUnit(SERVICE_TYPE_DEFAULT_UNITS[nextType]);
-    setEditUnitMenuOpen(false);
-    setEditAddingCustomUnit(false);
-  };
-
-  const saveCustomUnit = () => {
-    const normalizedUnit = customUnit.trim();
-    if (!normalizedUnit) return;
-
-    const nextUnits = Array.from(new Set([...unitOptions, normalizedUnit]));
-    setUnitOptions(nextUnits);
-    setAddUnit(normalizedUnit);
-    localStorage.setItem(
-      SERVICE_UNITS_STORAGE_KEY,
-      JSON.stringify(nextUnits.filter((unit) => !DEFAULT_SERVICE_UNITS.includes(unit))),
-    );
-    setCustomUnit('');
-    setAddingCustomUnit(false);
-    setUnitMenuOpen(false);
-  };
-
-  const saveEditCustomUnit = () => {
-    const normalizedUnit = editCustomUnit.trim();
-    if (!normalizedUnit) return;
-
-    const nextUnits = Array.from(new Set([...unitOptions, normalizedUnit]));
-    setUnitOptions(nextUnits);
-    setEditUnit(normalizedUnit);
-    localStorage.setItem(
-      SERVICE_UNITS_STORAGE_KEY,
-      JSON.stringify(nextUnits.filter((unit) => !DEFAULT_SERVICE_UNITS.includes(unit))),
-    );
-    setEditCustomUnit('');
-    setEditAddingCustomUnit(false);
-    setEditUnitMenuOpen(false);
   };
 
   const fetchServices = async () => {
@@ -294,9 +308,7 @@ export function ServiceTable() {
         type: normalizeServiceType(service.serviceType || service.loaiDichVu, service.name || service.serviceName || service.tenDichVu),
         unit: service.unit || service.donVi || '',
         price: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
-        date: service.effectiveDate
-          ? (() => { const d = new Date(service.effectiveDate); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; })()
-          : '—',
+        date: formatDisplayDate(service.effectiveDate),
         effectiveDate: service.effectiveDate,
         mandatory: service.isMandatory !== undefined ? service.isMandatory : false,
         buildingId: service.buildingId ?? null,
@@ -318,8 +330,8 @@ export function ServiceTable() {
     setSelectedService(service);
     const normalizedType = normalizeServiceType(service.type, service.name) as ServiceTypeValue;
     setEditName(service.name || '');
-    setEditServiceType(SERVICE_TYPES.includes(normalizedType) ? normalizedType : 'Cố định khác');
-    setEditUnit(service.unit || SERVICE_TYPE_DEFAULT_UNITS['Cố định khác']);
+    setEditServiceType(SERVICE_TYPES.includes(normalizedType) ? normalizedType : 'Theo tháng');
+    setEditUnit(service.unit || SERVICE_TYPE_DEFAULT_UNITS['Theo tháng']);
     const scopedBuildingIds = service.buildingIds?.length ? service.buildingIds : service.buildingId ? [service.buildingId] : [];
     setEditScopeMode(scopedBuildingIds.length > 0 ? 'private' : 'common');
     setEditBuildingIds(scopedBuildingIds);
@@ -329,9 +341,6 @@ export function ServiceTable() {
     setUpdateError(null);
     setUpdatePriceScale('thousand');
     setUpdatePriceFormatError('');
-    setEditUnitMenuOpen(false);
-    setEditAddingCustomUnit(false);
-    setEditCustomUnit('');
     setShowUpdatePriceConfirm(false);
     setShowUpdatePriceModal(true);
   };
@@ -357,9 +366,9 @@ export function ServiceTable() {
     setAddName(''); setAddUnit(''); setAddPrice(''); setAddError(null); setAddEffectiveDate(formatLocalDateInput());
     setAddScopeMode('common');
     setAddBuildingIds([]);
-    setPriceScale('thousand'); setPriceError(''); setUnitMenuOpen(false); setAddingCustomUnit(false); setCustomUnit('');
-    setServiceType('Cố định khác');
-    setAddUnit(SERVICE_TYPE_DEFAULT_UNITS['Cố định khác']);
+    setPriceScale('thousand'); setPriceError('');
+    setServiceType('Theo tháng');
+    setAddUnit(SERVICE_TYPE_DEFAULT_UNITS['Theo tháng']);
     setShowAddModal(true);
   };
 
@@ -369,7 +378,7 @@ export function ServiceTable() {
       return;
     }
     if (!addName.trim() || !addUnit || !addPrice) {
-      setAddError('Vui lòng nhập tên dịch vụ, chọn đơn vị tính và đơn giá');
+      setAddError('Vui lòng nhập tên dịch vụ, loại dịch vụ và đơn giá');
       return;
     }
     if (priceError || !Number.isFinite(addPriceVnd) || addPriceVnd <= 0) {
@@ -408,7 +417,7 @@ export function ServiceTable() {
       return;
     }
     if (!editName.trim() || !editUnit) {
-      setUpdateError('Vui lòng nhập tên dịch vụ và chọn đơn vị tính');
+      setUpdateError('Vui lòng nhập tên dịch vụ và loại dịch vụ');
       return;
     }
     if (!updateNewPrice) {
@@ -519,14 +528,81 @@ export function ServiceTable() {
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá - {serviceGroups.length} dịch vụ</h2>
+        <div className="border-b border-gray-300 px-6 py-4 space-y-4">
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá - {filteredServiceGroups.length}/{serviceGroups.length} dịch vụ</h2>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Filter size={18} style={{ color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }} />
+            <input
+              type="text"
+              value={serviceSearch}
+              onChange={(event) => setServiceSearch(event.target.value)}
+              placeholder="Tìm tên dịch vụ, tòa nhà, loại, đơn vị..."
+              style={{
+                padding: '7px 12px',
+                border: '1px solid var(--surface-border)',
+                borderRadius: 'var(--radius-button)',
+                fontSize: '14px',
+                width: '260px',
+                minWidth: '260px',
+                maxWidth: '260px',
+                flex: '0 0 260px',
+                backgroundColor: 'var(--surface-card)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <FilterSelect
+              value={serviceTypeFilter}
+              onChange={(event) => setServiceTypeFilter(event.target.value as 'all' | ServiceTypeValue)}
+              wrapperClassName="w-[180px] min-w-[180px] max-w-[180px] flex-none"
+              className="w-full"
+              style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
+            >
+              <option value="all">Tất cả loại</option>
+              {SERVICE_TYPES.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </FilterSelect>
+            <FilterSelect
+              value={serviceBuildingFilter}
+              onChange={(event) => setServiceBuildingFilter(event.target.value)}
+              wrapperClassName="w-[220px] min-w-[220px] max-w-[220px] flex-none"
+              className="w-full"
+              style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
+            >
+              <option value="all">Tất cả phạm vi</option>
+              <option value="common">Áp dụng chung</option>
+              {buildings.map((building) => (
+                <option key={building.id} value={String(building.id)}>{getBuildingLabel(building)}</option>
+              ))}
+            </FilterSelect>
+            <button
+              type="button"
+              onClick={() => {
+                setServiceSearch('');
+                setServiceTypeFilter('all');
+                setServiceBuildingFilter('all');
+              }}
+              disabled={!serviceSearch && serviceTypeFilter === 'all' && serviceBuildingFilter === 'all'}
+              className="w-[78px] min-w-[78px] max-w-[78px] flex-none px-3 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:pointer-events-none"
+              style={{ visibility: (serviceSearch || serviceTypeFilter !== 'all' || serviceBuildingFilter !== 'all') ? 'visible' : 'hidden' }}
+            >
+              Xóa lọc
+            </button>
+            <div style={{ flex: 1 }} />
+          </div>
         </div>
         
         {serviceGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
             <FileX size={48} className="text-gray-300" />
             <p className="text-gray-500">Chưa có dịch vụ nào được cấu hình</p>
+          </div>
+        ) : filteredServiceGroups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <FileX size={48} className="text-gray-300" />
+            <p className="text-gray-500">Không tìm thấy dịch vụ phù hợp với bộ lọc</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -543,11 +619,11 @@ export function ServiceTable() {
                 </tr>
               </thead>
               <tbody>
-                {serviceGroups.map((service) => (
+                {filteredServiceGroups.map((service) => (
                   <tr key={service.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-800">{service.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {service.buildingNames.length > 0 ? `${service.buildingNames.length} tòa nhà` : 'Chưa gắn tòa'}
+                      {getServiceBuildingDisplay(service)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       <span className={`admin-status-badge inline-block px-3 py-1 text-xs rounded border ${
@@ -555,9 +631,7 @@ export function ServiceTable() {
                           ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
                           : service.type === 'Nước'
                             ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : service.type === 'Gửi xe'
-                              ? 'bg-purple-50 text-purple-800 border-purple-200'
-                              : service.type === 'Theo người'
+                            : service.type === 'Cần nhập số lượng'
                                 ? 'bg-green-50 text-green-800 border-green-200'
                                 : 'bg-gray-100 text-gray-800 border-gray-300'
                       }`}>
@@ -607,12 +681,7 @@ export function ServiceTable() {
         )}
       </div>
       
-      {/* Info Box */}
-      <div className="bg-gray-100 border border-gray-300 rounded p-4">
-        <p className="text-sm text-gray-700">
-          <strong>Lưu ý:</strong> Khi cập nhật đơn giá mới, hệ thống sẽ lưu lịch sử thay đổi để đảm bảo các hóa đơn cũ không bị ảnh hưởng.
-        </p>
-      </div>
+      
 
       {/* Add Service Modal */}
       {showAddModal && (
@@ -717,76 +786,8 @@ export function ServiceTable() {
                 </div>
                 
 
-              {/* Unit & Price */}
+              {/* Price */}
                 <div className="grid grid-cols-2 gap-4">
-                <div className="relative">
-                  <label className="block text-sm text-gray-700 mb-2">Đơn vị tính *</label>
-                  <button
-                    type="button"
-                    onClick={() => setUnitMenuOpen((open) => !open)}
-                    className="service-unit-trigger flex w-full items-center justify-between px-3 text-left text-sm"
-                  >
-                    <span className={addUnit ? 'text-gray-800' : 'text-gray-400'}>
-                      {addUnit || 'Chọn đơn vị tính'}
-                    </span>
-                    <ChevronDown size={16} className={`text-gray-500 transition-transform ${unitMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {unitMenuOpen && (
-                    <div className="app-dropdown-menu absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded border border-gray-300 bg-white shadow-lg">
-                      <div className="max-h-52 overflow-y-auto p-1">
-                        {unitOptions.map((unit) => (
-                          <button
-                            key={unit}
-                            type="button"
-                            onClick={() => {
-                              setAddUnit(unit);
-                              setUnitMenuOpen(false);
-                              setAddingCustomUnit(false);
-                            }}
-                            className={`app-dropdown-item flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-gray-700 ${addUnit === unit ? 'is-selected' : ''}`}
-                          >
-                            <span>{unit}</span>
-                            {addUnit === unit && <Check size={15} className="text-blue-600" />}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="border-t border-gray-200 p-2">
-                        {addingCustomUnit ? (
-                          <div className="flex gap-2">
-                            <input
-                              autoFocus
-                              type="text"
-                              value={customUnit}
-                              onChange={(event) => setCustomUnit(event.target.value)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault();
-                                  saveCustomUnit();
-                                }
-                              }}
-                              placeholder="Nhập đơn vị mới"
-                              className="min-w-0 flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-                            />
-                            <button type="button" onClick={saveCustomUnit} disabled={!customUnit.trim()} className="rounded bg-gray-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">
-                              LƯU
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setAddingCustomUnit(true)}
-                            className="app-dropdown-item flex w-full items-center justify-center gap-1 rounded px-3 py-2 text-sm font-semibold text-blue-700"
-                          >
-                            <Plus size={15} />
-                            THÊM ĐƠN VỊ
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Đơn giá *</label>
                   {priceError && <p className="mb-1.5 text-xs text-red-600">{priceError}</p>}
@@ -815,14 +816,11 @@ export function ServiceTable() {
                       : 'Ví dụ: nhập 1 và chọn “triệu” = 1.000.000 VNĐ'}
                   </p>
                 </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Ngày áp dụng *</label>
-                  <input
-                    type="date"
+                  <DateTextInput
                     value={addEffectiveDate}
-                    onChange={e => setAddEffectiveDate(e.target.value)}
+                    onChange={setAddEffectiveDate}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   />
                 </div>
@@ -978,78 +976,6 @@ export function ServiceTable() {
                 </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                <label className="block text-sm text-gray-700 mb-2">Đơn vị tính *</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setEditUnitMenuOpen((open) => !open)}
-                    className="service-unit-trigger flex w-full items-center justify-between px-3 text-left text-sm"
-                  >
-                    <span className={editUnit ? 'text-gray-800' : 'text-gray-400'}>
-                      {editUnit || 'Chọn đơn vị tính'}
-                    </span>
-                    <ChevronDown size={16} className={`text-gray-500 transition-transform ${editUnitMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {editUnitMenuOpen && (
-                    <div className="app-dropdown-menu absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded border border-gray-300 bg-white shadow-lg">
-                      <div className="max-h-52 overflow-y-auto p-1">
-                        {unitOptions.map((unit) => (
-                          <button
-                            key={unit}
-                            type="button"
-                            onClick={() => {
-                              setEditUnit(unit);
-                              setEditUnitMenuOpen(false);
-                              setEditAddingCustomUnit(false);
-                            }}
-                            className={`app-dropdown-item flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-gray-700 ${editUnit === unit ? 'is-selected' : ''}`}
-                          >
-                            <span>{unit}</span>
-                            {editUnit === unit && <Check size={15} className="text-blue-600" />}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="border-t border-gray-200 p-2">
-                        {editAddingCustomUnit ? (
-                          <div className="flex gap-2">
-                            <input
-                              autoFocus
-                              type="text"
-                              value={editCustomUnit}
-                              onChange={(event) => setEditCustomUnit(event.target.value)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault();
-                                  saveEditCustomUnit();
-                                }
-                              }}
-                              placeholder="Nhập đơn vị mới"
-                              className="min-w-0 flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-                            />
-                            <button type="button" onClick={saveEditCustomUnit} disabled={!editCustomUnit.trim()} className="rounded bg-gray-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">
-                              LƯU
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditAddingCustomUnit(true)}
-                            className="app-dropdown-item flex w-full items-center justify-center gap-1 rounded px-3 py-2 text-sm font-semibold text-blue-700"
-                          >
-                            <Plus size={15} />
-                            THÊM ĐƠN VỊ
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                </div>
-
-              {/* Price */}
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Đơn giá *</label>
                 {updatePriceFormatError && <p className="mb-1.5 text-xs text-red-600">{updatePriceFormatError}</p>}
@@ -1078,21 +1004,18 @@ export function ServiceTable() {
                     : 'Ví dụ: nhập 40 và chọn “nghìn” = 40.000 VNĐ'}
                 </p>
               </div>
-              </div>
 
-              {/* Apply Date */}
-              <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Ngày áp dụng *</label>
-                <input 
-                  type="date"
+                <DateTextInput
                   value={updateEffectiveDate}
-                  onChange={e => setUpdateEffectiveDate(e.target.value)}
+                  onChange={setUpdateEffectiveDate}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Thông tin/giá mới chỉ áp dụng từ ngày này trở đi. Các hóa đơn cũ vẫn giữ nguyên giá
                 </p>
+              </div>
               </div>
 
               {/* Reason */}
@@ -1105,7 +1028,6 @@ export function ServiceTable() {
                   onChange={e => setUpdateReason(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
-              </div>
               </div>
 
               {updateError && (
@@ -1220,8 +1142,7 @@ export function ServiceTable() {
                     </thead>
                     <tbody>
                       {priceHistory.map((history, index) => {
-                        const d = new Date(history.effectiveDate);
-                        const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+                        const dateStr = formatDisplayDate(history.effectiveDate);
                         return (
                           <tr key={history.id} className="border-b border-gray-200 hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm text-gray-700">{index + 1}</td>

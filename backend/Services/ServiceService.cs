@@ -143,20 +143,25 @@ public class ServiceService : IServiceService
         var buildingIds = NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId);
         await EnsureOwnsBuildingsAsync(buildingIds, ownerUserId);
 
-        var existingService = await _context.Services
+        var existingServices = await _context.Services
             .Include(service => service.PriceHistories)
             .Include(service => service.Building)
             .Include(service => service.BuildingScopes)
                 .ThenInclude(scope => scope.Building)
-            .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId
-                && item.Name == serviceName);
+            .Where(item => item.OwnerUserId == ownerUserId
+                && item.Name == serviceName)
+            .ToListAsync();
+        var conflictingActiveService = existingServices
+            .FirstOrDefault(item => item.IsActive && ServiceScopesConflict(GetServiceBuildingIds(item), buildingIds));
+        if (conflictingActiveService != null)
+        {
+            throw new InvalidOperationException($"Dịch vụ '{serviceName}' đã tồn tại trong phạm vi này");
+        }
+
+        var existingService = existingServices
+            .FirstOrDefault(item => !item.IsActive && ServiceScopesEqual(GetServiceBuildingIds(item), buildingIds));
         if (existingService != null)
         {
-            if (existingService.IsActive)
-            {
-                throw new InvalidOperationException($"Dịch vụ '{serviceName}' đã tồn tại");
-            }
-
             var effectiveDate = dto.EffectiveDate ?? DateTime.UtcNow;
             var newPrice = dto.CommonUnitPrice ?? existingService.CommonUnitPrice;
             if (newPrice.HasValue && newPrice.Value != (existingService.CommonUnitPrice ?? 0))
@@ -214,17 +219,34 @@ public class ServiceService : IServiceService
         }
 
         var nextName = string.IsNullOrWhiteSpace(dto.Name) ? null : dto.Name.Trim();
+        var hasScopeUpdate = dto.BuildingIds != null || dto.BuildingId.HasValue;
+        var nextBuildingIds = hasScopeUpdate
+            ? NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId)
+            : GetServiceBuildingIds(service);
+        if (hasScopeUpdate)
+        {
+            await EnsureOwnsBuildingsAsync(nextBuildingIds, ownerUserId);
+        }
+
+        var effectiveName = nextName ?? service.Name;
+        if ((nextName != null && nextName != service.Name) || hasScopeUpdate)
+        {
+            var sameNameServices = await _context.Services
+                .AsNoTracking()
+                .Include(item => item.BuildingScopes)
+                .Where(item => item.OwnerUserId == ownerUserId
+                    && item.Id != service.Id
+                    && item.IsActive
+                    && item.Name == effectiveName)
+                .ToListAsync();
+            if (sameNameServices.Any(item => ServiceScopesConflict(GetServiceBuildingIds(item), nextBuildingIds)))
+            {
+                throw new InvalidOperationException($"Dịch vụ '{effectiveName}' đã tồn tại trong phạm vi này");
+            }
+        }
+
         if (nextName != null && nextName != service.Name)
         {
-            var existingService = await _context.Services
-                .AsNoTracking()
-                .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId
-                    && item.Name == nextName);
-            if (existingService != null)
-            {
-                throw new InvalidOperationException($"Dịch vụ '{nextName}' đã tồn tại");
-            }
-
             service.Name = nextName;
         }
 
@@ -235,9 +257,7 @@ public class ServiceService : IServiceService
 
         if (dto.BuildingIds != null || dto.BuildingId.HasValue)
         {
-            var buildingIds = NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId);
-            await EnsureOwnsBuildingsAsync(buildingIds, ownerUserId);
-            await SyncServiceBuildingScopesAsync(service, buildingIds);
+            await SyncServiceBuildingScopesAsync(service, nextBuildingIds);
             service.BuildingId = null;
         }
 
@@ -321,7 +341,7 @@ public class ServiceService : IServiceService
         var searchableValue = NormalizeKey($"{serviceType} {serviceName}");
         if (string.IsNullOrWhiteSpace(value))
         {
-            return "Cố định khác";
+            return "Theo tháng";
         }
 
         if (searchableValue.Contains("dien") || searchableValue.Contains("electric"))
@@ -336,12 +356,12 @@ public class ServiceService : IServiceService
 
         if (searchableValue.Contains("xe") || searchableValue.Contains("parking"))
         {
-            return "Gửi xe";
+            return "Cần nhập số lượng";
         }
 
         if (searchableValue.Contains("nguoi") || searchableValue.Contains("person"))
         {
-            return "Theo người";
+            return "Cần nhập số lượng";
         }
 
         if (value.Contains("biến") || value.Contains("bien") || value.Contains("variable"))
@@ -351,7 +371,7 @@ public class ServiceService : IServiceService
 
         if (value.Contains("cố định") || value.Contains("co dinh") || value.Contains("fixed"))
         {
-            return "Cố định khác";
+            return "Theo tháng";
         }
 
         return serviceType!.Trim();
@@ -411,6 +431,40 @@ public class ServiceService : IServiceService
         }
 
         return ids;
+    }
+
+    private static List<int> GetServiceBuildingIds(Service service)
+    {
+        var scopedIds = service.BuildingScopes?
+            .Select(scope => scope.BuildingId)
+            .Where(id => id > 0)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList() ?? new List<int>();
+
+        if (scopedIds.Count == 0 && service.BuildingId.HasValue && service.BuildingId.Value > 0)
+        {
+            scopedIds.Add(service.BuildingId.Value);
+        }
+
+        return scopedIds;
+    }
+
+    private static bool ServiceScopesEqual(List<int> first, List<int> second)
+    {
+        return first.Count == second.Count && first.OrderBy(id => id).SequenceEqual(second.OrderBy(id => id));
+    }
+
+    private static bool ServiceScopesConflict(List<int> first, List<int> second)
+    {
+        var firstIsCommon = first.Count == 0;
+        var secondIsCommon = second.Count == 0;
+        if (firstIsCommon || secondIsCommon)
+        {
+            return firstIsCommon && secondIsCommon;
+        }
+
+        return first.Intersect(second).Any();
     }
 
     private async Task EnsureOwnsBuildingsAsync(List<int> buildingIds, int ownerUserId)

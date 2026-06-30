@@ -2,6 +2,7 @@ import { X, Eye, Send, Ban, User, Home, DollarSign, Calendar, AlertTriangle, Che
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
+import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date-utils';
 import { InvoiceDetailModal as InvoiceRealtimeDetailModal } from './InvoiceDetailModal';
 
 interface DebtModalProps {
@@ -75,7 +76,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
     : '—';
 
   const dueDateText = invoice?.dueDate
-    ? new Date(invoice.dueDate).toLocaleDateString('vi-VN')
+    ? formatDisplayDate(invoice.dueDate)
     : '—';
 
   const statusText = invoice?.status || 'Chưa xác định';
@@ -158,7 +159,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
                       <div key={r.id} className="bg-white border border-gray-300 rounded p-3">
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-gray-800 font-semibold">Lần nhắc #{r.reminderCount} - {r.reminderMethod}</p>
-                          <span className="text-xs text-gray-500">{new Date(r.reminderTime).toLocaleString('vi-VN')}</span>
+                          <span className="text-xs text-gray-500">{formatDisplayDateTime(r.reminderTime)}</span>
                         </div>
                         <p className="text-xs text-gray-600 mt-1">Trạng thái: <strong>{r.sendStatus}</strong>{r.sentToUserPhone ? ` • Gửi tới: ${r.sentToUserPhone}` : ''}</p>
                         {r.content && <p className="text-xs text-gray-700 mt-1">{r.content}</p>}
@@ -853,7 +854,7 @@ export function SendReminderModal({ debt, onClose }: DebtModalProps) {
       ? `${String(invoice.month).padStart(2, '0')}/${invoice.year}`
       : 'gần nhất';
     const dueDateText = invoice?.dueDate
-      ? new Date(invoice.dueDate).toLocaleDateString('vi-VN')
+      ? formatDisplayDate(invoice.dueDate)
       : 'chưa xác định';
     const remainAmount = Number(invoice?.remainingAmount ?? debt?.amount ?? 0);
     const daysLate = Number(debt?.daysLate ?? 0);
@@ -1011,7 +1012,7 @@ Trân trọng,\nBan quản lý`,
               <p className="text-sm text-green-800">
                 ✓ Gửi đến: {lastSentCount || recipients.length} người<br/>
                 ✓ Kênh: App thông báo (theo cấu hình hệ thống)<br/>
-                ✓ Thời gian: {new Date().toLocaleString('vi-VN')}
+                ✓ Thời gian: {formatDisplayDateTime(new Date())}
               </p>
             </div>
           </div>
@@ -1358,7 +1359,7 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
                 </div>
                 <div className="flex justify-between">
                   <span>✓ Thời gian:</span>
-                  <strong>{new Date().toLocaleString('vi-VN')}</strong>
+                  <strong>{formatDisplayDateTime(new Date())}</strong>
                 </div>
               </div>
             </div>

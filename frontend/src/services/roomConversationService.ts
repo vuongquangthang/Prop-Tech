@@ -1,3 +1,5 @@
+import { formatDisplayDateTime } from '../lib/date-utils';
+
 export type RoomConversationMessage = {
   id: string;
   sender: 'user' | 'me';
@@ -54,12 +56,7 @@ function formatTime(value?: string): string {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-  }).format(date);
+  return formatDisplayDateTime(date);
 }
 
 function getMessageCreatedAt(message?: TrouytinMessage): string {

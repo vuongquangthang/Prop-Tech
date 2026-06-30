@@ -26,7 +26,7 @@ public class ServiceDto
 public class CreateServiceDto
 {
     public string Name { get; set; } = null!;
-    public string ServiceType { get; set; } = null!; // Điện | Nước | Gửi xe | Theo người | Cố định khác
+    public string ServiceType { get; set; } = null!; // Điện | Nước | Cần nhập số lượng | Theo tháng
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
     public DateTime? EffectiveDate { get; set; }

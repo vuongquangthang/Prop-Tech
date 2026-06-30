@@ -47,7 +47,7 @@ export function ContractEditHistoryModal({ contract, onClose }: ContractModalPro
                     </div>
                     <p className="mt-1 text-sm text-gray-700">{item.summary}</p>
                     <p className="mt-1 text-xs text-gray-500">
-                      {new Date(item.changedAt).toLocaleString('vi-VN')}
+                      {formatDisplayDateTime(item.changedAt)}
                       {item.changedByName ? ` · ${item.changedByName}` : ''}
                     </p>
                   </div>
@@ -386,7 +386,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
               <div><label className="block text-sm text-gray-700 mb-2">Mã hợp đồng</label>
                 <input type="text" value={contract?.code || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
               <div><label className="block text-sm text-gray-700 mb-2">Ngày bắt đầu *</label>
-                <input type="date" value={startDate} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600" /></div>
+                <DateTextInput value={startDate} onChange={setStartDate} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600" /></div>
               <div><label className="block text-sm text-gray-700 mb-2">Thời hạn *</label>
                 <select value={durationMonths} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600">
                   {durationOptions.map((m) => (<option key={m} value={String(m)}>{m % 12 === 0 ? `${m / 12} năm` : `${m} tháng`}</option>))}
@@ -511,11 +511,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
-import { formatLocalDateInput } from '../../lib/date-utils';
+import { formatDisplayDate, formatDisplayDateTime, formatLocalDateInput } from '../../lib/date-utils';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { invoiceService, serviceService } from '../../services/api.service';
 import { MoneyInput } from '../ui/MoneyInput';
+import { DateTextInput } from '../ui/DateTextInput';
 
 interface ContractModalProps {
   contract?: any;
@@ -584,7 +585,7 @@ function formatServicePriceUpdatedAt(service: any) {
   if (!value) return 'Chưa có';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Chưa có';
-  return date.toLocaleDateString('vi-VN');
+  return formatDisplayDate(date);
 }
 
 function toNumber(value: any) {
@@ -724,7 +725,7 @@ export function ExtendContractModal({ contract, onClose, onSuccess }: ContractMo
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Ngày kết thúc hiện tại</label>
-                  <input type="date" value={currentEndDate} disabled className="w-full rounded border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600" />
+                  <DateTextInput value={currentEndDate} onChange={setCurrentEndDate} disabled className="w-full rounded border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600" />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm text-gray-700">Gia hạn thêm</label>
@@ -740,12 +741,10 @@ export function ExtendContractModal({ contract, onClose, onSuccess }: ContractMo
 
               <div>
                 <label className="mb-2 block text-sm text-gray-700">Ngày kết thúc mới *</label>
-                <input
-                  type="date"
-                  min={minimumEndDate}
+                <DateTextInput
                   value={newEndDate}
-                  onChange={(event) => {
-                    setNewEndDate(event.target.value);
+                  onChange={(value) => {
+                    setNewEndDate(value);
                     setExtensionMonths('');
                   }}
                   className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm"
@@ -1512,10 +1511,9 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
               </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Ngày bắt đầu *</label>
-                <input 
-                  type="date"
+                <DateTextInput
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 />
               </div>
@@ -2065,7 +2063,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
     if (!v) return '-';
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return String(v);
-    return d.toLocaleDateString('vi-VN');
+    return formatDisplayDate(d);
   };
 
   const displayCode = contractDetail?.code || contractDetail?.contractCode || contractDetail?.maHopDong || contract?.code || '-';

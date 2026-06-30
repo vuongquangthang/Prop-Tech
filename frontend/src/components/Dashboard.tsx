@@ -44,7 +44,6 @@ import {
   maintenanceService,
   reportService,
 } from '../services/feature.service';
-import { FloatingActions } from './FloatingActions';
 
 type ActivityType = 'resident' | 'payment' | 'complaint' | 'visitor';
 type Severity = 'critical' | 'high' | 'medium';
@@ -725,7 +724,6 @@ export function Dashboard() {
         </article>
       </section>
 
-      <FloatingActions />
     </div>
   );
 }

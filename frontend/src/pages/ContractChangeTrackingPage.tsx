@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, MessageSquareWarning, RefreshCcw } from 'lucide-react';
 import { contractService, ContractChangeTrackingItem } from '../services/api.service';
+import { formatDisplayDateTime } from '../lib/date-utils';
 
 type TrackingStatus = 'ALL' | 'PENDING' | 'DISCUSSING' | 'CONFIRMED';
 
@@ -18,10 +19,7 @@ const statusBadgeClass: Record<string, string> = {
 };
 
 const formatDateTime = (value?: string) => {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('vi-VN');
+  return formatDisplayDateTime(value, '-');
 };
 
 const formatMoney = (value?: number) => {

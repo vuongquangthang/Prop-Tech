@@ -1,5 +1,15 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api, handleApiError, LoginRequest, LoginResponse } from '../lib/api-client';
+import {
+  api,
+  clearAuthSession,
+  getStoredAuthToken,
+  getStoredUser,
+  handleApiError,
+  LoginRequest,
+  LoginResponse,
+  saveAuthSession,
+  updateStoredUser,
+} from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
 
 interface User {
@@ -20,7 +30,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (phoneNumber: string, password: string) => Promise<void>;
+  login: (phoneNumber: string, password: string, remember?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
@@ -41,22 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on mount
+  // Load user from persisted auth storage on mount
   useEffect(() => {
     const loadUser = () => {
       try {
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
+        const storedToken = getStoredAuthToken();
+        const storedUser = getStoredUser();
         
         if (storedToken && storedUser) {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
         }
       } catch (error) {
-        console.error('Error loading user from localStorage:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        console.error('Error loading user from auth storage:', error);
+        clearAuthSession();
       } finally {
         setIsLoading(false);
       }
@@ -65,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, []);
 
-  const login = async (phoneNumber: string, password: string) => {
+  const login = async (phoneNumber: string, password: string, remember = false) => {
     try {
       setIsLoading(true);
       console.log('📡 Calling login API:', { phoneNumber, endpoint: API_ENDPOINTS.AUTH.LOGIN });
@@ -83,10 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { accessToken, refreshToken, user: userData } = response.data;
 
-      // Save to localStorage
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      saveAuthSession(accessToken, refreshToken, userData, remember);
 
       // Update state
       setToken(accessToken);
@@ -102,9 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     // Clear local auth immediately so navigation is not blocked by a slow logout API.
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    clearAuthSession();
     setToken(null);
     setUser(null);
 
@@ -123,10 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { accessToken, refreshToken, user: userData } = response.data;
 
-      // Save to localStorage
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      saveAuthSession(accessToken, refreshToken, userData, true);
 
       // Update state
       setToken(accessToken);
@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (userData: User) => {
-    localStorage.setItem('user', JSON.stringify(userData));
+    updateStoredUser(userData);
     setUser(userData);
   };
 

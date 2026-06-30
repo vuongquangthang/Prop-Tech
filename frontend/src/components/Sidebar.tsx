@@ -188,6 +188,25 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
           padding-left: 0 !important;
           padding-right: 0 !important;
         }
+
+        .sidebar-menu-button {
+          cursor: pointer;
+        }
+
+        .sidebar-menu-button:hover {
+          background-color: rgba(30, 78, 140, 0.08) !important;
+          color: var(--brand-primary) !important;
+          box-shadow: inset 0 0 0 1px rgba(30, 78, 140, 0.12) !important;
+        }
+
+        .sidebar-submenu-button {
+          cursor: pointer;
+        }
+
+        .sidebar-submenu-button:hover {
+          background-color: rgba(30, 78, 140, 0.08) !important;
+          color: var(--brand-primary) !important;
+        }
       `}</style>
       <aside
         className={`admin-sidebar flex flex-col${isOpen ? ' open' : ''}${isCollapsed ? ' collapsed' : ''}`}
@@ -270,7 +289,7 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
                         navigate(subItem.path);
                         onClose?.();
                       }}
-                      className="w-full transition-colors"
+                      className="sidebar-submenu-button w-full transition-colors"
                       style={{
                         padding: '10px 12px',
                         borderRadius: '10px',

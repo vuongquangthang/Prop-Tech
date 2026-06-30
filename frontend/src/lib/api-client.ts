@@ -31,6 +31,58 @@ export interface RefreshTokenRequest {
   refreshToken: string;
 }
 
+const AUTH_STORAGE_MODE_KEY = 'authStorageMode';
+type AuthStorageMode = 'local' | 'session';
+
+const getAuthStorage = (mode?: AuthStorageMode): Storage => {
+  if (mode) return mode === 'local' ? localStorage : sessionStorage;
+  return localStorage.getItem(AUTH_STORAGE_MODE_KEY) === 'session' ? sessionStorage : localStorage;
+};
+
+export const getStoredAuthToken = () =>
+  sessionStorage.getItem('token') || localStorage.getItem('token');
+
+export const getStoredRefreshToken = () =>
+  sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken');
+
+export const getStoredUser = () =>
+  sessionStorage.getItem('user') || localStorage.getItem('user');
+
+export const saveAuthSession = (
+  accessToken: string,
+  refreshToken: string,
+  user: LoginResponse['user'],
+  remember: boolean,
+) => {
+  clearAuthSession();
+  const mode: AuthStorageMode = remember ? 'local' : 'session';
+  const storage = getAuthStorage(mode);
+  storage.setItem('token', accessToken);
+  storage.setItem('refreshToken', refreshToken);
+  storage.setItem('user', JSON.stringify(user));
+  localStorage.setItem(AUTH_STORAGE_MODE_KEY, mode);
+};
+
+export const updateStoredAuthToken = (accessToken: string, refreshToken: string) => {
+  const storage = getAuthStorage();
+  storage.setItem('token', accessToken);
+  storage.setItem('refreshToken', refreshToken);
+};
+
+export const updateStoredUser = (user: LoginResponse['user']) => {
+  getAuthStorage().setItem('user', JSON.stringify(user));
+};
+
+export const clearAuthSession = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem(AUTH_STORAGE_MODE_KEY);
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('refreshToken');
+  sessionStorage.removeItem('user');
+};
+
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,
@@ -43,7 +95,7 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor - add token to requests
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getStoredAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -75,7 +127,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = getStoredRefreshToken();
         if (refreshToken) {
           const response = await axios.post<LoginResponse>(
             `${API_CONFIG.BASE_URL}/api/Auth/refresh-token`,
@@ -83,8 +135,7 @@ apiClient.interceptors.response.use(
           );
 
           const { accessToken, refreshToken: newRefreshToken } = response.data;
-          localStorage.setItem('token', accessToken);
-          localStorage.setItem('refreshToken', newRefreshToken);
+          updateStoredAuthToken(accessToken, newRefreshToken);
 
           // Retry original request with new token
           if (originalRequest.headers) {
@@ -94,9 +145,7 @@ apiClient.interceptors.response.use(
         }
       } catch (refreshError) {
         // Refresh failed, logout user
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        clearAuthSession();
         window.location.href = '/';
         return Promise.reject(refreshError);
       }

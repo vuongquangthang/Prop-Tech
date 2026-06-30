@@ -90,20 +90,86 @@ const appliesToBuilding = (
   return !item.buildingId || item.buildingId === buildingId;
 };
 
-const uniqueAssetNames = (assets: AssetOption[]) => Array.from(new Set(assets.map((asset) => asset.assetName)));
+const normalizeServiceKeyPart = (value?: string) =>
+  String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .trim();
 
-const getDefaultServicePrices = (services: Service[]) => Object.fromEntries(
-  services.map((service) => [service.id, String(service.commonUnitPrice ?? 0)]),
-);
+const getServiceMatchKey = (service: Service) => {
+  const name = normalizeServiceKeyPart(service.name);
+  const type = normalizeServiceKeyPart(service.serviceType);
+  const unit = normalizeServiceKeyPart(service.unit);
+  return `${name}__${type}__${unit}`;
+};
+
+const isCommonService = (service: Service) =>
+  !service.buildingId && (!Array.isArray(service.buildingIds) || service.buildingIds.length === 0);
+
+const normalizeService = (service: any): Service => {
+  const buildingIds = Array.isArray(service.buildingIds)
+    ? service.buildingIds
+    : Array.isArray(service.toaNhaIds)
+      ? service.toaNhaIds
+      : [];
+
+  return {
+    ...service,
+    id: service.id || service.dichVuId || 0,
+    name: service.name || service.serviceName || service.tenDichVu || '',
+    serviceType: service.serviceType || service.loaiDichVu || '',
+    unit: service.unit || service.donVi || '',
+    commonUnitPrice: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
+    isActive: service.isActive !== false,
+    buildingId: service.buildingId ?? service.toaNhaId ?? null,
+    buildingName: service.buildingName ?? service.tenToaNha ?? null,
+    buildingIds: buildingIds.map(Number).filter((id: number) => Number.isFinite(id) && id > 0),
+  };
+};
+
+const isPrivateServiceForBuilding = (service: Service, buildingId?: number | null) => {
+  if (!buildingId) return false;
+  if (Array.isArray(service.buildingIds) && service.buildingIds.length > 0) {
+    return service.buildingIds.includes(buildingId);
+  }
+  return service.buildingId === buildingId;
+};
+
+const getAvailableServicesForBuilding = (services: Service[], buildingId?: number | null) => {
+  const activeServices = services.filter((service) => service.isActive !== false);
+
+  if (!buildingId) {
+    return activeServices.filter(isCommonService);
+  }
+
+  return activeServices.filter((service) => appliesToBuilding(service, buildingId));
+};
+
+const getAutoSelectedServiceIds = (services: Service[], buildingId?: number | null) => {
+  const privateKeys = new Set(
+    services
+      .filter((service) => isPrivateServiceForBuilding(service, buildingId))
+      .map(getServiceMatchKey),
+  );
+
+  return services
+    .filter((service) => !(isCommonService(service) && privateKeys.has(getServiceMatchKey(service))))
+    .map((service) => service.id);
+};
+
+const uniqueAssetNames = (assets: AssetOption[]) => Array.from(new Set(assets.map((asset) => asset.assetName)));
 
 interface RoomTableProps {
   selectedFloorId?: number | null;
   selectedBuildingId?: number | null;
   addRoomRequest?: { id: number; floorId: number } | null;
   structureRefreshKey?: number;
+  onRoomsChange?: () => void;
 }
 
-export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest, structureRefreshKey = 0 }: RoomTableProps = {}) {
+export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest, structureRefreshKey = 0, onRoomsChange }: RoomTableProps = {}) {
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,8 +192,6 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   const [addBathroomCount, setAddBathroomCount] = useState('');
   const [addAmenities, setAddAmenities] = useState<string[]>([]);
   const [addServiceIds, setAddServiceIds] = useState<number[]>([]);
-  const [customizeServicePrices, setCustomizeServicePrices] = useState(false);
-  const [addServicePrices, setAddServicePrices] = useState<Record<number, string>>({});
   const [addImagePreviews, setAddImagePreviews] = useState<string[]>([]);
   const [addImageFiles, setAddImageFiles] = useState<File[]>([]);
   const [addImageError, setAddImageError] = useState<string | null>(null);
@@ -179,42 +243,50 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     fetchFloors();
   }, [structureRefreshKey]);
 
+  const normalizeRoom = (room: any): RoomData => ({
+    id: room.id || room.phongId || 0,
+    floorId: room.floorId || room.tangId || 0,
+    buildingName: room.buildingName || '',
+    buildingAddress: room.buildingAddress || room.address || '',
+    floorNumber: room.floorNumber || room.soTang || undefined,
+    code: room.roomCode || room.maPhong || '',
+    roomNumber: room.roomNumber || room.soPhong || '',
+    area: room.area || room.dienTich || 0,
+    maxPeople: room.maxOccupants || 0,
+    price: room.defaultRentPrice || room.monthlyRent || room.giaThue || 0,
+    status: room.status || room.trangThai || 'Trống',
+    description: room.description || room.moTa || '',
+    type: room.roomType || room.loaiPhong || room.type || 'single',
+    hasPrivateBathroom: !!(room.hasPrivateBathroom ?? room.privateBathroom ?? false),
+    rooms: room.rooms || {
+      living: room.livingRoomCount ?? null,
+      bedroom: room.bedroomCount ?? null,
+      kitchen: room.kitchenCount ?? null,
+      bathroom: room.bathroomCount ?? null,
+    },
+    amenities: room.amenities || [],
+    serviceIds: room.serviceIds || [],
+    servicePrices: room.servicePrices || [],
+    imageUrls: Array.isArray(room.imageUrls)
+      ? room.imageUrls.map((url: string) => resolveRoomImageUrl(url)).filter(Boolean)
+      : [],
+  });
+
   const fetchRooms = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await roomService.getAll();
-      const roomData: RoomData[] = data.map((room: any) => ({
-        id: room.id || room.phongId || 0,
-        floorId: room.floorId || room.tangId || 0,
-        buildingName: room.buildingName || '',
-        buildingAddress: room.buildingAddress || room.address || '',
-        floorNumber: room.floorNumber || room.soTang || undefined,
-        code: room.roomCode || room.maPhong || '',
-        roomNumber: room.roomNumber || room.soPhong || '',
-        area: room.area || room.dienTich || 0,
-        maxPeople: room.maxOccupants || 0,
-        price: room.defaultRentPrice || room.monthlyRent || room.giaThue || 0,
-        status: room.status || room.trangThai || 'Trống',
-        description: room.description || room.moTa || '',
-        type: room.roomType || room.loaiPhong || room.type || 'single',
-        hasPrivateBathroom: !!(room.hasPrivateBathroom ?? room.privateBathroom ?? false),
-        rooms: room.rooms || {
-          living: room.livingRoomCount ?? null,
-          bedroom: room.bedroomCount ?? null,
-          kitchen: room.kitchenCount ?? null,
-          bathroom: room.bathroomCount ?? null,
-        },
-        amenities: room.amenities || [],
-        serviceIds: room.serviceIds || [],
-        servicePrices: room.servicePrices || [],
-        imageUrls: Array.isArray(room.imageUrls)
-          ? room.imageUrls.map((url: string) => resolveRoomImageUrl(url)).filter(Boolean)
-          : [],
-      }));
+      const roomData: RoomData[] = data.map(normalizeRoom);
       setRooms(roomData);
+      setDetailRoom((current) => {
+        if (!current) return current;
+        return roomData.find((room) => room.id === current.id) ?? current;
+      });
+      return roomData;
     } catch (err: any) {
       setError(err.message || 'Không thể tải danh sách phòng');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -231,10 +303,12 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
   const fetchServiceCatalog = async () => {
     try {
-      const services = await serviceService.getAll();
+      const services = (await serviceService.getAll()).map(normalizeService);
       setServiceCatalog(services);
+      return services;
     } catch {
       setServiceCatalog([]);
+      return [];
     }
   };
 
@@ -242,13 +316,16 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     try {
       const res = await api.get<AssetOption[]>(API_ENDPOINTS.ASSETS.BASE);
       setAssetCatalog(res.data);
+      return res.data;
     } catch {
       setAssetCatalog([]);
+      return [];
     }
   };
 
   const loadReferenceData = async () => {
-    await Promise.all([fetchServiceCatalog(), fetchAssetCatalog()]);
+    const [services, assets] = await Promise.all([fetchServiceCatalog(), fetchAssetCatalog()]);
+    return { services, assets };
   };
 
   const buildingFloorIds = selectedBuildingId
@@ -261,17 +338,13 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
   const selectedAddFloor = floors.find(f => f.id === addFloorId);
   const selectedAddBuildingId = selectedAddFloor?.buildingId ?? null;
-  const availableAddServices = serviceCatalog.filter(
-    service => appliesToBuilding(service, selectedAddBuildingId),
-  );
+  const availableAddServices = getAvailableServicesForBuilding(serviceCatalog, selectedAddBuildingId);
   const availableAddAssets = assetCatalog.filter(
     asset => appliesToBuilding(asset, selectedAddBuildingId),
   );
   const selectedEditFloor = selectedRoom ? floors.find(f => f.id === selectedRoom.floorId) : undefined;
   const selectedEditBuildingId = selectedEditFloor?.buildingId ?? null;
-  const availableEditServices = serviceCatalog.filter(
-    service => appliesToBuilding(service, selectedEditBuildingId),
-  );
+  const availableEditServices = getAvailableServicesForBuilding(serviceCatalog, selectedEditBuildingId);
   const availableEditAssets = assetCatalog.filter(
     asset => appliesToBuilding(asset, selectedEditBuildingId),
   );
@@ -282,16 +355,13 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   const handleAddFloorChange = (nextFloorId: number) => {
     const nextFloor = floors.find(f => f.id === nextFloorId);
     const nextBuildingId = nextFloor?.buildingId ?? null;
-    const nextServices = serviceCatalog.filter(
-      service => appliesToBuilding(service, nextBuildingId),
-    );
+    const nextServices = getAvailableServicesForBuilding(serviceCatalog, nextBuildingId);
     const nextAssets = assetCatalog.filter(
       asset => appliesToBuilding(asset, nextBuildingId),
     );
 
     setAddFloorId(nextFloorId);
-    setAddServiceIds(nextServices.map(service => service.id));
-    setAddServicePrices(getDefaultServicePrices(nextServices));
+    setAddServiceIds(getAutoSelectedServiceIds(nextServices, nextBuildingId));
     setAddAmenities(uniqueAssetNames(nextAssets));
   };
 
@@ -377,34 +447,11 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   const toggleService = (serviceId: number) => {
     setAddServiceIds((currentIds) => {
       if (currentIds.includes(serviceId)) {
-        setAddServicePrices((currentPrices) => {
-          const nextPrices = { ...currentPrices };
-          delete nextPrices[serviceId];
-          return nextPrices;
-        });
         return currentIds.filter((id) => id !== serviceId);
       }
 
-      const service = serviceCatalog.find((item) => item.id === serviceId);
-      setAddServicePrices((currentPrices) => ({
-        ...currentPrices,
-        [serviceId]: String(service?.commonUnitPrice ?? 0),
-      }));
       return [...currentIds, serviceId];
     });
-  };
-
-  const updateRoomServicePrice = (serviceId: number, value: string) => {
-    if (!/^\d*$/.test(value)) {
-      setAddFieldErrors((current) => ({
-        ...current,
-        [`servicePrice-${serviceId}`]: 'Sai định dạng. Vui lòng điền định dạng số',
-      }));
-      return;
-    }
-
-    setAddServicePrices((current) => ({ ...current, [serviceId]: value }));
-    setAddFieldErrors((current) => ({ ...current, [`servicePrice-${serviceId}`]: '' }));
   };
 
   const handleAddImageChange = (files?: FileList | null) => {
@@ -508,7 +555,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
         serviceService.getAll(),
         api.get<AssetOption[]>(API_ENDPOINTS.ASSETS.BASE),
       ]);
-      services = serviceData;
+      services = serviceData.map(normalizeService);
       assets = assetRes.data ?? [];
       setServiceCatalog(services);
       setAssetCatalog(assets);
@@ -524,7 +571,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       ?? 0;
     const defaultFloor = floors.find(f => f.id === defaultFloorId);
     const defaultBuildingId = defaultFloor?.buildingId ?? null;
-    const defaultServices = services.filter(service => appliesToBuilding(service, defaultBuildingId));
+    const defaultServices = getAvailableServicesForBuilding(services, defaultBuildingId);
     const defaultAssets = assets.filter(asset => appliesToBuilding(asset, defaultBuildingId));
 
     setAddFloorId(defaultFloorId);
@@ -539,9 +586,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setAddBedroomCount('');
     setAddKitchenCount('');
     setAddBathroomCount('');
-    setAddServiceIds(defaultServices.map(service => service.id));
-    setCustomizeServicePrices(false);
-    setAddServicePrices(getDefaultServicePrices(defaultServices));
+    setAddServiceIds(getAutoSelectedServiceIds(defaultServices, defaultBuildingId));
     setAddImagePreviews([]);
     setAddImageFiles([]);
     setAddImageError(null);
@@ -592,20 +637,6 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       setAddError('Vui lòng điền đầy đủ số phòng khách, ngủ, bếp và vệ sinh');
       return;
     }
-    if (customizeServicePrices) {
-      const invalidServiceId = addServiceIds.find((serviceId) => {
-        const price = Number(addServicePrices[serviceId]);
-        return !Number.isFinite(price) || price < 0;
-      });
-      if (invalidServiceId !== undefined) {
-        setAddFieldErrors((current) => ({
-          ...current,
-          [`servicePrice-${invalidServiceId}`]: 'Giá dịch vụ phải là số hợp lệ',
-        }));
-        setAddError('Vui lòng kiểm tra lại giá dịch vụ tùy chỉnh');
-        return;
-      }
-    }
     setAddLoading(true); setAddError(null);
     try {
       const imageUrls = await Promise.all(addImageFiles.map((file) => fileService.upload(file)));
@@ -627,21 +658,19 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
         description: addDescription,
         amenities: addAmenities,
         serviceIds: addServiceIds,
-        servicePrices: customizeServicePrices
-          ? addServiceIds.map((serviceId) => ({
-              serviceId,
-              price: Number(addServicePrices[serviceId] || 0),
-            }))
-          : [],
+        servicePrices: [],
       } as any);
 
       await fetchRooms();
+      onRoomsChange?.();
       setShowAddModal(false);
     } catch (err: any) { setAddError(err.message || 'Có lỗi xảy ra'); }
     finally { setAddLoading(false); }
   };
 
   const openEditModal = async (room: RoomData) => {
+    const { services } = await loadReferenceData();
+
     setSelectedRoom(room);
     setEditRoomCode(room.code);
     setEditArea(String(room.area));
@@ -660,10 +689,19 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setEditImageFiles(roomImagePreviews.map(() => null));
     setEditImageError(null);
     setEditAmenities(room.amenities ?? []);
-    setEditServiceIds(room.serviceIds ?? []);
+    const roomBuildingId = floors.find(f => f.id === room.floorId)?.buildingId ?? null;
+    const roomAvailableServices = getAvailableServicesForBuilding(services, roomBuildingId);
+    const autoSelectedServiceIds = getAutoSelectedServiceIds(roomAvailableServices, roomBuildingId);
+    const commonIdsHiddenByPrivate = new Set(
+      roomAvailableServices
+        .filter((service) => isCommonService(service) && !autoSelectedServiceIds.includes(service.id))
+        .map((service) => service.id),
+    );
+    setEditServiceIds(Array.from(new Set([
+      ...autoSelectedServiceIds,
+      ...(room.serviceIds ?? []).filter((serviceId) => !commonIdsHiddenByPrivate.has(serviceId)),
+    ])));
     setEditError(null);
-
-    await loadReferenceData();
 
     setShowEditModal(true);
   };
@@ -702,6 +740,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       } as any);
 
       await fetchRooms();
+      onRoomsChange?.();
       setShowEditModal(false);
     } catch (err: any) { setEditError(err.message || 'Có lỗi xảy ra'); }
     finally { setEditLoading(false); }
@@ -723,13 +762,19 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     try {
       await roomService.delete(deleteRoom.id);
       await fetchRooms();
+      onRoomsChange?.();
       setShowDeleteModal(false);
     } catch (err: any) { setDeleteError(err.message || 'Có lỗi xảy ra'); }
     finally { setDeleteLoading(false); }
   };
 
   const openDetailModal = async (room: RoomData) => {
-    setDetailRoom(room);
+    try {
+      const latestRoom = await roomService.getById(room.id);
+      setDetailRoom(normalizeRoom(latestRoom));
+    } catch {
+      setDetailRoom(rooms.find((item) => item.id === room.id) ?? room);
+    }
     await loadReferenceData();
   };
 
@@ -1021,23 +1066,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4>
+                {/* <h4 className="text-base font-semibold text-gray-800 border-b pb-2"></h4> */}
 
                 <div>
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <label className="block text-sm text-gray-700">Phí dịch vụ cơ bản</label>
-                    <button
-                      type="button"
-                      onClick={() => setCustomizeServicePrices((enabled) => !enabled)}
-                      className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
-                        customizeServicePrices
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {customizeServicePrices ? 'Đang chỉnh giá riêng' : 'Chỉnh giá theo khu'}
-                    </button>
-                  </div>
+                  <label className="mb-2 block text-sm text-gray-700">Phí dịch vụ cơ bản</label>
                   <div className="max-h-40 overflow-x-hidden overflow-y-auto rounded border border-gray-200">
                     {availableAddServices.length === 0 ? (
                       <div className="p-3 text-xs text-gray-500">Chưa có dịch vụ nào cho tòa này</div>
@@ -1059,7 +1091,6 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                           {availableAddServices.map((service) => {
                             const selected = addServiceIds.includes(service.id);
                             const defaultPrice = Number(service.commonUnitPrice ?? 0);
-                            const fieldError = addFieldErrors[`servicePrice-${service.id}`];
                             return (
                               <tr key={service.id} className="border-t border-gray-200">
                                 <td className="px-1 py-1.5" style={{ textAlign: 'center' }}>
@@ -1078,41 +1109,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                                   </label>
                                 </td>
                                 <td className="px-2 py-1.5" style={{ textAlign: 'right' }}>
-                                  {customizeServicePrices && selected ? (
-                                    <div
-                                      className="relative"
-                                      style={{
-                                        width: '120px',
-                                        maxWidth: '100%',
-                                        marginLeft: 'auto',
-                                        marginRight: 'auto',
-                                      }}
-                                    >
-                                      {fieldError && <p className="mb-1 text-left text-[11px] text-red-600">{fieldError}</p>}
-                                      <div className="relative">
-                                        <input
-                                          type="text"
-                                          inputMode="numeric"
-                                          value={addServicePrices[service.id] ?? String(defaultPrice)}
-                                          onChange={(event) => updateRoomServicePrice(service.id, event.target.value)}
-                                          className={`rounded border px-2 py-1 pr-10 text-right text-xs focus:outline-none ${
-                                            fieldError ? 'border-red-400' : 'border-gray-300 focus:border-gray-500'
-                                          }`}
-                                          style={{
-                                            display: 'block',
-                                            width: '120px',
-                                            maxWidth: '100%',
-                                            boxSizing: 'border-box',
-                                          }}
-                                        />
-                                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 bg-inherit pl-1 text-[10px] text-gray-500">VNĐ</span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-gray-700">
-                                      {defaultPrice.toLocaleString('vi-VN')} VNĐ
-                                    </span>
-                                  )}
+                                  <span className="text-xs text-gray-700">
+                                    {defaultPrice.toLocaleString('vi-VN')} VNĐ
+                                  </span>
                                 </td>
                               </tr>
                             );
@@ -1125,7 +1124,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded">
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200">
                     {availableAddAssets.length === 0 ? (
                       <span className="text-xs text-gray-500">Chưa có tài sản nào cho tòa này</span>
                     ) : (
@@ -1163,9 +1162,23 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
               )}
             </div>
 
-            <div className="admin-content-modal-footer flex items-center justify-end space-x-3 border-t border-gray-300 px-5 py-3">
-              <button onClick={() => setShowAddModal(false)} disabled={addLoading} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50">
-                Hủy
+            <div className="admin-content-modal-footer flex items-center justify-end gap-3 border-t border-gray-300 px-5 py-3">
+              <button
+                onClick={() => setShowAddModal(false)}
+                disabled={addLoading}
+                className="building-detail-action-button"
+              >
+                <span
+                  className="building-detail-action-inner text-gray-700"
+                  style={{
+                    borderColor: '#d1d5db',
+                    borderRadius: 10,
+                    clipPath: 'inset(0 round 10px)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  Hủy
+                </span>
               </button>
               <button onClick={handleAddSubmit} disabled={addLoading} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2">
                 {addLoading && <Loader2 size={14} className="animate-spin" />}<span>Xác nhận thêm</span>
@@ -1220,7 +1233,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
                 return (
                   <>
-                    <div className="bg-blue-50 border border-blue-300 rounded p-4">
+                    <div className="bg-blue-50 border border-blue-300 p-4">
                       <p className="text-sm text-blue-800">
                         <strong>Vị trí:</strong> {locationParts.join(' • ') || 'Chưa có vị trí địa chỉ'}
                       </p>
@@ -1229,27 +1242,27 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                     <section className="space-y-4">
                       <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Thông tin cơ bản</h4>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                        <div className="border border-gray-200 bg-gray-50 p-4">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Mã phòng</p>
                           <p className="mt-1 font-semibold text-gray-900">{detailRoom.code || detailRoom.roomNumber || '—'}</p>
                         </div>
-                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                        <div className="border border-gray-200 bg-gray-50 p-4">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Loại phòng</p>
                           <p className="mt-1 font-semibold text-gray-900">{isApartment ? 'Căn hộ' : 'Phòng đơn'}</p>
                         </div>
-                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                        <div className="border border-gray-200 bg-gray-50 p-4">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Diện tích</p>
                           <p className="mt-1 font-semibold text-gray-900">{detailRoom.area || '—'} m²</p>
                         </div>
-                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                        <div className="border border-gray-200 bg-gray-50 p-4">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Số người tối đa</p>
                           <p className="mt-1 font-semibold text-gray-900">{detailRoom.maxPeople || '—'} người</p>
                         </div>
-                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                        <div className="border border-gray-200 bg-gray-50 p-4">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Giá thuê</p>
                           <p className="mt-1 font-semibold text-gray-900">{detailRoom.price.toLocaleString('vi-VN')} VNĐ/tháng</p>
                         </div>
-                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                        <div className="border border-gray-200 bg-gray-50 p-4">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Trạng thái</p>
                           <p className="mt-1 font-semibold text-gray-900">{getStatusConfig(detailRoom.status).label}</p>
                         </div>
@@ -1260,25 +1273,25 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                       <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Chi tiết phòng</h4>
                       {isApartment ? (
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <div className="border border-gray-200 bg-gray-50 p-4">
                             <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng khách</p>
                             <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.living ?? '—'}</p>
                           </div>
-                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <div className="border border-gray-200 bg-gray-50 p-4">
                             <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng ngủ</p>
                             <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.bedroom ?? '—'}</p>
                           </div>
-                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <div className="border border-gray-200 bg-gray-50 p-4">
                             <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng bếp</p>
                             <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.kitchen ?? '—'}</p>
                           </div>
-                          <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                          <div className="border border-gray-200 bg-gray-50 p-4">
                             <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng vệ sinh</p>
                             <p className="mt-1 font-semibold text-gray-900">{detailRoom.rooms?.bathroom ?? '—'}</p>
                           </div>
                         </div>
                       ) : (
-                        <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                        <div className="border border-gray-200 bg-gray-50 p-4">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Vệ sinh khép kín</p>
                           <p className="mt-1 font-semibold text-gray-900">{detailRoom.hasPrivateBathroom ? 'Có' : 'Không'}</p>
                         </div>
@@ -1294,7 +1307,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                               key={`${url}-${index}`}
                               type="button"
                               onClick={() => setPreviewImage({ images: detailRoom.imageUrls ?? [], index, titlePrefix: `Ảnh phòng ${detailRoom.code}` })}
-                              className="h-24 w-24 shrink-0 overflow-hidden rounded border border-gray-300 bg-white"
+                              className="h-24 w-24 shrink-0 overflow-hidden border border-gray-300 bg-white"
                               title="Xem ảnh"
                             >
                               <img src={resolveRoomImageUrl(url)} alt={`Ảnh phòng ${index + 1}`} className="h-full w-full object-cover" />
@@ -1302,16 +1315,16 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                           ))}
                         </div>
                       ) : (
-                        <p className="rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">Chưa có ảnh phòng</p>
+                        <p className="border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">Chưa có ảnh phòng</p>
                       )}
                     </section>
 
                     <section className="space-y-4">
-                      <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4>
+                      {/* <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4> */}
                       <div>
                         <p className="mb-2 text-sm text-gray-700">Phí dịch vụ cơ bản</p>
                         {selectedServices.length > 0 ? (
-                          <div className="overflow-hidden rounded border border-gray-200">
+                          <div className="overflow-hidden border border-gray-200">
                             <table className="w-full text-sm">
                               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                 <tr>
@@ -1334,29 +1347,29 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                             </table>
                           </div>
                         ) : (
-                          <p className="rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">Chưa chọn dịch vụ nào</p>
+                          <p className="border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">Chưa chọn dịch vụ nào</p>
                         )}
                       </div>
 
                       <div>
                         <p className="mb-2 text-sm text-gray-700">Tiện nghi</p>
                         {(detailRoom.amenities ?? []).length > 0 ? (
-                          <div className="flex flex-wrap gap-2 rounded border border-gray-200 bg-gray-50 p-3">
+                          <div className="flex flex-wrap gap-2 border border-gray-200 bg-gray-50 p-3">
                             {(detailRoom.amenities ?? []).map((amenity) => (
-                              <span key={amenity} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">
+                              <span key={amenity} className="border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">
                                 {amenity}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <p className="rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">Chưa có tiện nghi</p>
+                          <p className="border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">Chưa có tiện nghi</p>
                         )}
                       </div>
                     </section>
 
                     <section className="space-y-2">
                       <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Mô tả</h4>
-                      <p className="min-h-[72px] whitespace-pre-wrap rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800">
+                      <p className="min-h-[72px] whitespace-pre-wrap border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800">
                         {detailRoom.description?.trim() || 'Chưa có mô tả'}
                       </p>
                     </section>
@@ -1500,40 +1513,65 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4>
+                {/* <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4> */}
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Phí dịch vụ cơ bản</label>
-                  <div className="bg-blue-50 border border-blue-300 rounded px-3 py-2 mb-3">
-                    <p className="text-xs text-blue-800">
-                      💡 Danh sách dịch vụ được lấy từ <strong>Quản lý Hạ tầng → Quản lý dịch vụ</strong>
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                  <div className="max-h-40 overflow-x-hidden overflow-y-auto rounded border border-gray-200">
                     {availableEditServices.length === 0 ? (
-                      <span className="text-xs text-gray-500">Chưa có dịch vụ nào cho tòa này</span>
+                      <div className="p-3 text-xs text-gray-500">Chưa có dịch vụ nào cho tòa này</div>
                     ) : (
-                      availableEditServices.map((service) => (
-                        <div className="flex items-center space-x-2" key={service.id}>
-                          <input
-                            type="checkbox"
-                            id={`edit-service-${service.id}`}
-                            className="w-4 h-4"
-                            checked={editServiceIds.includes(service.id)}
-                            onChange={() => setEditServiceIds(prev => prev.includes(service.id) ? prev.filter(id => id !== service.id) : [...prev, service.id])}
-                          />
-                          <label htmlFor={`edit-service-${service.id}`} className="text-sm text-gray-700">
-                            {service.name} {service.unit ? `(${service.unit})` : ''}
-                          </label>
-                        </div>
-                      ))
+                      <table className="!min-w-0 w-full table-fixed">
+                        <colgroup>
+                          <col style={{ width: '32px' }} />
+                          <col style={{ width: '52%' }} />
+                          <col />
+                        </colgroup>
+                        <thead className="sticky top-0 bg-gray-50">
+                          <tr>
+                            <th className="px-1 py-1.5 text-[11px] text-gray-600"></th>
+                            <th className="px-2 py-1.5 text-[11px] text-gray-600" style={{ textAlign: 'left' }}>Tên dịch vụ</th>
+                            <th className="px-2 py-1.5 text-[11px] text-gray-600" style={{ textAlign: 'right' }}>Giá</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {availableEditServices.map((service) => {
+                            const selected = editServiceIds.includes(service.id);
+                            const defaultPrice = Number(service.commonUnitPrice ?? 0);
+                            return (
+                              <tr key={service.id} className="border-t border-gray-200">
+                                <td className="px-1 py-1.5" style={{ textAlign: 'center' }}>
+                                  <input
+                                    type="checkbox"
+                                    id={`edit-service-${service.id}`}
+                                    className="h-3.5 w-3.5"
+                                    checked={selected}
+                                    onChange={() => setEditServiceIds(prev => prev.includes(service.id) ? prev.filter(id => id !== service.id) : [...prev, service.id])}
+                                  />
+                                </td>
+                                <td className="min-w-0 px-2 py-1.5" style={{ textAlign: 'left' }}>
+                                  <label htmlFor={`edit-service-${service.id}`} className="block cursor-pointer truncate text-xs text-gray-700">
+                                    {service.name}
+                                    {service.unit && <span className="ml-1 text-xs text-gray-500">/{service.unit}</span>}
+                                  </label>
+                                </td>
+                                <td className="px-2 py-1.5" style={{ textAlign: 'right' }}>
+                                  <span className="text-xs text-gray-700">
+                                    {defaultPrice.toLocaleString('vi-VN')} VNĐ
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     )}
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tiện nghi</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200">
                     {availableEditAssets.length === 0 ? (
                       <span className="text-xs text-gray-500">Chưa có tài sản nào cho tòa này</span>
                     ) : (
@@ -1568,8 +1606,24 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
               {editError && <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{editError}</p>}
             </div>
 
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
-              <button onClick={() => setShowEditModal(false)} disabled={editLoading} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50">Hủy</button>
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3 bg-white">
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={editLoading}
+                className="building-detail-action-button"
+              >
+                <span
+                  className="building-detail-action-inner text-gray-700"
+                  style={{
+                    borderColor: '#d1d5db',
+                    borderRadius: 10,
+                    clipPath: 'inset(0 round 10px)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  Hủy
+                </span>
+              </button>
               <button onClick={handleEditSubmit} disabled={editLoading} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2">
                 {editLoading && <Loader2 size={14} className="animate-spin" />}<span>Lưu thay đổi</span>
               </button>

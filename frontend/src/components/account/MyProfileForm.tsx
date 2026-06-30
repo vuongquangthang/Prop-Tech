@@ -1,6 +1,7 @@
 import { Save, Camera, Loader2, AlertTriangle, Key, Eye, EyeOff, CheckCircle, Trash2, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { getStoredAuthToken } from '../../lib/api-client';
 import { authService } from '../../services/api.service';
 import { PageHeader } from '../ui/product-system';
 
@@ -29,7 +30,7 @@ export function MyProfileForm() {
 
   useEffect(() => {
     // Only fetch profile if user is logged in (has token)
-    const token = localStorage.getItem('token');
+    const token = getStoredAuthToken();
     if (token) {
       fetchUserProfile();
     } else {

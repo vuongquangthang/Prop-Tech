@@ -4,6 +4,7 @@ import { userService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../ui/product-system';
+import { formatDisplayDateTime } from '../../lib/date-utils';
 
 interface UserData {
   id: number | string;
@@ -98,15 +99,7 @@ export function UserAccountsTable() {
           fullName: user.residentName || user.fullName || user.hoTen || '',
           role: normalizeRole(user.role || user.vaiTro),
           status,
-          lastLogin: user.lastLoginAt
-            ? new Date(user.lastLoginAt).toLocaleString('vi-VN', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            : 'Chưa đăng nhập',
+          lastLogin: formatDisplayDateTime(user.lastLoginAt, 'Chưa đăng nhập'),
           isLocked: user.isLocked || false,
           mustChangePassword: !!(user.mustChangePassword || user.mustChangeMatKhau),
         };

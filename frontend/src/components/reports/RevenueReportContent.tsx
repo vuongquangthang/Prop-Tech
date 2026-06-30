@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { reportService, MonthlyRevenue } from '../../services/feature.service';
 import { PageHeader } from '../ui/product-system';
+import { DateTextInput } from '../ui/DateTextInput';
 
 interface RevenueRow {
   period: string;
@@ -232,7 +233,7 @@ export function RevenueReportContent() {
             </table>
             
             <div class="footer">
-              In ngày: ${new Date().toLocaleDateString('vi-VN')}
+              In ngày: ${formatDisplayDate(new Date().toISOString().slice(0, 10))}
             </div>
           </body>
         </html>
@@ -286,20 +287,18 @@ export function RevenueReportContent() {
         <div className="flex items-center space-x-4">
           <Filter size={16} className="text-gray-500" />
           
-          <input 
-            type="date"
+          <DateTextInput
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={setDateFrom}
             ref={dateFromInputRef}
             className="w-[152px] px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />
           
           <span className="text-sm text-gray-600">đến</span>
           
-          <input 
-            type="date"
+          <DateTextInput
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={setDateTo}
             ref={dateToInputRef}
             className="w-[152px] px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />

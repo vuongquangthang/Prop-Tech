@@ -4,6 +4,7 @@ import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { paymentService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { PageHeader } from '../ui/product-system';
+import { DateTextInput } from '../ui/DateTextInput';
 
 interface TransactionData {
   id: number;
@@ -211,19 +212,17 @@ export function TransactionTable() {
             className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 w-52"
           />
           
-          <input 
-            type="date"
+          <DateTextInput
             value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
+            onChange={setFromDate}
             className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />
           
           <span className="text-xs text-gray-600">→</span>
           
-          <input 
-            type="date"
+          <DateTextInput
             value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
+            onChange={setToDate}
             className="px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
           />
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal, ExtendContractModal } from './ContractModals';
 import { contractService, tatToanService } from '../../services/api.service';
+import { formatDisplayDate } from '../../lib/date-utils';
 import { DataCard, DataTable, EmptyState, LoadingState, PageHeader, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 
@@ -92,8 +93,8 @@ export function ContractList() {
           contractCode: contract.contractCode || contract.maHopDong || `HD-${String(contractId).padStart(4, '0')}`,
           room: contract.roomNumber || contract.soPhong || '-',
           tenant: tenantName,
-          startDate: contract.startDate ? new Date(contract.startDate).toLocaleDateString('vi-VN') : '-',
-          endDate: endDateRaw ? new Date(endDateRaw).toLocaleDateString('vi-VN') : '-',
+          startDate: formatDisplayDate(contract.startDate, '-'),
+          endDate: formatDisplayDate(endDateRaw, '-'),
           expectedEndDate: endDateRaw || undefined,
           deposit: contract.depositAmount ?? contract.deposit ?? contract.tienCoc ?? 0,
           monthlyRent: contract.actualRentPrice ?? contract.monthlyRent ?? contract.giaThue ?? 0,

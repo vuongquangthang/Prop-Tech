@@ -6,7 +6,6 @@ import { LocationPicker } from '../LocationPicker';
 interface FloorData {
   id: number;
   floorNumber: number;
-  floorCode: string;
   totalRooms?: number;
   buildingId?: number;
   buildingName?: string;
@@ -29,9 +28,18 @@ interface BuildingSidebarProps {
   onSelectBuilding: (buildingId: number | null) => void;
   onRequestAddRoom?: (floorId: number) => void;
   onStructureChange?: () => void;
+  structureRefreshKey?: number;
 }
 
-export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding, onSelectBuilding, onRequestAddRoom, onStructureChange }: BuildingSidebarProps) {
+export function BuildingSidebar({
+  selectedFloor,
+  onSelectFloor,
+  selectedBuilding,
+  onSelectBuilding,
+  onRequestAddRoom,
+  onStructureChange,
+  structureRefreshKey = 0
+}: BuildingSidebarProps) {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,12 +75,11 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
   const [longitude, setLongitude] = useState<number | null>(null);
   // Floor form fields
   const [selectedBuildingId, setSelectedBuildingId] = useState<number>(0);
-  const [floorCode, setFloorCode] = useState('');
   const [floorNumber, setFloorNumber] = useState('');
 
   useEffect(() => {
     fetchBuildings();
-  }, []);
+  }, [structureRefreshKey]);
 
   const fetchBuildings = async () => {
     try {
@@ -96,7 +103,6 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
               floors: floors.map((f: any) => ({
                 id: f.id || f.tangId || 0,
                 floorNumber: f.floorNumber || f.soTang || 0,
-                floorCode: f.floorCode || f.maTang || '',
                 totalRooms: f.totalRooms || f.tongSoPhong || 0,
                 buildingId: f.buildingId || building.id || building.toaNhaId || 0,
                 buildingName: f.buildingName || building.buildingName || building.tenToaNha || '',
@@ -139,7 +145,6 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
     setAddress('');
     setLatitude(null);
     setLongitude(null);
-    setFloorCode('');
     setFloorNumber('');
     setSelectedBuildingId(buildings.length > 0 ? buildings[0].id : 0);
     setFormError(null);
@@ -194,10 +199,17 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
           setFormLoading(false);
           return;
         }
+        const nextFloorNumber = parseInt(floorNumber);
         await floorService.create({
           buildingId: bid,
-          floorNumber: parseInt(floorNumber),
+          floorNumber: nextFloorNumber,
         } as any);
+        const targetBuilding = buildings.find((building) => building.id === bid);
+        if (targetBuilding && nextFloorNumber > targetBuilding.totalFloors) {
+          await buildingService.update(bid, {
+            numberOfFloors: nextFloorNumber,
+          } as any);
+        }
       }
       await fetchBuildings();
       onStructureChange?.();
@@ -246,7 +258,6 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
     setBuildingName('');
     setTotalFloorsInput('');
     setAddress('');
-    setFloorCode('');
     setFloorNumber('');
 
     if (detailTarget.type === 'building') {
@@ -533,22 +544,28 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
                 <label className="block text-sm text-gray-700 mb-2">Loại *</label>
                 <div className="flex space-x-2">
                   <button 
+                    type="button"
                     onClick={() => setAddType('building')}
-                    className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${
-                      addType === 'building' 
-                        ? 'bg-gray-800 text-white border-gray-800' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
+                    className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
+                    style={{
+                      backgroundColor: addType === 'building' ? 'var(--brand-primary)' : '#ffffff',
+                      borderColor: addType === 'building' ? 'var(--brand-primary)' : '#d1d5db',
+                      borderRadius: 0,
+                      color: addType === 'building' ? '#ffffff' : '#374151',
+                    }}
                   >
                     Tòa nhà
                   </button>
                   <button 
+                    type="button"
                     onClick={() => setAddType('floor')}
-                    className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${
-                      addType === 'floor' 
-                        ? 'bg-gray-800 text-white border-gray-800' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
+                    className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
+                    style={{
+                      backgroundColor: addType === 'floor' ? 'var(--brand-primary)' : '#ffffff',
+                      borderColor: addType === 'floor' ? 'var(--brand-primary)' : '#d1d5db',
+                      borderRadius: 0,
+                      color: addType === 'floor' ? '#ffffff' : '#374151',
+                    }}
                   >
                     Tầng
                   </button>
@@ -634,18 +651,6 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
                     </select>
                   </div>
 
-                  {/* Floor Code */}
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-2">Mã tầng *</label>
-                    <input 
-                      type="text"
-                      placeholder="VD: T1, T2, TH..."
-                      value={floorCode}
-                      onChange={e => setFloorCode(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                    />
-                  </div>
-
                   {/* Floor Number */}
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Số thứ tự tầng *</label>
@@ -676,13 +681,23 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
               )}
             </div>
             
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3">
               <button 
                 onClick={() => setShowAddModal(false)}
                 disabled={formLoading}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
+                className="building-detail-action-button"
               >
-                Hủy
+                <span
+                  className="building-detail-action-inner text-gray-700"
+                  style={{
+                    borderColor: '#d1d5db',
+                    borderRadius: 10,
+                    clipPath: 'inset(0 round 10px)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  Hủy
+                </span>
               </button>
               <button 
                 onClick={handleSubmit}
@@ -801,10 +816,6 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
                     <p className="text-xs uppercase tracking-wide text-gray-500">Số phòng</p>
                     <p className="mt-1 font-semibold text-gray-900">{detailTarget.floor.totalRooms || 0}</p>
                   </div>
-                  <div className="rounded border border-gray-200 bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Mã tầng</p>
-                    <p className="mt-1 font-semibold text-gray-900">{detailTarget.floor.floorCode || '—'}</p>
-                  </div>
                 </div>
               )}
 
@@ -818,18 +829,38 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
                 <button
                   onClick={handleDetailDelete}
                   disabled={detailLoading}
-                  className="inline-flex items-center gap-2 rounded border border-red-300 bg-white px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  className="building-detail-action-button"
                 >
-                  <Trash2 size={16} />
-                  <span>Xóa</span>
+                  <span
+                    className="building-detail-action-inner text-red-600"
+                    style={{
+                      borderColor: '#fca5a5',
+                      borderRadius: 10,
+                      clipPath: 'inset(0 round 10px)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Trash2 size={16} />
+                    <span>Xóa</span>
+                  </span>
                 </button>
                 <button
                   onClick={handleContextAdd}
                   disabled={detailLoading}
-                  className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="building-detail-action-button"
                 >
-                  <Plus size={16} />
-                  <span>{detailTarget.type === 'building' ? 'Thêm tầng' : 'Thêm phòng'}</span>
+                  <span
+                    className="building-detail-action-inner text-gray-700"
+                    style={{
+                      borderColor: '#d1d5db',
+                      borderRadius: 10,
+                      clipPath: 'inset(0 round 10px)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Plus size={16} />
+                    <span>{detailTarget.type === 'building' ? 'Thêm tầng' : 'Thêm phòng'}</span>
+                  </span>
                 </button>
               </div>
 
@@ -841,9 +872,19 @@ export function BuildingSidebar({ selectedFloor, onSelectFloor, selectedBuilding
                       setDetailError(null);
                     }}
                     disabled={detailLoading}
-                    className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    className="building-detail-action-button"
                   >
-                    Hủy sửa
+                    <span
+                      className="building-detail-action-inner text-gray-700"
+                      style={{
+                        borderColor: '#d1d5db',
+                        borderRadius: 10,
+                        clipPath: 'inset(0 round 10px)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      Hủy sửa
+                    </span>
                   </button>
                 )}
                 <button

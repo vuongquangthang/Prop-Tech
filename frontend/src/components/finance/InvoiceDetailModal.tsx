@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Send, CheckCircle, AlertTriangle, User, Clock, ChevronRight, Home, CalendarDays, ReceiptText, Wallet } from 'lucide-react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
+import { formatDisplayDate } from '../../lib/date-utils';
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface LineItem {
@@ -109,8 +110,7 @@ const RESIDENCY_ROLE_LABELS: Record<string, string> = {
 
 function fmt(n: number | null | undefined) { return (n ?? 0).toLocaleString('vi-VN'); }
 function fmtDate(d?: string | null) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return formatDisplayDate(d);
 }
 function billingPeriod(inv: InvoiceDetail) {
   if (inv.month && inv.year) return `${String(inv.month).padStart(2,'0')}/${inv.year}`;

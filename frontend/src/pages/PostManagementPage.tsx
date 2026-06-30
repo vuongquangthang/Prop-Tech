@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDisplayDate, formatDisplayDateTime } from '../lib/date-utils';
 import { formatMoneyVnd } from '../lib/postValidation';
 import { postService, type PostEditHistoryDto } from '../services/postService';
 import { buildPropTechPartnerUserId, loadRoomConversations } from '../services/roomConversationService';
@@ -198,7 +199,7 @@ export function PostManagementPage() {
                       <td className="px-6 py-4">
                         <div className="font-semibold">{p.roomCode}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{new Date(p.postDate ?? p.createdAt).toLocaleDateString('vi-VN')}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{formatDisplayDate(p.postDate ?? p.createdAt)}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1 text-sm text-gray-700">
                           <Eye size={16} className="text-gray-500" />
@@ -401,7 +402,7 @@ export function PostManagementPage() {
                     <span className="text-gray-600">Thời gian vào ở</span>
                     <span className="text-gray-800">
                       {selectedPost.moveInType === 'from-date'
-                        ? `Từ ${selectedPost.moveInDate ? new Date(selectedPost.moveInDate).toLocaleDateString('vi-VN') : '—'}`
+                        ? `Từ ${formatDisplayDate(selectedPost.moveInDate)}`
                         : 'Ở luôn'}
                     </span>
                   </div>
@@ -411,7 +412,7 @@ export function PostManagementPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ngày đăng</span>
-                    <span className="text-gray-800">{selectedPost.createdAt ? new Date(selectedPost.createdAt).toLocaleDateString('vi-VN') : '—'}</span>
+                    <span className="text-gray-800">{formatDisplayDate(selectedPost.createdAt)}</span>
                   </div>
                 </div>
               </div>
@@ -510,7 +511,7 @@ export function PostManagementPage() {
                       </div>
                       <div className="mt-2 flex flex-wrap items-center text-xs text-gray-500" style={{ columnGap: '1px', rowGap: '4px' }}>
                         <span className="inline-flex rounded bg-gray-100 px-2 py-1">
-                          {new Date(item.changedAt).toLocaleString('vi-VN')}
+                          {formatDisplayDateTime(item.changedAt)}
                         </span>
                         {item.changedBy ? (
                           <span className="inline-flex rounded bg-gray-100 px-2 py-1">

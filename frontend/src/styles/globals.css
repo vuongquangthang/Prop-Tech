@@ -1105,28 +1105,52 @@
     position: relative;
   }
 
+  .auth-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
   .auth-input {
     width: 100%;
     height: 48px;
-    padding: 0 2px;
+    padding: 0 12px;
     border: 0;
     border-bottom: 1px solid var(--border-hover);
     border-radius: 0;
     outline: 0;
-    background: transparent;
-    color: var(--foreground);
+    background: rgba(255, 255, 255, 0.62);
+    color: #0f172a;
     font-size: 1rem;
-    font-weight: 500;
-    transition: border-color 160ms ease, box-shadow 160ms ease;
+    font-weight: 400;
+    transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
   }
 
   .auth-input::placeholder {
-    color: var(--foreground-subtle);
+    color: #475569;
+    font-weight: 400;
   }
 
   .auth-input:focus {
+    background: rgba(255, 255, 255, 0.82);
     border-color: var(--primary);
     box-shadow: 0 2px 0 color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  .auth-input:-webkit-autofill,
+  .auth-input:-webkit-autofill:hover,
+  .auth-input:-webkit-autofill:focus,
+  .auth-input:-webkit-autofill:active {
+    border-bottom-color: var(--primary) !important;
+    box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.82) inset,
+      0 2px 0 color-mix(in srgb, var(--primary) 30%, transparent) !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.82) inset,
+      0 2px 0 color-mix(in srgb, var(--primary) 30%, transparent) !important;
+    -webkit-text-fill-color: #0f172a !important;
+    caret-color: #0f172a;
+    transition: background-color 9999s ease-in-out 0s;
   }
 
   .auth-password-field .auth-input {
@@ -1135,8 +1159,8 @@
 
   .auth-password-toggle {
     position: absolute;
-    top: 50%;
-    right: 0;
+    top: calc(50% + 15px);
+    right: 6px;
     display: inline-flex;
     width: 38px;
     height: 38px;
@@ -2695,4 +2719,42 @@ table td :is(span, em, small)[class*="rounded"].inline-flex {
 .admin-main-content .product-table td .product-action-icon:hover,
 .admin-main-content table td .product-action-icon:hover {
   border-color: transparent !important;
+}
+
+button.building-detail-action-button,
+.admin-main-content button.building-detail-action-button,
+.admin-content-modal-overlay button.building-detail-action-button {
+  all: unset !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+}
+
+button.building-detail-action-button:disabled,
+.admin-main-content button.building-detail-action-button:disabled,
+.admin-content-modal-overlay button.building-detail-action-button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
+}
+
+.building-detail-action-inner {
+  align-items: center !important;
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  gap: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
+}
+
+.building-detail-action-inner:hover {
+  background: #f9fafb !important;
+}
+
+button.building-type-toggle,
+.admin-main-content button.building-type-toggle,
+.admin-content-modal-overlay button.building-type-toggle,
+.admin-content-modal-overlay .building-type-toggle.bg-gray-800.text-white.border-gray-800 {
+  border-radius: 0 !important;
+  clip-path: inset(0 round 0) !important;
+  overflow: hidden !important;
 }

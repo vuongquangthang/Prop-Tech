@@ -5,13 +5,14 @@ import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { postService, type RoomOption, type PostRecord, type PostServiceLineItem } from '../services/postService';
 import { serviceService } from '../services/api.service';
-import { api } from '../lib/api-client';
+import { api, getStoredAuthToken } from '../lib/api-client';
 import { API_ENDPOINTS } from '../lib/api-config';
 import { API_CONFIG } from '../lib/api-config';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageViewer } from '../components/ui/ImageViewer';
 import { MoneyInput } from '../components/ui/MoneyInput';
 import { PageHeader } from '../components/ui/product-system';
+import { DateTextInput } from '../components/ui/DateTextInput';
 
 interface AssetOption {
   id: number;
@@ -520,7 +521,7 @@ export function CreatePostPage() {
 
           const form = new FormData();
           form.append('file', f);
-          const token = localStorage.getItem('token');
+          const token = getStoredAuthToken();
 
           const maxAttempts = 3;
           let attempt = 0;
@@ -1021,10 +1022,9 @@ export function CreatePostPage() {
                         />
                         <label htmlFor="movein-fromdate" className="text-sm text-gray-700">Từ</label>
                         {moveInType === 'from-date' && (
-                          <input
-                            type="date"
+                          <DateTextInput
                             value={moveInDateInput}
-                            onChange={(e) => setMoveInDateInput(e.target.value)}
+                            onChange={setMoveInDateInput}
                             className="rounded border border-gray-300 px-3 py-1 text-sm focus:border-gray-500 focus:outline-none"
                           />
                         )}

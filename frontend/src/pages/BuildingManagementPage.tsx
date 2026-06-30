@@ -32,6 +32,7 @@ export function BuildingManagementPage() {
             onSelectBuilding={setSelectedBuildingId}
             onRequestAddRoom={handleRequestAddRoom}
             onStructureChange={() => setStructureRefreshKey((current) => current + 1)}
+            structureRefreshKey={structureRefreshKey}
           />
         </div>
 
@@ -41,6 +42,7 @@ export function BuildingManagementPage() {
             selectedBuildingId={selectedBuildingId}
             addRoomRequest={addRoomRequest}
             structureRefreshKey={structureRefreshKey}
+            onRoomsChange={() => setStructureRefreshKey((current) => current + 1)}
           />
         </div>
       </div>

@@ -1,9 +1,10 @@
 import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle, X, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { tatToanService, contractService, invoiceService } from '../../services/api.service';
-import { formatLocalDateInput } from '../../lib/date-utils';
+import { formatDisplayDate, formatLocalDateInput } from '../../lib/date-utils';
 import { MoneyInput } from '../ui/MoneyInput';
 import { PageHeader } from '../ui/product-system';
+import { DateTextInput } from '../ui/DateTextInput';
 
 function parseAmount(input: string): number {
   const normalized = input.replace(/[^0-9.-]/g, '');
@@ -207,7 +208,7 @@ function ViewSettlementsTab() {
                   <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900 font-medium">TS-{String(s.id).padStart(3, '0')}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {s.settlementDate ? new Date(s.settlementDate).toLocaleDateString('vi-VN') : '-'}
+                      {formatDisplayDate(s.settlementDate, '-')}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{s.roomNumber || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{s.residentName || '-'}</td>
@@ -541,10 +542,9 @@ function CreateSettlementTab() {
               </div>
               <div>
                 <p className="text-gray-600 mb-1">Ngày trả phòng</p>
-                <input
-                  type="date"
+                <DateTextInput
                   value={settlementDate}
-                  onChange={(e) => setSettlementDate(e.target.value)}
+                  onChange={setSettlementDate}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
                 />
               </div>

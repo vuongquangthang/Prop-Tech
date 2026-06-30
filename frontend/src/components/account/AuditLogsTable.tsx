@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { auditLogService, AuditLog } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { PageHeader } from '../ui/product-system';
+import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date-utils';
+import { DateTextInput } from '../ui/DateTextInput';
 
 interface AuditLogRow {
   time: string;
@@ -24,8 +26,7 @@ const actionLabelMap: Record<string, string> = {
 };
 
 const mapAuditLog = (log: AuditLog): AuditLogRow => {
-  const date = new Date(log.createdAt);
-  const time = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const time = formatDisplayDateTime(log.createdAt);
   const actionLabel = actionLabelMap[log.action] || log.action;
   return {
     time,
@@ -96,8 +97,8 @@ export function AuditLogsTable() {
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  const todayStr = new Date().toLocaleDateString('vi-VN');
-  const todayLogs = auditLogsData.filter(l => l.time.startsWith(todayStr.split('/').reverse().map((p, i) => i === 0 ? p : p.padStart(2, '0')).reverse().join('/')));
+  const todayStr = formatDisplayDate(new Date());
+  const todayLogs = auditLogsData.filter(l => l.time.startsWith(todayStr));
   const loginCount = auditLogsData.filter(l => l.action === 'Đăng nhập').length;
 
   // Filter data
@@ -192,20 +193,18 @@ export function AuditLogsTable() {
             <option value="Cập nhật tri thức AI">Cập nhật tri thức AI</option>
           </FilterSelect>
           
-          <input 
-            type="date"
+          <DateTextInput
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={setDateFrom}
             className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
             style={{ fontSize: 'var(--type-caption)' }}
           />
           
           <span className="text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>đến</span>
           
-          <input 
-            type="date"
+          <DateTextInput
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={setDateTo}
             className="px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
             style={{ fontSize: 'var(--type-caption)' }}
           />
