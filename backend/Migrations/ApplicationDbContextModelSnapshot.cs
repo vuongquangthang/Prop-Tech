@@ -1020,7 +1020,7 @@ namespace backend.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("GIA_CU");
 
-                    b.Property<string?>("Reason")
+                    b.Property<string>("Reason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("LY_DO");

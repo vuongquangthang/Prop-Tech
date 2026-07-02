@@ -66,7 +66,8 @@ namespace backend.Services
             SyncAssetBuildingScopes(taiSan, buildingIds);
 
             var created = await _taiSanRepository.CreateAsync(taiSan);
-            return MapToDto(created);
+            var reloaded = await _taiSanRepository.GetByIdAsync(created.Id, ownerUserId);
+            return MapToDto(reloaded ?? created);
         }
 
         public async Task<TaiSanDto> UpdateAsync(int id, UpdateTaiSanDto dto, int ownerUserId)
@@ -104,7 +105,8 @@ namespace backend.Services
             }
 
             var updated = await _taiSanRepository.UpdateAsync(taiSan);
-            return MapToDto(updated);
+            var reloaded = await _taiSanRepository.GetByIdAsync(updated.Id, ownerUserId);
+            return MapToDto(reloaded ?? updated);
         }
 
         public async Task<bool> DeleteAsync(int id, int ownerUserId)

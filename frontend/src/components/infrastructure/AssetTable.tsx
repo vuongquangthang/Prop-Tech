@@ -509,7 +509,7 @@ export function AssetTable() {
                   <button
                     type="button"
                     onClick={() => setAssetScopeMode('common')}
-                    className={`border px-3 py-2 text-left text-sm ${assetScopeMode === 'common' ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'common' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
                   >
                     Áp dụng chung
                     <span className="mt-1 block text-xs text-gray-500">Tất cả tòa nhà hiện tại và tòa thêm sau.</span>
@@ -517,7 +517,7 @@ export function AssetTable() {
                   <button
                     type="button"
                     onClick={() => setAssetScopeMode('private')}
-                    className={`border px-3 py-2 text-left text-sm ${assetScopeMode === 'private' ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'private' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
                   >
                     Áp dụng riêng
                     <span className="mt-1 block text-xs text-gray-500">Chọn một hoặc nhiều tòa cụ thể.</span>
@@ -631,7 +631,7 @@ export function AssetTable() {
                   <button
                     type="button"
                     onClick={() => setAssetScopeMode('common')}
-                    className={`border px-3 py-2 text-left text-sm ${assetScopeMode === 'common' ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'common' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
                   >
                     Áp dụng chung
                     <span className="mt-1 block text-xs text-gray-500">Tất cả tòa nhà hiện tại và tòa thêm sau.</span>
@@ -639,7 +639,7 @@ export function AssetTable() {
                   <button
                     type="button"
                     onClick={() => setAssetScopeMode('private')}
-                    className={`border px-3 py-2 text-left text-sm ${assetScopeMode === 'private' ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'private' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
                   >
                     Áp dụng riêng
                     <span className="mt-1 block text-xs text-gray-500">Chọn một hoặc nhiều tòa cụ thể.</span>

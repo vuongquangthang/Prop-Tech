@@ -277,11 +277,18 @@ public class RoomService : IRoomService
             throw new InvalidOperationException("Tầng không tồn tại");
         }
 
+        if (dto.MaxOccupants.HasValue && dto.MaxOccupants.Value <= 0)
+        {
+            throw new InvalidOperationException("Số người tối đa phải lớn hơn 0");
+        }
+
         // Check for duplicate room code
         var roomCode = dto.RoomCode.Trim();
         var existing = await _dbContext.Rooms
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.FloorId == dto.FloorId && item.RoomCode == roomCode);
+            .FirstOrDefaultAsync(item => item.FloorId == dto.FloorId
+                && item.RoomCode == roomCode
+                && item.Status != DeletedRoomStatus);
         if (existing != null)
         {
             throw new InvalidOperationException($"Mã phòng '{roomCode}' đã tồn tại");
@@ -338,13 +345,20 @@ public class RoomService : IRoomService
             throw new InvalidOperationException("Phòng không tồn tại");
         }
 
+        if (dto.MaxOccupants.HasValue && dto.MaxOccupants.Value <= 0)
+        {
+            throw new InvalidOperationException("Số người tối đa phải lớn hơn 0");
+        }
+
         // Check for duplicate room code (if changed)
         var nextRoomCode = string.IsNullOrWhiteSpace(dto.RoomCode) ? null : dto.RoomCode.Trim();
         if (nextRoomCode != null && nextRoomCode != room.RoomCode)
         {
             var existing = await _dbContext.Rooms
                 .AsNoTracking()
-                .FirstOrDefaultAsync(item => item.FloorId == room.FloorId && item.RoomCode == nextRoomCode);
+                .FirstOrDefaultAsync(item => item.FloorId == room.FloorId
+                    && item.RoomCode == nextRoomCode
+                    && item.Status != DeletedRoomStatus);
             if (existing != null)
             {
                 throw new InvalidOperationException($"Mã phòng '{nextRoomCode}' đã tồn tại");

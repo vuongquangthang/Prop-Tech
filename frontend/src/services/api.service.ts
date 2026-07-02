@@ -60,6 +60,9 @@ export interface Resident {
   phoneNumber?: string;
   idCardNumber?: string;
   email?: string;
+  buildingName?: string;
+  floorNumber?: number;
+  roomCode?: string;
   dateOfBirth?: string;
   gender?: string;
   hometown?: string;

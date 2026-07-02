@@ -61,12 +61,20 @@ public class FileController : ControllerBase
                 };
             }
 
-            if (!allowedExtensions.Contains(extension) && !allowedMimeTypes.Contains(mimeType))
+            if (!allowedExtensions.Contains(extension)
+                || (!string.IsNullOrWhiteSpace(mimeType)
+                    && !string.Equals(mimeType, "application/octet-stream", StringComparison.OrdinalIgnoreCase)
+                    && !allowedMimeTypes.Contains(mimeType)))
             {
                 return BadRequest(new { message = "Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, webp, heic, heif)" });
             }
 
             extension = string.IsNullOrWhiteSpace(extension) ? ".jpg" : extension.ToLowerInvariant();
+
+            if (!await HasValidImageSignatureAsync(file, extension))
+            {
+                return BadRequest(new { message = "Nội dung file không đúng định dạng ảnh" });
+            }
 
             // Validate file size (max 5MB) and return 413 for payload too large
             const long maxBytes = 5 * 1024 * 1024;
@@ -130,5 +138,37 @@ public class FileController : ControllerBase
             _logger.LogError(ex, "Error deleting file");
             return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa file", error = ex.Message });
         }
+    }
+
+    private static async Task<bool> HasValidImageSignatureAsync(IFormFile file, string extension)
+    {
+        var header = new byte[16];
+        await using var stream = file.OpenReadStream();
+        var bytesRead = await stream.ReadAsync(header.AsMemory(0, header.Length));
+
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => bytesRead >= 3
+                && header[0] == 0xFF
+                && header[1] == 0xD8
+                && header[2] == 0xFF,
+            ".png" => bytesRead >= 8
+                && header.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
+            ".gif" => bytesRead >= 6
+                && (System.Text.Encoding.ASCII.GetString(header, 0, 6) == "GIF87a"
+                    || System.Text.Encoding.ASCII.GetString(header, 0, 6) == "GIF89a"),
+            ".webp" => bytesRead >= 12
+                && System.Text.Encoding.ASCII.GetString(header, 0, 4) == "RIFF"
+                && System.Text.Encoding.ASCII.GetString(header, 8, 4) == "WEBP",
+            ".heic" or ".heif" => bytesRead >= 12
+                && System.Text.Encoding.ASCII.GetString(header, 4, 4) == "ftyp"
+                && IsHeifBrand(System.Text.Encoding.ASCII.GetString(header, 8, 4)),
+            _ => false
+        };
+    }
+
+    private static bool IsHeifBrand(string brand)
+    {
+        return brand is "heic" or "heix" or "hevc" or "hevx" or "heim" or "heis" or "mif1" or "msf1";
     }
 }

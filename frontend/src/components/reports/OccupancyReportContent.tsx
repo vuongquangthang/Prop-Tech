@@ -156,9 +156,12 @@ export function OccupancyReportContent() {
       </div>
       
       {/* Chart and Building Stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <div
+        className="grid gap-4"
+        style={{ gridTemplateColumns: 'minmax(300px, 3fr) minmax(0, 7fr)' }}
+      >
         {/* Pie Chart */}
-        <div className="bg-white border-2 border-gray-300 rounded p-6">
+        <div className="bg-white border-2 border-gray-300 rounded p-4" style={{ minWidth: 0 }}>
           <h2 className="text-gray-800 mb-4" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Phân bổ trạng thái phòng</h2>
           
           <ResponsiveContainer width="100%" height={300}>
@@ -194,7 +197,7 @@ export function OccupancyReportContent() {
         </div>
         
         {/* Building Stats Table */}
-        <div className="app-card">
+        <div className="app-card" style={{ minWidth: 0 }}>
           <div className="border-b border-surface-border px-6 py-4">
             <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thống kê theo tòa nhà</h2>
           </div>

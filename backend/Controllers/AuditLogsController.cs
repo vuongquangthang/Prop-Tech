@@ -91,13 +91,13 @@ public class AuditLogsController : ControllerBase
     /// <summary>
     /// Lấy nhật ký theo hành động (Admin only)
     /// </summary>
-    [HttpGet("action/{action}")]
+    [HttpGet("action/{actionName}")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<List<AuditLogDto>>> GetByAction(string action, [FromQuery] int limit = 100)
+    public async Task<ActionResult<List<AuditLogDto>>> GetByAction(string actionName, [FromQuery] int limit = 100)
     {
         try
         {
-            var logs = await _service.GetByActionAsync(action, User.GetOwnerUserId(), limit);
+            var logs = await _service.GetByActionAsync(actionName, User.GetOwnerUserId(), limit);
             return Ok(logs);
         }
         catch (Exception ex)

@@ -280,6 +280,8 @@ public class ResidentService : IResidentService
             FullName = resident.FullName,
             PhoneNumber = resident.PhoneNumber,
             Email = residentUser?.Email,
+            BuildingName = activeResidency?.HopDong?.Room?.Floor?.Building?.BuildingName,
+            FloorNumber = activeResidency?.HopDong?.Room?.Floor?.FloorNumber,
             RoomCode = activeResidency?.HopDong?.Room?.RoomCode,
             IsLocked = residentUser?.IsLocked ?? false,
             IdCardNumber = resident.IdCardNumber,

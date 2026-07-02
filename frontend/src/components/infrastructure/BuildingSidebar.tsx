@@ -75,6 +75,7 @@ export function BuildingSidebar({
   const [longitude, setLongitude] = useState<number | null>(null);
   // Floor form fields
   const [selectedBuildingId, setSelectedBuildingId] = useState<number>(0);
+  const [lockedAddBuildingId, setLockedAddBuildingId] = useState<number | null>(null);
   const [floorNumber, setFloorNumber] = useState('');
 
   useEffect(() => {
@@ -140,6 +141,7 @@ export function BuildingSidebar({
   const handleAddClick = () => {
     setShowAddModal(true);
     setAddType('building');
+    setLockedAddBuildingId(null);
     setBuildingName('');
     setTotalFloorsInput('');
     setAddress('');
@@ -264,6 +266,7 @@ export function BuildingSidebar({
       setShowAddModal(true);
       setAddType('floor');
       setSelectedBuildingId(detailTarget.building.id);
+      setLockedAddBuildingId(detailTarget.building.id);
     } else {
       onSelectFloor(detailTarget.floor.id);
       onSelectBuilding(null);
@@ -532,7 +535,9 @@ export function BuildingSidebar({
         <div className="admin-content-modal-overlay">
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-lg text-gray-800">Thêm Tòa nhà/Tầng mới</h3>
+              <h3 className="text-lg text-gray-800">
+                {lockedAddBuildingId ? 'Thêm tầng mới' : 'Thêm Tòa nhà/Tầng mới'}
+              </h3>
               <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <X size={20} className="text-gray-600" />
               </button>
@@ -540,37 +545,39 @@ export function BuildingSidebar({
             
             <div className="p-6 space-y-4">
               {/* Type Selection */}
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">Loại *</label>
-                <div className="flex space-x-2">
-                  <button 
-                    type="button"
-                    onClick={() => setAddType('building')}
-                    className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
-                    style={{
-                      backgroundColor: addType === 'building' ? 'var(--brand-primary)' : '#ffffff',
-                      borderColor: addType === 'building' ? 'var(--brand-primary)' : '#d1d5db',
-                      borderRadius: 0,
-                      color: addType === 'building' ? '#ffffff' : '#374151',
-                    }}
-                  >
-                    Tòa nhà
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setAddType('floor')}
-                    className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
-                    style={{
-                      backgroundColor: addType === 'floor' ? 'var(--brand-primary)' : '#ffffff',
-                      borderColor: addType === 'floor' ? 'var(--brand-primary)' : '#d1d5db',
-                      borderRadius: 0,
-                      color: addType === 'floor' ? '#ffffff' : '#374151',
-                    }}
-                  >
-                    Tầng
-                  </button>
+              {!lockedAddBuildingId && (
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">Loại *</label>
+                  <div className="flex space-x-2">
+                    <button 
+                      type="button"
+                      onClick={() => setAddType('building')}
+                      className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
+                      style={{
+                        backgroundColor: addType === 'building' ? 'var(--brand-primary)' : '#ffffff',
+                        borderColor: addType === 'building' ? 'var(--brand-primary)' : '#d1d5db',
+                        borderRadius: 0,
+                        color: addType === 'building' ? '#ffffff' : '#374151',
+                      }}
+                    >
+                      Tòa nhà
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setAddType('floor')}
+                      className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
+                      style={{
+                        backgroundColor: addType === 'floor' ? 'var(--brand-primary)' : '#ffffff',
+                        borderColor: addType === 'floor' ? 'var(--brand-primary)' : '#d1d5db',
+                        borderRadius: 0,
+                        color: addType === 'floor' ? '#ffffff' : '#374151',
+                      }}
+                    >
+                      Tầng
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {addType === 'building' ? (
                 <>
@@ -636,7 +643,8 @@ export function BuildingSidebar({
                     <select
                       value={selectedBuildingId}
                       onChange={e => setSelectedBuildingId(parseInt(e.target.value))}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+                      disabled={lockedAddBuildingId !== null}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-700">
                       {loading ? (
                         <option>Đang tải...</option>
                       ) : buildings.length === 0 ? (

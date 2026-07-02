@@ -1,3 +1,115 @@
+interface ContractHistoryChange {
+  label: string;
+  before?: string;
+  after?: string;
+}
+
+const snapshotValue = (snapshot: any, key: string) =>
+  snapshot?.[key] ?? snapshot?.[key.charAt(0).toLowerCase() + key.slice(1)];
+
+const formatHistoryDate = (value: any) => {
+  if (!value) return 'Không có';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('vi-VN');
+};
+
+const formatHistoryMoney = (value: any) => `${Number(value ?? 0).toLocaleString('vi-VN')} VNĐ`;
+
+const parseHistoryFormula = (snapshot: any) => {
+  const value = snapshotValue(snapshot, 'BillingFormulaJson');
+  if (!value) return [];
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const formulaItemValue = (item: any, key: string) =>
+  item?.[key] ?? item?.[key.charAt(0).toUpperCase() + key.slice(1)];
+
+const formulaItemKey = (item: any) =>
+  String(formulaItemValue(item, 'serviceId') || `${formulaItemValue(item, 'itemType')}-${formulaItemValue(item, 'serviceName')}`);
+
+const formatFormulaItem = (item: any) => {
+  const unitPrice = formatHistoryMoney(formulaItemValue(item, 'unitPrice'));
+  const expression = formulaItemValue(item, 'quantityExpression');
+  const quantity = expression === 'n' ? 'n' : (formulaItemValue(item, 'quantity') ?? expression ?? 1);
+  return `${unitPrice} × ${quantity}`;
+};
+
+const buildContractHistoryChanges = (current: any, previous?: any): ContractHistoryChange[] => {
+  if (!previous) {
+    return [{ label: 'Phiên bản', after: 'Bản hợp đồng ban đầu' }];
+  }
+
+  const changes: ContractHistoryChange[] = [];
+  const compareField = (
+    key: string,
+    label: string,
+    formatter: (value: any) => string = (value) => String(value ?? 'Không có'),
+  ) => {
+    const beforeValue = snapshotValue(previous, key);
+    const afterValue = snapshotValue(current, key);
+    if (JSON.stringify(beforeValue ?? null) !== JSON.stringify(afterValue ?? null)) {
+      changes.push({ label, before: formatter(beforeValue), after: formatter(afterValue) });
+    }
+  };
+
+  compareField('StartDate', 'Ngày bắt đầu', formatHistoryDate);
+  compareField('ExpectedEndDate', 'Ngày kết thúc', formatHistoryDate);
+  compareField('ActualRentPrice', 'Giá thuê', formatHistoryMoney);
+  compareField('DepositAmount', 'Tiền cọc', formatHistoryMoney);
+  compareField('DepositPaid', 'Trạng thái tiền cọc', (value) => value ? 'Đã trả' : 'Chưa trả');
+  compareField('PaymentDayOfMonth', 'Ngày thanh toán', (value) => value ? `Ngày ${value}` : 'Theo cấu hình chung');
+
+  const previousResidents = Array.isArray(snapshotValue(previous, 'Residents')) ? snapshotValue(previous, 'Residents') : [];
+  const currentResidents = Array.isArray(snapshotValue(current, 'Residents')) ? snapshotValue(current, 'Residents') : [];
+  const residentLabel = (resident: any) =>
+    `${resident.FullName ?? resident.fullName ?? `Cư dân #${resident.ResidentId ?? resident.residentId}`} (${resident.ResidencyRole ?? resident.residencyRole ?? 'Thành viên'})`;
+  const previousResidentMap = new Map(previousResidents.map((resident: any) => [String(resident.ResidentId ?? resident.residentId), resident]));
+  const currentResidentMap = new Map(currentResidents.map((resident: any) => [String(resident.ResidentId ?? resident.residentId), resident]));
+
+  currentResidentMap.forEach((resident: any, residentId: string) => {
+    const previousResident: any = previousResidentMap.get(residentId);
+    if (!previousResident) {
+      changes.push({ label: 'Thêm thành viên', after: residentLabel(resident) });
+    } else if ((previousResident.ResidencyRole ?? previousResident.residencyRole) !== (resident.ResidencyRole ?? resident.residencyRole)) {
+      changes.push({ label: resident.FullName ?? resident.fullName ?? `Cư dân #${residentId}`, before: residentLabel(previousResident), after: residentLabel(resident) });
+    }
+  });
+  previousResidentMap.forEach((resident: any, residentId: string) => {
+    if (!currentResidentMap.has(residentId)) {
+      changes.push({ label: 'Xóa thành viên', before: residentLabel(resident) });
+    }
+  });
+
+  const previousFormula = parseHistoryFormula(previous)
+    .filter((item: any) => formulaItemValue(item, 'itemType') !== 'TienPhong');
+  const currentFormula = parseHistoryFormula(current)
+    .filter((item: any) => formulaItemValue(item, 'itemType') !== 'TienPhong');
+  const previousFormulaMap = new Map(previousFormula.map((item: any) => [formulaItemKey(item), item]));
+  const currentFormulaMap = new Map(currentFormula.map((item: any) => [formulaItemKey(item), item]));
+
+  currentFormulaMap.forEach((item: any, itemKey: string) => {
+    const previousItem: any = previousFormulaMap.get(itemKey);
+    const serviceName = formulaItemValue(item, 'serviceName') || 'Dịch vụ';
+    if (!previousItem) {
+      changes.push({ label: `Thêm dịch vụ: ${serviceName}`, after: formatFormulaItem(item) });
+    } else if (formatFormulaItem(previousItem) !== formatFormulaItem(item)) {
+      changes.push({ label: `Dịch vụ: ${serviceName}`, before: formatFormulaItem(previousItem), after: formatFormulaItem(item) });
+    }
+  });
+  previousFormulaMap.forEach((item: any, itemKey: string) => {
+    if (!currentFormulaMap.has(itemKey)) {
+      changes.push({ label: `Xóa dịch vụ: ${formulaItemValue(item, 'serviceName') || 'Dịch vụ'}`, before: formatFormulaItem(item) });
+    }
+  });
+
+  return changes.length > 0 ? changes : [{ label: 'Thông tin', after: 'Không có thay đổi dữ liệu' }];
+};
+
 export function ContractEditHistoryModal({ contract, onClose }: ContractModalProps) {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -9,6 +121,17 @@ export function ContractEditHistoryModal({ contract, onClose }: ContractModalPro
       .catch((err: any) => setError(err.message || 'Không thể tải lịch sử chỉnh sửa'))
       .finally(() => setLoading(false));
   }, [contract?.id]);
+
+  const parsedHistory = history.map((item) => {
+    let snapshot: any = {};
+    try {
+      snapshot = JSON.parse(item.snapshotJson || '{}');
+    } catch {}
+    return { ...item, snapshot };
+  });
+  const snapshotsByVersion = new Map<number, any>(
+    parsedHistory.map((item) => [Number(item.version), item.snapshot]),
+  );
 
   return (
     <div className="admin-content-modal-overlay z-[80]">
@@ -26,46 +149,42 @@ export function ContractEditHistoryModal({ contract, onClose }: ContractModalPro
           {!loading && !error && history.length === 0 && (
             <p className="rounded border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">Hợp đồng chưa có lần chỉnh sửa nào.</p>
           )}
-          {history.map((item) => {
-            let snapshot: any = {};
-            try { snapshot = JSON.parse(item.snapshotJson || '{}'); } catch {}
-            let formula: any[] = [];
-            try {
-              formula = typeof snapshot.BillingFormulaJson === 'string'
-                ? JSON.parse(snapshot.BillingFormulaJson)
-                : (snapshot.BillingFormulaJson || []);
-            } catch {}
-            const residents = Array.isArray(snapshot.Residents) ? snapshot.Residents : [];
+          {parsedHistory.map((item) => {
+            const changes = buildContractHistoryChanges(
+              item.snapshot,
+              snapshotsByVersion.get(Number(item.version) - 1),
+            );
 
             return (
               <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">Phiên bản {item.version}</span>
-                      {item.isCurrent && <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">Hiện tại</span>}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-900">Phiên bản {item.version}</span>
+                  {item.isCurrent && <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">Hiện tại</span>}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  {formatDisplayDateTime(item.changedAt)}
+                  {item.changedByName ? ` · ${item.changedByName}` : ''}
+                </p>
+                <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                  {changes.map((change, index) => (
+                    <div key={`${change.label}-${index}`} className="text-sm">
+                      <p className="font-medium text-gray-700">{change.label}</p>
+                      {change.before !== undefined && change.after !== undefined && (
+                        <p className="mt-0.5 text-gray-600">
+                          <span className="text-red-600 line-through">{change.before}</span>
+                          <span className="mx-2 text-gray-400">→</span>
+                          <span className="text-green-700">{change.after}</span>
+                        </p>
+                      )}
+                      {change.before !== undefined && change.after === undefined && (
+                        <p className="mt-0.5 text-red-600 line-through">{change.before}</p>
+                      )}
+                      {change.before === undefined && change.after !== undefined && (
+                        <p className="mt-0.5 text-green-700">{change.after}</p>
+                      )}
                     </div>
-                    <p className="mt-1 text-sm text-gray-700">{item.summary}</p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {formatDisplayDateTime(item.changedAt)}
-                      {item.changedByName ? ` · ${item.changedByName}` : ''}
-                    </p>
+                  ))}
                   </div>
-                  <div className="text-right text-xs text-gray-500">
-                    <p>{residents.length} cư dân</p>
-                    <p>{formula.filter((row: any) => row.itemType !== 'TienPhong').length} dịch vụ</p>
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3 text-sm">
-                  <div>
-                    <p className="mb-1 font-medium text-gray-700">Thành viên</p>
-                    <p className="text-gray-600">{residents.map((resident: any) => resident.FullName).filter(Boolean).join(', ') || 'Không có dữ liệu'}</p>
-                  </div>
-                  <div>
-                    <p className="mb-1 font-medium text-gray-700">Danh mục dịch vụ</p>
-                    <p className="text-gray-600">{formula.filter((row: any) => row.itemType !== 'TienPhong').map((row: any) => row.serviceName).filter(Boolean).join(', ') || 'Không có dịch vụ'}</p>
-                  </div>
-                </div>
               </div>
             );
           })}
@@ -90,7 +209,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const [monthlyRent, setMonthlyRent] = useState('');
   const [deposit, setDeposit] = useState('');
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
-  const [vehicleCount, setVehicleCount] = useState('0');
+  const [serviceQuantities, setServiceQuantities] = useState<Record<number, string>>({});
   const [contractBuildingId, setContractBuildingId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +245,11 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
               const serviceItems = formula.filter((item: any) => item.itemType !== 'TienPhong' && (item.serviceId || item.serviceName));
               const svcIds = serviceItems.filter((item: any) => item.serviceId).map((item: any) => Number(item.serviceId));
               setSelectedServiceIds(svcIds);
+              setServiceQuantities(Object.fromEntries(
+                serviceItems
+                  .filter((item: any) => item.serviceId && item.quantityExpression !== 'n')
+                  .map((item: any) => [Number(item.serviceId), String(item.quantity ?? 1)]),
+              ));
             }
           } catch (e) { console.error('Error parsing billing formula:', e); }
         }
@@ -157,30 +281,53 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   }, [availablePricingCatalog, selectedServiceIds]);
 
   const householdMemberCount = useMemo(() => 1 + familyMembers.length, [familyMembers.length]);
-  const hasVehicleServiceSelected = useMemo(() => selectedServices.some((s: any) => isVehicleService(s) && !isMeterService(s)), [selectedServices]);
+  const quantityInputServices = useMemo(
+    () => selectedServices.filter(requiresManualQuantity),
+    [selectedServices],
+  );
 
   useEffect(() => {
     const availableServiceIds = new Set(
       availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
     );
-    setSelectedServiceIds(current => current.filter(serviceId => availableServiceIds.has(serviceId)));
+    setSelectedServiceIds((current) => normalizeExclusiveMeterServices(
+      current.filter((serviceId) => availableServiceIds.has(serviceId)),
+      availablePricingCatalog,
+    ));
   }, [availablePricingCatalog]);
+
+  useEffect(() => {
+    setServiceQuantities((current) => {
+      const next = { ...current };
+      let changed = false;
+      quantityInputServices.forEach((service: any) => {
+        const serviceId = Number(service.id ?? service.serviceId ?? 0);
+        if (serviceId > 0 && next[serviceId] === undefined) {
+          next[serviceId] = '1';
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [quantityInputServices]);
 
   const formulaRows = useMemo<BillingFormulaRow[]>(() => {
     const rows: BillingFormulaRow[] = [{ key: 'rent', sortOrder: 1, itemType: 'TienPhong', serviceName: 'Tiền phòng', unitPrice: toNumber(monthlyRent), quantityExpression: 'fixed', quantityMode: 'fixed' }];
     selectedServices.forEach((service: any, index: number) => {
       const id = Number(service.id ?? service.serviceId ?? 0), name = service.name || service.serviceName || 'Dịch vụ', price = toNumber(service.commonUnitPrice ?? service.unitPrice);
-      const meter = isMeterService(service), vehicleBased = !meter && isVehicleService(service), personBased = !meter && !vehicleBased && isPerPersonService(service);
+      const meter = isMeterService(service);
+      const manualQuantity = requiresManualQuantity(service);
+      const personBased = !meter && !manualQuantity && isPerPersonService(service);
       rows.push({ key: `svc-${id}`, sortOrder: index + 2, itemType: meter ? (isWaterService(service) ? 'Nuoc' : 'Dien') : 'DichVu',
-        serviceId: id, serviceName: name, unitPrice: price, quantityExpression: meter ? 'n' : 'fixed', quantityMode: vehicleBased ? 'vehicle' : (personBased ? 'person' : 'fixed')
+        serviceId: id, serviceName: name, unitPrice: price, quantityExpression: meter ? 'n' : 'fixed', quantityMode: manualQuantity ? 'manual' : (personBased ? 'person' : 'fixed')
       });
     });
     return rows;
   }, [selectedServices, monthlyRent]);
 
-  const getVehicleQuantity = () => {
-    const digitsOnly = vehicleCount.replace(/\D/g, '');
-    const parsed = parseInt(digitsOnly, 10);
+  const getManualServiceQuantity = (serviceId?: number) => {
+    if (!serviceId) return 0;
+    const parsed = parseInt(serviceQuantities[serviceId] ?? '0', 10);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   };
 
@@ -193,8 +340,8 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       return null;
     }
 
-    if (row.quantityMode === 'vehicle') {
-      return getVehicleQuantity();
+    if (row.quantityMode === 'manual') {
+      return getManualServiceQuantity(row.serviceId);
     }
 
     if (row.quantityMode === 'person') {
@@ -231,10 +378,10 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     });
 
     return parts.join(' + ');
-  }, [formulaRows, vehicleCount, householdMemberCount]);
+  }, [formulaRows, serviceQuantities, householdMemberCount]);
 
   const toggleServiceSelection = (serviceId: number) => {
-    setSelectedServiceIds(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
+    toggleExclusiveMeterService(serviceId, availablePricingCatalog, setSelectedServiceIds);
   };
 
   const handleRemoveMember = (id: string) => {
@@ -358,7 +505,6 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                 <div key={member.id} className="bg-white border border-gray-300 rounded p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="w-10 h-10 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center">{member.avatar}</div>
                       <div><p className="text-sm text-gray-800 font-bold">{member.name}</p>
                         <p className="text-xs text-gray-600">{member.relationship}</p></div>
                     </div>
@@ -405,38 +551,49 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><DollarSign size={16} className="mr-2" />BƯỚC 4: Danh mục đơn giá</h4>
             <div className="space-y-2">
               {availablePricingCatalog.length > 0 ? (
-                availablePricingCatalog.map((service: any) => (
-                  <button key={service.id || service.serviceId} type="button" onClick={() => toggleServiceSelection(Number(service.id ?? service.serviceId ?? 0))}
-                    className="w-full flex items-start justify-between gap-3 text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50">
-                    <span className="text-left">
-                      <span className="flex items-center gap-2">
-                        <input type="checkbox" checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))} readOnly className="pointer-events-none h-4 w-4 shrink-0" />
-                        <span>{service.name || service.serviceName}</span>
-                      </span>
-                      <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
-                    </span>
-                    <span className="shrink-0 text-right text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
-                  </button>
-                ))
+                availablePricingCatalog.map((service: any) => {
+                  const serviceId = Number(service.id ?? service.serviceId ?? 0);
+                  const isSelected = selectedServiceIds.includes(serviceId);
+                  return (
+                    <div key={serviceId} className="bg-white border border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => toggleServiceSelection(serviceId)}
+                        className="w-full flex items-start justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <span className="text-left">
+                          <span className="flex items-center gap-2">
+                            <input type="checkbox" checked={isSelected} readOnly className="pointer-events-none h-4 w-4 shrink-0" />
+                            <span>{service.name || service.serviceName}</span>
+                          </span>
+                          <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
+                        </span>
+                        <span className="shrink-0 text-right text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
+                      </button>
+                      {isSelected && requiresManualQuantity(service) && (
+                        <label className="flex items-center justify-between gap-4 border-t border-gray-200 px-3 py-2">
+                          <span className="text-sm text-gray-700">Số lượng</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={serviceQuantities[serviceId] ?? '1'}
+                            onChange={(event) => setServiceQuantities((current) => ({
+                              ...current,
+                              [serviceId]: event.target.value.replace(/\D/g, ''),
+                            }))}
+                            className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-sm text-gray-500">Chưa có dữ liệu danh mục đơn giá cho tòa này.</p>
               )}
             </div>
             <p className="text-xs text-gray-500 mt-1">Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục</p>
-            {hasVehicleServiceSelected && (
-              <div className="mt-3 p-3 bg-white border border-gray-200 rounded">
-                <label className="block text-sm text-gray-700 mb-2 font-medium">Số lượng xe (áp dụng cho dịch vụ trông xe)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={vehicleCount}
-                  onChange={(e) => setVehicleCount(e.target.value.replace(/\D/g, ''))}
-                  className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Số lượng này sẽ tự động dùng cho tất cả dòng dịch vụ tính theo đầu xe.</p>
-              </div>
-            )}
           </div>
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
@@ -460,7 +617,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                       <td className="px-3 py-2 text-center border-b border-gray-100">
                         {row.quantityExpression === 'n' ? (
                           <span className="font-bold">n</span>
-                        ) : row.quantityMode === 'vehicle' ? (
+                        ) : row.quantityMode === 'manual' ? (
                           <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
                         ) : row.quantityMode === 'person' ? (
                           <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
@@ -542,7 +699,7 @@ interface BillingFormulaRow {
   serviceName: string;
   unitPrice: number;
   quantityExpression: 'fixed' | 'n';
-  quantityMode?: 'fixed' | 'vehicle' | 'person';
+  quantityMode?: 'fixed' | 'manual' | 'person';
 }
 
 function normalizeText(value: string | undefined) {
@@ -571,6 +728,64 @@ function isVehicleService(service: any) {
   const name = normalizeText(service?.name || service?.serviceName || '');
   const type = normalizeText(service?.serviceType || service?.loai || '');
   return type.includes('xe') || type.includes('gui xe') || name.includes('xe') || name.includes('parking');
+}
+
+function isQuantityInputService(service: any) {
+  const type = normalizeText(service?.type || service?.serviceType || service?.loai || '');
+  return type.includes('can nhap so luong') || type.includes('quantity');
+}
+
+function requiresManualQuantity(service: any) {
+  return !isMeterService(service) && (isQuantityInputService(service) || isVehicleService(service));
+}
+
+function getServiceId(service: any) {
+  return Number(service?.id ?? service?.serviceId ?? 0);
+}
+
+function normalizeExclusiveMeterServices(serviceIds: number[], catalog: any[]) {
+  const serviceMap = new Map(catalog.map((service: any) => [getServiceId(service), service]));
+  let hasElectricity = false;
+  let hasWater = false;
+
+  return serviceIds.filter((serviceId) => {
+    const service = serviceMap.get(serviceId);
+    if (!service || !isMeterService(service)) return true;
+
+    if (isWaterService(service)) {
+      if (hasWater) return false;
+      hasWater = true;
+      return true;
+    }
+
+    if (hasElectricity) return false;
+    hasElectricity = true;
+    return true;
+  });
+}
+
+function toggleExclusiveMeterService(
+  serviceId: number,
+  catalog: any[],
+  setSelection: (updater: (current: number[]) => number[]) => void,
+) {
+  setSelection((current) => {
+    if (current.includes(serviceId)) {
+      return current.filter((id) => id !== serviceId);
+    }
+
+    const selectedService = catalog.find((service: any) => getServiceId(service) === serviceId);
+    if (!selectedService || !isMeterService(selectedService)) {
+      return [...current, serviceId];
+    }
+
+    const next = current.filter((id) => {
+      const service = catalog.find((item: any) => getServiceId(item) === id);
+      if (!service || !isMeterService(service)) return true;
+      return isWaterService(service) !== isWaterService(selectedService);
+    });
+    return [...next, serviceId];
+  });
 }
 
 function isPerPersonService(service: any) {
@@ -804,7 +1019,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   const [depositPaid, setDepositPaid] = useState(false);
   const [contractSequence, setContractSequence] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
-  const [vehicleCount, setVehicleCount] = useState('0');
+  const [serviceQuantities, setServiceQuantities] = useState<Record<number, string>>({});
 
   // Loading/error
   const [loading, setLoading] = useState(false);
@@ -874,9 +1089,13 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     if (showCustomDurationInput && customDurationValue && (!/^\d+$/.test(customDurationValue) || Number(customDurationValue) <= 0)) {
       nextErrors.customDurationValue = 'Sai định dạng. Vui lòng nhập số nguyên dương';
     }
-    if (vehicleCount && (!/^\d+$/.test(vehicleCount) || Number(vehicleCount) < 0)) {
-      nextErrors.vehicleCount = 'Sai định dạng. Số lượng xe phải là số nguyên không âm';
-    }
+    quantityInputServices.forEach((service: any) => {
+      const serviceId = Number(service.id ?? service.serviceId ?? 0);
+      const quantity = serviceQuantities[serviceId] ?? '';
+      if (!/^\d+$/.test(quantity) || Number(quantity) < 0) {
+        nextErrors[`serviceQuantity-${serviceId}`] = 'Số lượng phải là số nguyên không âm';
+      }
+    });
     if (!monthlyRent || toNumber(monthlyRent) <= 0) {
       nextErrors.monthlyRent = 'Sai định dạng. Tiền thuê phải lớn hơn 0';
     }
@@ -935,16 +1154,35 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     return availablePricingCatalog.filter((s: any) => selected.has(Number(s.id ?? s.serviceId ?? 0)));
   }, [availablePricingCatalog, selectedServiceIds]);
 
-  const hasVehicleServiceSelected = useMemo(() => {
-    return selectedServices.some((s: any) => isVehicleService(s) && !isMeterService(s));
-  }, [selectedServices]);
+  const quantityInputServices = useMemo(
+    () => selectedServices.filter(requiresManualQuantity),
+    [selectedServices],
+  );
 
   useEffect(() => {
     const availableServiceIds = new Set(
       availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
     );
-    setSelectedServiceIds(current => current.filter(serviceId => availableServiceIds.has(serviceId)));
+    setSelectedServiceIds((current) => normalizeExclusiveMeterServices(
+      current.filter((serviceId) => availableServiceIds.has(serviceId)),
+      availablePricingCatalog,
+    ));
   }, [availablePricingCatalog]);
+
+  useEffect(() => {
+    setServiceQuantities((current) => {
+      const next = { ...current };
+      let changed = false;
+      quantityInputServices.forEach((service: any) => {
+        const serviceId = Number(service.id ?? service.serviceId ?? 0);
+        if (serviceId > 0 && next[serviceId] === undefined) {
+          next[serviceId] = '1';
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [quantityInputServices]);
 
   const householdMemberCount = useMemo(() => {
     // Chủ hộ ở bước 2 luôn được thêm vào hợp đồng, bước 2B là thành viên ở cùng.
@@ -969,8 +1207,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       const name = service.name || service.serviceName || 'Dịch vụ';
       const price = toNumber(service.commonUnitPrice ?? service.unitPrice);
       const meter = isMeterService(service);
-      const vehicleBased = !meter && isVehicleService(service);
-      const personBased = !meter && !vehicleBased && isPerPersonService(service);
+      const manualQuantity = requiresManualQuantity(service);
+      const personBased = !meter && !manualQuantity && isPerPersonService(service);
 
       rows.push({
         key: `svc-${id}`,
@@ -980,16 +1218,16 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
         serviceName: name,
         unitPrice: price,
         quantityExpression: meter ? 'n' : 'fixed',
-        quantityMode: vehicleBased ? 'vehicle' : (personBased ? 'person' : 'fixed'),
+        quantityMode: manualQuantity ? 'manual' : (personBased ? 'person' : 'fixed'),
       });
     });
 
     return rows;
   }, [selectedServices, monthlyRent]);
 
-  const getVehicleQuantity = () => {
-    const digitsOnly = vehicleCount.replace(/\D/g, '');
-    const parsed = parseInt(digitsOnly, 10);
+  const getManualServiceQuantity = (serviceId?: number) => {
+    if (!serviceId) return 0;
+    const parsed = parseInt(serviceQuantities[serviceId] ?? '0', 10);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   };
 
@@ -1002,8 +1240,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       return null;
     }
 
-    if (row.quantityMode === 'vehicle') {
-      return getVehicleQuantity();
+    if (row.quantityMode === 'manual') {
+      return getManualServiceQuantity(row.serviceId);
     }
 
     if (row.quantityMode === 'person') {
@@ -1040,12 +1278,10 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     });
 
     return parts.join(' + ');
-  }, [formulaRows, vehicleCount, householdMemberCount]);
+  }, [formulaRows, serviceQuantities, householdMemberCount]);
 
   const toggleServiceSelection = (serviceId: number) => {
-    setSelectedServiceIds(prev => prev.includes(serviceId)
-      ? prev.filter(id => id !== serviceId)
-      : [...prev, serviceId]);
+    toggleExclusiveMeterService(serviceId, availablePricingCatalog, setSelectedServiceIds);
   };
 
   useEffect(() => {
@@ -1094,13 +1330,31 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
   useEffect(() => {
     const room = rooms.find((r: any) => String(r.id ?? r.roomId) === selectedRoomId);
-    if (!room) return;
+    if (!room) {
+      setSelectedServiceIds([]);
+      return;
+    }
 
     const defaultRent = toNumber(room.defaultRentPrice ?? room.rentPrice ?? room.monthlyRent ?? room.giaThueMacDinh);
     if (defaultRent > 0) {
       setMonthlyRent(String(defaultRent));
     }
-  }, [selectedRoomId, rooms]);
+
+    const roomServiceIds = Array.isArray(room.serviceIds) && room.serviceIds.length > 0
+      ? room.serviceIds
+      : Array.isArray(room.services)
+        ? room.services.map((service: any) => service.serviceId ?? service.id)
+        : [];
+    const availableServiceIds = new Set(
+      availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
+    );
+    const configuredServiceIds = Array.from(new Set(
+      roomServiceIds
+        .map(Number)
+        .filter((serviceId: number) => serviceId > 0 && availableServiceIds.has(serviceId)),
+    ));
+    setSelectedServiceIds(normalizeExclusiveMeterServices(configuredServiceIds, availablePricingCatalog));
+  }, [selectedRoomId, rooms, availablePricingCatalog]);
 
   const handleRemoveMember = (id: string) => {
     setFamilyMembers(familyMembers.filter(member => member.id !== id));
@@ -1451,14 +1705,9 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                 {familyMembers.map(member => (
                   <div key={member.id} className="bg-white border border-gray-300 rounded p-3">
                     <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-10 h-10 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-xl">
-                          {member.avatar}
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-800 font-bold">{member.name}</p>
-                          <p className="text-xs text-gray-600">{member.relationship}</p>
-                        </div>
+                      <div>
+                        <p className="text-sm text-gray-800 font-bold">{member.name}</p>
+                        <p className="text-xs text-gray-600">{member.relationship}</p>
                       </div>
                       <button className="p-1 hover:bg-gray-100 rounded" title="Xóa thành viên" onClick={() => handleRemoveMember(member.id)}>
                         <X size={16} className="text-red-600" />
@@ -1611,6 +1860,11 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                     Đã ghi nhận tiền cọc, cư dân không cần nộp thêm.
                   </p>
                 )}
+                {!depositPaid && toNumber(deposit) > 0 && (
+                  <p className="mt-1.5 text-xs text-amber-700">
+                    Tiền cọc sẽ được cộng một lần vào hóa đơn tháng đầu của hợp đồng.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1628,30 +1882,57 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
             <div className="space-y-2">
               {availablePricingCatalog.length > 0 ? (
-                availablePricingCatalog.map((service: any) => (
-                  <button
-                    type="button"
-                    key={service.id || service.serviceId || service.name}
-                    onClick={() => toggleServiceSelection(Number(service.id ?? service.serviceId ?? 0))}
-                    className="w-full flex items-start justify-between gap-3 text-sm text-gray-700 p-2 rounded bg-white border border-gray-200 hover:bg-gray-50"
-                  >
-                    <span className="cursor-pointer text-left">
-                      <span className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedServiceIds.includes(Number(service.id ?? service.serviceId ?? 0))}
-                          readOnly
-                          className="pointer-events-none h-4 w-4 shrink-0"
-                        />
-                        <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
-                      </span>
-                      <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
-                    </span>
-                    <span className="shrink-0 text-right text-gray-800 font-bold">
-                      {Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
-                    </span>
-                  </button>
-                ))
+                availablePricingCatalog.map((service: any) => {
+                  const serviceId = Number(service.id ?? service.serviceId ?? 0);
+                  const isSelected = selectedServiceIds.includes(serviceId);
+                  const fieldName = `serviceQuantity-${serviceId}`;
+                  return (
+                    <div key={serviceId} className="bg-white border border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => toggleServiceSelection(serviceId)}
+                        className="w-full flex items-start justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <span className="cursor-pointer text-left">
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="pointer-events-none h-4 w-4 shrink-0"
+                            />
+                            <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
+                          </span>
+                          <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
+                        </span>
+                        <span className="shrink-0 text-right text-gray-800 font-bold">
+                          {Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
+                        </span>
+                      </button>
+                      {isSelected && requiresManualQuantity(service) && (
+                        <label className="flex items-start justify-between gap-4 border-t border-gray-200 px-3 py-2">
+                          <span className="pt-2 text-sm text-gray-700">Số lượng</span>
+                          <span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={serviceQuantities[serviceId] ?? '1'}
+                              onChange={(event) => {
+                                const quantity = event.target.value.replace(/\D/g, '');
+                                setServiceQuantities((current) => ({ ...current, [serviceId]: quantity }));
+                                setFieldError(fieldName);
+                              }}
+                              inputMode="numeric"
+                              className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            />
+                            {fieldErrors[fieldName] && <span className="mt-1 block text-xs text-red-600">{fieldErrors[fieldName]}</span>}
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-sm text-gray-500">Chưa có dữ liệu danh mục đơn giá cho tòa này.</p>
               )}
@@ -1662,22 +1943,6 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
             <p className="text-xs text-gray-500 mt-1">
               Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục (tùy chọn)
             </p>
-            {hasVehicleServiceSelected && (
-              <div className="mt-3 p-3 bg-white border border-gray-200 rounded">
-                <label className="block text-sm text-gray-700 mb-2 font-medium">Số lượng xe (áp dụng cho dịch vụ trông xe)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={vehicleCount}
-                  onChange={(e) => handleDigitsInput('vehicleCount', e.target.value, setVehicleCount, 'số lượng xe')}
-                  inputMode="numeric"
-                  className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                />
-                {fieldErrors.vehicleCount && <p className="text-xs text-red-600 mt-1">{fieldErrors.vehicleCount}</p>}
-                <p className="text-xs text-gray-500 mt-1">Số lượng này sẽ tự động dùng cho tất cả dòng dịch vụ tính theo đầu xe.</p>
-              </div>
-            )}
           </div>
 
           {/* Step 5 */}
@@ -1702,7 +1967,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                       <td className="px-3 py-2 text-center border-b border-gray-100">
                         {row.quantityExpression === 'n' ? (
                           <span className="font-bold">n</span>
-                        ) : row.quantityMode === 'vehicle' ? (
+                        ) : row.quantityMode === 'manual' ? (
                           <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
                         ) : row.quantityMode === 'person' ? (
                           <span className="font-bold text-blue-700">{getRowQuantity(row)}</span>
@@ -2074,6 +2339,14 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
     : (contractDetail?.endDate ? formatDateVi(contractDetail.endDate) : (contract?.endDate || '-'));
   const displayRent = contractDetail?.monthlyRent ?? contractDetail?.actualRentPrice ?? contract?.monthlyRent ?? 0;
   const displayDeposit = contractDetail?.deposit ?? contractDetail?.depositAmount ?? contract?.deposit ?? 0;
+  const depositPaidValue = contractDetail?.depositPaid ?? contractDetail?.DepositPaid ?? contract?.depositPaid ?? false;
+  const displayDepositPaid = depositPaidValue === true || String(depositPaidValue).toLowerCase() === 'true';
+  const depositStatus = Number(displayDeposit) <= 0
+    ? 'Không yêu cầu'
+    : displayDepositPaid
+      ? 'Đã trả'
+      : 'Chưa trả';
+  const paidDepositAmount = displayDepositPaid ? Number(displayDeposit) : 0;
   const residentList: any[] = Array.isArray(contractDetail?.residents)
     ? contractDetail.residents
     : (Array.isArray(contract?.residents) ? contract.residents : []);
@@ -2188,9 +2461,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                   {headOfHousehold && (
                     <div className="bg-white border border-gray-300 rounded p-2">
                       <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                          👤
-                        </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <p className="text-xs text-gray-800 font-bold">{getResidentName(headOfHousehold)}</p>
@@ -2206,9 +2476,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                   {residentList.filter((r: any) => r !== headOfHousehold).map((member: any, idx: number) => (
                     <div key={member.id || member.residentId || idx} className="bg-white border border-gray-300 rounded p-2">
                       <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-gray-200 border border-gray-300 rounded-full flex items-center justify-center text-lg">
-                          👤
-                        </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-700">{getResidentName(member)}</p>
@@ -2237,8 +2504,24 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                     <span className="text-gray-800 font-bold">{fmtCurrency(displayRent)} VNĐ</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Tiền cọc:</span>
+                    <span className="text-gray-600">Tiền cọc theo hợp đồng:</span>
                     <span className="text-gray-800 font-bold">{fmtCurrency(displayDeposit)} VNĐ</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Trạng thái tiền cọc:</span>
+                    <span className={`font-bold ${
+                      Number(displayDeposit) <= 0
+                        ? 'text-gray-600'
+                        : displayDepositPaid
+                          ? 'text-green-700'
+                          : 'text-amber-700'
+                    }`}>
+                      {depositStatus}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tiền cọc đã trả:</span>
+                    <span className="text-gray-800 font-bold">{fmtCurrency(paidDepositAmount)} VNĐ</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ngày thanh toán:</span>

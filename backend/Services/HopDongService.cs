@@ -130,6 +130,11 @@ public class HopDongService : IHopDongService
             throw new InvalidOperationException("Danh sách cư dân bị trùng lặp");
         }
 
+        if (dto.ExpectedEndDate.HasValue && dto.ExpectedEndDate.Value.Date < dto.StartDate.Date)
+        {
+            throw new InvalidOperationException("Ngày kết thúc dự kiến không được nhỏ hơn ngày bắt đầu");
+        }
+
         // Validate room exists
         var room = await _roomRepository.GetByIdAsync(dto.RoomId);
         if (room == null)
@@ -475,11 +480,10 @@ public class HopDongService : IHopDongService
         await _hopDongRepository.SaveChangesAsync();
 
         var updatedContract = await _hopDongRepository.GetWithDetailsAsync(id);
-        var nextVersion = await _context.ContractEditHistories
+        var currentVersion = await _context.ContractEditHistories
             .Where(item => item.ContractId == id)
-            .Select(item => item.Version)
-            .DefaultIfEmpty(0)
-            .MaxAsync() + 1;
+            .MaxAsync(item => (int?)item.Version) ?? 0;
+        var nextVersion = currentVersion + 1;
         _context.ContractEditHistories.Add(new ContractEditHistory
         {
             ContractId = id,

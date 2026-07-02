@@ -692,12 +692,12 @@ using (var scope = app.Services.CreateScope())
 
             context.Database.ExecuteSqlRaw(@"
                 UPDATE [USER]
-                SET EMAIL = CONCAT(REPLACE(SO_DIEN_THOAI, ' ', ''), '@resident.local')
+                SET EMAIL = NULL
                 WHERE VAI_TRO = N'CuDan'
                   AND SO_DIEN_THOAI IS NOT NULL
-                  AND (EMAIL IS NULL OR LTRIM(RTRIM(EMAIL)) = '');
+                  AND LOWER(LTRIM(RTRIM(EMAIL))) = LOWER(CONCAT(REPLACE(SO_DIEN_THOAI, ' ', ''), '@resident.local'));
             ");
-            Console.WriteLine("✅ Resident emails ensured");
+            Console.WriteLine("✅ Legacy resident placeholder emails removed");
 
         } catch (Exception colEx) {
             Console.WriteLine($"⚠️ Column migration note: {colEx.Message}");

@@ -343,6 +343,22 @@ public class HoaDonService : IHoaDonService
                     }
                 }
 
+                var depositAmount = contract.DepositAmount ?? 0;
+                var isFirstContractMonth =
+                    contract.StartDate.Year == year &&
+                    contract.StartDate.Month == month;
+                if (!contract.DepositPaid && depositAmount > 0 && isFirstContractMonth)
+                {
+                    lineItems.Add(new ChiTietHoaDon
+                    {
+                        ItemType = "PhatSinh",
+                        Description = $"Tiền cọc hợp đồng {contract.ContractCode}",
+                        Quantity = 1,
+                        UnitPrice = depositAmount
+                    });
+                    total += depositAmount;
+                }
+
                 if (missingReadingReasons.Any())
                 {
                     result.Skipped++;
@@ -612,7 +628,9 @@ public class HoaDonService : IHoaDonService
 
         // Get current paid amount
         var payments = await _thanhToanRepository.GetByInvoiceIdAsync(id);
-        var currentPaidAmount = payments.Sum(p => p.Amount);
+        var currentPaidAmount = payments
+            .Where(payment => payment.Status == "SUCCESS")
+            .Sum(payment => payment.Amount);
 
         // Validate payment amount
         var remainingAmount = invoice.TotalAmount - currentPaidAmount;
@@ -633,7 +651,8 @@ public class HoaDonService : IHoaDonService
             Amount = dto.Amount,
             PaymentType = dto.PaymentType,
             TransactionCode = dto.TransactionCode,
-            PaidAt = DateTime.UtcNow
+            PaidAt = DateTime.UtcNow,
+            Status = "SUCCESS"
         };
 
         await _thanhToanRepository.AddAsync(payment);
@@ -643,6 +662,20 @@ public class HoaDonService : IHoaDonService
         if (newPaidAmount >= invoice.TotalAmount)
         {
             invoice.Status = "Đã thanh toán";
+            var includesContractDeposit = await _context.ChiTietHoaDons
+                .AnyAsync(item =>
+                    item.InvoiceId == invoice.Id &&
+                    item.ItemType == "PhatSinh" &&
+                    item.Description != null &&
+                    item.Description.StartsWith("Tiền cọc hợp đồng"));
+            if (includesContractDeposit)
+            {
+                var contract = await _context.HopDongs.FindAsync(invoice.ContractId);
+                if (contract != null)
+                {
+                    contract.DepositPaid = true;
+                }
+            }
         }
         else if (newPaidAmount > 0)
         {

@@ -11,6 +11,8 @@ interface ResidentData {
   phoneNumber?: string;
   email?: string;
   idCardNumber?: string;
+  buildingName?: string;
+  floorNumber?: number;
   room?: string;
   status?: string;
   contractCode?: string;
@@ -46,6 +48,8 @@ export function ResidentTable() {
         phoneNumber: r.phoneNumber || r.soDienThoai || '',
         email: r.email || '',
         idCardNumber: r.idCardNumber || r.soCCCD || '',
+        buildingName: r.buildingName || r.tenToaNha || '',
+        floorNumber: r.floorNumber ?? r.soTang ?? undefined,
         room: r.roomCode || r.soPhong || '',
         status: r.isLocked ? 'locked' : 'active',
         contractCode: '',  // TODO: Get from contract data
@@ -59,14 +63,33 @@ export function ResidentTable() {
     }
   };
 
-  const filteredResidents = residents.filter((resident) => {
-    const matchesSearch = 
-      resident.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (resident.phoneNumber && resident.phoneNumber.includes(searchTerm)) ||
-      (resident.room && resident.room.includes(searchTerm));
-    const matchesStatus = statusFilter === 'all' || resident.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const locationCollator = new Intl.Collator('vi', { numeric: true, sensitivity: 'base' });
+  const filteredResidents = residents
+    .filter((resident) => {
+      const matchesSearch =
+        resident.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (resident.phoneNumber && resident.phoneNumber.includes(searchTerm)) ||
+        (resident.buildingName && resident.buildingName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (resident.room && resident.room.includes(searchTerm));
+      const matchesStatus = statusFilter === 'all' || resident.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((first, second) => {
+      const firstHasRoom = Boolean(first.buildingName && first.floorNumber != null && first.room);
+      const secondHasRoom = Boolean(second.buildingName && second.floorNumber != null && second.room);
+      if (firstHasRoom !== secondHasRoom) return firstHasRoom ? -1 : 1;
+
+      const buildingComparison = locationCollator.compare(first.buildingName || '', second.buildingName || '');
+      if (buildingComparison !== 0) return buildingComparison;
+
+      const floorComparison = (first.floorNumber ?? Number.MAX_SAFE_INTEGER) - (second.floorNumber ?? Number.MAX_SAFE_INTEGER);
+      if (floorComparison !== 0) return floorComparison;
+
+      const roomComparison = locationCollator.compare(first.room || '', second.room || '');
+      if (roomComparison !== 0) return roomComparison;
+
+      return locationCollator.compare(first.fullName, second.fullName);
+    });
 
   const handleEditClick = (resident: any) => {
     setSelectedResident(resident);
@@ -135,6 +158,8 @@ export function ResidentTable() {
                   <th>Họ tên</th>
                   <th>Số điện thoại</th>
                   <th>Email</th>
+                  <th>Tòa nhà</th>
+                  <th>Tầng</th>
                   <th>Số phòng</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
@@ -146,6 +171,8 @@ export function ResidentTable() {
                     <td className="font-semibold">{resident.fullName}</td>
                     <td>{resident.phoneNumber || '-'}</td>
                     <td>{resident.email || '-'}</td>
+                    <td>{resident.buildingName || '-'}</td>
+                    <td>{resident.floorNumber ?? '-'}</td>
                     <td>{resident.room || '-'}</td>
                     <td>
                       <StatusBadge tone={statusConfig[(resident.status || 'active') as keyof typeof statusConfig].tone}>

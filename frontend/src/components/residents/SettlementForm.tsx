@@ -80,7 +80,7 @@ export function SettlementForm() {
       {activeTab === 'view' ? (
         <ViewSettlementsTab />
       ) : (
-        <CreateSettlementTab />
+        <CreateSettlementTab onCreated={() => setActiveTab('view')} />
       )}
     </div>
   );
@@ -227,9 +227,11 @@ function ViewSettlementsTab() {
                     <td className="px-6 py-4 text-center">
                       <button
                         onClick={() => openSettlementDetail(Number(s.id))}
-                        className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50 transition-colors"
+                        className="product-action-icon"
+                        title="Xem chi tiết"
+                        aria-label={`Xem chi tiết hồ sơ TS-${String(s.id).padStart(3, '0')}`}
                       >
-                        Xem chi tiết
+                        <Eye size={16} />
                       </button>
                     </td>
                   </tr>
@@ -343,7 +345,7 @@ function SettlementDetailModal({ settlement, loading, onClose }: { settlement: a
 }
 
 // Component for creating new settlement
-function CreateSettlementTab() {
+function CreateSettlementTab({ onCreated }: { onCreated: () => void }) {
   const [contracts, setContracts] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -470,6 +472,7 @@ function CreateSettlementTab() {
       setDeductionsInput('0');
       setNotes('');
       await loadData();
+      onCreated();
     } catch (err: any) {
       setError(err.message || 'Không thể tạo hồ sơ tất toán');
     } finally {

@@ -281,6 +281,12 @@ namespace backend.Services
                 : await _userRepository.GetByIdAsync(id);
             if (user == null) return false;
 
+            var hasAuditLogs = await _context.AuditLogs.AnyAsync(log => log.UserId == id);
+            if (hasAuditLogs)
+            {
+                throw new InvalidOperationException("Không thể xóa tài khoản đã có lịch sử thao tác. Hãy khóa tài khoản để bảo toàn nhật ký kiểm toán.");
+            }
+
             _userRepository.Remove(user);
             await _userRepository.SaveChangesAsync();
             return true;

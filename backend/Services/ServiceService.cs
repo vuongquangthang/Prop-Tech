@@ -374,7 +374,14 @@ public class ServiceService : IServiceService
             return "Theo tháng";
         }
 
-        return serviceType!.Trim();
+        return NormalizeKey(serviceType) switch
+        {
+            "dien" => "Điện",
+            "nuoc" => "Nước",
+            "can nhap so luong" => "Cần nhập số lượng",
+            "theo thang" => "Theo tháng",
+            _ => throw new InvalidOperationException("Loại dịch vụ không hợp lệ")
+        };
     }
 
     private static string NormalizeKey(string? value)

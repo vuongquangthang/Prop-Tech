@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -95,6 +97,15 @@ const relativeTime = (value?: string | null) => {
   return `${diffDays} ngày trước`;
 };
 
+const getInvoiceRemainingAmount = (invoice: any) => {
+  if (invoice.remainingAmount !== null && invoice.remainingAmount !== undefined) {
+    const remainingAmount = Number(invoice.remainingAmount);
+    return Number.isFinite(remainingAmount) ? remainingAmount : 0;
+  }
+
+  return Number(invoice.totalAmount ?? 0) - Number(invoice.paidAmount ?? 0);
+};
+
 const isNewMaintenance = (status?: string) => {
   const normalized = String(status ?? '').toLowerCase();
   return ['pending', 'new', 'mới', 'chờ xử lý', 'yêu cầu sửa lại'].some((item) => normalized.includes(item));
@@ -120,6 +131,40 @@ const dateFromNow = (days: number, hours = 0) => {
   return date.toISOString();
 };
 
+const demoMonthlyRevenue: MonthlyRevenue[] = [
+  [1, 338, 267, 52, 19],
+  [2, 351, 278, 54, 19],
+  [3, 372, 294, 59, 19],
+  [4, 389, 305, 62, 22],
+  [5, 406, 319, 65, 22],
+  [6, 421, 331, 68, 22],
+  [7, 438, 344, 70, 24],
+  [8, 447, 351, 72, 24],
+  [9, 462, 363, 75, 24],
+  [10, 471, 370, 77, 24],
+  [11, 453, 356, 74, 23],
+  [12, 487, 382, 80, 25],
+].map(([month, total, roomRent, service, other]) => ({
+  month,
+  year: new Date().getFullYear(),
+  totalRevenue: total * 1_000_000,
+  collectedRevenue: Math.round(total * 0.82) * 1_000_000,
+  outstandingRevenue: Math.round(total * 0.18) * 1_000_000,
+  roomRentRevenue: roomRent * 1_000_000,
+  serviceRevenue: service * 1_000_000,
+  otherRevenue: other * 1_000_000,
+}));
+
+const demoCurrentMonthIndex = new Date().getMonth();
+const demoCurrentMonthRevenue = demoMonthlyRevenue[demoCurrentMonthIndex]?.collectedRevenue ?? 0;
+const demoLastMonthRevenue = demoMonthlyRevenue[Math.max(0, demoCurrentMonthIndex - 1)]?.collectedRevenue ?? 0;
+const demoYearToDateRevenue = demoMonthlyRevenue
+  .slice(0, demoCurrentMonthIndex + 1)
+  .reduce((total, item) => total + (item.collectedRevenue ?? 0), 0);
+const demoRevenueGrowth = demoLastMonthRevenue > 0
+  ? ((demoCurrentMonthRevenue - demoLastMonthRevenue) / demoLastMonthRevenue) * 100
+  : 0;
+
 const demoStats: DashboardStats = {
   roomStats: {
     totalRooms: 128,
@@ -129,11 +174,11 @@ const demoStats: DashboardStats = {
     occupancyRate: 93,
   },
   revenueStats: {
-    currentMonthRevenue: 486_500_000,
-    lastMonthRevenue: 452_800_000,
-    yearToDateRevenue: 2_674_000_000,
-    averageMonthlyRevenue: 445_700_000,
-    growthRate: 7.4,
+    currentMonthRevenue: demoCurrentMonthRevenue,
+    lastMonthRevenue: demoLastMonthRevenue,
+    yearToDateRevenue: demoYearToDateRevenue,
+    averageMonthlyRevenue: demoYearToDateRevenue / (demoCurrentMonthIndex + 1),
+    growthRate: demoRevenueGrowth,
   },
   debtStats: {
     totalOutstanding: 86_400_000,
@@ -160,30 +205,6 @@ const demoStats: DashboardStats = {
     rejectedRequests: 0,
   },
 };
-
-const demoMonthlyRevenue: MonthlyRevenue[] = [
-  [1, 338, 267, 52, 19],
-  [2, 351, 278, 54, 19],
-  [3, 372, 294, 59, 19],
-  [4, 389, 305, 62, 22],
-  [5, 406, 319, 65, 22],
-  [6, 421, 331, 68, 22],
-  [7, 438, 344, 70, 24],
-  [8, 447, 351, 72, 24],
-  [9, 462, 363, 75, 24],
-  [10, 471, 370, 77, 24],
-  [11, 453, 356, 74, 23],
-  [12, 487, 382, 80, 25],
-].map(([month, total, roomRent, service, other]) => ({
-  month,
-  year: new Date().getFullYear(),
-  totalRevenue: total * 1_000_000,
-  collectedRevenue: Math.round(total * 0.82) * 1_000_000,
-  outstandingRevenue: Math.round(total * 0.18) * 1_000_000,
-  roomRentRevenue: roomRent * 1_000_000,
-  serviceRevenue: service * 1_000_000,
-  otherRevenue: other * 1_000_000,
-}));
 
 const demoMaintenance: MaintenanceRequest[] = [
   { id: 901, roomId: 1208, roomNumber: 'A-1208', userId: 1, userName: 'Nguyễn Minh Anh', issueType: 'Điều hòa không làm lạnh', status: 'Mới', createdAt: dateFromNow(0, -1) },
@@ -306,7 +327,7 @@ export function Dashboard() {
   const monthlyRevenueValue = revenueStats?.currentMonthRevenue ?? 0;
   const lastMonthRevenueValue = revenueStats?.lastMonthRevenue ?? 0;
   const outstandingDebt = debtStats?.totalOutstanding ?? invoices.reduce((sum, invoice) => {
-    const remaining = Number(invoice.remainingAmount ?? invoice.totalAmount - (invoice.paidAmount ?? 0) ?? 0);
+    const remaining = getInvoiceRemainingAmount(invoice);
     return sum + Math.max(0, remaining);
   }, 0);
 
@@ -400,7 +421,7 @@ export function Dashboard() {
         roomBuildingMap.get(String(invoice.roomNumber ?? '').trim()) ||
         roomBuildingMap.get(String(invoice.soPhong ?? '').trim()) ||
         'Chưa xác định';
-      const amount = Number(invoice.remainingAmount ?? invoice.totalAmount - (invoice.paidAmount ?? 0) ?? 0);
+      const amount = getInvoiceRemainingAmount(invoice);
       grouped.set(building, (grouped.get(building) ?? 0) + Math.max(0, amount));
     });
 
@@ -531,10 +552,6 @@ export function Dashboard() {
           <h1>Bảng điều khiển vận hành</h1>
           <p>Theo dõi sức khỏe tòa nhà, dòng tiền, bảo trì và hoạt động cư dân trong một giao diện tập trung.</p>
         </div>
-        <div className="dashboard-hero-actions">
-          <button onClick={() => navigate('/invoice-management')}>Tạo hóa đơn</button>
-          <button onClick={() => navigate('/maintenance-request')}>Xem sự cố</button>
-        </div>
       </section>
 
       <section className="dashboard-kpis">
@@ -563,8 +580,8 @@ export function Dashboard() {
         <article className="dashboard-panel collection-panel">
           <div className="dashboard-panel-header">
             <div>
-              <span>Phân tích vận hành</span>
-              <h2>Doanh thu đã thu hằng tháng</h2>
+              <span>Dòng tiền hóa đơn</span>
+              <h2>Biểu đồ doanh thu</h2>
             </div>
             <button onClick={() => navigate('/revenue-report')}>Báo cáo doanh thu <ChevronRight size={16} /></button>
           </div>
@@ -576,16 +593,16 @@ export function Dashboard() {
                 <YAxis tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} unit="M" />
                 <Tooltip
                   cursor={{ fill: 'color-mix(in srgb, var(--primary) 8%, transparent)' }}
-                  formatter={(value, name) => [`${value} triệu đồng`, name === 'collected' ? 'Đã nhận' : 'Chưa nộp']}
+                  formatter={(value, name) => [`${value} triệu đồng`, name]}
                   labelFormatter={(label) => `Kỳ ${label}`}
                 />
-                <Bar dataKey="collected" name="Đã nhận" stackId="monthly-receivable" fill="var(--success)" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="outstanding" name="Chưa nộp" stackId="monthly-receivable" fill="var(--error)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="collected" name="Đã thu" stackId="monthly-receivable" fill="var(--primary)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="outstanding" name="Còn phải thu" stackId="monthly-receivable" fill="var(--chart-5)" radius={[0, 0, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             <div className="dashboard-chart-legend">
-              <span><i className="collected" /> Đã nhận</span>
-              <span><i className="outstanding" /> Chưa nộp</span>
+              <span><i className="collected" /> Đã thu</span>
+              <span><i className="outstanding" /> Còn phải thu</span>
             </div>
           </div>
         </article>
@@ -1015,11 +1032,11 @@ const dashboardStyles = `
   }
 
   .dashboard-chart-legend i.collected {
-    background: var(--success);
+    background: var(--primary);
   }
 
   .dashboard-chart-legend i.outstanding {
-    background: var(--error);
+    background: var(--chart-5);
   }
 
   .dashboard-shell .recharts-default-tooltip {

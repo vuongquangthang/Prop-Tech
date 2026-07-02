@@ -179,6 +179,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addFloorId, setAddFloorId] = useState<number>(0);
+  const [lockedAddFloorId, setLockedAddFloorId] = useState<number | null>(null);
   const [addRoomCode, setAddRoomCode] = useState('');
   const [addArea, setAddArea] = useState('');
   const [addMaxPeople, setAddMaxPeople] = useState('');
@@ -575,6 +576,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     const defaultAssets = assets.filter(asset => appliesToBuilding(asset, defaultBuildingId));
 
     setAddFloorId(defaultFloorId);
+    setLockedAddFloorId(preferredFloorId != null && defaultFloorId === preferredFloorId ? preferredFloorId : null);
     setAddRoomCode('');
     setAddArea('');
     setAddMaxPeople('');
@@ -933,7 +935,12 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tầng *</label>
-                  <select value={addFloorId} onChange={e => handleAddFloorChange(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500">
+                  <select
+                    value={addFloorId}
+                    onChange={e => handleAddFloorChange(parseInt(e.target.value))}
+                    disabled={lockedAddFloorId !== null}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-700"
+                  >
                     {selectableFloors.length === 0 ? <option value={0}>Chưa có tầng nào</option> : selectableFloors.map(f => <option key={f.id} value={f.id}>Tầng {f.floorNumber}{f.buildingName ? ` - ${f.buildingName}` : ''}</option>)}
                   </select>
                 </div>

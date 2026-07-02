@@ -134,12 +134,19 @@ namespace backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
         {
-            var success = await _userService.DeleteAsync(id, GetCurrentOwnerUserId());
-            if (!success)
+            try
             {
-                return NotFound(new { message = "Người dùng không tồn tại" });
+                var success = await _userService.DeleteAsync(id, GetCurrentOwnerUserId());
+                if (!success)
+                {
+                    return NotFound(new { message = "Người dùng không tồn tại" });
+                }
+                return NoContent();
             }
-            return NoContent();
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         private int GetCurrentUserId()

@@ -232,6 +232,20 @@ public class PaymentService : IPaymentService
                 {
                     invoice.Status = "Đã thanh toán";
                     invoiceStatus = "Đã thanh toán";
+                    var includesContractDeposit = await _context.ChiTietHoaDons
+                        .AnyAsync(item =>
+                            item.InvoiceId == invoice.Id &&
+                            item.ItemType == "PhatSinh" &&
+                            item.Description != null &&
+                            item.Description.StartsWith("Tiền cọc hợp đồng"));
+                    if (includesContractDeposit)
+                    {
+                        var contractWithDeposit = await _context.HopDongs.FindAsync(invoice.ContractId);
+                        if (contractWithDeposit != null)
+                        {
+                            contractWithDeposit.DepositPaid = true;
+                        }
+                    }
                 }
                 else if (totalPaid > 0)
                 {

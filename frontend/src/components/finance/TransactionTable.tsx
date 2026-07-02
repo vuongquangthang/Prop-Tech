@@ -299,9 +299,11 @@ export function TransactionTable() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     {transaction.status === 'unmatched' && (
-                      <button className="px-3 py-1 bg-white border border-gray-800 text-gray-800 text-xs rounded hover:bg-gray-800 hover:text-white transition-colors flex items-center space-x-1 mx-auto" onClick={() => handleMatchClick(transaction)}>
-                        <Link2 size={14} />
-                        <span>Gạch nợ thủ công</span>
+                      <button className="transaction-manual-match-button" onClick={() => handleMatchClick(transaction)}>
+                        <span className="transaction-manual-match-inner">
+                          <Link2 size={14} />
+                          <span>Gạch nợ thủ công</span>
+                        </span>
                       </button>
                     )}
                   </td>
