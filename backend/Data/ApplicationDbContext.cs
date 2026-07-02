@@ -75,7 +75,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Building>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.OwnerUserId, e.BuildingName }).IsUnique();
+            entity.HasIndex(e => new { e.OwnerUserId, e.BuildingName })
+                .IsUnique()
+                .HasFilter("[IS_DELETED] = 0");
             entity.HasOne(e => e.OwnerUser)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerUserId)
@@ -85,7 +87,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Floor>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.BuildingId, e.FloorNumber }).IsUnique();
+            entity.HasIndex(e => new { e.BuildingId, e.FloorNumber })
+                .IsUnique()
+                .HasFilter("[IS_DELETED] = 0");
             entity.HasOne(e => e.Building)
                 .WithMany(e => e.Floors)
                 .HasForeignKey(e => e.BuildingId)
@@ -95,7 +99,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Room>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.FloorId, e.RoomCode }).IsUnique();
+            entity.HasIndex(e => new { e.FloorId, e.RoomCode })
+                .IsUnique()
+                .HasFilter("[TRANG_THAI] <> N'Đã xóa'");
             entity.HasOne(e => e.Floor)
                 .WithMany(e => e.Rooms)
                 .HasForeignKey(e => e.FloorId)

@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.Models;
 
@@ -8,7 +7,6 @@ namespace backend.Models;
 /// Tòa nhà - Thông tin tòa nhà trong khu chung cư
 /// </summary>
 [Table("TOA_NHA")]
-[Index(nameof(OwnerUserId), nameof(BuildingName), IsUnique = true)]
 public class Building
 {
     [Key]
@@ -42,6 +40,9 @@ public class Building
 
     [Column("KINH_DO")]
     public double? Longitude { get; set; }
+
+    [Column("IS_DELETED")]
+    public bool IsDeleted { get; set; }
 
     // Navigation properties
     [ForeignKey("OwnerUserId")]

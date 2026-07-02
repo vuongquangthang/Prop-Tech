@@ -30,7 +30,9 @@ public class FloorService : IFloorService
             .AsNoTracking()
             .Include(floor => floor.Building)
             .Include(floor => floor.Rooms)
-            .Where(floor => floor.Building.OwnerUserId == ownerUserId)
+            .Where(floor => floor.Building.OwnerUserId == ownerUserId
+                && !floor.IsDeleted
+                && !floor.Building.IsDeleted)
             .OrderBy(floor => floor.Building.BuildingName)
             .ThenBy(floor => floor.FloorNumber)
             .ToListAsync();
@@ -44,7 +46,10 @@ public class FloorService : IFloorService
             .AsNoTracking()
             .Include(floor => floor.Building)
             .Include(floor => floor.Rooms)
-            .Where(floor => floor.BuildingId == buildingId && floor.Building.OwnerUserId == ownerUserId)
+            .Where(floor => floor.BuildingId == buildingId
+                && floor.Building.OwnerUserId == ownerUserId
+                && !floor.IsDeleted
+                && !floor.Building.IsDeleted)
             .OrderBy(floor => floor.FloorNumber)
             .ToListAsync();
 
@@ -57,7 +62,10 @@ public class FloorService : IFloorService
             .AsNoTracking()
             .Include(item => item.Building)
             .Include(item => item.Rooms)
-            .FirstOrDefaultAsync(item => item.Id == id && item.Building.OwnerUserId == ownerUserId);
+            .FirstOrDefaultAsync(item => item.Id == id
+                && item.Building.OwnerUserId == ownerUserId
+                && !item.IsDeleted
+                && !item.Building.IsDeleted);
         if (floor == null) return null;
 
         return new FloorDetailDto
@@ -66,8 +74,9 @@ public class FloorService : IFloorService
             BuildingId = floor.BuildingId,
             BuildingName = floor.Building.BuildingName,
             FloorNumber = floor.FloorNumber,
-            TotalRooms = floor.Rooms.Count,
+            TotalRooms = floor.Rooms.Count(room => room.Status != "Đã xóa"),
             Rooms = floor.Rooms
+                .Where(room => room.Status != "Đã xóa")
                 .OrderBy(room => room.RoomCode)
                 .Select(room => new RoomDto
                 {
@@ -96,7 +105,9 @@ public class FloorService : IFloorService
     public async Task<FloorDto> CreateAsync(CreateFloorDto dto, int ownerUserId)
     {
         var building = await _context.Buildings
-            .FirstOrDefaultAsync(item => item.Id == dto.BuildingId && item.OwnerUserId == ownerUserId);
+            .FirstOrDefaultAsync(item => item.Id == dto.BuildingId
+                && item.OwnerUserId == ownerUserId
+                && !item.IsDeleted);
         if (building == null)
         {
             throw new InvalidOperationException("Tòa nhà không tồn tại");
@@ -104,7 +115,9 @@ public class FloorService : IFloorService
 
         var existing = await _context.Floors
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.BuildingId == dto.BuildingId && item.FloorNumber == dto.FloorNumber);
+            .FirstOrDefaultAsync(item => item.BuildingId == dto.BuildingId
+                && item.FloorNumber == dto.FloorNumber
+                && !item.IsDeleted);
         if (existing != null)
         {
             throw new InvalidOperationException($"Tầng {dto.FloorNumber} đã tồn tại trong tòa nhà này");
@@ -127,7 +140,10 @@ public class FloorService : IFloorService
         var floor = await _context.Floors
             .Include(item => item.Building)
             .Include(item => item.Rooms)
-            .FirstOrDefaultAsync(item => item.Id == id && item.Building.OwnerUserId == ownerUserId);
+            .FirstOrDefaultAsync(item => item.Id == id
+                && item.Building.OwnerUserId == ownerUserId
+                && !item.IsDeleted
+                && !item.Building.IsDeleted);
         if (floor == null)
         {
             throw new InvalidOperationException("Tầng không tồn tại");
@@ -147,7 +163,8 @@ public class FloorService : IFloorService
                     .FirstOrDefaultAsync(item =>
                         item.BuildingId == floor.BuildingId &&
                         item.FloorNumber == dto.FloorNumber.Value &&
-                        item.Id != floor.Id);
+                        item.Id != floor.Id &&
+                        !item.IsDeleted);
                 if (existing != null)
                 {
                     throw new InvalidOperationException($"Tầng {dto.FloorNumber.Value} đã tồn tại trong tòa nhà này");
@@ -166,18 +183,27 @@ public class FloorService : IFloorService
         var floor = await _context.Floors
             .Include(item => item.Building)
             .Include(item => item.Rooms)
-            .FirstOrDefaultAsync(item => item.Id == id && item.Building.OwnerUserId == ownerUserId);
+            .FirstOrDefaultAsync(item => item.Id == id
+                && item.Building.OwnerUserId == ownerUserId
+                && !item.IsDeleted
+                && !item.Building.IsDeleted);
         if (floor == null)
         {
             throw new InvalidOperationException("Tầng không tồn tại");
         }
 
-        if (floor.Rooms.Any())
+        if (floor.Rooms.Any(room => room.Status != "Đã xóa"))
         {
             throw new InvalidOperationException("Không thể xóa tầng đã có phòng");
         }
 
-        _context.Floors.Remove(floor);
+        floor.IsDeleted = true;
+        floor.Building.NumberOfFloors = await _context.Floors
+            .Where(item => item.BuildingId == floor.BuildingId
+                && item.Id != floor.Id
+                && !item.IsDeleted)
+            .MaxAsync(item => (int?)item.FloorNumber) ?? 0;
+
         await _context.SaveChangesAsync();
     }
 
@@ -189,7 +215,7 @@ public class FloorService : IFloorService
             BuildingId = floor.BuildingId,
             BuildingName = floor.Building?.BuildingName ?? "",
             FloorNumber = floor.FloorNumber,
-            TotalRooms = floor.Rooms?.Count ?? 0
+            TotalRooms = floor.Rooms?.Count(room => room.Status != "Đã xóa") ?? 0
         };
     }
 }

@@ -936,11 +936,11 @@ export function BuildingSidebar({
               )}
             </div>
 
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleteLoading}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
+                className="building-delete-cancel-button px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50"
               >
                 Hủy
               </button>

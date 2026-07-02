@@ -29,7 +29,7 @@ public class BuildingService : IBuildingService
             .AsNoTracking()
             .Include(building => building.Floors)
                 .ThenInclude(floor => floor.Rooms)
-            .Where(building => building.OwnerUserId == ownerUserId)
+            .Where(building => building.OwnerUserId == ownerUserId && !building.IsDeleted)
             .OrderBy(building => building.BuildingName)
             .ToListAsync();
 
@@ -42,10 +42,11 @@ public class BuildingService : IBuildingService
             .AsNoTracking()
             .Include(item => item.Floors)
                 .ThenInclude(item => item.Rooms)
-            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
+            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId && !item.IsDeleted);
         if (building == null) return null;
 
         var floors = building.Floors
+            .Where(floor => !floor.IsDeleted)
             .OrderBy(floor => floor.FloorNumber)
             .ToList();
 
@@ -59,14 +60,14 @@ public class BuildingService : IBuildingService
             OwnerUserId = building.OwnerUserId,
             Latitude = building.Latitude,
             Longitude = building.Longitude,
-            TotalRooms = floors.Sum(floor => floor.Rooms?.Count ?? 0),
+            TotalRooms = floors.Sum(floor => floor.Rooms?.Count(room => room.Status != "Đã xóa") ?? 0),
             Floors = floors.Select(floor => new FloorDto
             {
                 Id = floor.Id,
                 BuildingId = floor.BuildingId,
                 BuildingName = building.BuildingName,
                 FloorNumber = floor.FloorNumber,
-                TotalRooms = floor.Rooms?.Count ?? 0
+                TotalRooms = floor.Rooms?.Count(room => room.Status != "Đã xóa") ?? 0
             }).ToList()
         };
     }
@@ -87,7 +88,7 @@ public class BuildingService : IBuildingService
         var address = dto.Address.Trim();
         var existing = await _context.Buildings
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.BuildingName == buildingName);
+            .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.BuildingName == buildingName && !item.IsDeleted);
         if (existing != null)
         {
             throw new InvalidOperationException($"Tòa nhà '{buildingName}' đã tồn tại");
@@ -116,7 +117,7 @@ public class BuildingService : IBuildingService
     public async Task<BuildingDto> UpdateAsync(int id, UpdateBuildingDto dto, int ownerUserId)
     {
         var building = await _context.Buildings
-            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
+            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId && !item.IsDeleted);
         if (building == null)
         {
             throw new InvalidOperationException("Tòa nhà không tồn tại");
@@ -127,7 +128,7 @@ public class BuildingService : IBuildingService
         {
             var existing = await _context.Buildings
                 .AsNoTracking()
-                .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.BuildingName == nextBuildingName);
+                .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.BuildingName == nextBuildingName && !item.IsDeleted);
             if (existing != null)
             {
                 throw new InvalidOperationException($"Tòa nhà '{nextBuildingName}' đã tồn tại");
@@ -151,18 +152,22 @@ public class BuildingService : IBuildingService
         var building = await _context.Buildings
             .Include(item => item.Floors)
                 .ThenInclude(item => item.Rooms)
-            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
+            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId && !item.IsDeleted);
         if (building == null)
         {
             throw new InvalidOperationException("Tòa nhà không tồn tại");
         }
 
-        if (building.Floors.Any(floor => floor.Rooms.Any()))
+        if (building.Floors.Any(floor => !floor.IsDeleted && floor.Rooms.Any(room => room.Status != "Đã xóa")))
         {
             throw new InvalidOperationException("Không thể xóa tòa nhà đã có phòng");
         }
 
-        _context.Buildings.Remove(building);
+        foreach (var floor in building.Floors)
+        {
+            floor.IsDeleted = true;
+        }
+        building.IsDeleted = true;
         await _context.SaveChangesAsync();
     }
 
@@ -178,7 +183,9 @@ public class BuildingService : IBuildingService
             OwnerUserId = building.OwnerUserId,
             Latitude = building.Latitude,
             Longitude = building.Longitude,
-            TotalRooms = building.Floors?.Sum(floor => floor.Rooms?.Count ?? 0) ?? 0
+            TotalRooms = building.Floors?
+                .Where(floor => !floor.IsDeleted)
+                .Sum(floor => floor.Rooms?.Count(room => room.Status != "Đã xóa") ?? 0) ?? 0
         };
     }
 }

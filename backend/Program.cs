@@ -241,6 +241,24 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("🔨 Creating new database...");
         context.Database.EnsureCreated();
 
+        try
+        {
+            context.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID('dbo.TOA_NHA', 'U') IS NOT NULL
+                   AND COL_LENGTH('dbo.TOA_NHA', 'IS_DELETED') IS NULL
+                    ALTER TABLE dbo.TOA_NHA ADD IS_DELETED bit NOT NULL CONSTRAINT DF_TOA_NHA_IS_DELETED DEFAULT 0 WITH VALUES;
+
+                IF OBJECT_ID('dbo.TANG', 'U') IS NOT NULL
+                   AND COL_LENGTH('dbo.TANG', 'IS_DELETED') IS NULL
+                    ALTER TABLE dbo.TANG ADD IS_DELETED bit NOT NULL CONSTRAINT DF_TANG_IS_DELETED DEFAULT 0 WITH VALUES;
+            """);
+            Console.WriteLine("✅ Building/floor soft-delete columns ensured early");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Building/floor soft-delete column ensure failed: {ex.Message}");
+        }
+
         // Ensure posts table exists before any later query touches it.
         // Some existing databases may have the rest of the schema but be missing this table.
         try
@@ -544,10 +562,24 @@ using (var scope = app.Services.CreateScope())
                 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TaiSans_AssetCode' AND object_id = OBJECT_ID('TAI_SAN'))
                     DROP INDEX IX_TaiSans_AssetCode ON TAI_SAN;
 
-                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA' AND object_id = OBJECT_ID('TOA_NHA'))
-                    CREATE UNIQUE INDEX IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA ON TOA_NHA(OWNER_USER_ID, TEN_TOA_NHA) WHERE OWNER_USER_ID IS NOT NULL;
-                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PHONG_TANG_ID_MA_PHONG' AND object_id = OBJECT_ID('PHONG'))
-                    CREATE UNIQUE INDEX IX_PHONG_TANG_ID_MA_PHONG ON PHONG(TANG_ID, MA_PHONG);
+                IF COL_LENGTH('TOA_NHA', 'IS_DELETED') IS NULL
+                    ALTER TABLE TOA_NHA ADD IS_DELETED bit NOT NULL CONSTRAINT DF_TOA_NHA_IS_DELETED DEFAULT 0;
+                IF COL_LENGTH('TANG', 'IS_DELETED') IS NULL
+                    ALTER TABLE TANG ADD IS_DELETED bit NOT NULL CONSTRAINT DF_TANG_IS_DELETED DEFAULT 0;
+
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA' AND object_id = OBJECT_ID('TOA_NHA'))
+                    DROP INDEX IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA ON TOA_NHA;
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TANG_TOA_NHA_ID_SO_TANG' AND object_id = OBJECT_ID('TANG'))
+                    DROP INDEX IX_TANG_TOA_NHA_ID_SO_TANG ON TANG;
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA_ACTIVE' AND object_id = OBJECT_ID('TOA_NHA'))
+                    CREATE UNIQUE INDEX IX_TOA_NHA_OWNER_USER_ID_TEN_TOA_NHA_ACTIVE ON TOA_NHA(OWNER_USER_ID, TEN_TOA_NHA) WHERE IS_DELETED = 0;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TANG_TOA_NHA_ID_SO_TANG_ACTIVE' AND object_id = OBJECT_ID('TANG'))
+                    CREATE UNIQUE INDEX IX_TANG_TOA_NHA_ID_SO_TANG_ACTIVE ON TANG(TOA_NHA_ID, SO_TANG) WHERE IS_DELETED = 0;
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PHONG_TANG_ID_MA_PHONG' AND object_id = OBJECT_ID('PHONG'))
+                    DROP INDEX IX_PHONG_TANG_ID_MA_PHONG ON PHONG;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PHONG_TANG_ID_MA_PHONG_ACTIVE' AND object_id = OBJECT_ID('PHONG'))
+                    CREATE UNIQUE INDEX IX_PHONG_TANG_ID_MA_PHONG_ACTIVE ON PHONG(TANG_ID, MA_PHONG) WHERE TRANG_THAI <> N'Đã xóa';
                 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_DICH_VU_OWNER_USER_ID_TEN_DICH_VU' AND object_id = OBJECT_ID('DICH_VU'))
                     DROP INDEX IX_DICH_VU_OWNER_USER_ID_TEN_DICH_VU ON DICH_VU;
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TAI_SAN_OWNER_USER_ID_MA_TAI_SAN' AND object_id = OBJECT_ID('TAI_SAN'))

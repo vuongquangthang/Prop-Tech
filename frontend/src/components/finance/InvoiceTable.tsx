@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Eye, Send, Filter, CheckCircle, X, FileText, Pencil } from 'lucide-react';
+import { Eye, Send, Filter, CheckCircle, X, FileText, Pencil, Trash2 } from 'lucide-react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
@@ -96,6 +96,8 @@ export function InvoiceTable() {
   const [modalInvoiceId, setModalInvoiceId] = useState<number | null>(null);
   const modalInvoice = modalInvoiceId ? allInvoices.find(i => i.id === modalInvoiceId) : null;
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [deleteInvoice, setDeleteInvoice] = useState<Invoice | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Messages
   const [successMsg, setSuccessMsg] = useState('');
@@ -239,6 +241,31 @@ export function InvoiceTable() {
       await loadInvoices();
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi từ chối.']);
+    }
+  };
+
+  const handleDeleteInvoice = async () => {
+    if (!deleteInvoice) return;
+    setDeleting(true);
+    setErrors([]);
+    setSuccessMsg('');
+    try {
+      await api.delete(API_ENDPOINTS.INVOICES.BY_ID(deleteInvoice.id));
+      setSuccessMsg(`✅ Đã xóa hóa đơn ${deleteInvoice.invoiceNumber || `INV-${String(deleteInvoice.id).padStart(3, '0')}`}.`);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        next.delete(deleteInvoice.id);
+        return next;
+      });
+      if (selectedInvoice?.id === deleteInvoice.id) setSelectedInvoice(null);
+      if (modalInvoiceId === deleteInvoice.id) setModalInvoiceId(null);
+      if (editingInvoice?.id === deleteInvoice.id) setEditingInvoice(null);
+      setDeleteInvoice(null);
+      await loadInvoices();
+    } catch (err: any) {
+      setErrors([err.response?.data?.message || 'Không thể xóa hóa đơn.']);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -524,6 +551,16 @@ export function InvoiceTable() {
                               </button>
                             </>
                           )}
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setDeleteInvoice(inv);
+                            }}
+                            title="Xóa hóa đơn"
+                            style={{ padding: '5px', border: 0, borderRadius: '6px', background: 'white', cursor: 'pointer', color: '#dc2626', display: 'flex' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -576,6 +613,40 @@ export function InvoiceTable() {
               <button onClick={() => setShowConfirm(false)} style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: '14px', cursor: 'pointer', background: 'white', color: 'var(--text-primary)' }}>Hủy</button>
               <button onClick={handleBatchApprove} disabled={approving} style={{ padding: '8px 20px', backgroundColor: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', opacity: approving ? 0.6 : 1 }}>
                 {approving ? 'Đang phê duyệt...' : 'Xác nhận phê duyệt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteInvoice && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.18)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-modal)', width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.16)', border: '1px solid var(--surface-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Trash2 size={24} style={{ color: '#dc2626' }} />
+              <h3 style={{ fontSize: '17px', fontWeight: 700 }}>Xác nhận xóa hóa đơn</h3>
+            </div>
+            <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              <p>Bạn có chắc muốn xóa hóa đơn này không?</p>
+              <p><strong>Mã hóa đơn:</strong> {deleteInvoice.invoiceNumber || `INV-${String(deleteInvoice.id).padStart(3, '0')}`}</p>
+              <p><strong>Phòng:</strong> {deleteInvoice.roomCode || '—'}</p>
+              <p><strong>Tổng tiền:</strong> {deleteInvoice.totalAmount.toLocaleString('vi-VN')} VND</p>
+              <p style={{ marginTop: '8px', color: '#b91c1c' }}>Lưu ý: hóa đơn đã có thanh toán sẽ không thể xóa.</p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--surface-border)' }}>
+              <button
+                onClick={() => setDeleteInvoice(null)}
+                disabled={deleting}
+                style={{ padding: '8px 20px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: '14px', cursor: 'pointer', background: 'white', color: 'var(--text-primary)', opacity: deleting ? 0.6 : 1 }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDeleteInvoice}
+                disabled={deleting}
+                style={{ padding: '8px 20px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', opacity: deleting ? 0.6 : 1 }}
+              >
+                {deleting ? 'Đang xóa...' : 'Xác nhận xóa'}
               </button>
             </div>
           </div>

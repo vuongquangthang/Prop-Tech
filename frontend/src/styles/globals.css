@@ -2729,6 +2729,13 @@ button.building-detail-action-button,
   display: inline-flex !important;
 }
 
+button.building-delete-cancel-button,
+.admin-main-content button.building-delete-cancel-button,
+.admin-content-modal-overlay button.building-delete-cancel-button {
+  border-radius: var(--radius-button) !important;
+  margin-right: 12px !important;
+}
+
 button.building-detail-action-button:disabled,
 .admin-main-content button.building-detail-action-button:disabled,
 .admin-content-modal-overlay button.building-detail-action-button:disabled {

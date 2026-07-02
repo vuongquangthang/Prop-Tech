@@ -152,14 +152,23 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(1000)")
                         .HasColumnName("MO_TA");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit")
+                        .HasColumnName("IS_DELETED");
+
                     b.Property<int>("NumberOfFloors")
                         .HasColumnType("int")
                         .HasColumnName("SO_TANG");
 
+                    b.Property<int?>("OwnerUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("OWNER_USER_ID");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("BuildingName")
-                        .IsUnique();
+                    b.HasIndex("OwnerUserId", "BuildingName")
+                        .IsUnique()
+                        .HasFilter("[IS_DELETED] = 0");
 
                     b.ToTable("TOA_NHA");
                 });
@@ -492,10 +501,15 @@ namespace backend.Migrations
                         .HasColumnType("int")
                         .HasColumnName("SO_TANG");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit")
+                        .HasColumnName("IS_DELETED");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BuildingId", "FloorNumber")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IS_DELETED] = 0");
 
                     b.ToTable("TANG");
                 });
@@ -928,10 +942,9 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("FloorId");
-
-                    b.HasIndex("RoomCode")
-                        .IsUnique();
+                    b.HasIndex("FloorId", "RoomCode")
+                        .IsUnique()
+                        .HasFilter("[TRANG_THAI] <> N'Đã xóa'");
 
                     b.ToTable("PHONG");
                 });

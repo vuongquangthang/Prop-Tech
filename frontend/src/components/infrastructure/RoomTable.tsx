@@ -1669,8 +1669,24 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
               )}
               {deleteError && <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{deleteError}</p>}
             </div>
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
-              <button onClick={() => setShowDeleteModal(false)} disabled={deleteLoading} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 disabled:opacity-50">Hủy</button>
+            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleteLoading}
+                className="building-detail-action-button"
+              >
+                <span
+                  className="building-detail-action-inner text-gray-700"
+                  style={{
+                    borderColor: '#d1d5db',
+                    borderRadius: 10,
+                    clipPath: 'inset(0 round 10px)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  Hủy
+                </span>
+              </button>
               <button onClick={handleDeleteSubmit} disabled={deleteLoading || deleteRoom.status === 'rented' || deleteRoom.status === 'Đã thuê'} className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2">
                 {deleteLoading && <Loader2 size={14} className="animate-spin" />}<span>Xác nhận xóa</span>
               </button>

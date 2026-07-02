@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.Models;
 
@@ -8,7 +7,6 @@ namespace backend.Models;
 /// Tầng - Thông tin tầng trong tòa nhà
 /// </summary>
 [Table("TANG")]
-[Index(nameof(BuildingId), nameof(FloorNumber), IsUnique = true)]
 public class Floor
 {
     [Key]
@@ -22,6 +20,9 @@ public class Floor
     [Required]
     [Column("SO_TANG")]
     public int FloorNumber { get; set; }
+
+    [Column("IS_DELETED")]
+    public bool IsDeleted { get; set; }
 
     // Navigation properties
     [ForeignKey("BuildingId")]

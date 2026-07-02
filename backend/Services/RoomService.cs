@@ -25,6 +25,7 @@ public class RoomService : IRoomService
     private const string ActivePostStatus = "active";
     private const string PausedPostStatus = "paused";
     private const string DeletedPostStatus = "deleted";
+    private const string DeletedRoomStatus = "Đã xóa";
 
     private readonly IRoomRepository _roomRepository;
     private readonly IFloorRepository _floorRepository;
@@ -76,7 +77,10 @@ public class RoomService : IRoomService
             .Include(room => room.HopDongs)
             .Include(room => room.ChiTietTaiSanPhongs)
                 .ThenInclude(detail => detail.TaiSan)
-            .Where(room => room.Floor.Building.OwnerUserId == ownerUserId);
+            .Where(room => room.Floor.Building.OwnerUserId == ownerUserId
+                && !room.Floor.IsDeleted
+                && !room.Floor.Building.IsDeleted
+                && room.Status != DeletedRoomStatus);
     }
 
     public async Task<List<RoomDto>> GetAllAsync(int ownerUserId)
@@ -130,7 +134,10 @@ public class RoomService : IRoomService
                     .ThenInclude(residency => residency.Resident)
             .Include(room => room.ChiTietTaiSanPhongs)
                 .ThenInclude(detail => detail.TaiSan)
-            .Where(room => room.Id == id);
+            .Where(room => room.Id == id
+                && room.Status != DeletedRoomStatus
+                && !room.Floor.IsDeleted
+                && !room.Floor.Building.IsDeleted);
 
         if (ownerUserId.HasValue)
         {
@@ -408,6 +415,7 @@ public class RoomService : IRoomService
             .Include(item => item.Floor)
                 .ThenInclude(item => item.Building)
             .Include(item => item.HopDongs)
+            .Include(item => item.ChiTietSuDungDichVus)
             .FirstOrDefaultAsync(item => item.Id == id && item.Floor.Building.OwnerUserId == ownerUserId);
         if (room == null)
         {
@@ -423,8 +431,27 @@ public class RoomService : IRoomService
             throw new InvalidOperationException("Không thể xóa phòng đang có hợp đồng");
         }
 
-        _roomRepository.Remove(room);
+        room.Status = DeletedRoomStatus;
+        room.Description = string.IsNullOrWhiteSpace(room.Description)
+            ? $"Phòng đã được xóa khỏi danh sách ngày {DateTime.UtcNow:dd/MM/yyyy}."
+            : $"{room.Description}\nPhòng đã được xóa khỏi danh sách ngày {DateTime.UtcNow:dd/MM/yyyy}.";
+        await MarkRoomPostsDeletedAsync(room.Id);
+        _roomRepository.Update(room);
         await _roomRepository.SaveChangesAsync();
+    }
+
+    private async Task MarkRoomPostsDeletedAsync(int roomId)
+    {
+        var posts = await _dbContext.BaiDangTimPhongs
+            .Where(post => post.RoomId == roomId)
+            .ToListAsync();
+
+        foreach (var post in posts)
+        {
+            post.IsLocked = true;
+            post.Status = DeletedPostStatus;
+            post.RoomStatus = DeletedRoomStatus;
+        }
     }
 
     private async Task LockRoomPostsAsync(int roomId, string roomStatus)
