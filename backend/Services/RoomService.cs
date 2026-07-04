@@ -294,10 +294,21 @@ public class RoomService : IRoomService
             throw new InvalidOperationException($"Mã phòng '{roomCode}' đã tồn tại");
         }
 
+        ValidateCoordinates(dto.Latitude, dto.Longitude);
+
         var room = new Room
         {
             FloorId = dto.FloorId,
             RoomCode = roomCode,
+            Address = NormalizeOptionalText(dto.Address),
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
+            NormalizedAddress = NormalizeOptionalText(dto.NormalizedAddress),
+            GoongPlaceId = NormalizeOptionalText(dto.GoongPlaceId),
+            LocationSource = NormalizeOptionalText(dto.LocationSource),
+            LocationAccuracy = NormalizeOptionalText(dto.LocationAccuracy),
+            LocationVerifiedAt = dto.Latitude.HasValue && dto.Longitude.HasValue ? DateTime.UtcNow : null,
+            ManualScanRadiusMeters = dto.ManualScanRadiusMeters,
             Area = dto.Area,
             MaxOccupants = dto.MaxOccupants,
             DefaultRentPrice = dto.DefaultRentPrice,
@@ -309,7 +320,7 @@ public class RoomService : IRoomService
             BedroomCount = dto.BedroomCount,
             KitchenCount = dto.KitchenCount,
             BathroomCount = dto.BathroomCount,
-            ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls ?? new List<string>(), JsonOptions),
+            ImageUrlsJson = JsonSerializer.Serialize(SanitizeImageUrls(dto.ImageUrls), JsonOptions),
             AmenitiesJson = JsonSerializer.Serialize(dto.Amenities ?? new List<string>(), JsonOptions),
             ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds ?? new List<int>(), JsonOptions),
             ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices ?? new List<RoomServicePriceDto>(), JsonOptions)
@@ -389,7 +400,20 @@ public class RoomService : IRoomService
         if (dto.BedroomCount.HasValue) room.BedroomCount = dto.BedroomCount;
         if (dto.KitchenCount.HasValue) room.KitchenCount = dto.KitchenCount;
         if (dto.BathroomCount.HasValue) room.BathroomCount = dto.BathroomCount;
-        if (dto.ImageUrls != null) room.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
+        if (dto.Address != null) room.Address = NormalizeOptionalText(dto.Address);
+        if (dto.NormalizedAddress != null) room.NormalizedAddress = NormalizeOptionalText(dto.NormalizedAddress);
+        if (dto.GoongPlaceId != null) room.GoongPlaceId = NormalizeOptionalText(dto.GoongPlaceId);
+        if (dto.LocationSource != null) room.LocationSource = NormalizeOptionalText(dto.LocationSource);
+        if (dto.LocationAccuracy != null) room.LocationAccuracy = NormalizeOptionalText(dto.LocationAccuracy);
+        if (dto.ManualScanRadiusMeters.HasValue) room.ManualScanRadiusMeters = dto.ManualScanRadiusMeters;
+        if (dto.Latitude.HasValue || dto.Longitude.HasValue)
+        {
+            ValidateCoordinates(dto.Latitude, dto.Longitude);
+            room.Latitude = dto.Latitude;
+            room.Longitude = dto.Longitude;
+            room.LocationVerifiedAt = DateTime.UtcNow;
+        }
+        if (dto.ImageUrls != null) room.ImageUrlsJson = JsonSerializer.Serialize(SanitizeImageUrls(dto.ImageUrls), JsonOptions);
         if (dto.Amenities != null) room.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
         if (dto.ServiceIds != null) room.ServiceIdsJson = JsonSerializer.Serialize(dto.ServiceIds, JsonOptions);
         if (dto.ServicePrices != null) room.ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions);
@@ -598,6 +622,15 @@ public class RoomService : IRoomService
             BuildingAddress = building?.Address ?? "",
             FloorNumber = floor?.FloorNumber ?? 0,
             RoomCode = room.RoomCode,
+            Address = room.Address,
+            Latitude = room.Latitude,
+            Longitude = room.Longitude,
+            NormalizedAddress = room.NormalizedAddress,
+            GoongPlaceId = room.GoongPlaceId,
+            LocationSource = room.LocationSource,
+            LocationAccuracy = room.LocationAccuracy,
+            LocationVerifiedAt = room.LocationVerifiedAt,
+            ManualScanRadiusMeters = room.ManualScanRadiusMeters,
             Area = room.Area,
             MaxOccupants = room.MaxOccupants,
             DefaultRentPrice = room.DefaultRentPrice,
@@ -687,6 +720,67 @@ public class RoomService : IRoomService
 
         var normalized = roomType.Trim().ToLowerInvariant();
         return normalized is "single" or "apartment" ? normalized : "single";
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private const int MaxImageUrls = 6;
+
+    private static List<string> SanitizeImageUrls(IEnumerable<string>? urls)
+    {
+        if (urls == null)
+        {
+            return new List<string>();
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<string>();
+        foreach (var url in urls)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                continue;
+            }
+
+            var trimmed = url.Trim();
+            if (!seen.Add(trimmed))
+            {
+                continue;
+            }
+
+            result.Add(trimmed);
+            if (result.Count >= MaxImageUrls)
+            {
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    private static void ValidateCoordinates(double? latitude, double? longitude)
+    {
+        if (latitude.HasValue != longitude.HasValue)
+        {
+            throw new InvalidOperationException("Vui lÃ²ng chá»n Ä‘á»§ cáº£ vá»¹ Ä‘á»™ vÃ  kinh Ä‘á»™");
+        }
+
+        if ((latitude.HasValue && (double.IsNaN(latitude.Value) || double.IsInfinity(latitude.Value)))
+            || (longitude.HasValue && (double.IsNaN(longitude.Value) || double.IsInfinity(longitude.Value))))
+        {
+            throw new InvalidOperationException("Toa do khong hop le");
+        }
+
+        if (latitude is < -90 or > 90)
+        {
+            throw new InvalidOperationException("VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡");
+        }
+
+        if (longitude is < -180 or > 180)
+        {
+            throw new InvalidOperationException("Kinh Ä‘á»™ khÃ´ng há»£p lá»‡");
+        }
     }
 
     private static List<T> DeserializeList<T>(string? json)

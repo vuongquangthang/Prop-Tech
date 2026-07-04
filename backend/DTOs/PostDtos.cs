@@ -36,10 +36,15 @@ public class PostDto
     public string ContactPhone { get; set; } = null!;
     public List<PostServiceLineItemDto> ServicePrices { get; set; } = new();
     public List<string> ImageUrls { get; set; } = new();
+    public List<string> RoomImageUrls { get; set; } = new();
+    public int TotalImageCount { get; set; }
     public List<string> Amenities { get; set; } = new();
     public string? CoverImageUrl { get; set; }
     public int? CreatedByUserId { get; set; }
     public string? CreatedByUserRole { get; set; }
+    public DateTime? ModerationDeletedAt { get; set; }
+    public string? ModerationDeletedReason { get; set; }
+    public string? DeletionSource { get; set; }
 }
 
 public class CreatePostDto

@@ -16,6 +16,7 @@ public interface IPostService
     Task<PostDto> RecordViewAsync(int id);
     Task<PostDto> SyncMessageCountAsync(int id, int messages);
     Task<PostDto> PublishAsync(int id);
+    Task<PostDto> MarkDeletedByModerationAsync(int id, string reason, DateTime? deletedAt = null);
     Task<PostDto> UpdateLockAsync(int id, bool isLocked, int? changedByUserId = null, int? ownerUserId = null);
     Task<PostDto> UpdateAsync(int id, UpdatePostDto dto, int? changedByUserId = null, int? ownerUserId = null);
     Task<List<PostEditHistoryDto>> GetHistoryAsync(int id, int limit = 20, int? ownerUserId = null);
@@ -29,6 +30,9 @@ public class PostService : IPostService
     private const string PausedPostStatus = "paused";
     private const string PendingReviewPostStatus = "pending_review";
     private const string DeletedPostStatus = "deleted";
+    private const string ModerationDeletedSource = "trouytin_admin";
+    private const string OwnerDeletedSource = "owner";
+    private const string DuplicateDeletedSource = "duplicate_cleanup";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -56,8 +60,11 @@ public class PostService : IPostService
     {
         var posts = await FilterPostsForOwner(_context.BaiDangTimPhongs, ownerUserId)
             .AsNoTracking()
-            // Khong hien bai da xoa (logic chong trung danh dau ban thua la "deleted") -> tranh hien bai trung.
-            .Where(post => post.Status != DeletedPostStatus)
+            // Van hien bai da bi admin TroUyTin xoa de chu nha thay trang thai va ly do.
+            // Cac ban deleted do chong trung/cleanup thi an di de tranh nhieu ban trung nhau.
+            .Where(post => post.Status != DeletedPostStatus
+                || post.DeletionSource == ModerationDeletedSource
+                || post.DeletionSource == OwnerDeletedSource)
             .Include(post => post.CreatedByUser)
             .Include(post => post.Room)
                 .ThenInclude(room => room!.Floor)
@@ -93,6 +100,9 @@ public class PostService : IPostService
         var post = await _context.BaiDangTimPhongs
             .AsNoTracking()
             .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
             .Where(item => item.CreatedByUserId == userId)
             .Where(item => item.Status != DeletedPostStatus)
             .OrderByDescending(item => item.CreatedAt)
@@ -173,6 +183,7 @@ public class PostService : IPostService
                         duplicate.IsLocked = true;
                         duplicate.Status = DeletedPostStatus;
                         duplicate.RoomStatus = room.Status;
+                        duplicate.DeletionSource = DuplicateDeletedSource;
                     }
 
                     await _context.SaveChangesAsync();
@@ -183,6 +194,8 @@ public class PostService : IPostService
                         $"Dang lai bai dang cho phong {postToUpdate.RoomCode}",
                         BuildCreateChanges(postToUpdate));
 
+                    postToUpdate.Room = room;
+                    postToUpdate.CreatedByUser ??= creator;
                     return MapToDto(postToUpdate);
                 }
                 else if (liveExistingPosts.Count > 0)
@@ -197,6 +210,7 @@ public class PostService : IPostService
         }
 
         var now = DateTime.UtcNow;
+        var sanitizedImageUrls = SanitizeImageUrls(dto.ImageUrls);
         var post = new BaiDangTimPhong
         {
             RoomId = room.Id,
@@ -222,9 +236,9 @@ public class PostService : IPostService
             ContactName = dto.ContactName.Trim(),
             ContactPhone = dto.ContactPhone.Trim(),
             ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions),
-            ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions),
+            ImageUrlsJson = JsonSerializer.Serialize(sanitizedImageUrls, JsonOptions),
             AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions),
-            CoverImageUrl = dto.ImageUrls.FirstOrDefault(),
+            CoverImageUrl = sanitizedImageUrls.FirstOrDefault(),
             CreatedByUserId = createdByUserId,
         };
 
@@ -232,6 +246,8 @@ public class PostService : IPostService
         await _context.SaveChangesAsync();
         await LogHistoryAsync(createdByUserId, post.Id, "CREATE", BuildCreateSummary(post), BuildCreateChanges(post));
 
+        post.Room = room;
+        post.CreatedByUser = creator;
         return MapToDto(post);
     }
 
@@ -295,6 +311,7 @@ public class PostService : IPostService
         post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
         post.IsLocked = false;
         post.Status = ActivePostStatus;
+        ClearModerationDeletion(post);
         await _context.SaveChangesAsync();
 
         if (oldIsLocked != post.IsLocked || oldStatus != post.Status)
@@ -309,6 +326,59 @@ public class PostService : IPostService
                 }
             });
         }
+
+        return MapToDto(post);
+    }
+
+    public async Task<PostDto> MarkDeletedByModerationAsync(int id, string reason, DateTime? deletedAt = null)
+    {
+        var trimmedReason = string.IsNullOrWhiteSpace(reason) ? "Vi pham quy dinh hien thi" : reason.Trim();
+        if (trimmedReason.Length > 500)
+        {
+            trimmedReason = trimmedReason[..500];
+        }
+
+        var post = await _context.BaiDangTimPhongs
+            .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
+            .FirstOrDefaultAsync(item => item.Id == id);
+
+        if (post == null)
+        {
+            throw new InvalidOperationException("BÃ i Ä‘Äƒng khÃ´ng tá»“n táº¡i");
+        }
+
+        var oldIsLocked = post.IsLocked;
+        var oldStatus = post.Status;
+        var effectiveDeletedAt = deletedAt ?? DateTime.UtcNow;
+
+        post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
+        post.IsLocked = true;
+        post.Status = DeletedPostStatus;
+        post.ModerationDeletedAt = effectiveDeletedAt;
+        post.ModerationDeletedReason = trimmedReason;
+        post.DeletionSource = ModerationDeletedSource;
+        post.PostDate = effectiveDeletedAt;
+
+        await _context.SaveChangesAsync();
+
+        await LogHistoryAsync(null, post.Id, "MODERATION_DELETE", "Admin TroUyTin xoa bai dang", new[]
+        {
+            new PostHistoryChangeDto
+            {
+                Label = "Trang thai bai dang",
+                Before = DescribeStatus(oldStatus, oldIsLocked),
+                After = DescribeStatus(post.Status, post.IsLocked),
+            },
+            new PostHistoryChangeDto
+            {
+                Label = "Ly do xoa",
+                Before = "",
+                After = trimmedReason,
+            },
+        });
 
         return MapToDto(post);
     }
@@ -471,13 +541,14 @@ public class PostService : IPostService
 
         if (dto.ImageUrls != null)
         {
-            var nextImageUrls = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
+            var sanitizedImageUrls = SanitizeImageUrls(dto.ImageUrls);
+            var nextImageUrls = JsonSerializer.Serialize(sanitizedImageUrls, JsonOptions);
             if (!StringEquals(post.ImageUrlsJson, nextImageUrls))
             {
                 AddChange(changes, "Ảnh bài đăng", BuildImageSummary(post.ImageUrlsJson), BuildImageSummary(nextImageUrls));
             }
-            post.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
-            post.CoverImageUrl = dto.ImageUrls.FirstOrDefault();
+            post.ImageUrlsJson = nextImageUrls;
+            post.CoverImageUrl = sanitizedImageUrls.FirstOrDefault();
         }
 
         if (dto.Amenities != null)
@@ -497,13 +568,28 @@ public class PostService : IPostService
             post.PostDate = DateTime.UtcNow;
         }
 
-        if (changes.Count > 0 && IsResidentOwnedPost(post, changedByUserId))
+        if (changes.Count > 0 && StringEquals(post.DeletionSource, ModerationDeletedSource))
         {
             var oldIsLocked = post.IsLocked;
             var oldStatus = post.Status;
             post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
             post.IsLocked = true;
             post.Status = PendingReviewPostStatus;
+            ClearModerationDeletion(post);
+            AddChange(
+                changes,
+                "Trang thai bai dang",
+                DescribeStatus(oldStatus, oldIsLocked),
+                DescribeStatus(post.Status, post.IsLocked));
+        }
+        else if (changes.Count > 0 && IsResidentOwnedPost(post, changedByUserId))
+        {
+            var oldIsLocked = post.IsLocked;
+            var oldStatus = post.Status;
+            post.RoomStatus = post.Room?.Status ?? post.RoomStatus;
+            post.IsLocked = true;
+            post.Status = PendingReviewPostStatus;
+            ClearModerationDeletion(post);
             AddChange(
                 changes,
                 "Trang thai bai dang",
@@ -588,6 +674,7 @@ public class PostService : IPostService
                 item.IsLocked = true;
                 item.Status = DeletedPostStatus;
                 item.RoomStatus = post.RoomStatus;
+                item.DeletionSource = OwnerDeletedSource;
             }
         }
         else if (duplicatePosts.Count > 0)
@@ -623,9 +710,11 @@ public class PostService : IPostService
         post.ContactName = dto.ContactName.Trim();
         post.ContactPhone = dto.ContactPhone.Trim();
         post.ServicePricesJson = JsonSerializer.Serialize(dto.ServicePrices, JsonOptions);
-        post.ImageUrlsJson = JsonSerializer.Serialize(dto.ImageUrls, JsonOptions);
+        var sanitizedImageUrls = SanitizeImageUrls(dto.ImageUrls);
+        post.ImageUrlsJson = JsonSerializer.Serialize(sanitizedImageUrls, JsonOptions);
         post.AmenitiesJson = JsonSerializer.Serialize(dto.Amenities, JsonOptions);
-        post.CoverImageUrl = dto.ImageUrls.FirstOrDefault();
+        post.CoverImageUrl = sanitizedImageUrls.FirstOrDefault();
+        ClearModerationDeletion(post);
     }
 
     private static bool IsResident(User? user)
@@ -638,6 +727,10 @@ public class PostService : IPostService
 
     private static PostDto MapToDto(BaiDangTimPhong post)
     {
+        var postImages = DeserializeList<string>(post.ImageUrlsJson);
+        var roomImages = post.Room != null ? DeserializeList<string>(post.Room.ImageUrlsJson) : new List<string>();
+        var allImages = DistinctImages(roomImages, postImages);
+
         return new PostDto
         {
             Id = post.Id,
@@ -665,12 +758,54 @@ public class PostService : IPostService
             ContactName = post.ContactName,
             ContactPhone = post.ContactPhone,
             ServicePrices = DeserializeList<PostServiceLineItemDto>(post.ServicePricesJson),
-            ImageUrls = DeserializeList<string>(post.ImageUrlsJson),
+            ImageUrls = postImages,
+            RoomImageUrls = roomImages,
+            TotalImageCount = allImages.Count,
             Amenities = DeserializeList<string>(post.AmenitiesJson ?? "[]"),
             CoverImageUrl = post.CoverImageUrl,
             CreatedByUserId = post.CreatedByUserId,
             CreatedByUserRole = post.CreatedByUser?.Role,
+            ModerationDeletedAt = post.ModerationDeletedAt,
+            ModerationDeletedReason = post.ModerationDeletedReason,
+            DeletionSource = post.DeletionSource,
         };
+    }
+
+    private static void ClearModerationDeletion(BaiDangTimPhong post)
+    {
+        post.ModerationDeletedAt = null;
+        post.ModerationDeletedReason = null;
+        post.DeletionSource = null;
+    }
+
+    private static List<string> DistinctImages(params IEnumerable<string>[] imageGroups)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var image in imageGroups.SelectMany(group => group))
+        {
+            if (string.IsNullOrWhiteSpace(image))
+            {
+                continue;
+            }
+
+            var normalized = image.Trim();
+            if (seen.Add(normalized))
+            {
+                result.Add(normalized);
+            }
+        }
+
+        return result;
+    }
+
+    private const int MaxImageUrls = 6;
+
+    private static List<string> SanitizeImageUrls(IEnumerable<string>? urls)
+    {
+        var cleaned = DistinctImages(urls ?? Enumerable.Empty<string>());
+        return cleaned.Count > MaxImageUrls ? cleaned.Take(MaxImageUrls).ToList() : cleaned;
     }
 
     private async Task LogHistoryAsync(int? userId, int postId, string action, string summary, IEnumerable<PostHistoryChangeDto> changes)

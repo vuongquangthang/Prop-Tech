@@ -17,6 +17,8 @@ interface BuildingData {
   buildingCode: string;
   totalFloors: number;
   address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   totalRooms?: number;
   floors: FloorData[];
 }
@@ -66,6 +68,8 @@ export function BuildingSidebar({
   const [editBuildingName, setEditBuildingName] = useState('');
   const [editBuildingAddress, setEditBuildingAddress] = useState('');
   const [editBuildingFloors, setEditBuildingFloors] = useState('');
+  const [editLatitude, setEditLatitude] = useState<number | null>(null);
+  const [editLongitude, setEditLongitude] = useState<number | null>(null);
   const [editFloorNumber, setEditFloorNumber] = useState('');
   // Building form fields
   const [buildingName, setBuildingName] = useState('');
@@ -100,6 +104,8 @@ export function BuildingSidebar({
               buildingCode: building.buildingCode || building.maToaNha || '',
               totalFloors: (building as any).numberOfFloors || building.totalFloors || building.soTang || 0,
               address: building.address || building.diaChi || '',
+              latitude: building.latitude ?? null,
+              longitude: building.longitude ?? null,
               totalRooms: building.totalRooms || building.tongSoPhong || 0,
               floors: floors.map((f: any) => ({
                 id: f.id || f.tangId || 0,
@@ -117,6 +123,8 @@ export function BuildingSidebar({
               buildingCode: building.buildingCode || building.maToaNha || '',
               totalFloors: (building as any).numberOfFloors || building.totalFloors || building.soTang || 0,
               address: building.address || building.diaChi || '',
+              latitude: building.latitude ?? null,
+              longitude: building.longitude ?? null,
               totalRooms: building.totalRooms || building.tongSoPhong || 0,
               floors: []
             };
@@ -244,12 +252,16 @@ export function BuildingSidebar({
       setEditBuildingName(target.building.buildingName);
       setEditBuildingAddress(target.building.address || '');
       setEditBuildingFloors(String(target.building.totalFloors || target.building.floors.length || 1));
+      setEditLatitude(target.building.latitude ?? null);
+      setEditLongitude(target.building.longitude ?? null);
       setEditFloorNumber('');
     } else {
       setEditFloorNumber(String(target.floor.floorNumber));
       setEditBuildingName('');
       setEditBuildingAddress('');
       setEditBuildingFloors('');
+      setEditLatitude(null);
+      setEditLongitude(null);
     }
   };
 
@@ -260,6 +272,8 @@ export function BuildingSidebar({
     setBuildingName('');
     setTotalFloorsInput('');
     setAddress('');
+    setLatitude(null);
+    setLongitude(null);
     setFloorNumber('');
 
     if (detailTarget.type === 'building') {
@@ -314,6 +328,8 @@ export function BuildingSidebar({
           buildingName: editBuildingName.trim(),
           address: editBuildingAddress.trim(),
           numberOfFloors,
+          latitude: editLatitude ?? undefined,
+          longitude: editLongitude ?? undefined,
         } as any);
         await ensureFloorsForBuilding(detailTarget.building.id, numberOfFloors);
       } else {
@@ -533,8 +549,9 @@ export function BuildingSidebar({
       {/* Add Building/Floor Modal */}
       {showAddModal && (
         <div className="admin-content-modal-overlay">
-          <div className="bg-white rounded-lg w-[500px]">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-lg w-[500px] max-h-[90vh] flex flex-col">
+            {/* Header co dinh: khong troi khi body cuon */}
+            <div className="shrink-0 border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">
                 {lockedAddBuildingId ? 'Thêm tầng mới' : 'Thêm Tòa nhà/Tầng mới'}
               </h3>
@@ -542,8 +559,8 @@ export function BuildingSidebar({
                 <X size={20} className="text-gray-600" />
               </button>
             </div>
-            
-            <div className="p-6 space-y-4">
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Type Selection */}
               {!lockedAddBuildingId && (
                 <div>
@@ -628,9 +645,12 @@ export function BuildingSidebar({
                       lat={latitude}
                       lng={longitude}
                       addressQuery={address}
-                      onChange={(la, ln) => {
+                      onChange={(la, ln, location) => {
                         setLatitude(la);
                         setLongitude(ln);
+                        if (location?.address && location.source === 'manual-nearby-scan') {
+                          setAddress(location.address);
+                        }
                       }}
                     />
                   </div>
@@ -689,8 +709,8 @@ export function BuildingSidebar({
               )}
             </div>
             
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3">
-              <button 
+            <div className="shrink-0 border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3">
+              <button
                 onClick={() => setShowAddModal(false)}
                 disabled={formLoading}
                 className="building-detail-action-button"
@@ -722,8 +742,9 @@ export function BuildingSidebar({
 
       {detailTarget && (
         <div className="admin-content-modal-overlay">
-          <div className="bg-white rounded-lg w-[560px]">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-lg w-[560px] max-h-[90vh] flex flex-col">
+            {/* Header co dinh: khong troi khi body cuon */}
+            <div className="shrink-0 border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg text-gray-800">
                   {detailTarget.type === 'building' ? 'Chi tiết tòa nhà' : 'Chi tiết tầng'}
@@ -742,7 +763,7 @@ export function BuildingSidebar({
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {detailTarget.type === 'building' ? (
                 detailEditMode ? (
                   <div className="space-y-4">
@@ -761,6 +782,23 @@ export function BuildingSidebar({
                         value={editBuildingAddress}
                         onChange={(event) => setEditBuildingAddress(event.target.value)}
                         className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm text-gray-700">
+                        Vá»‹ trÃ­ trÃªn báº£n Ä‘á»“ {editLatitude && editLongitude ? '(Ä‘Ã£ chá»n)' : '(tuá»³ chá»n)'}
+                      </label>
+                      <LocationPicker
+                        lat={editLatitude}
+                        lng={editLongitude}
+                        addressQuery={editBuildingAddress}
+                        onChange={(la, ln, location) => {
+                          setEditLatitude(la);
+                          setEditLongitude(ln);
+                          if (location?.address && location.source === 'manual-nearby-scan') {
+                            setEditBuildingAddress(location.address);
+                          }
+                        }}
                       />
                     </div>
                     <div>
@@ -832,7 +870,7 @@ export function BuildingSidebar({
               )}
             </div>
 
-            <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-between gap-3">
+            <div className="shrink-0 border-t border-gray-300 px-6 py-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleDetailDelete}

@@ -94,6 +94,8 @@ public class BuildingService : IBuildingService
             throw new InvalidOperationException($"Tòa nhà '{buildingName}' đã tồn tại");
         }
 
+        ValidateCoordinates(dto.Latitude, dto.Longitude);
+
         var building = new Building
         {
             BuildingName = buildingName,
@@ -101,6 +103,8 @@ public class BuildingService : IBuildingService
             NumberOfFloors = dto.NumberOfFloors,
             Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
             OwnerUserId = ownerUserId,
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
             Floors = Enumerable.Range(1, dto.NumberOfFloors)
                 .Select(floorNumber => new Floor
                 {
@@ -140,8 +144,12 @@ public class BuildingService : IBuildingService
         if (!string.IsNullOrWhiteSpace(dto.Address)) building.Address = dto.Address.Trim();
         if (dto.NumberOfFloors.HasValue) building.NumberOfFloors = dto.NumberOfFloors.Value;
         if (dto.Description != null) building.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
-        if (dto.Latitude.HasValue) building.Latitude = dto.Latitude;
-        if (dto.Longitude.HasValue) building.Longitude = dto.Longitude;
+        if (dto.Latitude.HasValue || dto.Longitude.HasValue)
+        {
+            ValidateCoordinates(dto.Latitude, dto.Longitude);
+            building.Latitude = dto.Latitude;
+            building.Longitude = dto.Longitude;
+        }
 
         await _context.SaveChangesAsync();
         return MapToDto(building);
@@ -187,5 +195,29 @@ public class BuildingService : IBuildingService
                 .Where(floor => !floor.IsDeleted)
                 .Sum(floor => floor.Rooms?.Count(room => room.Status != "Đã xóa") ?? 0) ?? 0
         };
+    }
+
+    private static void ValidateCoordinates(double? latitude, double? longitude)
+    {
+        if (latitude.HasValue != longitude.HasValue)
+        {
+            throw new InvalidOperationException("Vui lÃ²ng chá»n Ä‘á»§ cáº£ vá»¹ Ä‘á»™ vÃ  kinh Ä‘á»™");
+        }
+
+        if ((latitude.HasValue && (double.IsNaN(latitude.Value) || double.IsInfinity(latitude.Value)))
+            || (longitude.HasValue && (double.IsNaN(longitude.Value) || double.IsInfinity(longitude.Value))))
+        {
+            throw new InvalidOperationException("Toa do khong hop le");
+        }
+
+        if (latitude is < -90 or > 90)
+        {
+            throw new InvalidOperationException("VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡");
+        }
+
+        if (longitude is < -180 or > 180)
+        {
+            throw new InvalidOperationException("Kinh Ä‘á»™ khÃ´ng há»£p lá»‡");
+        }
     }
 }

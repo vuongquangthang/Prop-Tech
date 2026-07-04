@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using backend.Services;
 
 namespace backend.Controllers;
 
@@ -8,19 +9,13 @@ namespace backend.Controllers;
 [Authorize]
 public class FileController : ControllerBase
 {
-    private readonly IWebHostEnvironment _environment;
     private readonly ILogger<FileController> _logger;
-    private readonly string _uploadsPath;
+    private readonly IStorageService _storage;
 
-    public FileController(IWebHostEnvironment environment, ILogger<FileController> logger, IConfiguration configuration)
+    public FileController(ILogger<FileController> logger, IStorageService storage)
     {
-        _environment = environment;
         _logger = logger;
-
-        var configuredUploadsPath = configuration["Uploads:RootPath"];
-        _uploadsPath = string.IsNullOrWhiteSpace(configuredUploadsPath)
-            ? Path.Combine(_environment.ContentRootPath, "uploads")
-            : Environment.ExpandEnvironmentVariables(configuredUploadsPath);
+        _storage = storage;
     }
 
     [HttpPost("upload")]
@@ -84,28 +79,17 @@ public class FileController : ControllerBase
                 return StatusCode(StatusCodes.Status413PayloadTooLarge, new { message = "Kích thước file không được vượt quá 5MB" });
             }
 
-            // Create uploads directory if not exists
-            if (!Directory.Exists(_uploadsPath))
-            {
-                Directory.CreateDirectory(_uploadsPath);
-            }
-
             // Generate unique filename
             var fileName = $"{Guid.NewGuid()}{extension}";
-            var filePath = Path.Combine(_uploadsPath, fileName);
 
-            // Save file
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            // Save file qua storage service (R2 neu da cau hinh, nguoc lai local disk).
+            var contentType = string.IsNullOrWhiteSpace(mimeType) ? "application/octet-stream" : mimeType;
+            await using (var stream = file.OpenReadStream())
             {
-                await file.CopyToAsync(stream);
+                var fileUrl = await _storage.UploadAsync(stream, fileName, contentType);
+                _logger.LogInformation("File uploaded successfully: {FileName}", fileName);
+                return Ok(new { url = fileUrl });
             }
-
-            // Return URL
-            var fileUrl = $"/uploads/{fileName}";
-            
-            _logger.LogInformation("File uploaded successfully: {FileName}", fileName);
-
-            return Ok(new { url = fileUrl });
         }
         catch (Exception ex)
         {
@@ -116,21 +100,17 @@ public class FileController : ControllerBase
 
     [HttpDelete("{fileName}")]
     [Authorize(Roles = "Admin,QuanLy")]
-    public IActionResult DeleteFile(string fileName)
+    public async Task<IActionResult> DeleteFile(string fileName)
     {
         try
         {
-            var filePath = Path.Combine(_uploadsPath, fileName);
-            
-            if (!System.IO.File.Exists(filePath))
+            var deleted = await _storage.DeleteAsync(fileName);
+            if (!deleted)
             {
                 return NotFound(new { message = "File không tồn tại" });
             }
 
-            System.IO.File.Delete(filePath);
-            
             _logger.LogInformation("File deleted successfully: {FileName}", fileName);
-            
             return Ok(new { message = "Xóa file thành công" });
         }
         catch (Exception ex)

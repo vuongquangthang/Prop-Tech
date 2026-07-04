@@ -216,7 +216,7 @@ public class PublicRoomsController : ControllerBase
     {
         var room = post.Room;
         var building = room?.Floor.Building;
-        var address = building?.Address ?? post.BuildingName;
+        var address = FirstNonEmpty(room?.Address, building?.Address, post.BuildingName);
         var location = BuildLocation(address, post.BuildingName, post.RoomCode);
         var locationParts = ParseLocation(address);
         var unitType = MapUnitType(room?.RoomType);
@@ -228,11 +228,9 @@ public class PublicRoomsController : ControllerBase
                 Unit = item.Unit,
             })
             .ToList();
-        var images = DeserializeList<string>(post.ImageUrlsJson);
-        if (images.Count == 0 && room != null)
-        {
-            images = DeserializeList<string>(room.ImageUrlsJson);
-        }
+        var roomImages = room != null ? DeserializeList<string>(room.ImageUrlsJson) : new List<string>();
+        var postImages = DeserializeList<string>(post.ImageUrlsJson);
+        var images = DistinctImages(roomImages, postImages);
 
         var amenities = DeserializeList<string>(post.AmenitiesJson ?? "[]");
         if (amenities.Count == 0 && room != null)
@@ -263,6 +261,9 @@ public class PublicRoomsController : ControllerBase
             RoomType = unitType == "apartment" ? "apartment" : "single-room",
             Title = post.Title,
             Images = images,
+            RoomImages = roomImages,
+            PostImages = postImages,
+            TotalImages = images.Count,
             Location = location,
             City = locationParts.City,
             District = locationParts.District,
@@ -287,18 +288,19 @@ public class PublicRoomsController : ControllerBase
             Shared = isShared
                 ? BuildSharedRoom(post, room, servicePrices, maxOccupants, price)
                 : null,
-            Coords = ResolveCoords(building, locationParts.City, locationParts.District),
+            Coords = ResolveCoords(room, building, locationParts.City, locationParts.District),
         };
     }
 
     private static PublicRoomDto MapRoom(Room room, IReadOnlyDictionary<int, Service> serviceMap)
     {
         var building = room.Floor.Building;
-        var address = building.Address;
+        var address = FirstNonEmpty(room.Address, building.Address);
         var location = BuildLocation(address, building.BuildingName, room.RoomCode);
         var locationParts = ParseLocation(address);
         var unitType = MapUnitType(room.RoomType);
-        var images = DeserializeList<string>(room.ImageUrlsJson);
+        var roomImages = DeserializeList<string>(room.ImageUrlsJson);
+        var images = DistinctImages(roomImages);
         var amenities = DeserializeList<string>(room.AmenitiesJson);
         var services = DeserializeList<int>(room.ServiceIdsJson)
             .Where(serviceMap.ContainsKey)
@@ -327,6 +329,9 @@ public class PublicRoomsController : ControllerBase
             RoomType = unitType == "apartment" ? "apartment" : "single-room",
             Title = BuildRoomTitle(room, building.BuildingName),
             Images = images,
+            RoomImages = roomImages,
+            PostImages = new List<string>(),
+            TotalImages = images.Count,
             Location = location,
             City = locationParts.City,
             District = locationParts.District,
@@ -352,7 +357,7 @@ public class PublicRoomsController : ControllerBase
                 Avatar = building.OwnerUser?.AvatarUrl ?? "",
                 UserId = building.OwnerUserId.HasValue ? $"user-{building.OwnerUserId.Value}" : $"building-{building.Id}",
             },
-            Coords = ResolveCoords(building, locationParts.City, locationParts.District),
+            Coords = ResolveCoords(room, building, locationParts.City, locationParts.District),
         };
     }
 
@@ -728,6 +733,28 @@ public class PublicRoomsController : ControllerBase
     private static string FirstNonEmpty(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
 
+    private static List<string> DistinctImages(params IEnumerable<string>[] imageGroups)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var image in imageGroups.SelectMany(group => group))
+        {
+            if (string.IsNullOrWhiteSpace(image))
+            {
+                continue;
+            }
+
+            var normalized = image.Trim();
+            if (seen.Add(normalized))
+            {
+                result.Add(normalized);
+            }
+        }
+
+        return result;
+    }
+
     private static LocationParts ParseLocation(string? address)
     {
         if (string.IsNullOrWhiteSpace(address))
@@ -787,7 +814,17 @@ public class PublicRoomsController : ControllerBase
         return builder.ToString().Normalize(NormalizationForm.FormC).Trim();
     }
 
-    // Uu tien toa do that da luu cua toa nha (geocode + keo ghim); chua co thi doan theo city/district.
+    // Uu tien toa do phong da xac nhan thu cong, sau do den toa nha; chua co thi doan theo city/district.
+    private static PublicRoomCoordsDto ResolveCoords(Room? room, Building? building, string city, string district)
+    {
+        if (room?.Latitude is double roomLat && room?.Longitude is double roomLng)
+        {
+            return new PublicRoomCoordsDto { Lat = roomLat, Lng = roomLng };
+        }
+
+        return ResolveCoords(building, city, district);
+    }
+
     private static PublicRoomCoordsDto ResolveCoords(Building? building, string city, string district)
     {
         if (building?.Latitude is double lat && building?.Longitude is double lng)

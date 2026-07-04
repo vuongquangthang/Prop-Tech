@@ -55,7 +55,7 @@ export interface PostRecord {
   views: number;
   messages: number;
   isLocked: boolean;
-  status: 'active' | 'paused' | 'draft';
+  status: 'active' | 'paused' | 'draft' | 'pending_review' | 'deleted';
   roomStatus: string;
   moveInType: 'immediate' | 'from-date';
   moveInDate?: string;
@@ -70,9 +70,13 @@ export interface PostRecord {
   amenities?: string[];
   imageUrls: string[];
   roomImageUrls?: string[];
+  totalImageCount?: number;
   coverImageUrl?: string;
   createdByUserId?: number | null;
   createdByUserRole?: string | null;
+  moderationDeletedAt?: string | null;
+  moderationDeletedReason?: string | null;
+  deletionSource?: string | null;
 }
 
 export interface PostEditHistoryDto {
@@ -369,7 +373,9 @@ function normalizePostRecord(post: any): PostRecord {
 
   const normalizedImageUrls = normalizePostImageUrls(post);
   const normalizedCoverImageUrl = resolvePostImageUrl(post.coverImageUrl ?? normalizedImageUrls[0] ?? '');
-  const roomImageUrls = normalizeRoomImageUrls(roomObj ?? post.room);
+  const roomImageUrls = normalizeRoomImageUrls(
+    Array.isArray(post.roomImageUrls) ? { imageUrls: post.roomImageUrls } : (roomObj ?? post.room),
+  );
   const finalImageUrls = normalizedImageUrls.length > 0
     ? normalizedImageUrls
     : (normalizedCoverImageUrl ? [normalizedCoverImageUrl] : []);
@@ -413,9 +419,13 @@ function normalizePostRecord(post: any): PostRecord {
     amenities: normalizedAmenities,
     imageUrls: finalImageUrls,
     roomImageUrls,
+    totalImageCount: Number(post.totalImageCount ?? (roomImageUrls.length + finalImageUrls.length)),
     coverImageUrl: normalizedCoverImageUrl,
     createdByUserId: post.createdByUserId ?? null,
     createdByUserRole: post.createdByUserRole ?? post.createdByRole ?? post.creatorRole ?? null,
+    moderationDeletedAt: post.moderationDeletedAt ?? null,
+    moderationDeletedReason: post.moderationDeletedReason ?? null,
+    deletionSource: post.deletionSource ?? null,
   };
 }
 

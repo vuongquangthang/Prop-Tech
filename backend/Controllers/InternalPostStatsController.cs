@@ -93,10 +93,14 @@ public class InternalPostStatsController : ControllerBase
             return BadRequest(new { message = "Thiếu lý do xóa" });
         }
 
-        var post = await _postService.GetByIdAsync(id);
-        if (post == null)
+        PostDto post;
+        try
         {
-            return NotFound(new { message = "Bài đăng không tồn tại" });
+            post = await _postService.MarkDeletedByModerationAsync(id, reason, dto?.DeletedAt);
+        }
+        catch (InvalidOperationException)
+        {
+            return NotFound(new { message = "Bai dang khong ton tai" });
         }
         if (post.CreatedByUserId == null)
         {

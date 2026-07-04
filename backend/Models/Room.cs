@@ -75,6 +75,38 @@ public class Room
     [Column("GIA_DICH_VU_JSON", TypeName = "nvarchar(max)")]
     public string ServicePricesJson { get; set; } = "[]";
 
+    [StringLength(500)]
+    [Column("DIA_CHI_PHONG")]
+    public string? Address { get; set; }
+
+    [Column("VI_DO")]
+    public double? Latitude { get; set; }
+
+    [Column("KINH_DO")]
+    public double? Longitude { get; set; }
+
+    [StringLength(500)]
+    [Column("DIA_CHI_CHUAN_HOA")]
+    public string? NormalizedAddress { get; set; }
+
+    [StringLength(255)]
+    [Column("GOONG_PLACE_ID")]
+    public string? GoongPlaceId { get; set; }
+
+    [StringLength(50)]
+    [Column("NGUON_VI_TRI")]
+    public string? LocationSource { get; set; }
+
+    [StringLength(50)]
+    [Column("DO_CHINH_XAC_VI_TRI")]
+    public string? LocationAccuracy { get; set; }
+
+    [Column("XAC_NHAN_VI_TRI_LUC")]
+    public DateTime? LocationVerifiedAt { get; set; }
+
+    [Column("BAN_KINH_QUET_VI_TRI_M")]
+    public int? ManualScanRadiusMeters { get; set; }
+
     // Navigation properties
     [ForeignKey("FloorId")]
     public Floor Floor { get; set; } = null!;

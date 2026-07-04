@@ -37,6 +37,14 @@ export interface Room {
   buildingAddress?: string;
   floorNumber?: number;
   roomCode: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  normalizedAddress?: string | null;
+  goongPlaceId?: string | null;
+  locationSource?: string | null;
+  locationAccuracy?: string | null;
+  manualScanRadiusMeters?: number | null;
   area?: number;
   maxOccupants?: number;
   defaultRentPrice?: number;
