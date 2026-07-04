@@ -3,6 +3,7 @@ using backend.DTOs;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using System.Text.Json;
 
 namespace backend.Services;
 
@@ -210,6 +211,7 @@ public class ServiceService : IServiceService
     public async Task<ServiceDto> UpdateAsync(int id, UpdateServiceDto dto, int ownerUserId)
     {
         var service = await _context.Services
+            .Include(item => item.PriceHistories)
             .Include(item => item.BuildingScopes)
                 .ThenInclude(scope => scope.Building)
             .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == ownerUserId);
@@ -266,21 +268,46 @@ public class ServiceService : IServiceService
             service.Unit = string.IsNullOrWhiteSpace(dto.Unit) ? null : dto.Unit.Trim();
         }
 
-        if (dto.CommonUnitPrice.HasValue && dto.CommonUnitPrice.Value != (service.CommonUnitPrice ?? 0))
+        var now = DateTime.UtcNow;
+        var vietnamToday = GetVietnamToday();
+        var pendingPriceHistories = service.PriceHistories
+            .Where(history => GetVietnamDate(history.EffectiveDate) > vietnamToday)
+            .ToList();
+        var requestedEffectiveDate = dto.EffectiveDate ?? now;
+        var pendingDateChanged = pendingPriceHistories.Count > 0
+            && service.EffectiveDate.HasValue
+            && GetVietnamDate(service.EffectiveDate.Value) != GetVietnamDate(requestedEffectiveDate);
+        var priceChanged = dto.CommonUnitPrice.HasValue
+            && (dto.CommonUnitPrice.Value != (service.CommonUnitPrice ?? 0) || pendingDateChanged);
+
+        if (priceChanged)
         {
-            var effectiveDate = dto.EffectiveDate ?? DateTime.UtcNow;
-            _context.ServicePriceHistories.Add(new ServicePriceHistory
+            var currentPrice = ResolvePriceState(service).CurrentPrice ?? service.CommonUnitPrice ?? 0;
+            _context.ServicePriceHistories.RemoveRange(pendingPriceHistories);
+            foreach (var pendingHistory in pendingPriceHistories)
+            {
+                service.PriceHistories.Remove(pendingHistory);
+            }
+
+            var effectiveDate = requestedEffectiveDate;
+            var newPrice = dto.CommonUnitPrice.GetValueOrDefault();
+            service.PriceHistories.Add(new ServicePriceHistory
             {
                 ServiceId = id,
-                OldPrice = service.CommonUnitPrice ?? 0,
-                NewPrice = dto.CommonUnitPrice.Value,
+                OldPrice = currentPrice,
+                NewPrice = newPrice,
                 EffectiveDate = effectiveDate,
                 Reason = dto.Reason,
                 ChangedAt = DateTime.UtcNow
             });
 
-            service.CommonUnitPrice = dto.CommonUnitPrice.Value;
+            service.CommonUnitPrice = newPrice;
             service.EffectiveDate = effectiveDate;
+
+            if (IsMarketPriceService(service) && GetVietnamDate(effectiveDate) <= vietnamToday)
+            {
+                await SynchronizeMarketPriceAsync(service, newPrice, ownerUserId);
+            }
         }
         else if (dto.CommonUnitPrice.HasValue)
         {
@@ -294,6 +321,100 @@ public class ServiceService : IServiceService
 
         await _context.SaveChangesAsync();
         return MapToDto(service);
+    }
+
+    private async Task SynchronizeMarketPriceAsync(Service service, decimal newPrice, int ownerUserId)
+    {
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        var rooms = await _context.Rooms
+            .Where(room => room.Floor.Building.OwnerUserId == ownerUserId)
+            .ToListAsync();
+
+        foreach (var room in rooms)
+        {
+            var serviceIds = DeserializeJson<List<int>>(room.ServiceIdsJson, jsonOptions) ?? new List<int>();
+            var prices = DeserializeJson<List<RoomServicePriceDto>>(room.ServicePricesJson, jsonOptions)
+                ?? new List<RoomServicePriceDto>();
+            var roomUsesService = serviceIds.Contains(service.Id)
+                || prices.Any(item => item.ServiceId == service.Id);
+            if (!roomUsesService)
+            {
+                continue;
+            }
+
+            var price = prices.FirstOrDefault(item => item.ServiceId == service.Id);
+            if (price == null)
+            {
+                prices.Add(new RoomServicePriceDto { ServiceId = service.Id, Price = newPrice });
+            }
+            else
+            {
+                price.Price = newPrice;
+            }
+
+            room.ServicePricesJson = JsonSerializer.Serialize(prices, jsonOptions);
+        }
+
+        var today = DateTime.UtcNow.Date;
+        var activeContracts = await _context.HopDongs
+            .Where(contract =>
+                contract.Room.Floor.Building.OwnerUserId == ownerUserId
+                && (contract.ExpectedEndDate == null || contract.ExpectedEndDate.Value.Date >= today))
+            .ToListAsync();
+
+        foreach (var contract in activeContracts)
+        {
+            var formula = DeserializeJson<List<BillingFormulaItemDto>>(contract.BillingFormulaJson, jsonOptions);
+            if (formula == null)
+            {
+                continue;
+            }
+
+            var changed = false;
+            foreach (var item in formula.Where(item => item.ServiceId == service.Id))
+            {
+                item.UnitPrice = newPrice;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                contract.BillingFormulaJson = JsonSerializer.Serialize(formula, jsonOptions);
+                contract.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+    }
+
+    private static T? DeserializeJson<T>(string? json, JsonSerializerOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return default;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, options);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private static bool IsMarketPriceService(Service service)
+    {
+        var type = NormalizeKey(service.ServiceType);
+        var name = NormalizeKey(service.Name);
+        return type == "dien"
+            || type == "nuoc"
+            || name.Contains("dien")
+            || name.Contains("nuoc");
     }
 
     public async Task DeleteAsync(int id, int ownerUserId)
@@ -403,6 +524,7 @@ public class ServiceService : IServiceService
 
     private static ServiceDto MapToDto(Service service)
     {
+        var priceState = ResolvePriceState(service);
         var scopedBuildings = service.BuildingScopes?
             .Where(scope => scope.Building != null)
             .OrderBy(scope => scope.Building.BuildingName)
@@ -415,6 +537,9 @@ public class ServiceService : IServiceService
             ServiceType = service.ServiceType,
             Unit = service.Unit,
             CommonUnitPrice = service.CommonUnitPrice,
+            CurrentUnitPrice = priceState.CurrentPrice,
+            ScheduledUnitPrice = priceState.ScheduledPrice,
+            ScheduledEffectiveDate = priceState.ScheduledEffectiveDate,
             IsActive = service.IsActive,
             EffectiveDate = service.EffectiveDate,
             PriceUpdatedAt = service.PriceHistories
@@ -523,6 +648,10 @@ public class ServiceService : IServiceService
                     .Where(item => item.ApplyTo.HasValue)
                     .Select(item => item.ApplyTo!.Value)
                     .ToList();
+                var priceState = latest.Service == null
+                    ? (CurrentPrice: (decimal?)null, ScheduledPrice: (decimal?)null, ScheduledEffectiveDate: (DateTime?)null)
+                    : ResolvePriceState(latest.Service);
+                var currentPrice = latestWithOverride?.OverrideUnitPrice ?? priceState.CurrentPrice;
 
                 return new ServiceInContractDto
                 {
@@ -530,7 +659,10 @@ public class ServiceService : IServiceService
                     ServiceName = latest.Service?.Name ?? string.Empty,
                     ServiceType = latest.Service?.ServiceType ?? string.Empty,
                     Unit = latest.Service?.Unit,
-                    UnitPrice = latestWithOverride?.OverrideUnitPrice ?? latest.Service?.CommonUnitPrice,
+                    UnitPrice = currentPrice,
+                    CurrentUnitPrice = currentPrice,
+                    ScheduledUnitPrice = priceState.ScheduledPrice,
+                    ScheduledEffectiveDate = priceState.ScheduledEffectiveDate,
                     ApplyFrom = group.Min(item => item.ApplyFrom),
                     ApplyTo = applyToValues.Count > 0 ? applyToValues.Max() : null,
                     PriceUpdatedAt = latest.Service?.PriceHistories
@@ -553,5 +685,44 @@ public class ServiceService : IServiceService
             })
             .OrderBy(item => item.ServiceName)
             .ToList();
+    }
+
+    private static (decimal? CurrentPrice, decimal? ScheduledPrice, DateTime? ScheduledEffectiveDate) ResolvePriceState(Service service)
+    {
+        var vietnamToday = GetVietnamToday();
+        var histories = service.PriceHistories?
+            .OrderBy(history => history.EffectiveDate)
+            .ToList() ?? new List<ServicePriceHistory>();
+        var currentHistory = histories
+            .Where(history => GetVietnamDate(history.EffectiveDate) <= vietnamToday)
+            .OrderByDescending(history => history.EffectiveDate)
+            .FirstOrDefault();
+        var scheduledHistory = histories
+            .Where(history => GetVietnamDate(history.EffectiveDate) > vietnamToday)
+            .OrderBy(history => history.EffectiveDate)
+            .FirstOrDefault();
+
+        var currentPrice = currentHistory?.NewPrice
+            ?? scheduledHistory?.OldPrice
+            ?? service.CommonUnitPrice;
+
+        return (
+            currentPrice,
+            scheduledHistory?.NewPrice,
+            scheduledHistory?.EffectiveDate
+        );
+    }
+
+    private static DateTime GetVietnamToday()
+    {
+        return DateTime.UtcNow.AddHours(7).Date;
+    }
+
+    private static DateTime GetVietnamDate(DateTime value)
+    {
+        var utcValue = value.Kind == DateTimeKind.Utc
+            ? value
+            : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+        return utcValue.AddHours(7).Date;
     }
 }

@@ -124,6 +124,29 @@ public class ThanhToanController : ControllerBase
         }
     }
 
+    [HttpPost("{id}/manual-match")]
+    [Authorize(Roles = "Admin,QuanLy,KeToan")]
+    public async Task<ActionResult<ThanhToanDto>> ManualMatch(long id, [FromBody] ManualMatchThanhToanDto dto)
+    {
+        try
+        {
+            var payment = await _thanhToanService.ManualMatchAsync(
+                id,
+                dto.InvoiceId,
+                GetCurrentOwnerUserId());
+            return Ok(payment);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi gạch nợ thủ công giao dịch {TransactionId}", id);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Xóa thanh toán
     /// </summary>

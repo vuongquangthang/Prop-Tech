@@ -271,10 +271,11 @@ export default function ReportIssueScreen() {
                 >
                   <Ionicons
                     name={maintenanceService.getIssueTypeIcon(type) as any}
-                    size={24}
+                    size={18}
                     color={selectedType === type ? '#1A4B84' : '#6B7280'}
                   />
                   <Text
+                    numberOfLines={2}
                     style={[
                       styles.typeButtonText,
                       selectedType === type && styles.typeButtonTextActive,
@@ -343,33 +344,33 @@ export default function ReportIssueScreen() {
             </Text>
           </View>
         </View>
-      </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.cancelButton}
-          onPress={() => navigation.goBack()}
-          disabled={isSubmitting}
-        >
-          <Text style={styles.cancelButtonText}>Hủy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ActivityIndicator color="#FFFFFF" size="small" />
-              <Text style={styles.submitButtonText}>
-                {isUploading ? 'Đang tải ảnh...' : 'Đang gửi...'}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.submitButtonText}>Gửi yêu cầu</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => navigation.goBack()}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.cancelButtonText}>Hủy</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <Text style={styles.submitButtonText}>
+                  {isUploading ? 'Đang tải ảnh...' : 'Đang gửi...'}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.submitButtonText}>Gửi yêu cầu</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -404,10 +405,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   form: {
-    gap: 20,
+    gap: 14,
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 0,
   },
   roomGrid: {
     gap: 10,
@@ -567,7 +568,8 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     gap: 16,
-    padding: 24,
+    paddingTop: 4,
+    paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     backgroundColor: '#FFFFFF',
@@ -610,16 +612,18 @@ const styles = StyleSheet.create({
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
   typeButton: {
-    width: '48%',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    width: '23%',
+    minHeight: 64,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
   typeButtonActive: {
@@ -627,10 +631,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F0FB',
   },
   typeButtonText: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '500',
     color: '#6B7280',
     marginTop: 4,
+    textAlign: 'center',
   },
   typeButtonTextActive: {
     color: '#1A4B84',

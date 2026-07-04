@@ -717,6 +717,12 @@ public class RoomService : IRoomService
 
         var services = await _serviceRepository.FindAsync(s => serviceIds.Contains(s.Id));
         var serviceMap = services.ToDictionary(s => s.Id, s => s);
+        var now = DateTime.UtcNow;
+        var priceHistories = await _dbContext.ServicePriceHistories
+            .AsNoTracking()
+            .Where(history => serviceIds.Contains(history.ServiceId))
+            .OrderBy(history => history.EffectiveDate)
+            .ToListAsync();
         var priceMap = (roomServicePrices ?? new List<RoomServicePriceDto>())
             .GroupBy(item => item.ServiceId)
             .ToDictionary(group => group.Key, group => group.Last().Price);
@@ -729,11 +735,40 @@ public class RoomService : IRoomService
                 continue;
             }
 
+            var serviceHistories = priceHistories
+                .Where(history => history.ServiceId == id)
+                .ToList();
+            var currentHistory = serviceHistories
+                .Where(history => history.EffectiveDate <= now)
+                .OrderByDescending(history => history.EffectiveDate)
+                .FirstOrDefault();
+            var nextHistory = serviceHistories
+                .Where(history => history.EffectiveDate > now)
+                .OrderBy(history => history.EffectiveDate)
+                .FirstOrDefault();
+            var effectivePrice = currentHistory?.NewPrice
+                ?? nextHistory?.OldPrice
+                ?? service.CommonUnitPrice
+                ?? 0;
+            var normalizedService = $"{service.ServiceType} {service.Name}"
+                .ToLowerInvariant()
+                .Normalize(System.Text.NormalizationForm.FormD);
+            var isMarketPriceService = service.ServiceType == "Điện"
+                || service.ServiceType == "Nước"
+                || normalizedService.Contains("dien")
+                || normalizedService.Contains("điện")
+                || normalizedService.Contains("electric")
+                || normalizedService.Contains("nuoc")
+                || normalizedService.Contains("nước")
+                || normalizedService.Contains("water");
+
             result.Add(new ServiceInfoDto
             {
                 ServiceId = service.Id,
                 ServiceName = service.Name,
-                Price = priceMap.TryGetValue(id, out var roomPrice) ? roomPrice : service.CommonUnitPrice ?? 0,
+                Price = isMarketPriceService
+                    ? effectivePrice
+                    : priceMap.TryGetValue(id, out var roomPrice) ? roomPrice : effectivePrice,
                 Unit = service.Unit ?? string.Empty
             });
         }

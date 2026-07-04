@@ -64,12 +64,16 @@ const buildContractHistoryChanges = (current: any, previous?: any): ContractHist
   compareField('DepositPaid', 'Trạng thái tiền cọc', (value) => value ? 'Đã trả' : 'Chưa trả');
   compareField('PaymentDayOfMonth', 'Ngày thanh toán', (value) => value ? `Ngày ${value}` : 'Theo cấu hình chung');
 
-  const previousResidents = Array.isArray(snapshotValue(previous, 'Residents')) ? snapshotValue(previous, 'Residents') : [];
-  const currentResidents = Array.isArray(snapshotValue(current, 'Residents')) ? snapshotValue(current, 'Residents') : [];
+  const previousResidents: any[] = Array.isArray(snapshotValue(previous, 'Residents')) ? snapshotValue(previous, 'Residents') : [];
+  const currentResidents: any[] = Array.isArray(snapshotValue(current, 'Residents')) ? snapshotValue(current, 'Residents') : [];
   const residentLabel = (resident: any) =>
     `${resident.FullName ?? resident.fullName ?? `Cư dân #${resident.ResidentId ?? resident.residentId}`} (${resident.ResidencyRole ?? resident.residencyRole ?? 'Thành viên'})`;
-  const previousResidentMap = new Map(previousResidents.map((resident: any) => [String(resident.ResidentId ?? resident.residentId), resident]));
-  const currentResidentMap = new Map(currentResidents.map((resident: any) => [String(resident.ResidentId ?? resident.residentId), resident]));
+  const previousResidentMap = new Map<string, any>(
+    previousResidents.map((resident: any): [string, any] => [String(resident.ResidentId ?? resident.residentId), resident]),
+  );
+  const currentResidentMap = new Map<string, any>(
+    currentResidents.map((resident: any): [string, any] => [String(resident.ResidentId ?? resident.residentId), resident]),
+  );
 
   currentResidentMap.forEach((resident: any, residentId: string) => {
     const previousResident: any = previousResidentMap.get(residentId);
@@ -89,8 +93,12 @@ const buildContractHistoryChanges = (current: any, previous?: any): ContractHist
     .filter((item: any) => formulaItemValue(item, 'itemType') !== 'TienPhong');
   const currentFormula = parseHistoryFormula(current)
     .filter((item: any) => formulaItemValue(item, 'itemType') !== 'TienPhong');
-  const previousFormulaMap = new Map(previousFormula.map((item: any) => [formulaItemKey(item), item]));
-  const currentFormulaMap = new Map(currentFormula.map((item: any) => [formulaItemKey(item), item]));
+  const previousFormulaMap = new Map<string, any>(
+    previousFormula.map((item: any): [string, any] => [formulaItemKey(item), item]),
+  );
+  const currentFormulaMap = new Map<string, any>(
+    currentFormula.map((item: any): [string, any] => [formulaItemKey(item), item]),
+  );
 
   currentFormulaMap.forEach((item: any, itemKey: string) => {
     const previousItem: any = previousFormulaMap.get(itemKey);
@@ -195,6 +203,9 @@ export function ContractEditHistoryModal({ contract, onClose }: ContractModalPro
 }
 
 export function EditContractModal({ contract, onClose, onSuccess }: ContractModalProps) {
+  const [contractDetail, setContractDetail] = useState<any>(null);
+  const [contractRoomDetail, setContractRoomDetail] = useState<any>(null);
+  const [initialFormulaItems, setInitialFormulaItems] = useState<any[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [activePricingCatalog, setActivePricingCatalog] = useState<any[]>([]);
@@ -208,6 +219,8 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const [customDurationUnit, setCustomDurationUnit] = useState<'months' | 'years'>('months');
   const [monthlyRent, setMonthlyRent] = useState('');
   const [deposit, setDeposit] = useState('');
+  const [depositPaid, setDepositPaid] = useState(false);
+  const [paymentDayOfMonth, setPaymentDayOfMonth] = useState<number | null>(null);
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
   const [serviceQuantities, setServiceQuantities] = useState<Record<number, string>>({});
   const [contractBuildingId, setContractBuildingId] = useState<string>('');
@@ -221,10 +234,13 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       try {
         setLoading(true); setError(null);
         const detail = await contractService.getById(Number(contract.id));
+        const detailData: any = detail;
+        setContractDetail(detail);
         const roomId = detail?.roomId ?? (contract as any)?.roomId;
         if (roomId) {
           try {
             const room = await roomService.getById(Number(roomId));
+            setContractRoomDetail(room);
             const buildingId = (room as any)?.buildingId ?? (room as any)?.floor?.buildingId ?? (contract as any)?.buildingId;
             setContractBuildingId(buildingId ? String(buildingId) : '');
           } catch {
@@ -235,14 +251,24 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
         const services = await serviceService.getAll();
         const active = Array.isArray(services) ? services : [];
         setActivePricingCatalog(active.filter((s: any) => s.isActive !== false));
-        setStartDate(detail?.startDate ? formatLocalDateInput(new Date(detail.startDate)) : '');
-        setMonthlyRent(detail?.actualRentPrice ? String(detail.actualRentPrice) : '');
-        setDeposit(detail?.depositAmount ? String(detail.depositAmount) : '');
-        if (detail?.billingFormulaJson) {
+        const detailStartDate = detailData?.startDate ?? detailData?.StartDate;
+        const detailEndDate = detailData?.expectedEndDate ?? detailData?.ExpectedEndDate;
+        const detailRent = detailData?.actualRentPrice ?? detailData?.ActualRentPrice;
+        const detailDeposit = detailData?.depositAmount ?? detailData?.DepositAmount;
+        const detailDepositPaid = detailData?.depositPaid ?? detailData?.DepositPaid;
+        const detailPaymentDay = detailData?.paymentDayOfMonth ?? detailData?.PaymentDayOfMonth;
+        const detailFormulaJson = detailData?.billingFormulaJson ?? detailData?.BillingFormulaJson;
+        setStartDate(detailStartDate ? formatLocalDateInput(new Date(detailStartDate)) : '');
+        setMonthlyRent(detailRent !== null && detailRent !== undefined ? String(detailRent) : '');
+        setDeposit(detailDeposit !== null && detailDeposit !== undefined ? String(detailDeposit) : '');
+        setDepositPaid(Boolean(detailDepositPaid));
+        setPaymentDayOfMonth(detailPaymentDay ? Number(detailPaymentDay) : null);
+        if (detailFormulaJson) {
           try {
-            const formula = typeof detail.billingFormulaJson === 'string' ? JSON.parse(detail.billingFormulaJson) : detail.billingFormulaJson;
+            const formula = typeof detailFormulaJson === 'string' ? JSON.parse(detailFormulaJson) : detailFormulaJson;
             if (Array.isArray(formula)) {
               const serviceItems = formula.filter((item: any) => item.itemType !== 'TienPhong' && (item.serviceId || item.serviceName));
+              setInitialFormulaItems(serviceItems);
               const svcIds = serviceItems.filter((item: any) => item.serviceId).map((item: any) => Number(item.serviceId));
               setSelectedServiceIds(svcIds);
               setServiceQuantities(Object.fromEntries(
@@ -253,16 +279,19 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
             }
           } catch (e) { console.error('Error parsing billing formula:', e); }
         }
-        const residents = (detail as any)?.residents || (contract as any)?.residents || [];
-        const members = residents.filter((r: any) => r.residencyRole !== 'Người thuê chính').map((r: any) => ({
+        const residents = (detail as any)?.residents || (detail as any)?.Residents || (contract as any)?.residents || [];
+        const primaryResident = residents.find((resident: any) => isPrimaryResidentRole(resident.residencyRole)) ?? residents[0];
+        const members = residents.filter((resident: any) => resident !== primaryResident).map((r: any) => ({
           id: String(r.residentId || r.id || Date.now()), name: r.fullName || r.hoTen || '', relationship: r.residencyRole || 'Thành viên',
-          phone: r.phoneNumber || r.soDienThoai || '', idCard: r.idCardNumber || r.soCCCD || '', email: r.email || '', avatar: '👤'
+          phone: r.phoneNumber || r.soDienThoai || '', idCard: r.idCardNumber || r.soCCCD || '', email: r.email || '',
+          fromDate: r.fromDate || r.FromDate || '', avatar: '👤'
         }));
         setFamilyMembers(members); setTenantList(residents);
-        if (detail?.startDate && detail?.expectedEndDate) {
-          const start = new Date(detail.startDate); const end = new Date(detail.expectedEndDate);
+        if (detailStartDate && detailEndDate) {
+          const start = new Date(detailStartDate); const end = new Date(detailEndDate);
           const months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
           setDurationMonths(String(months));
+          setDurationOptions((current) => Array.from(new Set([...current, months])).sort((a, b) => a - b));
         }
       } catch (err: any) {
         setError(err.message || 'Lỗi khi tải thông tin hợp đồng'); console.error('Error loading contract:', err);
@@ -272,8 +301,28 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   }, [contract?.id]);
 
   const availablePricingCatalog = useMemo(() => {
-    return activePricingCatalog.filter((service: any) => appliesToBuilding(service, contractBuildingId));
-  }, [activePricingCatalog, contractBuildingId]);
+    const available = activePricingCatalog.filter((service: any) => appliesToBuilding(service, contractBuildingId));
+    const serviceById = new Map(
+      available.map((service: any) => [Number(service.id ?? service.serviceId ?? 0), service]),
+    );
+
+    initialFormulaItems.forEach((item: any) => {
+      const serviceId = Number(item.serviceId ?? item.ServiceId ?? 0);
+      if (serviceId <= 0 || serviceById.has(serviceId)) return;
+      serviceById.set(serviceId, {
+        id: serviceId,
+        serviceId,
+        name: item.serviceName ?? item.ServiceName ?? `Dịch vụ #${serviceId}`,
+        serviceName: item.serviceName ?? item.ServiceName ?? `Dịch vụ #${serviceId}`,
+        serviceType: item.itemType ?? item.ItemType ?? 'Theo tháng',
+        currentUnitPrice: Number(item.unitPrice ?? item.UnitPrice ?? 0),
+        commonUnitPrice: Number(item.unitPrice ?? item.UnitPrice ?? 0),
+        isActive: false,
+      });
+    });
+
+    return Array.from(serviceById.values());
+  }, [activePricingCatalog, contractBuildingId, initialFormulaItems]);
 
   const selectedServices = useMemo(() => {
     const selected = new Set(selectedServiceIds);
@@ -314,8 +363,16 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const formulaRows = useMemo<BillingFormulaRow[]>(() => {
     const rows: BillingFormulaRow[] = [{ key: 'rent', sortOrder: 1, itemType: 'TienPhong', serviceName: 'Tiền phòng', unitPrice: toNumber(monthlyRent), quantityExpression: 'fixed', quantityMode: 'fixed' }];
     selectedServices.forEach((service: any, index: number) => {
-      const id = Number(service.id ?? service.serviceId ?? 0), name = service.name || service.serviceName || 'Dịch vụ', price = toNumber(service.commonUnitPrice ?? service.unitPrice);
+      const id = Number(service.id ?? service.serviceId ?? 0);
+      const name = service.name || service.serviceName || 'Dịch vụ';
       const meter = isMeterService(service);
+      const initialItem = initialFormulaItems.find((item: any) =>
+        Number(item.serviceId ?? item.ServiceId ?? 0) === id,
+      );
+      const initialPrice = Number(initialItem?.unitPrice ?? initialItem?.UnitPrice);
+      const price = meter || !Number.isFinite(initialPrice)
+        ? getCurrentServicePrice(service)
+        : initialPrice;
       const manualQuantity = requiresManualQuantity(service);
       const personBased = !meter && !manualQuantity && isPerPersonService(service);
       rows.push({ key: `svc-${id}`, sortOrder: index + 2, itemType: meter ? (isWaterService(service) ? 'Nuoc' : 'Dien') : 'DichVu',
@@ -323,7 +380,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       });
     });
     return rows;
-  }, [selectedServices, monthlyRent]);
+  }, [selectedServices, monthlyRent, initialFormulaItems]);
 
   const getManualServiceQuantity = (serviceId?: number) => {
     if (!serviceId) return 0;
@@ -398,7 +455,8 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     setLoading(true); setError(null);
     try {
       const currentResidents = tenantList || contract?.residents || [];
-      const mainResident = currentResidents.find((r: any) => r.residencyRole === 'Người thuê chính');
+      const mainResident = currentResidents.find((r: any) => isPrimaryResidentRole(r.residencyRole))
+        ?? currentResidents[0];
       const existingResidentIds = new Set(
         currentResidents
           .map((r: any) => Number(r.residentId || r.id || 0))
@@ -406,7 +464,12 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       );
       const residentsPayload: any[] = [];
       if (mainResident) {
-        residentsPayload.push({ residentId: mainResident.residentId || mainResident.id, residencyRole: 'Người thuê chính', fromDate: startDate, email: mainResident.email || undefined });
+        residentsPayload.push({
+          residentId: mainResident.residentId || mainResident.id,
+          residencyRole: mainResident.residencyRole || 'Người thuê chính',
+          fromDate: mainResident.fromDate || mainResident.FromDate || startDate,
+          email: mainResident.email || undefined,
+        });
       }
 
       for (const member of familyMembers) {
@@ -427,7 +490,12 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           }
         }
 
-        residentsPayload.push({ residentId, residencyRole: 'Thành viên', fromDate: startDate, email: member.email || undefined });
+        residentsPayload.push({
+          residentId,
+          residencyRole: member.relationship || 'Thành viên',
+          fromDate: member.fromDate || startDate,
+          email: member.email || undefined,
+        });
       }
 
       await contractService.update(Number(contract.id), {
@@ -453,7 +521,31 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     </div>);
   }
 
-  const mainResident = tenantList?.find((r: any) => r.residencyRole === 'Người thuê chính');
+  const mainResident = tenantList?.find((r: any) => isPrimaryResidentRole(r.residencyRole))
+    ?? tenantList?.[0];
+  const displayContractCode = contractDetail?.contractCode
+    ?? contractDetail?.ContractCode
+    ?? contract?.code
+    ?? contract?.contractCode
+    ?? '';
+  const displayRoomNumber = contractDetail?.roomNumber
+    ?? contractDetail?.RoomNumber
+    ?? contract?.room
+    ?? contract?.roomNumber
+    ?? '';
+  const displayFloorNumber = contractRoomDetail?.floorNumber
+    ?? contractRoomDetail?.FloorNumber
+    ?? contractRoomDetail?.floor?.floorNumber
+    ?? '';
+  const displayBuildingName = contractRoomDetail?.buildingName
+    ?? contractRoomDetail?.BuildingName
+    ?? contractRoomDetail?.floor?.building?.buildingName
+    ?? '';
+  const displayBuildingAddress = contractRoomDetail?.buildingAddress
+    ?? contractRoomDetail?.BuildingAddress
+    ?? contractRoomDetail?.address
+    ?? contractRoomDetail?.floor?.building?.address
+    ?? '';
 
   return (
     <div className="admin-content-modal-overlay">
@@ -461,14 +553,27 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
             <FileText size={20} className="text-gray-800" />
-            <h3 className="text-lg text-gray-800">Sửa hợp đồng: {contract?.code}</h3>
+            <h3 className="text-lg text-gray-800">Sửa hợp đồng: {displayContractCode}</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={20} className="text-gray-600" /></button>
         </div>
         
         <div className="p-6 space-y-6">
+          <div className="border border-blue-200 bg-blue-50 p-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-blue-900">
+              <Home size={17} className="shrink-0" />
+              <span>{displayRoomNumber || '—'}</span>
+              <span>-</span>
+              <span>Tầng {displayFloorNumber || '—'}</span>
+              <span>-</span>
+              <span>{displayBuildingName || '—'}</span>
+              <span>-</span>
+              <span>{displayBuildingAddress || '—'}</span>
+            </div>
+          </div>
+
           <div className="bg-blue-50 border border-blue-300 rounded p-4">
-            <p className="text-sm text-blue-900"><strong>ℹ️ Phòng {contract?.room}</strong> được cố định. Nếu cần chuyển phòng, vui lòng tạo hợp đồng mới.</p>
+            <p className="text-sm text-blue-900"><strong>ℹ️ Phòng {displayRoomNumber}</strong> được cố định. Nếu cần chuyển phòng, vui lòng tạo hợp đồng mới.</p>
             <p className="mt-1 text-sm text-blue-900">Giá thuê, tiền cọc và thời hạn là điều khoản đã ký nên không chỉnh tại đây. Dùng chức năng <strong>Gia hạn hợp đồng</strong> để kéo dài thời gian thuê.</p>
             <div className="mt-3 flex justify-end border-t border-blue-200 pt-3">
               <button type="button" onClick={() => setShowEditHistory(true)} className="text-sm font-semibold text-blue-700 hover:text-blue-900">
@@ -528,9 +633,11 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><Calendar size={16} className="mr-2" />BƯỚC 3: Điều khoản hợp đồng</h4>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div><label className="block text-sm text-gray-700 mb-2">Mã hợp đồng</label>
-                <input type="text" value={contract?.code || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                <input type="text" value={displayContractCode} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+              <div><label className="block text-sm text-gray-700 mb-2">Phòng</label>
+                <input type="text" value={displayRoomNumber} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
               <div><label className="block text-sm text-gray-700 mb-2">Ngày bắt đầu *</label>
                 <DateTextInput value={startDate} onChange={setStartDate} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600" /></div>
               <div><label className="block text-sm text-gray-700 mb-2">Thời hạn *</label>
@@ -544,6 +651,20 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                 <MoneyInput value={monthlyRent} onChange={setMonthlyRent} defaultScale="million" disabled /></div>
               <div><label className="block text-sm text-gray-700 mb-2">Tiền cọc</label>
                 <MoneyInput value={deposit} onChange={setDeposit} defaultScale="million" disabled /></div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+              <div className="border border-gray-200 bg-white px-3 py-2">
+                <span className="text-gray-600">Trạng thái tiền cọc: </span>
+                <span className={depositPaid ? 'font-semibold text-green-700' : 'font-semibold text-amber-700'}>
+                  {depositPaid ? 'Đã trả' : 'Chưa trả'}
+                </span>
+              </div>
+              <div className="border border-gray-200 bg-white px-3 py-2">
+                <span className="text-gray-600">Ngày thanh toán: </span>
+                <span className="font-semibold text-gray-800">
+                  {paymentDayOfMonth ? `Ngày ${paymentDayOfMonth} hàng tháng` : 'Theo cấu hình chung'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -567,8 +688,22 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                             <span>{service.name || service.serviceName}</span>
                           </span>
                           <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
+                          {isMeterService(service) && (
+                            <span className="block pl-6 text-xs text-amber-700">
+                              Giá sẽ tự động thay đổi theo giá thị trường.
+                            </span>
+                          )}
                         </span>
-                        <span className="shrink-0 text-right text-gray-800 font-bold">{Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}</span>
+                        <span className="shrink-0 text-right">
+                          <span className="block font-bold text-gray-800">
+                            {getCurrentServicePrice(service).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
+                          </span>
+                          {getScheduledServicePriceLabel(service) && (
+                            <span className="mt-1 block text-xs font-normal text-amber-700">
+                              Sắp áp dụng: {getScheduledServicePriceLabel(service)}
+                            </span>
+                          )}
+                        </span>
                       </button>
                       {isSelected && requiresManualQuantity(service) && (
                         <label className="flex items-center justify-between gap-4 border-t border-gray-200 px-3 py-2">
@@ -688,6 +823,7 @@ interface FamilyMember {
   phone: string;
   idCard: string;
   email?: string;
+  fromDate?: string;
   avatar: string;
 }
 
@@ -709,6 +845,13 @@ function normalizeText(value: string | undefined) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd')
     .trim();
+}
+
+function isPrimaryResidentRole(role?: string) {
+  const normalizedRole = normalizeText(role);
+  return normalizedRole === 'nguoi thue chinh'
+    || normalizedRole === 'chu ho'
+    || normalizedRole === 'chu phong';
 }
 
 function isMeterService(service: any) {
@@ -801,6 +944,30 @@ function formatServicePriceUpdatedAt(service: any) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Chưa có';
   return formatDisplayDate(date);
+}
+
+function getCurrentServicePrice(service: any) {
+  return Number(
+    service?.currentUnitPrice
+    ?? service?.unitPrice
+    ?? service?.commonUnitPrice
+    ?? service?.price
+    ?? 0,
+  );
+}
+
+function getScheduledServicePrice(service: any) {
+  const value = service?.scheduledUnitPrice;
+  return value === null || value === undefined ? null : Number(value);
+}
+
+function getScheduledServicePriceLabel(service: any) {
+  const price = getScheduledServicePrice(service);
+  if (price === null) return null;
+  const effectiveDate = service?.scheduledEffectiveDate
+    ? formatDisplayDate(service.scheduledEffectiveDate)
+    : 'ngày áp dụng';
+  return `${price.toLocaleString('vi-VN')} VNĐ từ ${effectiveDate}`;
 }
 
 function toNumber(value: any) {
@@ -1205,7 +1372,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     selectedServices.forEach((service: any, index: number) => {
       const id = Number(service.id ?? service.serviceId ?? 0);
       const name = service.name || service.serviceName || 'Dịch vụ';
-      const price = toNumber(service.commonUnitPrice ?? service.unitPrice);
+      const price = getCurrentServicePrice(service);
       const meter = isMeterService(service);
       const manualQuantity = requiresManualQuantity(service);
       const personBased = !meter && !manualQuantity && isPerPersonService(service);
@@ -1340,17 +1507,17 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       setMonthlyRent(String(defaultRent));
     }
 
-    const roomServiceIds = Array.isArray(room.serviceIds) && room.serviceIds.length > 0
+    const roomServiceIds: any[] = Array.isArray(room.serviceIds) && room.serviceIds.length > 0
       ? room.serviceIds
       : Array.isArray(room.services)
         ? room.services.map((service: any) => service.serviceId ?? service.id)
         : [];
-    const availableServiceIds = new Set(
+    const availableServiceIds = new Set<number>(
       availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
     );
-    const configuredServiceIds = Array.from(new Set(
+    const configuredServiceIds: number[] = Array.from(new Set<number>(
       roomServiceIds
-        .map(Number)
+        .map((serviceId: any) => Number(serviceId))
         .filter((serviceId: number) => serviceId > 0 && availableServiceIds.has(serviceId)),
     ));
     setSelectedServiceIds(normalizeExclusiveMeterServices(configuredServiceIds, availablePricingCatalog));
@@ -1904,9 +2071,21 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                             <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
                           </span>
                           <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
+                          {isMeterService(service) && (
+                            <span className="block pl-6 text-xs text-amber-700">
+                              Giá sẽ tự động thay đổi theo giá thị trường.
+                            </span>
+                          )}
                         </span>
-                        <span className="shrink-0 text-right text-gray-800 font-bold">
-                          {Number(service.commonUnitPrice ?? service.unitPrice ?? 0).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
+                        <span className="shrink-0 text-right">
+                          <span className="block font-bold text-gray-800">
+                            {getCurrentServicePrice(service).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
+                          </span>
+                          {getScheduledServicePriceLabel(service) && (
+                            <span className="mt-1 block text-xs font-normal text-amber-700">
+                              Sắp áp dụng: {getScheduledServicePriceLabel(service)}
+                            </span>
+                          )}
                         </span>
                       </button>
                       {isSelected && requiresManualQuantity(service) && (
@@ -2274,8 +2453,14 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
           console.error('Error calculating financial data:', e);
         }
 
-        // Extract services from billing formula (ground truth) instead of ChiTietSuDungDichVu
-        // This ensures consistency with the monthly billing formula display
+        let currentContractServices: any[] = [];
+        try {
+          currentContractServices = await serviceService.getByContract(Number(contract.id)) || [];
+        } catch (serviceError) {
+          console.error('Error fetching current contract service prices:', serviceError);
+        }
+
+        // Giữ cấu trúc công thức đã ký nhưng ghép giá dịch vụ hiện hành từ API.
         if (detail?.billingFormulaJson) {
           try {
             const formula = typeof detail.billingFormulaJson === 'string' 
@@ -2287,7 +2472,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
               const serviceItems = formula.filter((item: any) => 
                 item.itemType !== 'TienPhong' && (item.serviceId || item.serviceName)
               );
-              const uniqueServices = Array.from(
+              const formulaServices = Array.from(
                 new Map(serviceItems.map((item: any) => [
                   item.serviceId || `${item.itemType}-${item.serviceName}`,
                   {
@@ -2298,19 +2483,25 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                     itemType: item.itemType,
                   }
                 ])).values()
-              );
-              setActiveServices(uniqueServices);
+              ) as any[];
+              const mergedServices = formulaServices.map((formulaService: any) => {
+                const currentService = currentContractServices.find((service: any) =>
+                  Number(service.serviceId ?? service.id) === Number(formulaService.serviceId),
+                );
+                return currentService
+                  ? { ...formulaService, ...currentService, itemType: formulaService.itemType }
+                  : formulaService;
+              });
+              setActiveServices(mergedServices);
+            } else {
+              setActiveServices(currentContractServices);
             }
           } catch (e) {
             console.error('Error parsing billing formula for services:', e);
-            // Fallback to GetServicesByContract if formula parsing fails
-            try {
-              const services = await serviceService.getByContract(Number(contract.id));
-              setActiveServices(services || []);
-            } catch (fallbackError) {
-              console.error('Fallback error fetching services:', fallbackError);
-            }
+            setActiveServices(currentContractServices);
           }
+        } else {
+          setActiveServices(currentContractServices);
         }
       } catch (e) {
         console.error('Error loading contract details:', e);
@@ -2333,6 +2524,19 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
 
   const displayCode = contractDetail?.code || contractDetail?.contractCode || contractDetail?.maHopDong || contract?.code || '-';
   const displayRoom = contractDetail?.room || contractDetail?.roomNumber || contractDetail?.soPhong || contract?.room || '-';
+  const displayFloorNumber = roomDetail?.floorNumber
+    ?? roomDetail?.FloorNumber
+    ?? roomDetail?.floor?.floorNumber
+    ?? '';
+  const displayBuildingName = roomDetail?.buildingName
+    ?? roomDetail?.BuildingName
+    ?? roomDetail?.floor?.building?.buildingName
+    ?? '';
+  const displayBuildingAddress = roomDetail?.buildingAddress
+    ?? roomDetail?.BuildingAddress
+    ?? roomDetail?.address
+    ?? roomDetail?.floor?.building?.address
+    ?? '';
   const displayStartDate = contractDetail?.startDate ? formatDateVi(contractDetail.startDate) : contract?.startDate || '-';
   const displayEndDate = contractDetail?.expectedEndDate
     ? formatDateVi(contractDetail.expectedEndDate)
@@ -2381,6 +2585,19 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
         </div>
         
         <div className="p-6 space-y-6">
+          <div className="border border-blue-200 bg-blue-50 p-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-blue-900">
+              <Home size={17} className="shrink-0" />
+              <span>{displayRoom}</span>
+              <span>-</span>
+              <span>Tầng {displayFloorNumber || '—'}</span>
+              <span>-</span>
+              <span>{displayBuildingName || '—'}</span>
+              <span>-</span>
+              <span>{displayBuildingAddress || '—'}</span>
+            </div>
+          </div>
+
           {/* Status Alert */}
           {contract?.status === 'expired' && (
             <div className="bg-red-50 border border-red-300 rounded p-4 flex items-start space-x-3">
@@ -2550,16 +2767,39 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                               const qtyText = item.quantityExpression === 'n' || !item.quantity 
                                 ? 'n' 
                                 : item.quantity;
-                              const unitPrice = fmtCurrency(item.unitPrice || 0);
+                              const linkedService = activeServices.find((service: any) =>
+                                Number(service.serviceId ?? service.id) === Number(item.serviceId),
+                              );
+                              const displayedUnitPrice = linkedService && isMeterService(item)
+                                ? getCurrentServicePrice(linkedService)
+                                : Number(item.unitPrice || 0);
+                              const unitPrice = fmtCurrency(displayedUnitPrice);
+                              const scheduledPriceLabel = linkedService && isMeterService(item)
+                                ? getScheduledServicePriceLabel(linkedService)
+                                : null;
                               
                               return (
-                                <div key={idx} className="flex justify-between items-start py-1">
-                                  <span className="text-gray-700 flex-1">
-                                    {idx + 1}. {item.serviceName || item.itemType}
-                                  </span>
-                                  <span className="text-gray-800 font-mono text-right">
-                                    {unitPrice} × {qtyText}
-                                  </span>
+                                <div key={idx} className="py-1">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-gray-700 flex-1">
+                                      {idx + 1}. {item.serviceName || item.itemType}
+                                    </span>
+                                    <span className="text-gray-800 font-mono text-right">
+                                      {unitPrice} × {qtyText}
+                                    </span>
+                                  </div>
+                                  {isMeterService(item) && (
+                                    <>
+                                      {scheduledPriceLabel && (
+                                        <p className="mt-0.5 text-xs text-amber-700">
+                                          Sắp áp dụng: {scheduledPriceLabel}
+                                        </p>
+                                      )}
+                                      <p className="mt-0.5 text-xs text-amber-700">
+                                        Giá sẽ tự động thay đổi theo giá thị trường.
+                                      </p>
+                                    </>
+                                  )}
                                 </div>
                               );
                             })}
@@ -2598,9 +2838,21 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                         <span className="text-gray-700">
                           <span className="block">{service.serviceName || service.name || 'Dịch vụ'}</span>
                           <span className="block text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
+                          {isMeterService(service) && (
+                            <span className="block text-xs text-amber-700">
+                              Giá sẽ tự động thay đổi theo giá thị trường.
+                            </span>
+                          )}
                         </span>
-                        <span className="text-gray-800 font-bold">
-                          {fmtCurrency(service.unitPrice ?? service.commonUnitPrice ?? service.price ?? 0)} VNĐ{service.unit ? `/${service.unit}` : ''}
+                        <span className="text-right">
+                          <span className="block font-bold text-gray-800">
+                            {fmtCurrency(getCurrentServicePrice(service))} VNĐ{service.unit ? `/${service.unit}` : ''}
+                          </span>
+                          {getScheduledServicePriceLabel(service) && (
+                            <span className="mt-1 block text-xs text-amber-700">
+                              Sắp áp dụng: {getScheduledServicePriceLabel(service)}
+                            </span>
+                          )}
                         </span>
                       </div>
                     ))

@@ -10,6 +10,9 @@ public class ServiceDto
     public string ServiceType { get; set; } = null!;
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
+    public decimal? CurrentUnitPrice { get; set; }
+    public decimal? ScheduledUnitPrice { get; set; }
+    public DateTime? ScheduledEffectiveDate { get; set; }
     public bool IsActive { get; set; }
     public DateTime? EffectiveDate { get; set; }
     public DateTime? PriceUpdatedAt { get; set; }
@@ -73,6 +76,9 @@ public class ServiceInContractDto
     public string ServiceType { get; set; } = null!;
     public string? Unit { get; set; }
     public decimal? UnitPrice { get; set; }
+    public decimal? CurrentUnitPrice { get; set; }
+    public decimal? ScheduledUnitPrice { get; set; }
+    public DateTime? ScheduledEffectiveDate { get; set; }
     public DateTime ApplyFrom { get; set; }
     public DateTime? ApplyTo { get; set; }
     public DateTime? PriceUpdatedAt { get; set; }

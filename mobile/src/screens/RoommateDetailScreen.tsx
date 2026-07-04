@@ -75,6 +75,7 @@ export default function RoommateDetailScreen() {
   const [heroWidth, setHeroWidth] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
 
@@ -86,6 +87,7 @@ export default function RoommateDetailScreen() {
       setPost(myPost);
       setRoom(myRoom);
       setCurrentImageIndex(0);
+      setFailedImages(new Set());
       try {
         const detail = await roomService.getRoomDetail(myRoom.roomId);
         setRoomDetail(detail);
@@ -116,7 +118,11 @@ export default function RoommateDetailScreen() {
 
   const needMore = post?.maxOccupants != null ? Math.max(0, post.maxOccupants - currentOccupants) : null;
   const mergedImages = Array.from(
-    new Set([...(roomDetail?.imageUrls ?? []).filter(Boolean), ...(post?.imageUrls ?? []).filter(Boolean)])
+    new Set(
+      [...(roomDetail?.imageUrls ?? []), ...(post?.imageUrls ?? [])]
+        .map((url) => resolveImageUrl(url))
+        .filter((url) => Boolean(url) && !failedImages.has(url)),
+    )
   );
   const heroImageWidth = heroWidth || 1;
   const statusMeta = post ? getPostStatusMeta(post) : null;
@@ -164,7 +170,10 @@ export default function RoommateDetailScreen() {
         ) : post ? (
           <>
             <View style={styles.postCard}>
-              <View style={styles.postHero} onLayout={handleHeroLayout}>
+              <View
+                style={[styles.postHero, mergedImages.length === 0 && { display: 'none' }]}
+                onLayout={handleHeroLayout}
+              >
                 {mergedImages.length ? (
                   <>
                   <ScrollView
@@ -188,6 +197,7 @@ export default function RoommateDetailScreen() {
                         <Image
                           source={{ uri: resolveImageUrl(url) }}
                           style={[styles.heroImage, { width: heroImageWidth }]}
+                          onError={() => setFailedImages((current) => new Set(current).add(url))}
                         />
                       </TouchableOpacity>
                     ))}

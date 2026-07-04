@@ -438,14 +438,14 @@ export default function RoommateCreateScreen() {
           <>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Thông tin phòng</Text>
-              {Array.isArray(roomDetail?.imageUrls) && roomDetail!.imageUrls!.filter(Boolean).length > 0 ? (
+              {Array.isArray(roomDetail?.imageUrls) && roomDetail.imageUrls.map(resolveImageUrl).filter(Boolean).length > 0 ? (
                 <View style={styles.roomMediaBlock}>
                   <Text style={styles.roomSectionLabel}>Ảnh phòng:</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomImageRow}>
-                    {roomDetail!.imageUrls!.filter(Boolean).map((u, i) => (
+                    {roomDetail.imageUrls.map(resolveImageUrl).filter(Boolean).map((u, i) => (
                       <Image
                         key={u + i}
-                        source={{ uri: resolveImageUrl(u) }}
+                        source={{ uri: u }}
                         style={styles.roomPreviewImage}
                       />
                     ))}

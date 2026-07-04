@@ -242,19 +242,25 @@ export default function IssueDetailScreen() {
             <View style={styles.divider} />
             <Text style={styles.sectionTitle}>Ảnh trước khi sửa</Text>
             <View style={styles.imageContainer}>
-              {beforeImages.map((url, index) => (
-                <TouchableOpacity
-                  key={`${url}-${index}`}
-                  activeOpacity={0.9}
-                  onPress={() => setPreviewImageUrl(resolveImageUrl(url))}
-                >
-                  <Image
-                    source={{ uri: resolveImageUrl(url) }}
-                    style={[styles.completionImage, index > 0 ? { marginTop: 8 } : null]}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              ))}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.imageRow}
+              >
+                {beforeImages.map((url, index) => (
+                  <TouchableOpacity
+                    key={`${url}-${index}`}
+                    activeOpacity={0.9}
+                    onPress={() => setPreviewImageUrl(resolveImageUrl(url))}
+                  >
+                    <Image
+                      source={{ uri: resolveImageUrl(url) }}
+                      style={styles.incidentThumbnail}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
               <Text style={styles.imageNote}>Ảnh do cư dân gửi kèm khi báo sự cố</Text>
             </View>
           </>
@@ -324,7 +330,7 @@ export default function IssueDetailScreen() {
               >
                 <Image 
                   source={{ uri: resolveImageUrl(request.completionImageUrl) }}
-                  style={styles.completionImage}
+                  style={styles.incidentThumbnail}
                   resizeMode="cover"
                 />
               </TouchableOpacity>
@@ -427,7 +433,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 24,
+    padding: 18,
   },
   issueTitle: {
     fontSize: 20,
@@ -438,14 +444,14 @@ const styles = StyleSheet.create({
   issueId: {
     fontSize: 12,
     color: '#6B7280',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   statusBadgeText: {
     fontSize: 12,
@@ -455,27 +461,27 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#F3F4F6',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   descriptionText: {
     fontSize: 14,
     color: '#4B5563',
     lineHeight: 20,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   timeline: {
-    marginBottom: 24,
+    marginBottom: 14,
     paddingLeft: 8,
   },
   timelineItem: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 10,
     position: 'relative',
   },
   timelineDot: {
@@ -511,8 +517,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    padding: 12,
+    marginBottom: 14,
   },
   resultNote: {
     fontSize: 14,
@@ -524,35 +530,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    padding: 10,
+    marginBottom: 12,
+  },
+  imageRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   imageUrlText: {
     fontSize: 13,
     color: '#1A4B84',
     marginBottom: 8,
   },
-  completionImage: {
-    width: '100%',
-    height: 200,
+  incidentThumbnail: {
+    width: 112,
+    height: 84,
     borderRadius: 8,
-    marginBottom: 8,
   },
   imageNote: {
     fontSize: 12,
     color: '#6B7280',
     fontStyle: 'italic',
+    marginTop: 8,
   },
   satisfactionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   actions: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   primaryButton: {
     flex: 1,

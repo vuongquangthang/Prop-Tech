@@ -19,6 +19,17 @@ interface TransactionData {
   paymentMethod?: string;
 }
 
+const formatInvoiceCode = (invoiceId?: number) =>
+  invoiceId ? `INV-${String(invoiceId).padStart(3, '0')}` : '-';
+
+const parseInvoiceCode = (value: string) => {
+  const normalized = value.trim();
+  const match = normalized.match(/^(?:INV-|#)?(\d+)$/i);
+  if (!match) return null;
+  const invoiceId = Number(match[1]);
+  return Number.isInteger(invoiceId) && invoiceId > 0 ? invoiceId : null;
+};
+
 export function TransactionTable() {
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +42,8 @@ export function TransactionTable() {
   const [toDate, setToDate] = useState('');
   const [methodFilter, setMethodFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   const fetchTransactions = async () => {
     try {
@@ -62,9 +75,7 @@ export function TransactionTable() {
                 payment.roomNumber ? `Phòng ${payment.roomNumber}` : null,
                 payment.invoiceReference ? `HĐ ${payment.invoiceReference}` : null,
               ].filter(Boolean).join(' - '),
-          invoice: payment.invoiceReference
-            ? `${payment.invoiceReference}${payment.invoiceId ? ` (#${payment.invoiceId})` : ''}`
-            : payment.invoiceId ? `#${payment.invoiceId}` : '-',
+          invoice: formatInvoiceCode(payment.invoiceId),
           status: payment.status === 'SUCCESS' ? 'matched' : 'unmatched',
           invoiceId: payment.invoiceId,
           paymentMethod: payment.paymentType || 'Tiền mặt',
@@ -87,25 +98,32 @@ export function TransactionTable() {
 
   const handleMatchClick = (transaction: any) => {
     setSelectedTransaction(transaction);
-    setInvoiceCode('');
+    setInvoiceCode(formatInvoiceCode(transaction.invoiceId) === '-' ? '' : formatInvoiceCode(transaction.invoiceId));
+    setMatchError(null);
     setShowMatchModal(true);
   };
 
-  const handleConfirmMatch = () => {
-    if (selectedTransaction && invoiceCode.trim()) {
-      // Cập nhật giao dịch
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === selectedTransaction.id 
-            ? { ...t, invoice: invoiceCode, status: 'matched' }
-            : t
-        )
-      );
-      
-      // Đóng modal
+  const handleConfirmMatch = async () => {
+    if (!selectedTransaction) return;
+
+    const invoiceId = parseInvoiceCode(invoiceCode);
+    if (!invoiceId) {
+      setMatchError('Mã hóa đơn không hợp lệ. Ví dụ đúng: INV-003');
+      return;
+    }
+
+    try {
+      setMatchLoading(true);
+      setMatchError(null);
+      await paymentService.manualMatch(selectedTransaction.id, invoiceId);
+      await fetchTransactions();
       setShowMatchModal(false);
       setSelectedTransaction(null);
       setInvoiceCode('');
+    } catch (err: any) {
+      setMatchError(err.message || 'Không thể gạch nợ giao dịch');
+    } finally {
+      setMatchLoading(false);
     }
   };
 
@@ -356,7 +374,7 @@ export function TransactionTable() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Số tiền:</span>
-                    <span className="text-gray-800 font-bold text-lg">{selectedTransaction.amount} VNĐ</span>
+                    <span className="text-gray-800 font-bold text-lg">{selectedTransaction.amount.toLocaleString('vi-VN')} VNĐ</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Nội dung CK:</span>
@@ -382,9 +400,12 @@ export function TransactionTable() {
                 <input
                   id="invoiceCode"
                   type="text"
-                  placeholder="Nhập mã hóa đơn (vd: INV-2026-003)"
+                  placeholder="Nhập mã hóa đơn, ví dụ: INV-003"
                   value={invoiceCode}
-                  onChange={(e) => setInvoiceCode(e.target.value)}
+                  onChange={(e) => {
+                    setInvoiceCode(e.target.value);
+                    setMatchError(null);
+                  }}
                   style={{
                     width: '100%',
                     height: 'var(--space-input-height)',
@@ -398,8 +419,13 @@ export function TransactionTable() {
                   onBlur={(e) => e.target.style.borderColor = 'var(--border-default)'}
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  💡 Kiểm tra kỹ mã hóa đơn trong module <strong>Quản lý Hóa đơn</strong> trước khi xác nhận
+                  💡 Nhập đúng mã đang hiển thị trong module <strong>Quản lý Hóa đơn</strong>.
                 </p>
+                {matchError && (
+                  <p className="mt-2 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {matchError}
+                  </p>
+                )}
               </div>
             </div>
             
@@ -423,33 +449,33 @@ export function TransactionTable() {
               </button>
               <button 
                 onClick={handleConfirmMatch}
-                disabled={!invoiceCode.trim()}
+                disabled={!invoiceCode.trim() || matchLoading}
                 style={{
                   height: 'var(--space-button-height)',
                   padding: '0 24px',
                   fontSize: 'var(--type-body)',
                   color: 'white',
-                  backgroundColor: invoiceCode.trim() ? 'var(--brand-primary)' : '#9ca3af',
+                  backgroundColor: invoiceCode.trim() && !matchLoading ? 'var(--brand-primary)' : '#9ca3af',
                   border: 'none',
                   borderRadius: 'var(--radius-button)',
-                  cursor: invoiceCode.trim() ? 'pointer' : 'not-allowed',
+                  cursor: invoiceCode.trim() && !matchLoading ? 'pointer' : 'not-allowed',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px'
                 }}
                 onMouseEnter={(e) => {
-                  if (invoiceCode.trim()) {
+                  if (invoiceCode.trim() && !matchLoading) {
                     e.currentTarget.style.backgroundColor = '#153a6b';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (invoiceCode.trim()) {
+                  if (invoiceCode.trim() && !matchLoading) {
                     e.currentTarget.style.backgroundColor = 'var(--brand-primary)';
                   }
                 }}
               >
-                <CheckCircle size={16} />
-                <span>Xác nhận gạch nợ</span>
+                {matchLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                <span>{matchLoading ? 'Đang xử lý...' : 'Xác nhận gạch nợ'}</span>
               </button>
             </div>
           </div>

@@ -1,5 +1,23 @@
-import { Plus, Eye, Lock, Unlock, X, MessageCircle } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
+import {
+  Plus,
+  Eye,
+  Lock,
+  Unlock,
+  X,
+  MessageCircle,
+  MapPin,
+  Users,
+  Ruler,
+  CalendarDays,
+  Phone,
+  User,
+  Droplets,
+  Home,
+  Clock3,
+  Pencil,
+  History,
+} from 'lucide-react';
+import { useMemo, useState, useEffect, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { usePosts } from '../hooks/usePosts';
@@ -324,151 +342,191 @@ export function PostManagementPage() {
 
       {selectedPost && (
         <div className="admin-content-modal-overlay">
-          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-lg bg-white">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-300 bg-white px-6 py-4">
+          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="z-10 flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
               <div>
-                <h3 className="text-lg text-gray-800 font-semibold">Chi tiết bài đăng</h3>
-                <p className="text-sm text-gray-600">
-                  {getPostLocationAddress(selectedPost)}
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Bài đăng cho thuê</p>
+                <h3 className="mt-1 text-lg font-semibold text-gray-900">Xem chi tiết bài đăng</h3>
               </div>
-              <button onClick={() => setSelectedPost(null)} className="rounded p-1 hover:bg-gray-100"><X size={18} /></button>
+              <button onClick={() => setSelectedPost(null)} className="product-action-icon" aria-label="Đóng"><X size={19} /></button>
             </div>
 
-            <div className="p-6 space-y-6">
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <p className="text-xs text-gray-500 mb-1">Tiêu đề bài đăng</p>
-                <p className="text-base font-semibold text-gray-800">{selectedPost.title || '—'}</p>
-              </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {(() => {
+                const galleryImages = Array.from(new Set([
+                  ...(Array.isArray(selectedPost.imageUrls) ? selectedPost.imageUrls : []),
+                  ...(Array.isArray((selectedPost as any).roomImageUrls) ? (selectedPost as any).roomImageUrls : []),
+                ].filter(Boolean)));
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-700">Thông tin phòng</h4>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Giá thuê</span>
-                    <span className="font-semibold text-gray-800">{formatMoneyVnd(selectedPost.baseRentPrice)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Diện tích</span>
-                    <span className="text-gray-800">{selectedPost.area ?? '—'} m²</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Số người tối đa</span>
-                    <span className="text-gray-800">{selectedPost.maxOccupants ?? '—'}</span>
-                  </div>
-                </div>
+                return (
+                  <>
+                    {galleryImages.length > 0 && (
+                      <div className="px-6 pt-6">
+                        <PostDetailGallery
+                          images={galleryImages}
+                          onPreview={(index) => setDetailPreviewImage({
+                            images: galleryImages,
+                            index,
+                            titlePrefix: 'Ảnh bài đăng',
+                          })}
+                        />
+                      </div>
+                    )}
 
-                <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-700">Thông tin liên hệ</h4>
-                  <div className="text-sm">
-                    <p className="text-gray-600">Vị trí</p>
-                    <p className="text-gray-800">{getPostLocationAddress(selectedPost)}</p>
-                  </div>
-                  <div className="text-sm">
-                    <p className="text-gray-600">Người liên hệ</p>
-                    <p className="text-gray-800">{selectedPost.contactName ?? '—'}</p>
-                  </div>
-                  <div className="text-sm">
-                    <p className="text-gray-600">Số điện thoại</p>
-                    <p className="text-gray-800">{selectedPost.contactPhone ?? '—'}</p>
-                  </div>
-                </div>
-              </div>
+                    <div className="grid grid-cols-1 gap-8 p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                      <article className="min-w-0 space-y-7">
+                        <header className="border-b border-gray-200 pb-6">
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <span className={`admin-status-badge px-3 py-1 text-xs font-semibold ${
+                              selectedPost.isLocked
+                                ? 'bg-red-50 text-red-700'
+                                : 'bg-emerald-50 text-emerald-700'
+                            }`}>
+                              {selectedPost.isLocked ? 'Đã khóa' : 'Đang hiển thị'}
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                              <Clock3 size={13} />
+                              Đăng ngày {formatDisplayDate(selectedPost.createdAt)}
+                            </span>
+                          </div>
+                          <h1 className="text-2xl font-semibold leading-tight text-gray-950">
+                            {selectedPost.title || 'Bài đăng cho thuê phòng'}
+                          </h1>
+                          <p className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-gray-600">
+                            <MapPin size={17} className="mt-0.5 shrink-0 text-blue-700" />
+                            {getPostLocationAddress(selectedPost)}
+                          </p>
+                          <p className="mt-4 text-2xl font-bold text-blue-800">
+                            {formatMoneyVnd(selectedPost.baseRentPrice)}
+                            <span className="ml-1 text-sm font-normal text-gray-500">/ tháng</span>
+                          </p>
+                        </header>
 
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Yêu cầu từ chủ nhà</h4>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedPost.landlordRequirements || selectedPost.description || '—'}</p>
-              </div>
+                        <section>
+                          <h2 className="text-base font-semibold text-gray-900">Thông tin phòng</h2>
+                          <div className="mt-3 grid grid-cols-2 border border-gray-200 sm:grid-cols-3">
+                            <PostFact icon={<Home size={18} />} label="Mã phòng" value={selectedPost.roomCode || '—'} />
+                            <PostFact icon={<Ruler size={18} />} label="Diện tích" value={`${selectedPost.area ?? '—'} m²`} />
+                            <PostFact icon={<Users size={18} />} label="Tối đa" value={`${selectedPost.maxOccupants ?? '—'} người`} />
+                          </div>
+                        </section>
 
-              {Array.isArray((selectedPost as any).roomImageUrls) && (selectedPost as any).roomImageUrls.length > 0 && (
-                <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Ảnh phòng</h4>
-                  <PostDetailImageStrip
-                    images={(selectedPost as any).roomImageUrls}
-                    altPrefix="Ảnh phòng"
-                    onPreview={(_, index) => setDetailPreviewImage({
-                      images: (selectedPost as any).roomImageUrls,
-                      index,
-                      titlePrefix: 'Ảnh phòng',
-                    })}
-                  />
-                </div>
-              )}
+                        <section className="border-t border-gray-200 pt-6">
+                          <h2 className="text-base font-semibold text-gray-900">Nội dung bài đăng</h2>
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-gray-700">
+                            {selectedPost.description || selectedPost.landlordRequirements || 'Chưa có nội dung mô tả.'}
+                          </p>
+                        </section>
 
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Thông tin đăng</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Thời gian vào ở</span>
-                    <span className="text-gray-800">
-                      {selectedPost.moveInType === 'from-date'
-                        ? `Từ ${formatDisplayDate(selectedPost.moveInDate)}`
-                        : 'Ở luôn'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Khu vực ngập lụt</span>
-                    <span className="text-gray-800">{selectedPost.floodProne ? 'Có' : 'Không'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ngày đăng</span>
-                    <span className="text-gray-800">{formatDisplayDate(selectedPost.createdAt)}</span>
-                  </div>
-                </div>
-              </div>
+                        {selectedPost.landlordRequirements && selectedPost.description && (
+                          <section className="border-t border-gray-200 pt-6">
+                            <h2 className="text-base font-semibold text-gray-900">Yêu cầu từ chủ nhà</h2>
+                            <p className="mt-3 whitespace-pre-wrap border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                              {selectedPost.landlordRequirements}
+                            </p>
+                          </section>
+                        )}
 
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Tiện ích</h4>
-                <p className="text-sm text-gray-700">{selectedPost.amenities?.length ? selectedPost.amenities.join(', ') : '—'}</p>
-              </div>
+                        {selectedPost.amenities?.length > 0 && (
+                          <section className="border-t border-gray-200 pt-6">
+                            <h2 className="text-base font-semibold text-gray-900">Tiện nghi</h2>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {selectedPost.amenities.map((amenity: string) => (
+                                <span key={amenity} className="rounded-full bg-blue-50 px-3 py-1.5 text-sm text-blue-800">
+                                  {amenity}
+                                </span>
+                              ))}
+                            </div>
+                          </section>
+                        )}
 
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Dịch vụ đi kèm</h4>
-                {selectedPost.servicePrices?.length ? (
-                  <div className="overflow-hidden rounded-xl border border-gray-300 bg-white">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-300">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Tên dịch vụ</th>
-                          <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">Đơn giá</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedPost.servicePrices.map((s: any, i: number) => (
-                          <tr key={i} className="border-b border-gray-200 last:border-b-0">
-                            <td className="px-4 py-2 text-sm text-gray-700">{s.name ?? 'Dịch vụ'}</td>
-                            <td className="px-4 py-2 text-right text-sm text-gray-800">
-                              {Number(s.price ?? 0).toLocaleString('vi-VN')} {s.unit ?? ''}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-700">—</p>
-                )}
-              </div>
+                        {selectedPost.servicePrices?.length > 0 && (
+                          <section className="border-t border-gray-200 pt-6">
+                            <h2 className="text-base font-semibold text-gray-900">Chi phí dịch vụ</h2>
+                            <div className="mt-3 overflow-hidden border border-gray-200">
+                              <table className="w-full">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Dịch vụ</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Đơn giá</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {selectedPost.servicePrices.map((service: any, index: number) => (
+                                    <tr key={`${service.name}-${index}`} className="border-t border-gray-100">
+                                      <td className="px-4 py-3 text-sm text-gray-700">{service.name ?? 'Dịch vụ'}</td>
+                                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                                        {Number(service.price ?? 0).toLocaleString('vi-VN')} {service.unit ?? ''}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </section>
+                        )}
+                      </article>
 
-              {selectedPost.imageUrls && selectedPost.imageUrls.length > 0 && (
-                <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Ảnh minh họa</h4>
-                  <PostDetailImageStrip
-                    images={selectedPost.imageUrls}
-                    altPrefix="Ảnh minh họa"
-                    onPreview={(_, index) => setDetailPreviewImage({
-                      images: selectedPost.imageUrls,
-                      index,
-                      titlePrefix: 'Ảnh minh họa',
-                    })}
-                  />
-                </div>
-              )}
+                      <aside className="space-y-5 lg:sticky lg:top-5 lg:self-start">
+                        <section className="border border-gray-200 bg-white p-5 shadow-sm">
+                          <h2 className="text-base font-semibold text-gray-900">Thông tin liên hệ</h2>
+                          <div className="mt-4 space-y-4">
+                            <div className="flex items-start gap-3">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-blue-50 text-blue-700"><User size={17} /></span>
+                              <div>
+                                <p className="text-xs text-gray-500">Người liên hệ</p>
+                                <p className="mt-0.5 text-sm font-semibold text-gray-900">{selectedPost.contactName ?? '—'}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-blue-50 text-blue-700"><Phone size={17} /></span>
+                              <div>
+                                <p className="text-xs text-gray-500">Số điện thoại</p>
+                                <p className="mt-0.5 text-sm font-semibold text-gray-900">{selectedPost.contactPhone ?? '—'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
+                        <section className="border border-gray-200 bg-gray-50 p-5">
+                          <h2 className="text-base font-semibold text-gray-900">Thông tin thuê</h2>
+                          <div className="mt-4 space-y-4 text-sm">
+                            <PostSidebarRow
+                              icon={<CalendarDays size={16} />}
+                              label="Có thể vào ở"
+                              value={selectedPost.moveInType === 'from-date'
+                                ? `Từ ${formatDisplayDate(selectedPost.moveInDate)}`
+                                : 'Ở luôn'}
+                            />
+                            <PostSidebarRow
+                              icon={<Droplets size={16} />}
+                              label="Khu vực ngập lụt"
+                              value={selectedPost.floodProne ? 'Có' : 'Không'}
+                            />
+                            <PostSidebarRow
+                              icon={<MapPin size={16} />}
+                              label="Vị trí"
+                              value={getPostLocationAddress(selectedPost)}
+                            />
+                          </div>
+                        </section>
+                      </aside>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
-            <div className="sticky bottom-0 flex justify-end gap-3 border-t border-gray-300 bg-white px-6 py-4">
-              <button onClick={() => void handleShowHistory()} className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Lịch sử</button>
-              <button onClick={() => { setSelectedPost(null); navigate(`/post-management/create?edit=${selectedPost.id}`); }} className="rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700">Chỉnh sửa</button>
+            <div className="flex shrink-0 items-center justify-between border-t border-gray-200 bg-white px-6 py-4">
+              <p className="hidden text-xs text-gray-500 sm:block">Thông tin hiển thị theo nội dung bài đăng hiện tại.</p>
+              <div className="ml-auto flex gap-3">
+                <button onClick={() => void handleShowHistory()} className="inline-flex items-center gap-2 rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <History size={16} /> Lịch sử
+                </button>
+                <button onClick={() => { setSelectedPost(null); navigate(`/post-management/create?edit=${selectedPost.id}`); }} className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700">
+                  <Pencil size={16} /> Chỉnh sửa
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -548,44 +606,68 @@ export function PostManagementPage() {
   );
 }
 
-function PostDetailImageStrip({
+function PostDetailGallery({
   images,
-  altPrefix,
   onPreview,
 }: {
   images: string[];
-  altPrefix: string;
-  onPreview: (src: string, index: number) => void;
+  onPreview: (index: number) => void;
 }) {
-  const normalizedImages = images.slice(0, 6);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const imagesKey = images.join('|');
+
+  useEffect(() => {
+    setFailedImages(new Set());
+  }, [imagesKey]);
+
+  const visibleImages = images
+    .map((src, originalIndex) => ({ src, originalIndex }))
+    .filter((item) => !failedImages.has(item.src));
+
+  if (visibleImages.length === 0) return null;
 
   return (
-    <div className="flex w-full items-start gap-2 overflow-x-auto pb-1">
-      {Array.from({ length: 6 }).map((_, index) => {
-        const src = normalizedImages[index];
-
-        if (!src) {
-          return (
-            <div
-              key={`empty-${altPrefix}-${index}`}
-              className="h-24 w-24 shrink-0 rounded border border-gray-300 bg-white"
-              aria-label={`Ô ${altPrefix.toLowerCase()} trống ${index + 1}`}
-            />
-          );
-        }
-
-        return (
+    <div className="flex w-full gap-3 overflow-x-auto pb-2">
+      {visibleImages.map(({ src, originalIndex }) => (
           <button
-            key={`${src}-${index}`}
+            key={`${src}-${originalIndex}`}
             type="button"
-            onClick={() => onPreview(src, index)}
-            className="h-24 w-24 shrink-0 overflow-hidden rounded border border-gray-300 bg-white"
-            title="Xem chi tiết ảnh"
+            onClick={() => onPreview(originalIndex)}
+            className="h-28 w-44 shrink-0 overflow-hidden border border-gray-200 bg-gray-100 sm:h-32 sm:w-52"
+            title={`Xem ảnh ${originalIndex + 1}`}
           >
-            <img src={src} alt={`${altPrefix} ${index + 1}`} className="h-full w-full object-cover" />
+            <img
+              src={src}
+              alt={`Ảnh bài đăng ${originalIndex + 1}`}
+              className="h-full w-full object-cover transition-opacity hover:opacity-90"
+              onError={() => setFailedImages((current) => new Set(current).add(src))}
+            />
           </button>
-        );
-      })}
+      ))}
+    </div>
+  );
+}
+
+function PostFact({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-r border-gray-200 p-4 last:border-r-0">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-blue-50 text-blue-700">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-xs text-gray-500">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function PostSidebarRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3 border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
+      <span className="mt-0.5 text-blue-700">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-xs text-gray-500">{label}</p>
+        <p className="mt-1 break-words font-medium leading-5 text-gray-900">{value}</p>
+      </div>
     </div>
   );
 }

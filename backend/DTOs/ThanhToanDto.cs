@@ -43,3 +43,8 @@ public class UpdateThanhToanDto
     public string? TransactionCode { get; set; }
     public string? TransferDescription { get; set; }
 }
+
+public class ManualMatchThanhToanDto
+{
+    public int InvoiceId { get; set; }
+}
