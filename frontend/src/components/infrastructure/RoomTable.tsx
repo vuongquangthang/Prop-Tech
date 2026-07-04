@@ -10,6 +10,8 @@ import { fileService } from '../../services/feature.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { ImageViewer } from '../ui/ImageViewer';
 import { MoneyInput } from '../ui/MoneyInput';
+import { LocationPicker } from '../LocationPicker';
+import type { ResolvedLocation } from '../../services/goongLocation.service';
 
 interface RoomData {
   id: number;
@@ -18,6 +20,14 @@ interface RoomData {
   buildingAddress?: string;
   floorNumber?: number;
   code: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  normalizedAddress?: string | null;
+  goongPlaceId?: string | null;
+  locationSource?: string | null;
+  locationAccuracy?: string | null;
+  manualScanRadiusMeters?: number | null;
   roomNumber: string;
   area: number;
   maxPeople: number;
@@ -186,6 +196,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   const [addPrice, setAddPrice] = useState('');
   const [addStatus, setAddStatus] = useState('Trống');
   const [addRoomType, setAddRoomType] = useState<'single' | 'apartment'>('single');
+  const [addAddress, setAddAddress] = useState('');
+  const [addLatitude, setAddLatitude] = useState<number | null>(null);
+  const [addLongitude, setAddLongitude] = useState<number | null>(null);
+  const [addLocationMeta, setAddLocationMeta] = useState<ResolvedLocation | null>(null);
   const [addHasPrivateBathroom, setAddHasPrivateBathroom] = useState(false);
   const [addLivingRoomCount, setAddLivingRoomCount] = useState('');
   const [addBedroomCount, setAddBedroomCount] = useState('');
@@ -211,6 +225,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   const [editPrice, setEditPrice] = useState('');
   const [editStatus, setEditStatus] = useState('Trống');
   const [editRoomType, setEditRoomType] = useState<'single' | 'apartment'>('single');
+  const [editAddress, setEditAddress] = useState('');
+  const [editLatitude, setEditLatitude] = useState<number | null>(null);
+  const [editLongitude, setEditLongitude] = useState<number | null>(null);
+  const [editLocationMeta, setEditLocationMeta] = useState<ResolvedLocation | null>(null);
   const [editHasPrivateBathroom, setEditHasPrivateBathroom] = useState(false);
   const [editLivingRoomCount, setEditLivingRoomCount] = useState('');
   const [editBedroomCount, setEditBedroomCount] = useState('');
@@ -251,6 +269,14 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     buildingAddress: room.buildingAddress || room.address || '',
     floorNumber: room.floorNumber || room.soTang || undefined,
     code: room.roomCode || room.maPhong || '',
+    address: room.address || '',
+    latitude: room.latitude ?? null,
+    longitude: room.longitude ?? null,
+    normalizedAddress: room.normalizedAddress ?? null,
+    goongPlaceId: room.goongPlaceId ?? null,
+    locationSource: room.locationSource ?? null,
+    locationAccuracy: room.locationAccuracy ?? null,
+    manualScanRadiusMeters: room.manualScanRadiusMeters ?? null,
     roomNumber: room.roomNumber || room.soPhong || '',
     area: room.area || room.dienTich || 0,
     maxPeople: room.maxOccupants || 0,
@@ -364,6 +390,13 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setAddFloorId(nextFloorId);
     setAddServiceIds(getAutoSelectedServiceIds(nextServices, nextBuildingId));
     setAddAmenities(uniqueAssetNames(nextAssets));
+    if (!addAddress.trim()) {
+      setAddAddress(
+        rooms.find(room => room.floorId === nextFloorId)?.buildingAddress
+        || floors.find(floor => floor.id === nextFloorId)?.buildingName
+        || '',
+      );
+    }
   };
 
   const filteredRooms = rooms
@@ -583,6 +616,13 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setAddPrice('');
     setAddStatus('Trống');
     setAddRoomType('single');
+    const defaultRoomAddress = rooms.find(room => room.floorId === defaultFloorId)?.buildingAddress
+      || floors.find(floor => floor.id === defaultFloorId)?.buildingName
+      || '';
+    setAddAddress(defaultRoomAddress);
+    setAddLatitude(null);
+    setAddLongitude(null);
+    setAddLocationMeta(null);
     setAddHasPrivateBathroom(false);
     setAddLivingRoomCount('');
     setAddBedroomCount('');
@@ -646,6 +686,14 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       await roomService.create({
         floorId: addFloorId,
         roomCode: addRoomCode.trim(),
+        address: addAddress.trim() || undefined,
+        latitude: addLatitude ?? undefined,
+        longitude: addLongitude ?? undefined,
+        normalizedAddress: addLocationMeta?.address || addAddress.trim() || undefined,
+        goongPlaceId: addLocationMeta?.placeId,
+        locationSource: addLocationMeta?.source,
+        locationAccuracy: addLocationMeta?.accuracy,
+        manualScanRadiusMeters: addLocationMeta?.source === 'manual-nearby-scan' ? 5 : undefined,
         area: areaValue,
         maxOccupants: maxPeopleValue,
         defaultRentPrice: addPriceVnd,
@@ -680,6 +728,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setEditPrice(String(room.price));
     setEditStatus(room.status);
     setEditRoomType((room.type || 'single') as 'single' | 'apartment');
+    setEditAddress(room.address || room.buildingAddress || '');
+    setEditLatitude(room.latitude ?? null);
+    setEditLongitude(room.longitude ?? null);
+    setEditLocationMeta(null);
     setEditHasPrivateBathroom(!!room.hasPrivateBathroom);
     setEditLivingRoomCount(room.rooms?.living != null ? String(room.rooms.living) : '');
     setEditBedroomCount(room.rooms?.bedroom != null ? String(room.rooms.bedroom) : '');
@@ -725,6 +777,14 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       }
       await roomService.update(selectedRoom.id, {
         roomCode: editRoomCode.trim(),
+        address: editAddress.trim() || undefined,
+        latitude: editLatitude ?? undefined,
+        longitude: editLongitude ?? undefined,
+        normalizedAddress: editLocationMeta?.address || editAddress.trim() || undefined,
+        goongPlaceId: editLocationMeta?.placeId,
+        locationSource: editLocationMeta?.source,
+        locationAccuracy: editLocationMeta?.accuracy,
+        manualScanRadiusMeters: editLocationMeta?.source === 'manual-nearby-scan' ? 5 : selectedRoom.manualScanRadiusMeters,
         area: parseFloat(editArea),
         maxOccupants: maxPeopleValue,
         defaultRentPrice: parseFloat(editPrice),
@@ -943,6 +1003,32 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                   >
                     {selectableFloors.length === 0 ? <option value={0}>Chưa có tầng nào</option> : selectableFloors.map(f => <option key={f.id} value={f.id}>Tầng {f.floorNumber}{f.buildingName ? ` - ${f.buildingName}` : ''}</option>)}
                   </select>
+                </div>
+
+                <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-2">Địa chỉ phòng</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Nhập địa chỉ/phần mô tả vị trí phòng. Nếu không tìm được, chọn toạ độ thủ công bên dưới."
+                      value={addAddress}
+                      onChange={e => setAddAddress(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    />
+                  </div>
+                  <LocationPicker
+                    lat={addLatitude}
+                    lng={addLongitude}
+                    addressQuery={[addAddress, addRoomCode].filter(Boolean).join(' ')}
+                    onChange={(lat, lng, location) => {
+                      setAddLatitude(lat);
+                      setAddLongitude(lng);
+                      setAddLocationMeta(location ?? null);
+                      if (location?.address && (location.source === 'manual-nearby-scan' || !addAddress.trim())) {
+                        setAddAddress(location.address);
+                      }
+                    }}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1223,7 +1309,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                 const locationParts = [
                   buildingName,
                   floorNumber ? `Tầng ${floorNumber}` : '',
-                  detailRoom.buildingAddress || '',
+                  detailRoom.address || detailRoom.buildingAddress || '',
                 ].filter(Boolean);
                 const isApartment = detailRoom.type === 'apartment';
                 const selectedServiceIds = detailRoom.serviceIds ?? [];
@@ -1412,6 +1498,32 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                     <strong>Địa chỉ:</strong> {selectedRoom.buildingAddress}
                   </p>
                 )}
+              </div>
+
+              <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">Địa chỉ phòng</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Nhập địa chỉ/phần mô tả vị trí phòng. Nếu không tìm được, chọn toạ độ thủ công bên dưới."
+                    value={editAddress}
+                    onChange={e => setEditAddress(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                  />
+                </div>
+                <LocationPicker
+                  lat={editLatitude}
+                  lng={editLongitude}
+                  addressQuery={[editAddress, editRoomCode].filter(Boolean).join(' ')}
+                  onChange={(lat, lng, location) => {
+                    setEditLatitude(lat);
+                    setEditLongitude(lng);
+                    setEditLocationMeta(location ?? null);
+                    if (location?.address && (location.source === 'manual-nearby-scan' || !editAddress.trim())) {
+                      setEditAddress(location.address);
+                    }
+                  }}
+                />
               </div>
 
               <div className="space-y-4">

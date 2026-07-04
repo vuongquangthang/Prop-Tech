@@ -119,6 +119,17 @@ public class BaiDangTimPhong
     [Column("TAO_BOI_ID")]
     public int? CreatedByUserId { get; set; }
 
+    [Column("XOA_BOI_KIEM_DUYET_LUC")]
+    public DateTime? ModerationDeletedAt { get; set; }
+
+    [StringLength(500)]
+    [Column("LY_DO_XOA_KIEM_DUYET")]
+    public string? ModerationDeletedReason { get; set; }
+
+    [StringLength(50)]
+    [Column("NGUON_XOA")]
+    public string? DeletionSource { get; set; }
+
     [ForeignKey(nameof(RoomId))]
     public Room? Room { get; set; }
 

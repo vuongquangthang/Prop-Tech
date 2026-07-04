@@ -12,6 +12,15 @@ public class RoomDto
     public string BuildingAddress { get; set; } = "";
     public int FloorNumber { get; set; }
     public string RoomCode { get; set; } = null!;
+    public string? Address { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? NormalizedAddress { get; set; }
+    public string? GoongPlaceId { get; set; }
+    public string? LocationSource { get; set; }
+    public string? LocationAccuracy { get; set; }
+    public DateTime? LocationVerifiedAt { get; set; }
+    public int? ManualScanRadiusMeters { get; set; }
     public decimal? Area { get; set; }
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
@@ -38,6 +47,14 @@ public class CreateRoomDto
 {
     public int FloorId { get; set; }
     public string RoomCode { get; set; } = null!;
+    public string? Address { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? NormalizedAddress { get; set; }
+    public string? GoongPlaceId { get; set; }
+    public string? LocationSource { get; set; }
+    public string? LocationAccuracy { get; set; }
+    public int? ManualScanRadiusMeters { get; set; }
     public decimal? Area { get; set; }
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
@@ -61,6 +78,14 @@ public class CreateRoomDto
 public class UpdateRoomDto
 {
     public string? RoomCode { get; set; }
+    public string? Address { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? NormalizedAddress { get; set; }
+    public string? GoongPlaceId { get; set; }
+    public string? LocationSource { get; set; }
+    public string? LocationAccuracy { get; set; }
+    public int? ManualScanRadiusMeters { get; set; }
     public decimal? Area { get; set; }
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }

@@ -96,6 +96,18 @@ builder.Services.AddSignalR(options =>
 });
 
 // Phase 1: Register Core Repositories
+// Storage service: dung R2 neu da cau hinh day du, nguoc lai fallback luu local (/uploads).
+if (backend.Services.R2StorageService.IsConfigured(builder.Configuration))
+{
+    builder.Services.AddSingleton<backend.Services.IStorageService, backend.Services.R2StorageService>();
+    Console.WriteLine("🗄️  Storage: Cloudflare R2");
+}
+else
+{
+    builder.Services.AddSingleton<backend.Services.IStorageService, backend.Services.LocalStorageService>();
+    Console.WriteLine("🗄️  Storage: Local disk (uploads/) - chua cau hinh R2");
+}
+
 builder.Services.AddScoped<backend.Repositories.IUserRepository, backend.Repositories.UserRepository>();
 builder.Services.AddScoped<backend.Repositories.IBuildingRepository, backend.Repositories.BuildingRepository>();
 builder.Services.AddScoped<backend.Repositories.IFloorRepository, backend.Repositories.FloorRepository>();
@@ -295,6 +307,9 @@ using (var scope = app.Services.CreateScope())
                         ANH_JSON NVARCHAR(MAX) NOT NULL,
                         ANH_BIA_URL NVARCHAR(1000) NULL,
                         TAO_BOI_ID INT NULL,
+                        XOA_BOI_KIEM_DUYET_LUC DATETIME2 NULL,
+                        LY_DO_XOA_KIEM_DUYET NVARCHAR(500) NULL,
+                        NGUON_XOA NVARCHAR(50) NULL,
                         CONSTRAINT FK_BAI_DANG_TIM_PHONG_PHONG FOREIGN KEY (PHONG_ID) REFERENCES PHONG(PHONG_ID) ON DELETE CASCADE,
                         CONSTRAINT FK_BAI_DANG_TIM_PHONG_USER FOREIGN KEY (TAO_BOI_ID) REFERENCES [USER](USER_ID) ON DELETE SET NULL
                     );
@@ -359,6 +374,24 @@ using (var scope = app.Services.CreateScope())
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'GIA_DICH_VU_JSON')
                     ALTER TABLE PHONG ADD GIA_DICH_VU_JSON NVARCHAR(MAX) NOT NULL
                         CONSTRAINT DF_PHONG_GIA_DICH_VU_JSON DEFAULT(N'[]') WITH VALUES;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'DIA_CHI_PHONG')
+                    ALTER TABLE PHONG ADD DIA_CHI_PHONG NVARCHAR(500) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'VI_DO')
+                    ALTER TABLE PHONG ADD VI_DO FLOAT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'KINH_DO')
+                    ALTER TABLE PHONG ADD KINH_DO FLOAT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'DIA_CHI_CHUAN_HOA')
+                    ALTER TABLE PHONG ADD DIA_CHI_CHUAN_HOA NVARCHAR(500) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'GOONG_PLACE_ID')
+                    ALTER TABLE PHONG ADD GOONG_PLACE_ID NVARCHAR(255) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'NGUON_VI_TRI')
+                    ALTER TABLE PHONG ADD NGUON_VI_TRI NVARCHAR(50) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'DO_CHINH_XAC_VI_TRI')
+                    ALTER TABLE PHONG ADD DO_CHINH_XAC_VI_TRI NVARCHAR(50) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'XAC_NHAN_VI_TRI_LUC')
+                    ALTER TABLE PHONG ADD XAC_NHAN_VI_TRI_LUC DATETIME2 NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PHONG') AND name = 'BAN_KINH_QUET_VI_TRI_M')
+                    ALTER TABLE PHONG ADD BAN_KINH_QUET_VI_TRI_M INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'DA_NOP_TIEN_COC')
                     ALTER TABLE HOP_DONG ADD DA_NOP_TIEN_COC BIT NOT NULL
                         CONSTRAINT DF_HOP_DONG_DA_NOP_TIEN_COC DEFAULT(0) WITH VALUES;
@@ -416,6 +449,12 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE BAI_DANG_TIM_PHONG ADD TIN_NHAN INT NOT NULL CONSTRAINT DF_BAI_DANG_TIM_PHONG_TIN_NHAN DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'SO_NGUOI_DANG_O')
                     ALTER TABLE BAI_DANG_TIM_PHONG ADD SO_NGUOI_DANG_O INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'XOA_BOI_KIEM_DUYET_LUC')
+                    ALTER TABLE BAI_DANG_TIM_PHONG ADD XOA_BOI_KIEM_DUYET_LUC DATETIME2 NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'LY_DO_XOA_KIEM_DUYET')
+                    ALTER TABLE BAI_DANG_TIM_PHONG ADD LY_DO_XOA_KIEM_DUYET NVARCHAR(500) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('BAI_DANG_TIM_PHONG') AND name = 'NGUON_XOA')
+                    ALTER TABLE BAI_DANG_TIM_PHONG ADD NGUON_XOA NVARCHAR(50) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('YEU_CAU_SUA_CHUA') AND name = 'UPDATED_AT')
                     ALTER TABLE YEU_CAU_SUA_CHUA ADD UPDATED_AT DATETIME2 NOT NULL CONSTRAINT DF_YCSC_UPDATED_AT DEFAULT(GETUTCDATE());
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('THANH_TOAN') AND name = 'NOI_DUNG_CHUYEN_KHOAN')
@@ -428,6 +467,26 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE CHI_SO_NUOC ADD IS_ANOMALY BIT NOT NULL CONSTRAINT DF_CHI_SO_NUOC_IS_ANOMALY DEFAULT(0);
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CHI_SO_NUOC') AND name = 'ANOMALY_NOTE')
                     ALTER TABLE CHI_SO_NUOC ADD ANOMALY_NOTE NVARCHAR(500) NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('DICH_VU') AND name = 'BUILDING_ID')
+                    ALTER TABLE DICH_VU ADD BUILDING_ID INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TAI_SAN') AND name = 'BUILDING_ID')
+                    ALTER TABLE TAI_SAN ADD BUILDING_ID INT NULL;
+                IF OBJECT_ID('dbo.DICH_VU_TOA_NHA', 'U') IS NULL
+                    CREATE TABLE dbo.DICH_VU_TOA_NHA (
+                        DICH_VU_ID INT NOT NULL,
+                        TOA_NHA_ID INT NOT NULL,
+                        CONSTRAINT PK_DICH_VU_TOA_NHA PRIMARY KEY (DICH_VU_ID, TOA_NHA_ID),
+                        CONSTRAINT FK_DICH_VU_TOA_NHA_DICH_VU FOREIGN KEY (DICH_VU_ID) REFERENCES DICH_VU(DICH_VU_ID) ON DELETE CASCADE,
+                        CONSTRAINT FK_DICH_VU_TOA_NHA_TOA_NHA FOREIGN KEY (TOA_NHA_ID) REFERENCES TOA_NHA(TOA_NHA_ID) ON DELETE CASCADE
+                    );
+                IF OBJECT_ID('dbo.TAI_SAN_TOA_NHA', 'U') IS NULL
+                    CREATE TABLE dbo.TAI_SAN_TOA_NHA (
+                        TAI_SAN_ID INT NOT NULL,
+                        TOA_NHA_ID INT NOT NULL,
+                        CONSTRAINT PK_TAI_SAN_TOA_NHA PRIMARY KEY (TAI_SAN_ID, TOA_NHA_ID),
+                        CONSTRAINT FK_TAI_SAN_TOA_NHA_TAI_SAN FOREIGN KEY (TAI_SAN_ID) REFERENCES TAI_SAN(TAI_SAN_ID) ON DELETE CASCADE,
+                        CONSTRAINT FK_TAI_SAN_TOA_NHA_TOA_NHA FOREIGN KEY (TOA_NHA_ID) REFERENCES TOA_NHA(TOA_NHA_ID) ON DELETE CASCADE
+                    );
             """);
             Console.WriteLine("✅ HOA_DON columns ensured");
 

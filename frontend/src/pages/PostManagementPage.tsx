@@ -1,4 +1,4 @@
-import { Plus, Eye, Lock, Unlock, X, MessageCircle } from 'lucide-react';
+import { Plus, Eye, Lock, Unlock, X, MessageCircle, CheckCircle2, Clock3, CircleX, PauseCircle } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from 'sonner';
@@ -27,6 +27,45 @@ const getRoomStatusConfig = (status: string) => {
 function canViewManagedConversations(role?: string): boolean {
   const normalized = String(role ?? '').trim().toLowerCase();
   return normalized === 'admin' || normalized === 'quanly' || normalized === 'manager';
+}
+
+function getPostDisplayStatus(post: any) {
+  const status = String(post?.status ?? '').trim().toLowerCase();
+  if (status === 'deleted' || post?.deletionSource === 'trouytin_admin') {
+    return {
+      label: 'Đã bị xoá',
+      title: post?.moderationDeletedReason
+        ? `Bài đã bị xoá. Lý do: ${post.moderationDeletedReason}`
+        : 'Bài đã bị xoá khỏi TroUyTin',
+      className: 'bg-red-50 text-red-700 border-red-200',
+      icon: CircleX,
+    };
+  }
+
+  if (status === 'pending_review') {
+    return {
+      label: 'Chờ duyệt',
+      title: 'Bài đang chờ admin TroUyTin duyệt',
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
+      icon: Clock3,
+    };
+  }
+
+  if (post?.isLocked || status === 'paused') {
+    return {
+      label: 'Tạm ẩn',
+      title: 'Bài đang bị khoá/tạm ẩn',
+      className: 'bg-gray-50 text-gray-700 border-gray-200',
+      icon: PauseCircle,
+    };
+  }
+
+  return {
+    label: 'Đã đăng',
+    title: 'Bài đã được đăng và đang hiển thị',
+    className: 'bg-green-50 text-green-700 border-green-200',
+    icon: CheckCircle2,
+  };
 }
 
 export function PostManagementPage() {
@@ -246,11 +285,26 @@ export function PostManagementPage() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
+                          {(() => {
+                            const statusMeta = getPostDisplayStatus(p);
+                            const StatusIcon = statusMeta.icon;
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold ${statusMeta.className}`}
+                                title={statusMeta.title}
+                                aria-label={statusMeta.label}
+                              >
+                                <StatusIcon size={14} />
+                                <span className="hidden xl:inline">{statusMeta.label}</span>
+                              </span>
+                            );
+                          })()}
                           <button onClick={() => setSelectedPost(p)} className="p-2 rounded hover:bg-gray-100"><Eye size={16} /></button>
                           <button
                             type="button"
                             onClick={() => handleRequestToggleLock(p)}
-                            className="p-2 rounded hover:bg-gray-100"
+                            disabled={p.status === 'pending_review' || p.status === 'deleted'}
+                            className="p-2 rounded hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                             title={p.isLocked ? 'Mở khóa bài đăng' : 'Khóa bài đăng'}
                           >
                             {p.isLocked ? <Unlock size={16} /> : <Lock size={16} />}
@@ -339,7 +393,19 @@ export function PostManagementPage() {
               <div className="bg-gray-50 border border-gray-300 rounded p-4">
                 <p className="text-xs text-gray-500 mb-1">Tiêu đề bài đăng</p>
                 <p className="text-base font-semibold text-gray-800">{selectedPost.title || '—'}</p>
+                <p className="mt-2 text-sm text-gray-600">
+                  Tổng ảnh: {selectedPost.totalImageCount ?? ((selectedPost.roomImageUrls?.length ?? 0) + (selectedPost.imageUrls?.length ?? 0))}
+                  {' '}({selectedPost.roomImageUrls?.length ?? 0} ảnh phòng, {selectedPost.imageUrls?.length ?? 0} ảnh minh hoạ)
+                </p>
               </div>
+
+              {selectedPost.status === 'deleted' && (
+                <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  Bài đăng đã bị xoá khỏi TroUyTin
+                  {selectedPost.moderationDeletedReason ? ` · Lý do: ${selectedPost.moderationDeletedReason}` : ''}.
+                  Hãy chỉnh sửa lại bài để gửi duyệt lại.
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-gray-50 border border-gray-300 rounded p-4 space-y-3">

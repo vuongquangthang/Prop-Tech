@@ -46,6 +46,9 @@ public class PublicRoomDto
     public string RoomType { get; set; } = null!;
     public string Title { get; set; } = null!;
     public List<string> Images { get; set; } = new();
+    public List<string> RoomImages { get; set; } = new();
+    public List<string> PostImages { get; set; } = new();
+    public int TotalImages { get; set; }
     public string Location { get; set; } = null!;
     public string City { get; set; } = null!;
     public string District { get; set; } = null!;
