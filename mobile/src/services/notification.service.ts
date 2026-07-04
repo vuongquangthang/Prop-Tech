@@ -15,6 +15,11 @@ export interface Notification {
 
 class NotificationService {
   private baseUrl = '/api/Notifications';
+  private cachedNotifications: Notification[] = [];
+
+  getCachedNotifications(): Notification[] {
+    return this.cachedNotifications;
+  }
 
   /**
    * Get all my notifications
@@ -24,7 +29,8 @@ class NotificationService {
       const response = await apiService.get<Notification[]>(
         `${this.baseUrl}/my-notifications`
       );
-      return response || [];
+      this.cachedNotifications = response || [];
+      return this.cachedNotifications;
     } catch (error) {
       console.warn('Unable to fetch notifications:', error);
       return [];
@@ -39,7 +45,15 @@ class NotificationService {
       const response = await apiService.get<Notification[]>(
         `${this.baseUrl}/my-notifications?unreadOnly=true`
       );
-      return response || [];
+      const unreadNotifications = response || [];
+      if (this.cachedNotifications.length > 0) {
+        const unreadIds = new Set(unreadNotifications.map((item) => item.id));
+        this.cachedNotifications = this.cachedNotifications.map((item) => ({
+          ...item,
+          isRead: !unreadIds.has(item.id),
+        }));
+      }
+      return unreadNotifications;
     } catch (error) {
       return [];
     }
@@ -63,6 +77,9 @@ class NotificationService {
   async markAsRead(id: number): Promise<void> {
     try {
       await apiService.post(`${this.baseUrl}/${id}/read`, {});
+      this.cachedNotifications = this.cachedNotifications.map((item) =>
+        item.id === id ? { ...item, isRead: true } : item
+      );
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -74,6 +91,7 @@ class NotificationService {
   async markAllAsRead(): Promise<void> {
     try {
       await apiService.post(`${this.baseUrl}/mark-all-read`, {});
+      this.cachedNotifications = this.cachedNotifications.map((item) => ({ ...item, isRead: true }));
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }

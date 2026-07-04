@@ -15,8 +15,8 @@ import notificationService, { Notification } from '../services/notification.serv
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>(() => notificationService.getCachedNotifications());
+  const [loading, setLoading] = useState(() => notificationService.getCachedNotifications().length === 0);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadNotifications = async () => {
@@ -26,7 +26,13 @@ export default function NotificationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
+      const cachedNotifications = notificationService.getCachedNotifications();
+      if (cachedNotifications.length > 0) {
+        setNotifications(cachedNotifications);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
       loadNotifications().finally(() => setLoading(false));
     }, [])
   );
@@ -58,7 +64,7 @@ export default function NotificationsScreen() {
         return;
       }
       // @ts-ignore
-      navigation.navigate('MainTabs', { screen: 'Bills' });
+      navigation.navigate('Bills');
       return;
     }
 
@@ -69,12 +75,11 @@ export default function NotificationsScreen() {
         return;
       }
       // @ts-ignore
-      navigation.navigate('MainTabs', { screen: 'Issues' });
+      navigation.navigate('Issues');
       return;
     }
 
-    // @ts-ignore
-    navigation.navigate('MainTabs', { screen: 'Home' });
+    // Không có màn đích cụ thể thì chỉ đánh dấu đã đọc và giữ lại trang thông báo.
   };
 
   const handleNotificationPress = async (notification: Notification) => {
@@ -155,6 +160,10 @@ export default function NotificationsScreen() {
           data={notifications}
           keyExtractor={item => item.id.toString()}
           renderItem={renderItem}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           contentContainerStyle={notifications.length === 0 ? styles.center : styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={

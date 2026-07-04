@@ -10,10 +10,11 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -25,6 +26,7 @@ import { contractService, ContractDetail } from '../services/contract.service';
 
 export default function ReportIssueScreen() {
   const navigation = useNavigation();
+  const scrollViewRef = useRef<ScrollView>(null);
   const { activeContractId } = useAuthStore();
   const [description, setDescription] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -34,6 +36,7 @@ export default function ReportIssueScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -56,6 +59,18 @@ export default function ReportIssueScreen() {
       mounted = false;
     };
   }, [activeContractId]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const pickImages = async (source: 'camera' | 'library') => {
     try {
@@ -188,6 +203,12 @@ export default function ReportIssueScreen() {
     }
   };
 
+  const scrollDescriptionIntoView = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 320, animated: true });
+    }, 120);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -204,8 +225,11 @@ export default function ReportIssueScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.content}
+        contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
         <Text style={styles.description}>
@@ -299,6 +323,7 @@ export default function ReportIssueScreen() {
               placeholderTextColor="#9CA3AF"
               value={description}
               onChangeText={setDescription}
+              onFocus={scrollDescriptionIntoView}
             />
             <Text style={styles.charCount}>{description.length}/500 ký tự</Text>
           </View>
@@ -345,32 +370,34 @@ export default function ReportIssueScreen() {
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => navigation.goBack()}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.cancelButtonText}>Hủy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <ActivityIndicator color="#FFFFFF" size="small" />
-                <Text style={styles.submitButtonText}>
-                  {isUploading ? 'Đang tải ảnh...' : 'Đang gửi...'}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.submitButtonText}>Gửi yêu cầu</Text>
-            )}
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+      {!isKeyboardVisible && (
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => navigation.goBack()}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.cancelButtonText}>Hủy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.submitButtonText}>
+                {isUploading ? 'Đang tải ảnh...' : 'Đang gửi...'}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.submitButtonText}>Gửi yêu cầu</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+      )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -398,6 +425,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 24,
+  },
+  contentContainer: {
+    paddingBottom: Platform.OS === 'ios' ? 96 : 88,
   },
   description: {
     fontSize: 14,
@@ -568,8 +598,9 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     gap: 16,
-    paddingTop: 4,
-    paddingBottom: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 6,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     backgroundColor: '#FFFFFF',

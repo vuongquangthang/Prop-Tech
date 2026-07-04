@@ -67,14 +67,13 @@ interface AlertItem {
 
 const currency = (value: number) =>
   new Intl.NumberFormat('vi-VN', {
-    maximumFractionDigits: 0,
-  }).format(Math.max(0, Math.round(value)));
+    maximumFractionDigits: 2,
+  }).format(Math.max(0, Number(value) || 0));
 
-const compactCurrency = (value: number) => {
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
-  return currency(value);
-};
+const millionCurrency = (value: number) =>
+  `${new Intl.NumberFormat('vi-VN', {
+    maximumFractionDigits: 2,
+  }).format(Math.max(0, Number(value) || 0) / 1_000_000)}M`;
 
 const parseDate = (value?: string | null) => {
   if (!value) return null;
@@ -166,8 +165,8 @@ const demoMonthlyRevenue: MonthlyRevenue[] = [
   month,
   year: new Date().getFullYear(),
   totalRevenue: total * 1_000_000,
-  collectedRevenue: Math.round(total * 0.82) * 1_000_000,
-  outstandingRevenue: Math.round(total * 0.18) * 1_000_000,
+  collectedRevenue: total * 0.82 * 1_000_000,
+  outstandingRevenue: total * 0.18 * 1_000_000,
   roomRentRevenue: roomRent * 1_000_000,
   serviceRevenue: service * 1_000_000,
   otherRevenue: other * 1_000_000,
@@ -379,8 +378,8 @@ export function Dashboard() {
     },
     {
       label: 'Đã thu tháng này',
-      value: `${compactCurrency(monthlyRevenueValue)} đ`,
-      sub: `Đã thu tháng trước ${compactCurrency(lastMonthRevenueValue)} đ`,
+      value: `${millionCurrency(monthlyRevenueValue)} đ`,
+      sub: `Đã thu tháng trước ${millionCurrency(lastMonthRevenueValue)} đ`,
       trend: `${(revenueStats?.growthRate ?? 0) >= 0 ? '+' : ''}${(revenueStats?.growthRate ?? 0).toFixed(1)}%`,
       positive: (revenueStats?.growthRate ?? 0) >= 0,
       icon: ReceiptText,
@@ -388,7 +387,7 @@ export function Dashboard() {
     },
     {
       label: 'Công nợ còn lại',
-      value: `${compactCurrency(outstandingDebt)} đ`,
+      value: `${millionCurrency(outstandingDebt)} đ`,
       sub: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn cần xử lý`,
       trend: '-5.6%',
       positive: true,
@@ -401,16 +400,16 @@ export function Dashboard() {
     if (monthlyRevenue.length > 0) {
       return monthlyRevenue.slice(-12).map((item) => ({
         month: `T${item.month}`,
-        collected: Math.round((item.collectedRevenue ?? item.totalRevenue ?? 0) / 1_000_000),
-        outstanding: Math.round((item.outstandingRevenue ?? 0) / 1_000_000),
-        total: Math.round((item.totalRevenue ?? 0) / 1_000_000),
+        collected: item.collectedRevenue ?? item.totalRevenue ?? 0,
+        outstanding: item.outstandingRevenue ?? 0,
+        total: item.totalRevenue ?? 0,
       }));
     }
     return ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].map((month, index) => ({
       month,
-      collected: [82, 96, 91, 108, 124, 138][index],
-      outstanding: [18, 22, 20, 24, 29, 34][index],
-      total: [100, 118, 111, 132, 153, 172][index],
+      collected: [82, 96, 91, 108, 124, 138][index] * 1_000_000,
+      outstanding: [18, 22, 20, 24, 29, 34][index] * 1_000_000,
+      total: [100, 118, 111, 132, 153, 172][index] * 1_000_000,
     }));
   }, [monthlyRevenue]);
 
@@ -451,7 +450,7 @@ export function Dashboard() {
     return Array.from(grouped.entries())
       .map(([name, value]) => ({
         name,
-        value: Math.round(value / 1_000_000),
+        value,
         rawValue: value,
       }))
       .filter((item) => item.rawValue > 0)
@@ -550,7 +549,7 @@ export function Dashboard() {
       id: 'debt',
       severity: (debtStats?.overdueInvoicesCount ?? invoices.length) > 0 ? 'critical' : 'medium',
       title: 'Thanh toán quá hạn',
-      detail: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn quá hạn · ${compactCurrency(outstandingDebt)} đ`,
+      detail: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn quá hạn · ${millionCurrency(outstandingDebt)} đ`,
       action: 'Xử lý công nợ',
       path: '/debt-management',
     },
@@ -628,10 +627,16 @@ export function Dashboard() {
               <BarChart data={revenueChart} barGap={8}>
                 <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="4 6" />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} unit="M" />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
+                  width={92}
+                  tickFormatter={(value) => millionCurrency(Number(value))}
+                />
                 <Tooltip
                   cursor={{ fill: 'color-mix(in srgb, var(--primary) 8%, transparent)' }}
-                  formatter={(value, name) => [`${value} triệu đồng`, name]}
+                  formatter={(value, name) => [`${millionCurrency(Number(value))} đồng`, name]}
                   labelFormatter={(label) => `Kỳ ${label}`}
                 />
                 <Bar dataKey="collected" name="Đã thu" stackId="monthly-receivable" fill="var(--primary)" radius={[0, 0, 0, 0]} />
@@ -662,7 +667,7 @@ export function Dashboard() {
                       <Cell key={index} fill={chartColors[index % chartColors.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`${value}M đ`, 'Công nợ']} />
+                  <Tooltip formatter={(value) => [`${millionCurrency(Number(value))} đ`, 'Công nợ']} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="debt-legend">
@@ -1274,7 +1279,7 @@ const dashboardStyles = `
     place-items: center;
     width: 38px;
     height: 38px;
-    border-radius: 0;
+    border-radius: 6px;
     background: var(--primary-soft);
     color: var(--primary);
   }
@@ -1306,7 +1311,7 @@ const dashboardStyles = `
     align-items: center;
     gap: 4px;
     padding: 4px 7px;
-    border-radius: var(--radius-badge);
+    border-radius: 15px !important;
     font-size: 11px;
     font-style: normal;
     font-weight: 800;
@@ -1470,6 +1475,16 @@ const dashboardStyles = `
 
   .ticket-summary > div[role="link"] {
     transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+
+  .debt-panel .dashboard-panel-header button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: max-content;
+  }
+
+  .debt-panel .dashboard-panel-header span {
+    white-space: nowrap;
   }
 
   .ticket-summary > div[role="link"]:hover {
