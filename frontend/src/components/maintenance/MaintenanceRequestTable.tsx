@@ -1,13 +1,15 @@
-import { ArrowRight, Eye, Filter, AlertCircle, X, Upload } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { AlertCircle, CheckCircle2, Filter, Image as ImageIcon, MessageSquareWarning, Upload, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useData } from '../../contexts/DataContext';
 import { fileService } from '../../services/feature.service';
 import { DataCard, DataTable, EmptyState, PageHeader, SegmentedTabs, Toolbar } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 import { ImageViewer } from '../ui/ImageViewer';
+import './MaintenanceDetailModal.css';
 
 // Modal Hoàn thành yêu cầu
-function CompleteModal({ request, onClose, onComplete }: { request: any; onClose: () => void; onComplete: (adminNote: string, completionImageUrl: string) => void }) {
+function CompleteModal({ request, onClose, onComplete }: { request: any; onClose: () => void; onComplete: (adminNote: string, completionImageUrl: string) => Promise<void> }) {
   const [adminNote, setAdminNote] = useState('');
   const [completionImageUrl, setCompletionImageUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -63,7 +65,7 @@ function CompleteModal({ request, onClose, onComplete }: { request: any; onClose
         imageUrl = await fileService.upload(selectedFile);
       }
 
-      onComplete(adminNote, imageUrl);
+      await onComplete(adminNote, imageUrl);
       onClose();
     } catch (error: any) {
       alert('Lỗi tải ảnh: ' + error.message);
@@ -199,14 +201,15 @@ const getAvailableStatuses = (currentStatus: string) => {
   const statusFlow = {
     new: ['new', 'in_progress'],
     in_progress: ['in_progress', 'review'],
-    // In review: wait for resident feedback or send back to pending.
-    review: ['review', 'new'],
+    // Chờ cư dân nghiệm thu trên ứng dụng; phía quản lý không được đổi trạng thái.
+    review: ['review'],
     completed: ['completed'],
   };
   return statusFlow[currentStatus as keyof typeof statusFlow] || ['new'];
 };
 
 export function MaintenanceRequestTable() {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('new');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [completeModalRequest, setCompleteModalRequest] = useState<any>(null);
@@ -277,6 +280,21 @@ export function MaintenanceRequestTable() {
     });
   }, [incidents]);
 
+  useEffect(() => {
+    const requestId = searchParams.get('requestId');
+    const requestedStatus = searchParams.get('status');
+    if (requestedStatus && ['new', 'in_progress', 'review', 'completed'].includes(requestedStatus)) {
+      setActiveTab(requestedStatus);
+    }
+    if (!requestId || requests.length === 0) return;
+
+    const request = requests.find((item) => String(item.code) === requestId);
+    if (!request) return;
+
+    setActiveTab(request.status);
+    setSelectedRequest(request);
+  }, [requests, searchParams]);
+
   // Filter theo cả status (tab) và type (loại sự cố)
   const filteredRequests = requests.filter(req => {
     const matchStatus = req.status === activeTab;
@@ -318,16 +336,27 @@ export function MaintenanceRequestTable() {
     }
   };
 
-  const handleComplete = (adminNote: string, completionImageUrl: string) => {
+  const handleComplete = async (adminNote: string, completionImageUrl: string) => {
     if (completeModalRequest && completeModalRequest.fullIncident) {
-      updateIncidentStatus(completeModalRequest.fullIncident.id, 'review', adminNote, completionImageUrl);
-      if (selectedRequest?.code === completeModalRequest.code) {
-        setSelectedRequest({ ...selectedRequest, status: 'review' });
-      }
+      await updateIncidentStatus(completeModalRequest.fullIncident.id, 'review', adminNote, completionImageUrl);
+      setSelectedRequest((currentRequest: any) => {
+        if (currentRequest?.code !== completeModalRequest.code) return currentRequest;
+
+        return {
+          ...currentRequest,
+          status: 'review',
+          fullIncident: {
+            ...currentRequest.fullIncident,
+            status: 'review',
+            resolutionNote: adminNote,
+            completionImageUrl,
+          },
+        };
+      });
     }
   };
 
-  const evidenceImages = (() => {
+  const residentEvidenceImages = (() => {
     const images: string[] = [];
     const mediaUrls = selectedRequest?.fullIncident?.mediaUrls;
 
@@ -346,13 +375,12 @@ export function MaintenanceRequestTable() {
       images.push(resolveImageUrl(selectedRequest.imageUrl));
     }
 
-    const completionImageUrl = selectedRequest?.fullIncident?.completionImageUrl;
-    if (completionImageUrl) {
-      images.push(resolveImageUrl(completionImageUrl));
-    }
-
     return images;
   })();
+  const completionImageUrl = resolveImageUrl(selectedRequest?.fullIncident?.completionImageUrl);
+  const evidenceImages = completionImageUrl
+    ? [...residentEvidenceImages, completionImageUrl]
+    : residentEvidenceImages;
 
   return (
     <div className="space-y-5">
@@ -384,7 +412,7 @@ export function MaintenanceRequestTable() {
         </div>
       </Toolbar>
       
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_384px]">
+      <div>
         <DataCard title={`Danh sách yêu cầu · ${filteredRequests.length} yêu cầu`} description="Chọn một dòng để xem nhanh chi tiết xử lý.">
           {filteredRequests.length === 0 ? (
             <EmptyState title="Không có yêu cầu phù hợp" description="Không có yêu cầu nào trong trạng thái hoặc loại sự cố đang chọn." />
@@ -424,15 +452,15 @@ export function MaintenanceRequestTable() {
                       </td>
                     )}
                     <td onClick={(e) => e.stopPropagation()}>
-                      <select
+                      <FilterSelect
                         value={request.status}
                         onChange={(e) => handleStatusChange(request.code, e.target.value)}
-                        className={`cursor-pointer rounded-[10px] border px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ring)] ${statusConfig[request.status as keyof typeof statusConfig].color}`}
+                        className="px-3 py-1 text-xs focus:outline-none"
                       >
                         {getAvailableStatuses(request.status).map(status => (
                           <option key={status} value={status}>{statusConfig[status as keyof typeof statusConfig].label}</option>
                         ))}
-                      </select>
+                      </FilterSelect>
                     </td>
                   </tr>
                 ))}
@@ -441,139 +469,138 @@ export function MaintenanceRequestTable() {
           )}
         </DataCard>
       
-      {/* Quick View Panel */}
       {selectedRequest && (
-        <aside className="product-card flex flex-col overflow-hidden">
-          <div className="product-card-header">
-            <div>
-              <h2>Chi tiết yêu cầu</h2>
-              <p>Thông tin xử lý và bằng chứng ảnh</p>
-            </div>
-            <button onClick={() => setSelectedRequest(null)} className="product-action-icon">
-              <X size={18} />
-            </button>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {/* Basic Info */}
-            <div>
-              <p className="text-xs text-gray-600 mb-1">Mã yêu cầu</p>
-              <p className="text-sm text-gray-900">{selectedRequest.code}</p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-600 mb-1">Phòng</p>
-                <p className="text-sm text-gray-900">{selectedRequest.room}</p>
+        <div className="admin-content-modal-overlay" onClick={() => setSelectedRequest(null)}>
+          <div className="admin-content-modal-panel dashboard-incident-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="admin-content-modal-header dashboard-incident-modal-header">
+              <div className="dashboard-incident-heading">
+                <div>
+                  <span>Yêu cầu sửa chữa #{selectedRequest.code}</span>
+                  <h2>{selectedRequest.type}</h2>
+                  <p>{selectedRequest.room}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-600 mb-1">Loại sự cố</p>
-                <p className="text-sm text-gray-900">{selectedRequest.type}</p>
+              <div className="dashboard-incident-header-actions">
+                <span className={`dashboard-incident-status ${
+                  selectedRequest.status === 'completed'
+                    ? 'is-completed'
+                    : selectedRequest.status === 'in_progress' || selectedRequest.status === 'review'
+                      ? 'is-processing'
+                      : 'is-pending'
+                }`}>
+                  {statusConfig[selectedRequest.status as keyof typeof statusConfig].label}
+                </span>
+                <button type="button" className="product-action-icon" aria-label="Đóng" onClick={() => setSelectedRequest(null)}>
+                  <X size={20} />
+                </button>
               </div>
             </div>
-            
-            <div>
-              <p className="text-xs text-gray-600 mb-1">Trạng thái</p>
-              <span className={`product-status-badge ${selectedRequest.status === 'completed' ? 'is-success' : selectedRequest.status === 'review' ? 'is-info' : selectedRequest.status === 'in_progress' ? 'is-warning' : 'is-brand'}`}>
-                {statusConfig[selectedRequest.status as keyof typeof statusConfig].label}
-              </span>
-            </div>
-            
-            {/* Description */}
-            <div>
-              <p className="text-xs text-gray-600 mb-2">Mô tả chi tiết</p>
-              <p className="app-card-subtle p-3 text-sm text-gray-700">
-                {selectedRequest.description}
-              </p>
-            </div>
-            
-            {/* Before & After Images */}
-            <div>
-              <p className="text-xs text-gray-600 mb-2">Ảnh bằng chứng</p>
-              
-              {/* Before images (multiple) */}
-              <div>
-                <p className="text-xs text-gray-500 mb-2">Trước khi sửa</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {selectedRequest.fullIncident?.mediaUrls ? (() => {
-                    try {
-                      const urls = JSON.parse(selectedRequest.fullIncident.mediaUrls) as string[];
-                      if (Array.isArray(urls) && urls.length > 0) {
-                        return urls.map((url: string, idx: number) => (
-                          <button key={idx} type="button" onClick={() => setPreviewImage({ images: evidenceImages, index: idx, titlePrefix: 'Ảnh sửa chữa' })} className="block w-full text-left">
-                            <img
-                              src={resolveImageUrl(url)}
-                              alt={`Ảnh trước khi sửa ${idx + 1}`}
-                              className="w-full h-24 object-cover rounded border border-gray-300 hover:opacity-90"
-                            />
-                          </button>
-                        ));
-                      }
-                    } catch {
-                      // Fall back to single image URL
-                    }
-                    return null;
-                  })() : null}
-                  {!selectedRequest.fullIncident?.mediaUrls && selectedRequest.imageUrl && (
-                    <button type="button" onClick={() => setPreviewImage({ images: evidenceImages, index: 0, titlePrefix: 'Ảnh sửa chữa' })} className="block w-full text-left">
-                      <img 
-                        src={resolveImageUrl(selectedRequest.imageUrl)}
-                        alt="Trước khi sửa"
-                        className="w-full h-24 object-cover rounded border border-gray-300 hover:opacity-90"
-                      />
-                    </button>
+
+            <div className="dashboard-incident-modal-body">
+              <main className="dashboard-incident-main">
+                <section className="dashboard-incident-section">
+                  <div className="dashboard-incident-section-title">
+                    <MessageSquareWarning size={18} />
+                    <div>
+                      <h3>Nội dung sự cố</h3>
+                      <p>Thông tin do cư dân cung cấp</p>
+                    </div>
+                  </div>
+                  <div className="dashboard-incident-description">
+                    {selectedRequest.description || 'Không có mô tả chi tiết.'}
+                  </div>
+                </section>
+
+                {residentEvidenceImages.length > 0 && (
+                  <section className="dashboard-incident-section">
+                    <div className="dashboard-incident-section-title">
+                      <ImageIcon size={18} />
+                      <div>
+                        <h3>Ảnh cư dân gửi</h3>
+                        <p>{residentEvidenceImages.length} ảnh đính kèm</p>
+                      </div>
+                    </div>
+                    <div className="dashboard-incident-image-grid">
+                      {residentEvidenceImages.map((imageUrl, index) => (
+                        <button
+                          key={imageUrl}
+                          type="button"
+                          className="dashboard-incident-image"
+                          onClick={() => setPreviewImage({ images: evidenceImages, index, titlePrefix: 'Ảnh sửa chữa' })}
+                        >
+                          <img src={imageUrl} alt={`Ảnh sự cố ${index + 1}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <section className="dashboard-incident-section">
+                  <div className="dashboard-incident-section-title">
+                    <CheckCircle2 size={18} />
+                    <div>
+                      <h3>Kết quả xử lý</h3>
+                      <p>Ghi chú từ bộ phận vận hành</p>
+                    </div>
+                  </div>
+                  {selectedRequest.fullIncident?.resolutionNote ? (
+                    <div className="dashboard-incident-note">{selectedRequest.fullIncident.resolutionNote}</div>
+                  ) : (
+                    <div className="dashboard-incident-empty">Chưa có ghi chú xử lý cho yêu cầu này.</div>
                   )}
-                  {!selectedRequest.fullIncident?.mediaUrls && !selectedRequest.imageUrl && (
-                    <div className="col-span-3 h-24 bg-gray-200 border border-gray-300 rounded flex items-center justify-center">
-                      <span className="text-xs text-gray-500">Không có ảnh</span>
+                  {completionImageUrl && (
+                    <div className="dashboard-incident-completion-image">
+                      <button
+                        type="button"
+                        className="dashboard-incident-image"
+                        onClick={() => setPreviewImage({
+                          images: evidenceImages,
+                          index: Math.max(evidenceImages.length - 1, 0),
+                          titlePrefix: 'Ảnh sửa chữa',
+                        })}
+                      >
+                        <img src={completionImageUrl} alt="Ảnh sau khi xử lý" />
+                      </button>
                     </div>
                   )}
+                </section>
+              </main>
+
+              <aside className="dashboard-incident-sidebar">
+                <h3>Thông tin yêu cầu</h3>
+                <div className="dashboard-incident-meta-list">
+                  <div><span>Mã yêu cầu</span><strong>#{selectedRequest.code}</strong></div>
+                  <div><span>Vị trí</span><strong>{selectedRequest.room}</strong></div>
+                  <div><span>Người báo</span><strong>{selectedRequest.fullIncident?.reportedBy || 'Chưa cập nhật'}</strong></div>
+                  <div><span>Loại sự cố</span><strong>{selectedRequest.type}</strong></div>
+                  <div><span>Thời gian gửi</span><strong>{selectedRequest.time}</strong></div>
+                  {selectedRequest.assignee && (
+                    <div><span>Người xử lý</span><strong>{selectedRequest.assignee}</strong></div>
+                  )}
                 </div>
-              </div>
-              
-              {/* After image (single) */}
-              {selectedRequest.status === 'completed' && selectedRequest.fullIncident?.completionImageUrl && (
-                <div className="mt-4">
-                  <p className="text-xs text-gray-500 mb-2">Sau khi sửa</p>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewImage({
-                      images: evidenceImages,
-                      index: Math.max(evidenceImages.length - 1, 0),
-                      titlePrefix: 'Ảnh sửa chữa',
-                    })}
-                    className="block w-full text-left"
-                  >
-                    <img 
-                      src={resolveImageUrl(selectedRequest.fullIncident.completionImageUrl)}
-                      alt="Sau khi sửa"
-                      className="w-full h-32 object-cover rounded border border-gray-300 hover:opacity-90"
-                    />
-                  </button>
-                </div>
-              )}
+              </aside>
             </div>
-            
-            {/* Assignee */}
-            {selectedRequest.assignee && (
-              <div>
-                <p className="text-xs text-gray-600 mb-1">Người xử lý</p>
-                <p className="text-sm text-gray-900">{selectedRequest.assignee}</p>
-              </div>
-            )}
-            
-            {/* Admin Note */}
-            {selectedRequest.fullIncident?.resolutionNote && (
-              <div>
-                <p className="text-xs text-gray-600 mb-2">Ghi chú từ BQL</p>
-                <p className="text-sm text-gray-700 bg-yellow-50 p-3 rounded border border-yellow-200">
-                  {selectedRequest.fullIncident.resolutionNote}
-                </p>
-              </div>
-            )}
-            
+
+            <div className="admin-content-modal-footer dashboard-incident-modal-footer">
+              <button type="button" className="app-button-secondary" onClick={() => setSelectedRequest(null)}>
+                Đóng
+              </button>
+              {getAvailableStatuses(selectedRequest.status)
+                .filter((status) => status !== selectedRequest.status)
+                .map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    className="app-button-primary"
+                    onClick={() => handleStatusChange(selectedRequest.code, status)}
+                  >
+                    {status === 'new' ? 'Chuyển về ' : 'Chuyển sang '}
+                    {statusConfig[status as keyof typeof statusConfig].label}
+                  </button>
+                ))}
+            </div>
           </div>
-        </aside>
+        </div>
       )}
       </div>
 

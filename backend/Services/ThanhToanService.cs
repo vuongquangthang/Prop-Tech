@@ -6,6 +6,7 @@ using backend.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using PayOS.Models.Webhooks;
+using System.Data;
 
 namespace backend.Services;
 
@@ -19,6 +20,7 @@ public interface IThanhToanService
     Task<ThanhToanDto?> GetByIdAsync(long id, int ownerUserId);
     Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto);
     Task<ThanhToanDto> UpdateAsync(long id, UpdateThanhToanDto dto, int ownerUserId);
+    Task<ThanhToanDto> ManualMatchAsync(long id, int invoiceId, int ownerUserId);
     Task DeleteAsync(long id);
     Task DeleteAsync(long id, int ownerUserId);
     Task<List<ThanhToanDto>> GetByUserIdAsync(int userId);
@@ -162,6 +164,110 @@ public class ThanhToanService : IThanhToanService
         await _thanhToanRepository.SaveChangesAsync();
 
         return await MapToDto(payment);
+    }
+
+    public async Task<ThanhToanDto> ManualMatchAsync(long id, int invoiceId, int ownerUserId)
+    {
+        await using var dbTransaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        try
+        {
+            var payment = await PaymentsForOwner(ownerUserId)
+                .FirstOrDefaultAsync(item => item.Id == id);
+            if (payment == null)
+            {
+                throw new InvalidOperationException("Giao dịch không tồn tại trong phạm vi quản lý");
+            }
+
+            if (payment.Status == "SUCCESS")
+            {
+                throw new InvalidOperationException("Giao dịch đã được gạch nợ trước đó");
+            }
+
+            if (payment.Status != "PENDING" && payment.Status != "FAILED")
+            {
+                throw new InvalidOperationException("Chỉ có thể gạch nợ giao dịch đang chờ hoặc thất bại");
+            }
+
+            if (payment.Amount <= 0)
+            {
+                throw new InvalidOperationException("Số tiền giao dịch phải lớn hơn 0");
+            }
+
+            var invoice = await _context.HoaDons
+                .Include(item => item.HopDong)
+                    .ThenInclude(contract => contract.Room)
+                        .ThenInclude(room => room.Floor)
+                            .ThenInclude(floor => floor.Building)
+                .FirstOrDefaultAsync(item =>
+                    item.Id == invoiceId
+                    && item.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId);
+            if (invoice == null)
+            {
+                throw new InvalidOperationException("Hóa đơn không tồn tại hoặc không thuộc quyền quản lý");
+            }
+
+            if (invoice.Status == "Nháp" || invoice.Status == "Bị từ chối")
+            {
+                throw new InvalidOperationException("Không thể gạch nợ cho hóa đơn chưa được phát hành");
+            }
+
+            var paidBefore = await _context.ThanhToans
+                .Where(item =>
+                    item.Id != payment.Id
+                    && item.InvoiceId == invoice.Id
+                    && item.Status == "SUCCESS")
+                .SumAsync(item => (decimal?)item.Amount) ?? 0;
+            var remainingAmount = Math.Max(0, invoice.TotalAmount - paidBefore);
+            if (remainingAmount <= 0)
+            {
+                throw new InvalidOperationException("Hóa đơn đã được thanh toán đủ");
+            }
+
+            if (payment.Amount > remainingAmount)
+            {
+                throw new InvalidOperationException(
+                    $"Số tiền giao dịch vượt công nợ còn lại {remainingAmount:N0} VNĐ");
+            }
+
+            payment.InvoiceId = invoice.Id;
+            payment.SettlementId = null;
+            payment.Status = "SUCCESS";
+            payment.PaidAt = DateTime.UtcNow;
+            payment.HoaDon = invoice;
+
+            var paidAfter = paidBefore + payment.Amount;
+            invoice.Status = paidAfter >= invoice.TotalAmount
+                ? "Đã thanh toán"
+                : "Đã thanh toán một phần";
+
+            await _context.SaveChangesAsync();
+            var result = await MapToDto(payment);
+            await dbTransaction.CommitAsync();
+
+            try
+            {
+                await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId)).SendAsync("PaymentSuccess", new
+                {
+                    transactionId = payment.Id,
+                    invoiceId = invoice.Id,
+                    amount = payment.Amount,
+                    status = payment.Status,
+                    invoiceStatus = invoice.Status,
+                    manualMatch = true
+                });
+            }
+            catch
+            {
+                // SignalR failure must not roll back a completed accounting transaction.
+            }
+
+            return result;
+        }
+        catch
+        {
+            await dbTransaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task DeleteAsync(long id)

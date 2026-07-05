@@ -126,7 +126,7 @@ function mapMaintenanceToIncident(maintenance: any): Incident {
     id: maintenance.id?.toString() || '',
     title: maintenance.issueType || 'Không có tiêu đề',
     category: maintenance.issueType || 'other',
-    location: maintenance.roomNumber || `Room ${maintenance.roomId}`,
+    location: maintenance.roomNumber || maintenance.roomCode || (maintenance.roomId ? `Room ${maintenance.roomId}` : 'Chưa xác định'),
     description: maintenance.description || '',
     imageUrl: firstImageUrl || maintenance.mediaUrl,
     mediaUrls: mediaUrlsRaw,
@@ -139,6 +139,28 @@ function mapMaintenanceToIncident(maintenance: any): Incident {
     resolvedAt: maintenance.closedAt,
     resolutionNote: maintenance.adminNote,
     completionImageUrl: maintenance.completionImageUrl,
+  };
+}
+
+function mergeMaintenanceIncident(current: Incident, maintenance: any): Incident {
+  const mapped = mapMaintenanceToIncident(maintenance);
+
+  return {
+    ...current,
+    ...mapped,
+    title: maintenance.issueType ? mapped.title : current.title,
+    category: maintenance.issueType ? mapped.category : current.category,
+    location: maintenance.roomNumber || maintenance.roomCode || maintenance.apartment || current.location,
+    description: maintenance.description ?? current.description,
+    imageUrl: maintenance.mediaUrls || maintenance.mediaUrl ? mapped.imageUrl : current.imageUrl,
+    mediaUrls: maintenance.mediaUrls ?? current.mediaUrls,
+    reportedBy: maintenance.userName ? mapped.reportedBy : current.reportedBy,
+    reportedAt: maintenance.createdAt ? mapped.reportedAt : current.reportedAt,
+    apartment: maintenance.roomId != null ? mapped.apartment : current.apartment,
+    assignedTo: maintenance.assignedTo ?? current.assignedTo,
+    resolvedAt: maintenance.closedAt ?? current.resolvedAt,
+    resolutionNote: maintenance.adminNote ?? current.resolutionNote,
+    completionImageUrl: maintenance.completionImageUrl ?? current.completionImageUrl,
   };
 }
 
@@ -393,7 +415,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const index = prev.findIndex(i => i.id === mappedIncident.id);
           if (index >= 0) {
             const newIncidents = [...prev];
-            newIncidents[index] = mappedIncident;
+            newIncidents[index] = mergeMaintenanceIncident(prev[index], maintenance);
             return newIncidents;
           }
           return [mappedIncident, ...prev];
@@ -408,7 +430,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const index = prev.findIndex(i => i.id === mappedIncident.id);
           if (index >= 0) {
             const newIncidents = [...prev];
-            newIncidents[index] = mappedIncident;
+            newIncidents[index] = mergeMaintenanceIncident(prev[index], request);
             return newIncidents;
           }
           return prev;

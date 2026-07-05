@@ -131,7 +131,7 @@ const normalizeService = (service: any): Service => {
     name: service.name || service.serviceName || service.tenDichVu || '',
     serviceType: service.serviceType || service.loaiDichVu || '',
     unit: service.unit || service.donVi || '',
-    commonUnitPrice: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
+    commonUnitPrice: service.currentUnitPrice ?? service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
     isActive: service.isActive !== false,
     buildingId: service.buildingId ?? service.toaNhaId ?? null,
     buildingName: service.buildingName ?? service.tenToaNha ?? null,
@@ -164,9 +164,51 @@ const getAutoSelectedServiceIds = (services: Service[], buildingId?: number | nu
       .map(getServiceMatchKey),
   );
 
-  return services
+  return normalizeExclusiveMeterServiceIds(services
     .filter((service) => !(isCommonService(service) && privateKeys.has(getServiceMatchKey(service))))
-    .map((service) => service.id);
+    .map((service) => service.id), services);
+};
+
+const getMeterServiceCategory = (service?: Service) => {
+  if (!service) return null;
+  const searchable = `${normalizeServiceKeyPart(service.serviceType)} ${normalizeServiceKeyPart(service.name)}`;
+  if (searchable.includes('nuoc') || searchable.includes('water')) return 'water';
+  if (searchable.includes('dien') || searchable.includes('electric')) return 'electricity';
+  return null;
+};
+
+const normalizeExclusiveMeterServiceIds = (serviceIds: number[], services: Service[]) => {
+  const serviceById = new Map(services.map((service) => [service.id, service]));
+  const selectedCategories = new Set<string>();
+
+  return serviceIds.filter((serviceId) => {
+    const category = getMeterServiceCategory(serviceById.get(serviceId));
+    if (!category) return true;
+    if (selectedCategories.has(category)) return false;
+    selectedCategories.add(category);
+    return true;
+  });
+};
+
+const toggleExclusiveMeterService = (
+  serviceId: number,
+  selectedIds: number[],
+  services: Service[],
+) => {
+  if (selectedIds.includes(serviceId)) {
+    return selectedIds.filter((id) => id !== serviceId);
+  }
+
+  const serviceById = new Map(services.map((service) => [service.id, service]));
+  const selectedCategory = getMeterServiceCategory(serviceById.get(serviceId));
+  if (!selectedCategory) {
+    return [...selectedIds, serviceId];
+  }
+
+  return [
+    ...selectedIds.filter((id) => getMeterServiceCategory(serviceById.get(id)) !== selectedCategory),
+    serviceId,
+  ];
 };
 
 const uniqueAssetNames = (assets: AssetOption[]) => Array.from(new Set(assets.map((asset) => asset.assetName)));
@@ -479,13 +521,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   };
 
   const toggleService = (serviceId: number) => {
-    setAddServiceIds((currentIds) => {
-      if (currentIds.includes(serviceId)) {
-        return currentIds.filter((id) => id !== serviceId);
-      }
-
-      return [...currentIds, serviceId];
-    });
+    setAddServiceIds((currentIds) =>
+      toggleExclusiveMeterService(serviceId, currentIds, availableAddServices),
+    );
   };
 
   const handleAddImageChange = (files?: FileList | null) => {
@@ -719,42 +757,40 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   };
 
   const openEditModal = async (room: RoomData) => {
-    const { services } = await loadReferenceData();
+    const [{ services }, latestRoom] = await Promise.all([
+      loadReferenceData(),
+      roomService.getById(room.id).catch(() => room),
+    ]);
+    const roomDetail = normalizeRoom(latestRoom);
 
-    setSelectedRoom(room);
-    setEditRoomCode(room.code);
-    setEditArea(String(room.area));
-    setEditMaxPeople(String(room.maxPeople || ''));
-    setEditPrice(String(room.price));
-    setEditStatus(room.status);
-    setEditRoomType((room.type || 'single') as 'single' | 'apartment');
-    setEditAddress(room.address || room.buildingAddress || '');
-    setEditLatitude(room.latitude ?? null);
-    setEditLongitude(room.longitude ?? null);
+    setSelectedRoom(roomDetail);
+    setEditRoomCode(roomDetail.code);
+    setEditArea(String(roomDetail.area));
+    setEditMaxPeople(String(roomDetail.maxPeople || ''));
+    setEditPrice(String(roomDetail.price));
+    setEditStatus(roomDetail.status);
+    setEditRoomType((roomDetail.type || 'single') as 'single' | 'apartment');
+    setEditAddress(roomDetail.address || roomDetail.buildingAddress || '');
+    setEditLatitude(roomDetail.latitude ?? null);
+    setEditLongitude(roomDetail.longitude ?? null);
     setEditLocationMeta(null);
-    setEditHasPrivateBathroom(!!room.hasPrivateBathroom);
-    setEditLivingRoomCount(room.rooms?.living != null ? String(room.rooms.living) : '');
-    setEditBedroomCount(room.rooms?.bedroom != null ? String(room.rooms.bedroom) : '');
-    setEditKitchenCount(room.rooms?.kitchen != null ? String(room.rooms.kitchen) : '');
-    setEditBathroomCount(room.rooms?.bathroom != null ? String(room.rooms.bathroom) : '');
-    setEditDescription(room.description ?? '');
-    const roomImagePreviews = (room.imageUrls ?? []).slice(0, ROOM_IMAGE_LIMIT).map((url) => resolveRoomImageUrl(url)).filter(Boolean);
+    setEditHasPrivateBathroom(!!roomDetail.hasPrivateBathroom);
+    setEditLivingRoomCount(roomDetail.rooms?.living != null ? String(roomDetail.rooms.living) : '');
+    setEditBedroomCount(roomDetail.rooms?.bedroom != null ? String(roomDetail.rooms.bedroom) : '');
+    setEditKitchenCount(roomDetail.rooms?.kitchen != null ? String(roomDetail.rooms.kitchen) : '');
+    setEditBathroomCount(roomDetail.rooms?.bathroom != null ? String(roomDetail.rooms.bathroom) : '');
+    setEditDescription(roomDetail.description ?? '');
+    const roomImagePreviews = (roomDetail.imageUrls ?? []).slice(0, ROOM_IMAGE_LIMIT).map((url) => resolveRoomImageUrl(url)).filter(Boolean);
     setEditImagePreviews(roomImagePreviews);
     setEditImageFiles(roomImagePreviews.map(() => null));
     setEditImageError(null);
-    setEditAmenities(room.amenities ?? []);
-    const roomBuildingId = floors.find(f => f.id === room.floorId)?.buildingId ?? null;
+    setEditAmenities(roomDetail.amenities ?? []);
+    const roomBuildingId = floors.find(f => f.id === roomDetail.floorId)?.buildingId ?? null;
     const roomAvailableServices = getAvailableServicesForBuilding(services, roomBuildingId);
-    const autoSelectedServiceIds = getAutoSelectedServiceIds(roomAvailableServices, roomBuildingId);
-    const commonIdsHiddenByPrivate = new Set(
-      roomAvailableServices
-        .filter((service) => isCommonService(service) && !autoSelectedServiceIds.includes(service.id))
-        .map((service) => service.id),
-    );
-    setEditServiceIds(Array.from(new Set([
-      ...autoSelectedServiceIds,
-      ...(room.serviceIds ?? []).filter((serviceId) => !commonIdsHiddenByPrivate.has(serviceId)),
-    ])));
+    setEditServiceIds(normalizeExclusiveMeterServiceIds(
+      Array.from(new Set(roomDetail.serviceIds ?? [])),
+      roomAvailableServices,
+    ));
     setEditError(null);
 
     setShowEditModal(true);
@@ -1183,7 +1219,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                         <tbody>
                           {availableAddServices.map((service) => {
                             const selected = addServiceIds.includes(service.id);
-                            const defaultPrice = Number(service.commonUnitPrice ?? 0);
+                            const defaultPrice = Number(service.currentUnitPrice ?? service.commonUnitPrice ?? 0);
                             return (
                               <tr key={service.id} className="border-t border-gray-200">
                                 <td className="px-1 py-1.5" style={{ textAlign: 'center' }}>
@@ -1320,7 +1356,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                     id: serviceId,
                     name: service?.name || `Dịch vụ #${serviceId}`,
                     unit: service?.unit,
-                    price: customPrice ?? service?.commonUnitPrice ?? 0,
+                    price: getMeterServiceCategory(service)
+                      ? service?.currentUnitPrice ?? service?.commonUnitPrice ?? 0
+                      : customPrice ?? service?.currentUnitPrice ?? service?.commonUnitPrice ?? 0,
                   };
                 });
 
@@ -1391,9 +1429,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                       )}
                     </section>
 
-                    <section className="space-y-4">
-                      <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Ảnh phòng</h4>
-                      {(detailRoom.imageUrls ?? []).length > 0 ? (
+                    {(detailRoom.imageUrls ?? []).length > 0 && (
+                      <section className="space-y-4">
+                        <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Ảnh phòng</h4>
                         <div className="flex gap-3 overflow-x-auto pb-1">
                           {(detailRoom.imageUrls ?? []).map((url, index) => (
                             <button
@@ -1407,10 +1445,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <p className="border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">Chưa có ảnh phòng</p>
-                      )}
-                    </section>
+                      </section>
+                    )}
 
                     <section className="space-y-4">
                       {/* <h4 className="text-base font-semibold text-gray-800 border-b pb-2">Dịch vụ & Tiện nghi</h4> */}
@@ -1656,7 +1692,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                         <tbody>
                           {availableEditServices.map((service) => {
                             const selected = editServiceIds.includes(service.id);
-                            const defaultPrice = Number(service.commonUnitPrice ?? 0);
+                            const defaultPrice = Number(service.currentUnitPrice ?? service.commonUnitPrice ?? 0);
                             return (
                               <tr key={service.id} className="border-t border-gray-200">
                                 <td className="px-1 py-1.5" style={{ textAlign: 'center' }}>
@@ -1665,7 +1701,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                                     id={`edit-service-${service.id}`}
                                     className="h-3.5 w-3.5"
                                     checked={selected}
-                                    onChange={() => setEditServiceIds(prev => prev.includes(service.id) ? prev.filter(id => id !== service.id) : [...prev, service.id])}
+                                    onChange={() => setEditServiceIds((currentIds) =>
+                                      toggleExclusiveMeterService(service.id, currentIds, availableEditServices),
+                                    )}
                                   />
                                 </td>
                                 <td className="min-w-0 px-2 py-1.5" style={{ textAlign: 'left' }}>

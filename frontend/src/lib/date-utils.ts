@@ -28,7 +28,14 @@ export function formatDisplayDateTime(value?: Date | string | null, fallback = '
 }
 
 export function toLocalIsoString(dateInput: Date | string): string {
+  if (typeof dateInput === 'string') {
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateInput);
+    if (dateOnlyMatch) {
+      const [, year, month, day] = dateOnlyMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0).toISOString();
+    }
+  }
+
   const date = dateInput instanceof Date ? new Date(dateInput.getTime()) : new Date(dateInput);
-  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
-  return new Date(date.getTime() - offsetMs).toISOString();
+  return date.toISOString();
 }

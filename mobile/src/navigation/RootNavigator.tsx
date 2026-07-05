@@ -7,6 +7,7 @@ import { MainTabs } from './MainTabs';
 import { AdminTabs } from './AdminTabs';
 import BillsScreen from '../screens/BillsScreen';
 import BillDetailScreen from '../screens/BillDetailScreen';
+import IssuesScreen from '../screens/IssuesScreen';
 import IssueDetailScreen from '../screens/IssueDetailScreen';
 import ReportIssueScreen from '../screens/ReportIssueScreen';
 import ChatbotScreen from '../screens/ChatbotScreen';
@@ -31,6 +32,7 @@ const MainStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="Bills" component={BillsScreen} />
+      <Stack.Screen name="Issues" component={IssuesScreen} />
       <Stack.Screen name="BillDetail" component={BillDetailScreen} />
       <Stack.Screen name="IssueDetail" component={IssueDetailScreen} />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />

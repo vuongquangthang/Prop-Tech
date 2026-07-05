@@ -10,10 +10,11 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -25,6 +26,7 @@ import { contractService, ContractDetail } from '../services/contract.service';
 
 export default function ReportIssueScreen() {
   const navigation = useNavigation();
+  const scrollViewRef = useRef<ScrollView>(null);
   const { activeContractId } = useAuthStore();
   const [description, setDescription] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -34,6 +36,7 @@ export default function ReportIssueScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -56,6 +59,18 @@ export default function ReportIssueScreen() {
       mounted = false;
     };
   }, [activeContractId]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const pickImages = async (source: 'camera' | 'library') => {
     try {
@@ -188,6 +203,12 @@ export default function ReportIssueScreen() {
     }
   };
 
+  const scrollDescriptionIntoView = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 320, animated: true });
+    }, 120);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -204,8 +225,11 @@ export default function ReportIssueScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.content}
+        contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
         <Text style={styles.description}>
@@ -271,10 +295,11 @@ export default function ReportIssueScreen() {
                 >
                   <Ionicons
                     name={maintenanceService.getIssueTypeIcon(type) as any}
-                    size={24}
+                    size={18}
                     color={selectedType === type ? '#1A4B84' : '#6B7280'}
                   />
                   <Text
+                    numberOfLines={2}
                     style={[
                       styles.typeButtonText,
                       selectedType === type && styles.typeButtonTextActive,
@@ -298,6 +323,7 @@ export default function ReportIssueScreen() {
               placeholderTextColor="#9CA3AF"
               value={description}
               onChangeText={setDescription}
+              onFocus={scrollDescriptionIntoView}
             />
             <Text style={styles.charCount}>{description.length}/500 ký tự</Text>
           </View>
@@ -343,17 +369,18 @@ export default function ReportIssueScreen() {
             </Text>
           </View>
         </View>
-      </ScrollView>
 
+      </ScrollView>
+      {!isKeyboardVisible && (
       <View style={styles.footer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.cancelButton}
           onPress={() => navigation.goBack()}
           disabled={isSubmitting}
         >
           <Text style={styles.cancelButtonText}>Hủy</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={isSubmitting}
@@ -370,6 +397,7 @@ export default function ReportIssueScreen() {
           )}
         </TouchableOpacity>
       </View>
+      )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -398,16 +426,19 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
   },
+  contentContainer: {
+    paddingBottom: Platform.OS === 'ios' ? 96 : 88,
+  },
   description: {
     fontSize: 14,
     color: '#4B5563',
     marginBottom: 24,
   },
   form: {
-    gap: 20,
+    gap: 14,
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 0,
   },
   roomGrid: {
     gap: 10,
@@ -567,7 +598,9 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     gap: 16,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 6,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     backgroundColor: '#FFFFFF',
@@ -610,16 +643,18 @@ const styles = StyleSheet.create({
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
   typeButton: {
-    width: '48%',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    width: '23%',
+    minHeight: 64,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
   typeButtonActive: {
@@ -627,10 +662,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F0FB',
   },
   typeButtonText: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '500',
     color: '#6B7280',
     marginTop: 4,
+    textAlign: 'center',
   },
   typeButtonTextActive: {
     color: '#1A4B84',

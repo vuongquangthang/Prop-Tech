@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   RefreshControl,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -36,18 +36,18 @@ export default function RoommateMessagesScreen() {
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<'replied' | 'pending'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => postMessageService.getCachedConversations().length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<PostConversationDto[]>([]);
+  const [conversations, setConversations] = useState<PostConversationDto[]>(() => postMessageService.getCachedConversations());
 
-  const loadConversations = useCallback(async (silent = false) => {
+  const loadConversations = useCallback(async (silent = false, force = false) => {
     if (!silent) {
       setLoading(true);
     }
     setError(null);
     try {
-      const items = await postMessageService.getConversations();
+      const items = await postMessageService.getConversations(force);
       setConversations(items);
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Không thể tải danh sách tin nhắn');
@@ -59,7 +59,16 @@ export default function RoommateMessagesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadConversations();
+      const cachedConversations = postMessageService.getCachedConversations();
+      if (cachedConversations.length > 0) {
+        setConversations(cachedConversations);
+        setLoading(false);
+        if (!postMessageService.hasFreshConversationCache()) {
+          loadConversations(true);
+        }
+      } else {
+        loadConversations();
+      }
     }, [loadConversations])
   );
 
@@ -157,27 +166,31 @@ export default function RoommateMessagesScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
-            setRefreshing(true);
-            loadConversations(true);
-          }} />}
-        >
-          {displayedMessages.map((conversation) => (
+        <FlatList
+          data={displayedMessages}
+          keyExtractor={(conversation) => `${conversation.postId}-${conversation.otherUserId}`}
+          renderItem={({ item }) => (
             <ConversationItem
-              key={`${conversation.postId}-${conversation.otherUserId}`}
-              item={conversation}
+              item={item}
               onPress={() =>
                 navigation.navigate('RoommateConversation', {
-                  conversationId: conversation.conversationId,
+                  conversationId: item.conversationId,
                 })
               }
             />
-          ))}
-
-          {displayedMessages.length === 0 && (
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews
+          ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            loadConversations(true, true);
+          }} />}
+          ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Ionicons
                 name={activeTab === 'pending' ? 'mail-open-outline' : 'chatbubbles-outline'}
@@ -186,8 +199,8 @@ export default function RoommateMessagesScreen() {
               />
               <Text style={styles.emptyText}>{emptyText}</Text>
             </View>
-          )}
-        </ScrollView>
+          }
+        />
       )}
     </SafeAreaView>
   );
@@ -390,7 +403,9 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 24,
-    gap: 10,
+  },
+  listSeparator: {
+    height: 10,
   },
   conversationCard: {
     flexDirection: 'row',

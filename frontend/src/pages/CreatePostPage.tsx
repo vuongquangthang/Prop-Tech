@@ -802,9 +802,9 @@ export function CreatePostPage() {
                     </div>
                   </div>
 
-                  <div className="border-t border-gray-300 pt-4">
-                    <p className="mb-2 text-sm text-gray-600">Ảnh phòng</p>
-                    {selectedRoomImages.length > 0 ? (
+                  {selectedRoomImages.length > 0 && (
+                    <div className="border-t border-gray-300 pt-4">
+                      <p className="mb-2 text-sm text-gray-600">Ảnh phòng</p>
                       <PostImagePreviewStrip
                         images={selectedRoomImages}
                         altPrefix="Ảnh phòng"
@@ -814,18 +814,8 @@ export function CreatePostPage() {
                           titlePrefix: 'Ảnh phòng',
                         })}
                       />
-                    ) : (
-                      <PostImagePreviewStrip
-                        images={[]}
-                        altPrefix="Ảnh phòng"
-                        onPreview={(_, index) => setPostPreviewImage({
-                          images: [],
-                          index,
-                          titlePrefix: 'Ảnh phòng',
-                        })}
-                      />
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {selectedRoomType === 'single' ? (
                     <div className="border-t border-gray-300 pt-4">
@@ -1267,21 +1257,21 @@ function PostImagePreviewStrip({
   onPreview: (src: string, index: number) => void;
 }) {
   const normalizedImages = images.slice(0, POST_IMAGE_LIMIT);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const imagesKey = normalizedImages.join('|');
+
+  useEffect(() => {
+    setFailedImages(new Set());
+  }, [imagesKey]);
+
+  if (normalizedImages.every((src) => failedImages.has(src))) {
+    return null;
+  }
 
   return (
     <div className="flex w-full items-start gap-2 overflow-x-auto pb-1">
-      {Array.from({ length: POST_IMAGE_LIMIT }).map((_, index) => {
-        const src = normalizedImages[index];
-
-        if (!src) {
-          return (
-            <div
-              key={`empty-${altPrefix}-${index}`}
-              className="h-24 w-24 shrink-0 rounded border border-gray-300 bg-white"
-              aria-label={`Ô ${altPrefix.toLowerCase()} trống ${index + 1}`}
-            />
-          );
-        }
+      {normalizedImages.map((src, index) => {
+        if (failedImages.has(src)) return null;
 
         return (
           <button
@@ -1291,7 +1281,12 @@ function PostImagePreviewStrip({
             className="h-24 w-24 shrink-0 overflow-hidden rounded border border-gray-300 bg-white"
             title="Xem chi tiết ảnh"
           >
-            <img src={src} alt={`${altPrefix} ${index + 1}`} className="h-full w-full object-cover" />
+            <img
+              src={src}
+              alt={`${altPrefix} ${index + 1}`}
+              className="h-full w-full object-cover"
+              onError={() => setFailedImages((current) => new Set(current).add(src))}
+            />
           </button>
         );
       })}

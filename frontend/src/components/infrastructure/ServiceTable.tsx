@@ -21,6 +21,9 @@ interface ServiceData {
   type: string;
   unit: string;
   price: number;
+  configuredPrice: number;
+  scheduledPrice?: number;
+  scheduledEffectiveDate?: string;
   date: string;
   effectiveDate?: string;
   mandatory: boolean;
@@ -307,8 +310,11 @@ export function ServiceTable() {
         name: service.name || service.serviceName || service.tenDichVu || '',
         type: normalizeServiceType(service.serviceType || service.loaiDichVu, service.name || service.serviceName || service.tenDichVu),
         unit: service.unit || service.donVi || '',
-        price: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
-        date: formatDisplayDate(service.effectiveDate),
+        price: service.currentUnitPrice ?? service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
+        configuredPrice: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
+        scheduledPrice: service.scheduledUnitPrice,
+        scheduledEffectiveDate: service.scheduledEffectiveDate,
+        date: formatDisplayDate(service.scheduledEffectiveDate ?? service.effectiveDate),
         effectiveDate: service.effectiveDate,
         mandatory: service.isMandatory !== undefined ? service.isMandatory : false,
         buildingId: service.buildingId ?? null,
@@ -335,7 +341,7 @@ export function ServiceTable() {
     const scopedBuildingIds = service.buildingIds?.length ? service.buildingIds : service.buildingId ? [service.buildingId] : [];
     setEditScopeMode(scopedBuildingIds.length > 0 ? 'private' : 'common');
     setEditBuildingIds(scopedBuildingIds);
-    setUpdateNewPrice(service.price ? String(Number(service.price) / 1_000) : '');
+    setUpdateNewPrice(service.configuredPrice ? String(Number(service.configuredPrice) / 1_000) : '');
     setUpdateEffectiveDate(service.effectiveDate ? formatLocalDateInput(new Date(service.effectiveDate)) : formatLocalDateInput());
     setUpdateReason('');
     setUpdateError(null);
@@ -613,7 +619,7 @@ export function ServiceTable() {
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Tòa nhà</th>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Loại dịch vụ</th>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Đơn vị tính</th>
-                  <th className="px-6 py-3 text-right text-sm text-gray-600">Đơn giá hiện tại (VNĐ)</th>
+                  <th className="px-6 py-3 text-right text-sm text-gray-600">Đơn giá (VNĐ)</th>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày áp dụng</th>
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
@@ -640,13 +646,27 @@ export function ServiceTable() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{service.unit}</td>
                     <td className="px-6 py-4 text-sm text-gray-800 text-right">
-                      {service.hasMixedPrices
-                        ? 'Nhiều mức giá'
-                        : typeof service.price === 'number'
-                          ? service.price.toLocaleString('vi-VN')
-                          : service.price}
+                      {service.hasMixedPrices ? (
+                        'Nhiều mức giá'
+                      ) : (
+                        <>
+                          <span className="block">{service.price.toLocaleString('vi-VN')}</span>
+                          {typeof service.scheduledPrice === 'number' && (
+                            <span className="mt-1 block text-xs text-amber-700">
+                              Sắp áp dụng: {service.scheduledPrice.toLocaleString('vi-VN')}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{service.date}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {service.scheduledEffectiveDate ? (
+                        <>
+                          <span className="block text-xs text-gray-500">Giá mới từ</span>
+                          <span>{formatDisplayDate(service.scheduledEffectiveDate)}</span>
+                        </>
+                      ) : service.date}
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <button
@@ -884,6 +904,17 @@ export function ServiceTable() {
                   <p className="text-blue-900">{selectedService.unit || '—'}</p>
                   <p className="text-blue-700">Đơn giá hiện tại:</p>
                   <p className="text-blue-900 font-bold">{Number(selectedService.price || 0).toLocaleString('vi-VN')} VNĐ</p>
+                  {typeof selectedService.scheduledPrice === 'number' && (
+                    <>
+                      <p className="text-amber-700">Đơn giá sắp áp dụng:</p>
+                      <p className="font-bold text-amber-800">
+                        {Number(selectedService.scheduledPrice).toLocaleString('vi-VN')} VNĐ
+                        {selectedService.scheduledEffectiveDate
+                          ? ` từ ${formatDisplayDate(selectedService.scheduledEffectiveDate)}`
+                          : ''}
+                      </p>
+                    </>
+                  )}
                   <p className="text-blue-700">Ngày áp dụng:</p>
                   <p className="text-blue-900">{selectedService.date || '—'}</p>
                 </div>

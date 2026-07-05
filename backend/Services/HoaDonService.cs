@@ -146,6 +146,35 @@ public class HoaDonService : IHoaDonService
                 hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= new DateTime(year, month, 1)))
             .ToListAsync();
 
+        var serviceIds = contracts
+            .SelectMany(contract => contract.Room?.ChiTietSuDungDichVus ?? Enumerable.Empty<ChiTietSuDungDichVu>())
+            .Select(usage => usage.ServiceId)
+            .Distinct()
+            .ToList();
+        var priceHistories = await _context.ServicePriceHistories
+            .AsNoTracking()
+            .Where(history => serviceIds.Contains(history.ServiceId))
+            .OrderBy(history => history.EffectiveDate)
+            .ToListAsync();
+        var invoiceIssuedAt = DateTime.UtcNow;
+
+        decimal ResolveMarketPrice(int serviceId, decimal fallbackPrice)
+        {
+            var histories = priceHistories
+                .Where(history => history.ServiceId == serviceId)
+                .ToList();
+            var effectiveHistory = histories
+                .Where(history => history.EffectiveDate <= invoiceIssuedAt)
+                .OrderByDescending(history => history.EffectiveDate)
+                .FirstOrDefault();
+            if (effectiveHistory != null)
+            {
+                return effectiveHistory.NewPrice;
+            }
+
+            return histories.FirstOrDefault()?.OldPrice ?? fallbackPrice;
+        }
+
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -236,7 +265,7 @@ public class HoaDonService : IHoaDonService
                                             ServiceUsageDetailId = elecUsage.Id,
                                             Description = $"Điện tháng {month}/{year}: {oldReading} → {curr.NewReading} = {consumption} kWh",
                                             Quantity = consumption,
-                                            UnitPrice = item.UnitPrice
+                                            UnitPrice = ResolveMarketPrice(elecUsage.ServiceId, item.UnitPrice)
                                         };
                                     }
                                     else missingReadingReasons.Add($"Chưa chốt chỉ số điện tháng {month}/{year}");
@@ -265,7 +294,7 @@ public class HoaDonService : IHoaDonService
                                             ServiceUsageDetailId = waterUsage.Id,
                                             Description = $"Nước tháng {month}/{year}: {oldReading} → {curr.NewReading} = {consumption} m³",
                                             Quantity = consumption,
-                                            UnitPrice = item.UnitPrice
+                                            UnitPrice = ResolveMarketPrice(waterUsage.ServiceId, item.UnitPrice)
                                         };
                                     }
                                     else missingReadingReasons.Add($"Chưa chốt chỉ số nước tháng {month}/{year}");
@@ -277,6 +306,12 @@ public class HoaDonService : IHoaDonService
                         {
                             // Fixed quantity
                             var usage = item.ServiceId.HasValue ? activeUsages.FirstOrDefault(u => u.ServiceId == item.ServiceId) : null;
+                            var unitPrice = item.UnitPrice;
+                            if (usage?.Service != null
+                                && (IsElectricityService(usage.Service) || IsWaterService(usage.Service)))
+                            {
+                                unitPrice = ResolveMarketPrice(usage.ServiceId, item.UnitPrice);
+                            }
                             lineItem = new ChiTietHoaDon
                             {
                                 ItemType = item.ItemType == "TienPhong" ? "TienPhong" : (item.ItemType == "Dien" || item.ItemType == "Nuoc" ? item.ItemType : "DichVu"),
@@ -284,7 +319,7 @@ public class HoaDonService : IHoaDonService
                                 ServiceUsageDetailId = usage?.Id,
                                 Description = item.ServiceName,
                                 Quantity = item.Quantity ?? 1,
-                                UnitPrice = item.UnitPrice
+                                UnitPrice = unitPrice
                             };
                         }
 
@@ -314,7 +349,10 @@ public class HoaDonService : IHoaDonService
                     // 2. Điện/Nước/Dịch vụ khác từ activeUsages
                     foreach (var usage in activeUsages)
                     {
-                        var unitPrice = usage.OverrideUnitPrice ?? usage.Service.CommonUnitPrice ?? 0;
+                        var configuredPrice = usage.OverrideUnitPrice ?? usage.Service.CommonUnitPrice ?? 0;
+                        var unitPrice = IsElectricityService(usage.Service) || IsWaterService(usage.Service)
+                            ? ResolveMarketPrice(usage.ServiceId, configuredPrice)
+                            : configuredPrice;
                         if (IsElectricityService(usage.Service))
                         {
                             var prev = await _context.ChiSoDiens.Where(c => c.ServiceUsageDetailId == usage.Id && (c.Year < year || (c.Year == year && c.Month < month))).OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();

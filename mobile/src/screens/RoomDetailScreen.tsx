@@ -32,6 +32,10 @@ export default function RoomDetailScreen() {
   const [showContractDetail, setShowContractDetail] = useState(false);
   const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const displayRoomImages = (roomDetail?.imageUrls ?? [])
+    .map((url) => resolveImageUrl(url))
+    .filter((url) => Boolean(url) && !failedImages.has(url));
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
 
@@ -48,6 +52,7 @@ export default function RoomDetailScreen() {
       try {
         const detail = await roomService.getRoomDetail(data.roomId);
         setRoomDetail(detail);
+        setFailedImages(new Set());
       } catch (e) {
         // non-fatal: show basic my-room info if detail fails
         setRoomDetail(null);
@@ -409,11 +414,15 @@ export default function RoomDetailScreen() {
           )}
 
           {/* Description */}
-          {roomDetail?.description || roomDetail?.imageUrls?.length ? (
+          {roomDetail?.description || displayRoomImages.length > 0 ? (
             <View style={{ marginTop: 12 }}>
-              {roomDetail?.imageUrls?.[0] ? (
-                <TouchableOpacity onPress={() => setPreviewImageUrl(resolveImageUrl(roomDetail.imageUrls?.[0] || ''))}>
-                  <Image source={{ uri: resolveImageUrl(roomDetail.imageUrls?.[0] || '') }} style={{ width: '100%', height: 200, borderRadius: 8 }} />
+              {displayRoomImages[0] ? (
+                <TouchableOpacity onPress={() => setPreviewImageUrl(displayRoomImages[0])}>
+                  <Image
+                    source={{ uri: displayRoomImages[0] }}
+                    style={{ width: '100%', height: 200, borderRadius: 8 }}
+                    onError={() => setFailedImages((current) => new Set(current).add(displayRoomImages[0]))}
+                  />
                 </TouchableOpacity>
               ) : null}
               {roomDetail?.description ? (

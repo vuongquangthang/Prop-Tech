@@ -5,18 +5,15 @@ import {
   ArrowUpRight,
   Bell,
   Building2,
-  CheckCircle2,
   ChevronRight,
   Clock3,
   CreditCard,
-  FileText,
   Home,
   MessageSquareWarning,
   ReceiptText,
   TrendingDown,
   TrendingUp,
   UsersRound,
-  Wrench,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -56,6 +53,7 @@ interface ActivityItem {
   title: string;
   detail: string;
   time: string;
+  path?: string;
 }
 
 interface AlertItem {
@@ -69,14 +67,13 @@ interface AlertItem {
 
 const currency = (value: number) =>
   new Intl.NumberFormat('vi-VN', {
-    maximumFractionDigits: 0,
-  }).format(Math.max(0, Math.round(value)));
+    maximumFractionDigits: 2,
+  }).format(Math.max(0, Number(value) || 0));
 
-const compactCurrency = (value: number) => {
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
-  return currency(value);
-};
+const millionCurrency = (value: number) =>
+  `${new Intl.NumberFormat('vi-VN', {
+    maximumFractionDigits: 2,
+  }).format(Math.max(0, Number(value) || 0) / 1_000_000)}M`;
 
 const parseDate = (value?: string | null) => {
   if (!value) return null;
@@ -121,6 +118,26 @@ const isCompletedMaintenance = (status?: string) => {
   return ['completed', 'done', 'closed', 'hoàn thành', 'đã đóng', 'đã xử lý'].some((item) => normalized.includes(item));
 };
 
+const getMaintenanceIssueTypeLabel = (issueType?: string) => {
+  const normalized = String(issueType ?? '').trim();
+  if (!normalized) return 'Khác';
+
+  const typeLabels: Record<string, string> = {
+    electrical: 'Điện',
+    water: 'Nước',
+    plumbing: 'Nước',
+    elevator: 'Thang máy',
+    facility: 'Cơ sở vật chất',
+    security: 'An ninh',
+    cleaning: 'Vệ sinh',
+    parking: 'Bãi xe',
+    noise: 'Tiếng ồn',
+    other: 'Khác',
+  };
+  const translated = typeLabels[normalized.toLowerCase()] || normalized;
+  return translated.charAt(0).toLocaleUpperCase('vi-VN') + translated.slice(1);
+};
+
 const chartColors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
 const dashboardDemoEnabled = import.meta.env.VITE_DASHBOARD_DEMO === 'true';
 
@@ -148,8 +165,8 @@ const demoMonthlyRevenue: MonthlyRevenue[] = [
   month,
   year: new Date().getFullYear(),
   totalRevenue: total * 1_000_000,
-  collectedRevenue: Math.round(total * 0.82) * 1_000_000,
-  outstandingRevenue: Math.round(total * 0.18) * 1_000_000,
+  collectedRevenue: total * 0.82 * 1_000_000,
+  outstandingRevenue: total * 0.18 * 1_000_000,
   roomRentRevenue: roomRent * 1_000_000,
   serviceRevenue: service * 1_000_000,
   otherRevenue: other * 1_000_000,
@@ -339,6 +356,7 @@ export function Dashboard() {
       trend: '+8.4%',
       positive: true,
       icon: UsersRound,
+      path: '/resident-management',
     },
     {
       label: 'Phòng đã thuê',
@@ -347,6 +365,7 @@ export function Dashboard() {
       trend: '+3 phòng',
       positive: true,
       icon: Home,
+      path: '/building-management',
     },
     {
       label: 'Tỷ lệ lấp đầy',
@@ -355,22 +374,25 @@ export function Dashboard() {
       trend: occupancyRate >= 90 ? '+2.1%' : '-1.8%',
       positive: occupancyRate >= 90,
       icon: Building2,
+      path: '/occupancy-report',
     },
     {
       label: 'Đã thu tháng này',
-      value: `${compactCurrency(monthlyRevenueValue)} đ`,
-      sub: `Đã thu tháng trước ${compactCurrency(lastMonthRevenueValue)} đ`,
+      value: `${millionCurrency(monthlyRevenueValue)} đ`,
+      sub: `Đã thu tháng trước ${millionCurrency(lastMonthRevenueValue)} đ`,
       trend: `${(revenueStats?.growthRate ?? 0) >= 0 ? '+' : ''}${(revenueStats?.growthRate ?? 0).toFixed(1)}%`,
       positive: (revenueStats?.growthRate ?? 0) >= 0,
       icon: ReceiptText,
+      path: '/revenue-report',
     },
     {
       label: 'Công nợ còn lại',
-      value: `${compactCurrency(outstandingDebt)} đ`,
+      value: `${millionCurrency(outstandingDebt)} đ`,
       sub: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn cần xử lý`,
       trend: '-5.6%',
       positive: true,
       icon: CreditCard,
+      path: '/debt-management',
     },
   ];
 
@@ -378,16 +400,16 @@ export function Dashboard() {
     if (monthlyRevenue.length > 0) {
       return monthlyRevenue.slice(-12).map((item) => ({
         month: `T${item.month}`,
-        collected: Math.round((item.collectedRevenue ?? item.totalRevenue ?? 0) / 1_000_000),
-        outstanding: Math.round((item.outstandingRevenue ?? 0) / 1_000_000),
-        total: Math.round((item.totalRevenue ?? 0) / 1_000_000),
+        collected: item.collectedRevenue ?? item.totalRevenue ?? 0,
+        outstanding: item.outstandingRevenue ?? 0,
+        total: item.totalRevenue ?? 0,
       }));
     }
     return ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].map((month, index) => ({
       month,
-      collected: [82, 96, 91, 108, 124, 138][index],
-      outstanding: [18, 22, 20, 24, 29, 34][index],
-      total: [100, 118, 111, 132, 153, 172][index],
+      collected: [82, 96, 91, 108, 124, 138][index] * 1_000_000,
+      outstanding: [18, 22, 20, 24, 29, 34][index] * 1_000_000,
+      total: [100, 118, 111, 132, 153, 172][index] * 1_000_000,
     }));
   }, [monthlyRevenue]);
 
@@ -428,7 +450,7 @@ export function Dashboard() {
     return Array.from(grouped.entries())
       .map(([name, value]) => ({
         name,
-        value: Math.round(value / 1_000_000),
+        value,
         rawValue: value,
       }))
       .filter((item) => item.rawValue > 0)
@@ -473,6 +495,7 @@ export function Dashboard() {
       title: 'Cư dân mới được cập nhật',
       detail: `${resident.fullName ?? resident.hoTen ?? 'Cư dân'}${resident.room ? ` · Phòng ${resident.room}` : ''}`,
       time: relativeTime(resident.createdAt ?? resident.updatedAt),
+      path: '/resident-management',
     }));
 
     const paymentItems = invoices.slice(0, 3).map((invoice, index) => ({
@@ -481,14 +504,16 @@ export function Dashboard() {
       title: 'Thanh toán/công nợ cần theo dõi',
       detail: `${invoice.roomNumber ?? 'Phòng'} · ${currency(Number(invoice.remainingAmount ?? invoice.totalAmount ?? 0))} đ`,
       time: relativeTime(invoice.paidAt ?? invoice.createdAt ?? invoice.dueDate),
+      path: '/invoice-management',
     }));
 
     const complaintItems = maintenance.slice(0, 4).map((ticket) => ({
       id: `ticket-${ticket.id}`,
       type: 'complaint' as ActivityType,
-      title: ticket.issueType || 'Yêu cầu sửa chữa mới',
+      title: getMaintenanceIssueTypeLabel(ticket.issueType),
       detail: `${ticket.roomNumber ?? `Phòng ${ticket.roomId}`} · ${ticket.userName ?? 'Cư dân'}`,
       time: relativeTime(ticket.createdAt),
+      path: `/maintenance-request?requestId=${encodeURIComponent(String(ticket.id))}`,
     }));
 
     const visitorItems = [
@@ -524,7 +549,7 @@ export function Dashboard() {
       id: 'debt',
       severity: (debtStats?.overdueInvoicesCount ?? invoices.length) > 0 ? 'critical' : 'medium',
       title: 'Thanh toán quá hạn',
-      detail: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn quá hạn · ${compactCurrency(outstandingDebt)} đ`,
+      detail: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn quá hạn · ${millionCurrency(outstandingDebt)} đ`,
       action: 'Xử lý công nợ',
       path: '/debt-management',
     },
@@ -558,7 +583,19 @@ export function Dashboard() {
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <article className="dashboard-kpi-card" key={kpi.label}>
+            <article
+              className="dashboard-kpi-card is-link"
+              key={kpi.label}
+              role="link"
+              tabIndex={0}
+              onClick={() => navigate(kpi.path)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(kpi.path);
+                }
+              }}
+            >
               <div className="dashboard-kpi-top">
                 <span>{kpi.label}</span>
                 <i><Icon size={20} /></i>
@@ -590,10 +627,16 @@ export function Dashboard() {
               <BarChart data={revenueChart} barGap={8}>
                 <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="4 6" />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }} unit="M" />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
+                  width={92}
+                  tickFormatter={(value) => millionCurrency(Number(value))}
+                />
                 <Tooltip
                   cursor={{ fill: 'color-mix(in srgb, var(--primary) 8%, transparent)' }}
-                  formatter={(value, name) => [`${value} triệu đồng`, name]}
+                  formatter={(value, name) => [`${millionCurrency(Number(value))} đồng`, name]}
                   labelFormatter={(label) => `Kỳ ${label}`}
                 />
                 <Bar dataKey="collected" name="Đã thu" stackId="monthly-receivable" fill="var(--primary)" radius={[0, 0, 0, 0]} />
@@ -613,6 +656,7 @@ export function Dashboard() {
               <span>Rủi ro tài chính</span>
               <h2>Công nợ theo tòa nhà</h2>
             </div>
+            <button onClick={() => navigate('/debt-management')}>Quản lý công nợ <ChevronRight size={16} /></button>
           </div>
           {debtByBuilding.length > 0 ? (
             <>
@@ -623,7 +667,7 @@ export function Dashboard() {
                       <Cell key={index} fill={chartColors[index % chartColors.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`${value}M đ`, 'Công nợ']} />
+                  <Tooltip formatter={(value) => [`${millionCurrency(Number(value))} đ`, 'Công nợ']} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="debt-legend">
@@ -654,9 +698,21 @@ export function Dashboard() {
         </div>
 
         <div className="ticket-summary">
-          <div><b>{newTickets}</b><span>Yêu cầu mới</span></div>
-          <div><b>{processingTickets}</b><span>Đang xử lý</span></div>
-          <div className={overdueTickets > 0 ? 'danger' : ''}><b>{overdueTickets}</b><span>Quá hạn</span></div>
+          <div role="link" tabIndex={0} onClick={() => navigate('/maintenance-request?status=new')} onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') navigate('/maintenance-request?status=new');
+          }}><b>{newTickets}</b><span>Yêu cầu mới</span></div>
+          <div role="link" tabIndex={0} onClick={() => navigate('/maintenance-request?status=in_progress')} onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') navigate('/maintenance-request?status=in_progress');
+          }}><b>{processingTickets}</b><span>Đang xử lý</span></div>
+          <div
+            className={overdueTickets > 0 ? 'danger' : ''}
+            role="link"
+            tabIndex={0}
+            onClick={() => navigate('/maintenance-request')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') navigate('/maintenance-request');
+            }}
+          ><b>{overdueTickets}</b><span>Quá hạn</span></div>
         </div>
 
         <div className="kanban">
@@ -669,9 +725,21 @@ export function Dashboard() {
               </div>
               <div className="kanban-list">
                 {column.items.length > 0 ? column.items.map((item) => (
-                  <article key={item.id} className="ticket-card">
+                  <article
+                    key={item.id}
+                    className="ticket-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/maintenance-request?requestId=${encodeURIComponent(String(item.id))}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/maintenance-request?requestId=${encodeURIComponent(String(item.id))}`);
+                      }
+                    }}
+                  >
                     <div>
-                      <b>{item.issueType || 'Yêu cầu sửa chữa'}</b>
+                      <b>{getMaintenanceIssueTypeLabel(item.issueType)}</b>
                       <span>{item.roomNumber ?? `Phòng ${item.roomId}`}</span>
                     </div>
                     <small>{relativeTime(item.createdAt)}</small>
@@ -695,7 +763,19 @@ export function Dashboard() {
           </div>
           <div className="activity-list">
             {activities.map((activity) => (
-              <div className="activity-item" key={activity.id}>
+              <div
+                className={`activity-item ${activity.path ? 'is-link' : ''}`}
+                key={activity.id}
+                role={activity.path ? 'link' : undefined}
+                tabIndex={activity.path ? 0 : undefined}
+                onClick={() => activity.path && navigate(activity.path)}
+                onKeyDown={(event) => {
+                  if (activity.path && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    navigate(activity.path);
+                  }
+                }}
+              >
                 <i className={activity.type}>
                   {activity.type === 'resident' && <UsersRound size={16} />}
                   {activity.type === 'payment' && <CreditCard size={16} />}
@@ -746,6 +826,274 @@ export function Dashboard() {
 }
 
 const dashboardStyles = `
+  .dashboard-incident-modal {
+    display: flex;
+    flex-direction: column;
+    width: min(920px, calc(100vw - 32px)) !important;
+    max-width: 920px !important;
+    max-height: calc(100dvh - var(--admin-topbar-height) - 32px);
+    overflow: hidden !important;
+    scrollbar-gutter: auto !important;
+  }
+
+  .dashboard-incident-modal-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    padding: 7px 16px;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .dashboard-incident-heading,
+  .dashboard-incident-header-actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .dashboard-incident-heading {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .dashboard-incident-icon {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    place-items: center;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface-level-3));
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--surface-border));
+  }
+
+  .dashboard-incident-heading span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .dashboard-incident-heading h2 {
+    margin-top: 0;
+    color: var(--foreground);
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .dashboard-incident-heading p {
+    margin-top: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .dashboard-incident-header-actions {
+    flex: 0 0 auto;
+    gap: 12px;
+  }
+
+  .dashboard-incident-modal-header .product-action-icon {
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .dashboard-incident-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .dashboard-incident-status.is-pending {
+    color: #1d4ed8;
+    background: #dbeafe;
+  }
+
+  .dashboard-incident-status.is-processing {
+    color: #a16207;
+    background: #fef3c7;
+  }
+
+  .dashboard-incident-status.is-completed {
+    color: #15803d;
+    background: #dcfce7;
+  }
+
+  .dashboard-incident-modal-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(260px, 0.8fr);
+    min-height: 0;
+    gap: 24px;
+    padding: 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .dashboard-incident-main {
+    display: grid;
+    align-content: start;
+    gap: 18px;
+  }
+
+  .dashboard-incident-section {
+    border: 1px solid var(--surface-border);
+    background: var(--surface-card);
+  }
+
+  .dashboard-incident-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    color: var(--primary);
+    border-bottom: 1px solid var(--surface-border);
+    background: var(--surface-card-2);
+  }
+
+  .dashboard-incident-section-title h3,
+  .dashboard-incident-sidebar h3 {
+    color: var(--foreground);
+    font-size: 14px;
+    font-weight: 750;
+  }
+
+  .dashboard-incident-section-title p {
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .dashboard-incident-description,
+  .dashboard-incident-note,
+  .dashboard-incident-empty {
+    min-height: 104px;
+    padding: 18px;
+    color: var(--foreground);
+    font-size: 14px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+
+  .dashboard-incident-note,
+  .dashboard-incident-empty {
+    min-height: 76px;
+  }
+
+  .dashboard-incident-image-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .dashboard-incident-image {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--surface-border);
+    background: var(--surface-card-2);
+  }
+
+  .dashboard-incident-image img {
+    display: block;
+    width: 100%;
+    height: 116px;
+    object-fit: cover;
+    transition: transform 160ms ease, opacity 160ms ease;
+  }
+
+  .dashboard-incident-image:hover img {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+
+  .dashboard-incident-completion-image {
+    padding: 0 18px 18px;
+  }
+
+  .dashboard-incident-completion-image .dashboard-incident-image {
+    width: min(100%, 260px);
+  }
+
+  .dashboard-incident-empty {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .dashboard-incident-sidebar {
+    align-self: start;
+    padding: 18px;
+    border: 1px solid var(--surface-border);
+    background: var(--surface-card-2);
+  }
+
+  .dashboard-incident-sidebar > h3 {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .dashboard-incident-meta-list {
+    display: grid;
+  }
+
+  .dashboard-incident-meta-list > div {
+    display: grid;
+    gap: 4px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .dashboard-incident-meta-list > div:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-incident-meta-list span {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .dashboard-incident-meta-list strong {
+    color: var(--foreground);
+    font-size: 13px;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-incident-modal-footer {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    width: 100%;
+    padding: 7px 16px;
+    border-top: 1px solid var(--surface-border);
+  }
+
+  .dashboard-incident-modal-footer :is(.app-button-secondary, .app-button-primary) {
+    min-height: 38px !important;
+    padding: 8px 16px !important;
+  }
+
+  .dashboard-incident-modal-footer p {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .dashboard-incident-modal-footer > div {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 10px;
+  }
+
   .dashboard-shell {
     display: grid;
     gap: 14px;
@@ -896,6 +1244,19 @@ const dashboardStyles = `
     box-shadow: var(--shadow-hover);
   }
 
+  .dashboard-kpi-card.is-link,
+  .ticket-summary > div[role="link"],
+  .activity-item.is-link {
+    cursor: pointer;
+  }
+
+  .dashboard-kpi-card.is-link:focus-visible,
+  .ticket-summary > div[role="link"]:focus-visible,
+  .activity-item.is-link:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
   .dashboard-kpi-top,
   .dashboard-kpi-bottom,
   .dashboard-panel-header,
@@ -918,7 +1279,7 @@ const dashboardStyles = `
     place-items: center;
     width: 38px;
     height: 38px;
-    border-radius: 0;
+    border-radius: 6px;
     background: var(--primary-soft);
     color: var(--primary);
   }
@@ -950,7 +1311,7 @@ const dashboardStyles = `
     align-items: center;
     gap: 4px;
     padding: 4px 7px;
-    border-radius: var(--radius-badge);
+    border-radius: 15px !important;
     font-size: 11px;
     font-style: normal;
     font-weight: 800;
@@ -1110,6 +1471,26 @@ const dashboardStyles = `
     border: 1px solid var(--surface-level-3-border);
     border-radius: 0;
     background: var(--surface-level-3);
+  }
+
+  .ticket-summary > div[role="link"] {
+    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+
+  .debt-panel .dashboard-panel-header button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: max-content;
+  }
+
+  .debt-panel .dashboard-panel-header span {
+    white-space: nowrap;
+  }
+
+  .ticket-summary > div[role="link"]:hover {
+    transform: translateY(-1px);
+    border-color: var(--surface-level-4-border);
+    background: var(--surface-level-4);
   }
 
   .ticket-summary div.danger {
@@ -1368,6 +1749,10 @@ const dashboardStyles = `
   }
 
   @media (max-width: 900px) {
+    .dashboard-incident-modal-body {
+      grid-template-columns: 1fr;
+    }
+
     .dashboard-hero {
       align-items: stretch;
       flex-direction: column;
@@ -1385,6 +1770,29 @@ const dashboardStyles = `
   }
 
   @media (max-width: 640px) {
+    .dashboard-incident-modal-header,
+    .dashboard-incident-modal-footer {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .dashboard-incident-header-actions {
+      justify-content: space-between;
+    }
+
+    .dashboard-incident-modal-body {
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .dashboard-incident-image-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-incident-modal-footer > div {
+      justify-content: flex-end;
+    }
+
     .dashboard-shell {
       gap: 16px;
       padding: 0;

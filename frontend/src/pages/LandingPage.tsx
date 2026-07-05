@@ -23,7 +23,7 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
-import { ComponentType } from 'react';
+import { ComponentType, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
@@ -52,16 +52,23 @@ const managerFeatures = [
 ] as const;
 
 const residentFeatures = [
-  [WalletCards, 'Thanh toán phí', 'Xem hóa đơn, quét QR, theo dõi trạng thái thanh toán và lịch sử giao dịch.'],
-  [Bell, 'Thông báo realtime', 'Nhận thông báo hóa đơn, bảo trì, hợp đồng và tin nhắn từ ban quản lý.'],
-  [Wrench, 'Yêu cầu sửa chữa', 'Chụp ảnh sự cố, gửi yêu cầu, theo dõi tiến độ và xem phản hồi xử lý.'],
-  [MessageSquareText, 'Giao tiếp cư dân', 'Trao đổi qua chatbot, thông báo nội bộ và tin nhắn liên quan đến phòng.'],
+  [WalletCards, 'Thanh toán phí', 'Xem hóa đơn, quét QR, theo dõi trạng thái thanh toán và lịch sử giao dịch.', '/thanhtoan.jpg'],
+  [Bell, 'Thông báo realtime', 'Nhận thông báo hóa đơn, bảo trì, hợp đồng và tin nhắn từ ban quản lý.', '/thongbao.jpg'],
+  [Wrench, 'Yêu cầu sửa chữa', 'Chụp ảnh sự cố, gửi yêu cầu, theo dõi tiến độ và xem phản hồi xử lý.', '/suachua.jpg'],
+  [MessageSquareText, 'Tìm người ở cùng', 'Đăng bài tìm bạn cùng phòng, xem thông tin phòng và trao đổi với người quan tâm.', '/baidang.jpg'],
 ] as const;
 
 const pricingPlans = [
   ['Starter', '2.9M', 'Cho tòa nhỏ hoặc nhà trọ bắt đầu số hóa.', ['Tối đa 80 phòng', 'Web dashboard', 'App cư dân', 'Hóa đơn cơ bản']],
   ['Business', '6.9M', 'Cho ban quản lý nhiều tòa cần quy trình đầy đủ.', ['Tối đa 500 phòng', 'PayOS/VietQR', 'Bảo trì SLA', 'Báo cáo nâng cao']],
   ['Enterprise', 'Liên hệ', 'Cho chuỗi căn hộ và công ty quản lý tài sản.', ['Không giới hạn phòng', 'Tích hợp hệ thống ngoài', 'SLA hỗ trợ riêng', 'Onboarding dữ liệu']],
+] as const;
+
+const showcaseFlows = [
+  ['Tạo hóa đơn tháng', '/taohoadon.png', 'web'],
+  ['Duyệt và gửi thông báo', '/duyethoadon.png', 'web'],
+  ['Cư dân thanh toán QR', '/thanhtoan.jpg', 'mobile'],
+  ['Đối soát và báo cáo', '/doisoat.png', 'web'],
 ] as const;
 
 function scrollToSection(id: string) {
@@ -78,7 +85,13 @@ function SectionTitle({ eyebrow, title, description }: { eyebrow: string; title:
   );
 }
 
-function DashboardMockup() {
+function DashboardMockup({
+  imageSrc = '/web.png',
+  imageAlt = 'Dashboard quản lý tòa nhà SmartHome Hub với KPI cư dân, phòng thuê, doanh thu và công nợ',
+}: {
+  imageSrc?: string;
+  imageAlt?: string;
+}) {
   return (
     <figure className="lp-dashboard lp-product-shot lp-product-shot-web">
       <div className="lp-window-bar">
@@ -89,8 +102,9 @@ function DashboardMockup() {
       </div>
       <div className="lp-product-image-wrap">
         <img
-          src="/web.png"
-          alt="Dashboard quản lý tòa nhà SmartHome Hub với KPI cư dân, phòng thuê, doanh thu và công nợ"
+          key={imageSrc}
+          src={imageSrc}
+          alt={imageAlt}
           loading="eager"
           decoding="async"
         />
@@ -99,15 +113,22 @@ function DashboardMockup() {
   );
 }
 
-function PhoneMockup() {
+function PhoneMockup({
+  imageSrc = '/app.png',
+  imageAlt = 'Ứng dụng cư dân Smart Home hiển thị hóa đơn, thanh toán và tiện ích báo cáo sự cố',
+}: {
+  imageSrc?: string;
+  imageAlt?: string;
+}) {
   return (
     <figure className="lp-phone lp-product-shot lp-product-shot-mobile">
       <div className="lp-phone-hardware">
         <div className="lp-phone-speaker" />
         <div className="lp-product-image-wrap">
           <img
-            src="/app.png"
-            alt="Ứng dụng cư dân Smart Home hiển thị hóa đơn, thanh toán và tiện ích báo cáo sự cố"
+            key={imageSrc}
+            src={imageSrc}
+            alt={imageAlt}
             loading="lazy"
             decoding="async"
           />
@@ -120,6 +141,10 @@ function PhoneMockup() {
 export function LandingPage() {
   const navigate = useNavigate();
   const goLogin = () => navigate('/login');
+  const [activeResidentFeature, setActiveResidentFeature] = useState(0);
+  const activeResidentFeatureData = residentFeatures[activeResidentFeature] ?? residentFeatures[0];
+  const [activeShowcaseFlow, setActiveShowcaseFlow] = useState(0);
+  const activeShowcaseFlowData = showcaseFlows[activeShowcaseFlow] ?? showcaseFlows[0];
 
   return (
     <div className="lp">
@@ -674,6 +699,7 @@ export function LandingPage() {
           height: 100%;
           object-fit: contain;
           object-position: center;
+          animation: lp-product-image-fade 180ms ease-out both;
         }
 
         .lp-product-shot-mobile {
@@ -716,6 +742,7 @@ export function LandingPage() {
           height: 100%;
           object-fit: contain;
           object-position: top center;
+          animation: lp-phone-image-fade 180ms ease-out both;
         }
 
         .lp-platform-visual .lp-product-shot-web {
@@ -723,7 +750,45 @@ export function LandingPage() {
         }
 
         .lp-showcase .lp-product-shot-web {
-          height: 100%;
+          width: 100%;
+          height: auto;
+          align-self: flex-start;
+          display: block;
+        }
+
+        .lp-showcase .lp-product-shot-web .lp-product-image-wrap {
+          aspect-ratio: auto;
+          line-height: 0;
+          height: auto;
+        }
+
+        .lp-showcase .lp-product-shot-web img {
+          display: block;
+          object-fit: contain;
+          object-position: top center;
+          height: auto;
+        }
+
+        .lp-showcase-visual {
+          display: flex;
+          min-width: 0;
+          justify-content: center;
+          align-items: flex-start;
+        }
+
+        .lp-showcase-visual.is-web {
+          align-self: start;
+          height: fit-content;
+        }
+
+        .lp-showcase-visual.is-mobile {
+          align-items: center;
+          min-height: 520px;
+        }
+
+        .lp-showcase-visual.is-mobile .lp-phone {
+          width: 210px;
+          transform: translateY(-60px);
         }
 
         .lp-phone-top {
@@ -957,6 +1022,21 @@ export function LandingPage() {
           box-shadow: 0 26px 74px rgba(15,23,42,0.12);
         }
 
+        .lp-card.is-active {
+          border-color: rgba(30,78,140,0.42);
+          box-shadow: 0 26px 74px rgba(30,78,140,0.14);
+        }
+
+        .lp-showcase-flow-card {
+          padding: 12px 14px !important;
+          border-radius: 12px !important;
+        }
+
+        .lp-showcase-flow-card h3 {
+          font-size: 16px;
+          line-height: 1.25;
+        }
+
         .lp-card-icon {
           width: 56px;
           height: 56px;
@@ -1045,15 +1125,23 @@ export function LandingPage() {
           gap: 18px;
         }
 
+        .lp-platform-visual .lp-dashboard {
+          position: relative;
+          z-index: 2;
+          width: min(920px, 118%);
+        }
+
         .lp-platform-visual .lp-phone {
+          position: relative;
+          z-index: 1;
           margin-left: -56px;
         }
 
         .lp-resident {
           display: grid;
           grid-template-columns: 0.95fr 1.05fr;
-          align-items: center;
-          gap: 58px;
+          align-items: start;
+          gap: 48px;
         }
 
         .lp-left-title {
@@ -1069,8 +1157,14 @@ export function LandingPage() {
         .lp-resident-visual {
           display: flex;
           justify-content: center;
-          align-items: end;
+          align-items: center;
           gap: 24px;
+          min-height: 100%;
+          padding-top: 264px;
+        }
+
+        .lp-resident-visual .lp-phone {
+          width: 282px;
         }
 
         .lp-request-card {
@@ -1120,13 +1214,17 @@ export function LandingPage() {
 
         .lp-showcase {
           display: grid;
-          grid-template-columns: 0.9fr 1.1fr;
-          gap: 24px;
-          align-items: stretch;
+          grid-template-columns: 0.58fr 1.42fr;
+          gap: 28px;
+          align-items: start;
+        }
+
+        .lp-showcase > .lp-reveal {
+          align-self: start;
         }
 
         .lp-showcase-panel {
-          padding: 28px;
+          padding: 20px;
           border: 1px solid rgba(226,232,240,0.9);
           border-radius: 16px;
           background: white;
@@ -1135,16 +1233,16 @@ export function LandingPage() {
 
         .lp-showcase-panel h3 {
           color: #07111F;
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 800;
           letter-spacing: -0.03em;
         }
 
         .lp-showcase-panel p {
-          margin-top: 12px;
+          margin-top: 8px;
           color: #64748B;
-          font-size: 15px;
-          line-height: 1.75;
+          font-size: 13px;
+          line-height: 1.6;
           font-weight: 600;
         }
 
@@ -1481,6 +1579,16 @@ export function LandingPage() {
         @keyframes lp-float {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-16px); }
+        }
+
+        @keyframes lp-phone-image-fade {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes lp-product-image-fade {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -1886,7 +1994,7 @@ export function LandingPage() {
                 <button className="lp-primary" onClick={goLogin}>
                   Bắt đầu dùng thử <ArrowRight size={18} />
                 </button>
-                <button className="lp-secondary" onClick={() => scrollToSection('#showcase')}>
+                <button className="lp-secondary" onClick={() => scrollToSection('#resident-experience')}>
                   <Play size={18} /> Xem giao diện sản phẩm
                 </button>
               </div>
@@ -1970,7 +2078,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="lp-section lp-white">
+        <section id="resident-experience" className="lp-section lp-white">
           <div className="lp-container lp-resident">
             <div className="lp-reveal">
               <div className="lp-section-title lp-left-title">
@@ -1979,8 +2087,14 @@ export function LandingPage() {
                 <p>Cư dân tự xem hóa đơn, thanh toán, gửi yêu cầu sửa chữa, nhận thông báo và theo dõi lịch sử tương tác.</p>
               </div>
               <div className="lp-feature-grid">
-                {residentFeatures.map(([Icon, title, description]) => (
-                  <article className="lp-card" key={title}>
+                {residentFeatures.map(([Icon, title, description], index) => (
+                  <article
+                    className={`lp-card ${activeResidentFeature === index ? 'is-active' : ''}`}
+                    key={title}
+                    onMouseEnter={() => setActiveResidentFeature(index)}
+                    onFocus={() => setActiveResidentFeature(index)}
+                    tabIndex={0}
+                  >
                     <div className="lp-card-icon"><Icon size={24} /></div>
                     <h3>{title}</h3>
                     <p>{description}</p>
@@ -1990,17 +2104,10 @@ export function LandingPage() {
             </div>
 
             <div className="lp-resident-visual lp-reveal">
-              <PhoneMockup />
-              <div className="lp-request-card">
-                <span className="status">Đã nhận</span>
-                <h3>Yêu cầu sửa chữa</h3>
-                {['Rò nước phòng tắm', 'Điện hành lang yếu', 'Thay khóa cửa'].map((item, index) => (
-                  <div key={item}>
-                    <b>{item}</b>
-                    <small>#{index + 2401} · Cập nhật 12 phút trước</small>
-                  </div>
-                ))}
-              </div>
+              <PhoneMockup
+                imageSrc={activeResidentFeatureData[3]}
+                imageAlt={`Màn hình app cư dân cho chức năng ${activeResidentFeatureData[1]}`}
+              />
             </div>
           </div>
         </section>
@@ -2016,16 +2123,32 @@ export function LandingPage() {
               <div className="lp-showcase-panel lp-reveal">
                 <h3>Luồng vận hành rõ ràng</h3>
                 <p>Quản lý cư dân, hợp đồng, hóa đơn, công nợ, bảo trì và thông báo theo cùng một cấu trúc dữ liệu.</p>
-                <div className="lp-card-grid" style={{ gridTemplateColumns: '1fr', marginTop: 18 }}>
-                  {['Tạo hóa đơn tháng', 'Duyệt và gửi thông báo', 'Cư dân thanh toán QR', 'Đối soát và báo cáo'].map((item, index) => (
-                    <article className="lp-card" key={item} style={{ padding: 18, borderRadius: 20 }}>
-                      <h3>{index + 1}. {item}</h3>
+                <div className="lp-card-grid" style={{ gridTemplateColumns: '1fr', marginTop: 12, gap: 8 }}>
+                  {showcaseFlows.map(([title], index) => (
+                    <article
+                      className={`lp-card lp-showcase-flow-card ${activeShowcaseFlow === index ? 'is-active' : ''}`}
+                      key={title}
+                      onMouseEnter={() => setActiveShowcaseFlow(index)}
+                      onFocus={() => setActiveShowcaseFlow(index)}
+                      tabIndex={0}
+                    >
+                      <h3>{index + 1}. {title}</h3>
                     </article>
                   ))}
                 </div>
               </div>
-              <div className="lp-reveal">
-                <DashboardMockup />
+              <div className={`lp-reveal lp-showcase-visual ${activeShowcaseFlowData[2] === 'mobile' ? 'is-mobile' : 'is-web'}`}>
+                {activeShowcaseFlowData[2] === 'mobile' ? (
+                  <PhoneMockup
+                    imageSrc={activeShowcaseFlowData[1]}
+                    imageAlt={`Màn hình app cư dân cho luồng ${activeShowcaseFlowData[0]}`}
+                  />
+                ) : (
+                  <DashboardMockup
+                    imageSrc={activeShowcaseFlowData[1]}
+                    imageAlt={`Màn hình web dashboard cho luồng ${activeShowcaseFlowData[0]}`}
+                  />
+                )}
               </div>
             </div>
           </div>

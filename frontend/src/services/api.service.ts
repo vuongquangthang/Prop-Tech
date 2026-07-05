@@ -188,6 +188,9 @@ export interface Service {
   serviceType: string;
   unit?: string;
   commonUnitPrice?: number;
+  currentUnitPrice?: number;
+  scheduledUnitPrice?: number;
+  scheduledEffectiveDate?: string;
   isActive: boolean;
   effectiveDate?: string;
   priceUpdatedAt?: string;
@@ -212,6 +215,9 @@ export interface ServiceInContract {
   serviceType: string;
   unit?: string;
   unitPrice?: number;
+  currentUnitPrice?: number;
+  scheduledUnitPrice?: number;
+  scheduledEffectiveDate?: string;
   applyFrom: string;
   applyTo?: string;
   priceUpdatedAt?: string;
@@ -697,6 +703,18 @@ export const paymentService = {
   create: async (data: Omit<Payment, 'id' | 'paidAt'>) => {
     try {
       const response = await api.post<Payment>(API_ENDPOINTS.PAYMENTS.BASE, data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  manualMatch: async (transactionId: number, invoiceId: number) => {
+    try {
+      const response = await api.post<Payment>(
+        API_ENDPOINTS.PAYMENTS.MANUAL_MATCH(transactionId),
+        { invoiceId },
+      );
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

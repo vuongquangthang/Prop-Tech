@@ -119,6 +119,7 @@ export const API_ENDPOINTS = {
     BASE: '/api/ThanhToan',
     BY_ID: (id: number) => `/api/ThanhToan/${id}`,
     BY_INVOICE: (invoiceId: number) => `/api/ThanhToan/invoice/${invoiceId}`,
+    MANUAL_MATCH: (id: number) => `/api/ThanhToan/${id}/manual-match`,
     INITIATE: '/api/Payment/initiate',
     CALLBACK: '/api/Payment/callback',
     PENDING: (invoiceId: number) => `/api/Payment/pending/${invoiceId}`,
