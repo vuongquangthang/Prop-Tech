@@ -308,7 +308,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     id: room.id || room.phongId || 0,
     floorId: room.floorId || room.tangId || 0,
     buildingName: room.buildingName || '',
-    buildingAddress: room.buildingAddress || room.address || '',
+    buildingAddress: room.buildingAddress || room.building?.address || '',
     floorNumber: room.floorNumber || room.soTang || undefined,
     code: room.roomCode || room.maPhong || '',
     address: room.address || '',
@@ -421,6 +421,14 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     ? `${selectedAddFloor.buildingName ? selectedAddFloor.buildingName : 'Tòa'} - Tầng ${selectedAddFloor.floorNumber}`
     : 'Chưa chọn tầng';
 
+  const getFloorBuildingAddress = (floorId: number) => {
+    const floor = floors.find(f => f.id === floorId);
+    return floor?.buildingAddress
+      || floor?.address
+      || rooms.find(room => room.floorId === floorId)?.buildingAddress
+      || '';
+  };
+
   const handleAddFloorChange = (nextFloorId: number) => {
     const nextFloor = floors.find(f => f.id === nextFloorId);
     const nextBuildingId = nextFloor?.buildingId ?? null;
@@ -432,12 +440,10 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setAddFloorId(nextFloorId);
     setAddServiceIds(getAutoSelectedServiceIds(nextServices, nextBuildingId));
     setAddAmenities(uniqueAssetNames(nextAssets));
-    if (!addAddress.trim()) {
-      setAddAddress(
-        rooms.find(room => room.floorId === nextFloorId)?.buildingAddress
-        || floors.find(floor => floor.id === nextFloorId)?.buildingName
-        || '',
-      );
+    const currentDefaultAddress = getFloorBuildingAddress(addFloorId).trim();
+    const nextDefaultAddress = getFloorBuildingAddress(nextFloorId);
+    if (!addAddress.trim() || addAddress.trim() === currentDefaultAddress) {
+      setAddAddress(nextDefaultAddress);
     }
   };
 
@@ -654,10 +660,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setAddPrice('');
     setAddStatus('Trống');
     setAddRoomType('single');
-    const defaultRoomAddress = rooms.find(room => room.floorId === defaultFloorId)?.buildingAddress
-      || floors.find(floor => floor.id === defaultFloorId)?.buildingName
-      || '';
-    setAddAddress(defaultRoomAddress);
+    setAddAddress(getFloorBuildingAddress(defaultFloorId));
     setAddLatitude(null);
     setAddLongitude(null);
     setAddLocationMeta(null);

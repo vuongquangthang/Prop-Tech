@@ -168,6 +168,9 @@ public class ThanhToanService : IThanhToanService
 
     public async Task<ThanhToanDto> ManualMatchAsync(long id, int invoiceId, int ownerUserId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
         await using var dbTransaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         try
         {
@@ -268,6 +271,7 @@ public class ThanhToanService : IThanhToanService
             await dbTransaction.RollbackAsync();
             throw;
         }
+        });
     }
 
     public async Task DeleteAsync(long id)

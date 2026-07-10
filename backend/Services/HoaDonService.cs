@@ -175,6 +175,9 @@ public class HoaDonService : IHoaDonService
             return histories.FirstOrDefault()?.OldPrice ?? fallbackPrice;
         }
 
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -435,6 +438,8 @@ public class HoaDonService : IHoaDonService
             await transaction.RollbackAsync();
             throw new InvalidOperationException($"Lỗi khi tính toán hóa đơn: {ex.Message}", ex);
         }
+
+        });
 
         return result;
     }

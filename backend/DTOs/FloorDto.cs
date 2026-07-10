@@ -8,6 +8,7 @@ public class FloorDto
     public int Id { get; set; }
     public int BuildingId { get; set; }
     public string BuildingName { get; set; } = null!;
+    public string BuildingAddress { get; set; } = "";
     public int FloorNumber { get; set; }
     public int TotalRooms { get; set; }
 }

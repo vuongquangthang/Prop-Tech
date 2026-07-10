@@ -165,6 +165,9 @@ public class HopDongService : IHopDongService
             }
         }
 
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
         // FIX #1: Use database transaction for atomic operation (ALL-or-NOTHING)
         using (var transaction = await _context.Database.BeginTransactionAsync())
         {
@@ -282,6 +285,7 @@ public class HopDongService : IHopDongService
                 throw;
             }
         }
+        });
     }
 
     public async Task<HopDongDto> UpdateAsync(int id, UpdateHopDongDto dto, int? changedByUserId = null)

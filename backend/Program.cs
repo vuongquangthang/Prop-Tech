@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -5,11 +6,19 @@ using backend.Data;
 using backend.Services;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Npgsql;
+
+LoadDotEnv();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Kestrel to listen on all network interfaces
-builder.WebHost.UseUrls("http://0.0.0.0:5052", "https://0.0.0.0:5053");
+// Configure Kestrel. Docker sets ASPNETCORE_URLS=http://+:8080; local dev defaults to 5052.
+var configuredUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+builder.WebHost.UseUrls(
+    string.IsNullOrWhiteSpace(configuredUrls)
+        ? ["http://0.0.0.0:5052"]
+        : configuredUrls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+);
 
 // Add services to the container
 builder.Services.AddScoped<backend.Filters.AuditLogActionFilter>();
@@ -24,9 +33,26 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.Converters.Add(new backend.Json.NullableUtcDateTimeJsonConverter());
     });
 
-// Configure SQL Server Database
+// Configure database. Supabase uses PostgreSQL; keep SQL Server as an explicit rollback option.
+var databaseProvider = builder.Configuration["Database:Provider"] ?? "Postgres";
+var databaseConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("DefaultConnection is not configured");
+var databaseSchema = builder.Configuration["Database:Schema"] ?? "proptech";
+
+Console.WriteLine(DescribeDatabaseConnection(databaseProvider, databaseConnection, databaseSchema));
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (databaseProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseSqlServer(databaseConnection);
+        return;
+    }
+
+    options.UseNpgsql(
+        WithPostgresSearchPath(databaseConnection, databaseSchema),
+        npgsql => npgsql.EnableRetryOnFailure());
+});
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");
@@ -248,11 +274,26 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        
-        // Ensure database is created
-        Console.WriteLine("🔨 Creating new database...");
+
+        if (context.Database.IsNpgsql())
+        {
+            var createSchemaSql = "CREATE SCHEMA IF NOT EXISTS " + QuotePostgresIdentifier(databaseSchema) + ";";
+            context.Database.ExecuteSqlRaw(createSchemaSql);
+            if (!PostgresTableExists(context, databaseSchema, "BAI_DANG_TIM_PHONG"))
+            {
+                Console.WriteLine($"Creating PostgreSQL schema objects in '{databaseSchema}'...");
+                context.Database.ExecuteSqlRaw(context.Database.GenerateCreateScript());
+            }
+        }
+
+        // Ensure schema objects exist. With Supabase/Postgres this does not create a new database.
+        Console.WriteLine(context.Database.IsNpgsql()
+            ? $"Ensuring PostgreSQL schema '{databaseSchema}' exists..."
+            : "Ensuring database exists...");
         context.Database.EnsureCreated();
 
+        if (context.Database.IsSqlServer())
+        {
         try
         {
             context.Database.ExecuteSqlRaw("""
@@ -762,6 +803,12 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"⚠️ Column migration note: {colEx.Message}");
         }
         
+        }
+        else
+        {
+            Console.WriteLine("PostgreSQL provider detected; skipped SQL Server compatibility patches.");
+        }
+
         // Runtime data must come from real user actions, API integrations,
         // or explicit migration scripts.
     }
@@ -823,3 +870,143 @@ app.MapControllers();
 app.MapHub<backend.Hubs.NotificationHub>("/hubs/notifications");
 
 app.Run();
+
+static string WithPostgresSearchPath(string connectionString, string schema)
+{
+    var builder = new NpgsqlConnectionStringBuilder(connectionString)
+    {
+        SearchPath = string.IsNullOrWhiteSpace(schema) ? "proptech" : schema.Trim()
+    };
+    return builder.ConnectionString;
+}
+
+static string DescribeDatabaseConnection(string provider, string connectionString, string schema)
+{
+    if (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase))
+    {
+        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+        return "Database config: " +
+            $"provider=Postgres; host={builder.Host}; port={builder.Port}; " +
+            $"database={builder.Database}; username={builder.Username}; schema={schema}";
+    }
+
+    return $"Database config: provider={provider}; connection string configured";
+}
+
+static bool PostgresTableExists(ApplicationDbContext context, string schema, string table)
+{
+    var connection = context.Database.GetDbConnection();
+    var shouldClose = connection.State != ConnectionState.Open;
+    if (shouldClose)
+    {
+        connection.Open();
+    }
+
+    try
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT to_regclass(@table_name)::text;";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "table_name";
+        parameter.Value = QuotePostgresIdentifier(schema) + "." + QuotePostgresIdentifier(table);
+        command.Parameters.Add(parameter);
+        var result = command.ExecuteScalar();
+        return result != null && result != DBNull.Value;
+    }
+    finally
+    {
+        if (shouldClose)
+        {
+            connection.Close();
+        }
+    }
+}
+
+static string QuotePostgresIdentifier(string identifier)
+{
+    var clean = string.IsNullOrWhiteSpace(identifier) ? "proptech" : identifier.Trim();
+    return "\"" + clean.Replace("\"", "\"\"") + "\"";
+}
+
+static void LoadDotEnv()
+{
+    var path = FindDotEnvPath();
+    if (path is not null)
+    {
+        LoadDotEnvFile(path);
+    }
+}
+
+static string? FindDotEnvPath()
+{
+    foreach (var startPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        var directory = new DirectoryInfo(startPath);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, ".env");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+    }
+
+    return null;
+}
+
+static void LoadDotEnvFile(string path)
+{
+    if (!File.Exists(path))
+    {
+        return;
+    }
+
+    foreach (var rawLine in File.ReadAllLines(path))
+    {
+        var line = rawLine.Trim();
+        if (line.Length == 0 || line.StartsWith('#'))
+        {
+            continue;
+        }
+
+        if (line.StartsWith("export ", StringComparison.OrdinalIgnoreCase))
+        {
+            line = line["export ".Length..].TrimStart();
+        }
+
+        var separatorIndex = line.IndexOf('=');
+        if (separatorIndex <= 0)
+        {
+            continue;
+        }
+
+        var key = line[..separatorIndex].Trim();
+        var value = line[(separatorIndex + 1)..].Trim();
+        if (key.Length == 0 || Environment.GetEnvironmentVariable(key) is not null)
+        {
+            continue;
+        }
+
+        value = UnquoteDotEnvValue(value);
+        Environment.SetEnvironmentVariable(key, value);
+    }
+}
+
+static string UnquoteDotEnvValue(string value)
+{
+    if (value.Length >= 2)
+    {
+        var first = value[0];
+        var last = value[^1];
+        if ((first == '"' && last == '"') || (first == '\'' && last == '\''))
+        {
+            return value[1..^1];
+        }
+    }
+
+    var commentIndex = value.IndexOf(" #", StringComparison.Ordinal);
+    return commentIndex >= 0 ? value[..commentIndex].TrimEnd() : value;
+}

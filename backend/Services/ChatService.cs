@@ -1,10 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using backend.Data;
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
@@ -28,25 +28,27 @@ public class ChatService : IChatService
 {
     private readonly ILichSuChatRepository _chatRepository;
     private readonly IKnowledgeBaseRepository _knowledgeBaseRepository;
+    private readonly ApplicationDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<ChatService> _logger;
-    private readonly string _n8nWebhookUrl;
+    private readonly string _chatbotBaseUrl;
 
-    private const string DefaultN8nWebhookUrl =
-        "https://lhdpo.app.n8n.cloud/webhook-test/39b7f4bc-52bd-4102-8e90-7749e54659f4";
+    private const string DefaultChatbotBaseUrl = "http://localhost:8000";
 
     public ChatService(
         ILichSuChatRepository chatRepository,
         IKnowledgeBaseRepository knowledgeBaseRepository,
+        ApplicationDbContext context,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         ILogger<ChatService> logger)
     {
         _chatRepository = chatRepository;
         _knowledgeBaseRepository = knowledgeBaseRepository;
+        _context = context;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _n8nWebhookUrl = configuration["N8n:ChatWebhookUrl"] ?? DefaultN8nWebhookUrl;
+        _chatbotBaseUrl = (configuration["Chatbot:BaseUrl"] ?? DefaultChatbotBaseUrl).TrimEnd('/');
     }
 
     public async Task<List<ChatMessageDto>> GetChatHistoryAsync(int userId, int limit = 100)
@@ -66,7 +68,7 @@ public class ChatService : IChatService
         var chats = await _chatRepository.GetRecentAsync(ownerUserId, Math.Max(limit * 4, 200));
         var ordered = chats.OrderBy(x => x.CreatedAt).ToList();
 
-        var unresolved = ordered
+        return ordered
             .Where(x => x.MessageRole == "assistant" && x.IsKnowledgeGap)
             .OrderByDescending(x => x.CreatedAt)
             .Take(limit)
@@ -74,9 +76,9 @@ public class ChatService : IChatService
             {
                 var question = ordered
                     .Where(x =>
-                        x.UserId == assistant.UserId &&
-                        x.MessageRole == "user" &&
-                        x.CreatedAt <= assistant.CreatedAt)
+                        x.UserId == assistant.UserId
+                        && x.MessageRole == "user"
+                        && x.CreatedAt <= assistant.CreatedAt)
                     .OrderByDescending(x => x.CreatedAt)
                     .FirstOrDefault();
 
@@ -93,8 +95,6 @@ public class ChatService : IChatService
             })
             .Where(x => !string.IsNullOrWhiteSpace(x.Question))
             .ToList();
-
-        return unresolved;
     }
 
     public async Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId, int ownerUserId)
@@ -102,7 +102,7 @@ public class ChatService : IChatService
         var assistantMessage = await _chatRepository.GetByIdAsync(assistantMessageId, ownerUserId);
         if (assistantMessage == null || assistantMessage.MessageRole != "assistant")
         {
-            throw new InvalidOperationException("Không tìm thấy câu trả lời AI cần xử lý");
+            throw new InvalidOperationException("Khong tim thay cau tra loi AI can xu ly");
         }
 
         var recentChats = await _chatRepository.GetByUserIdAsync(assistantMessage.UserId, 500);
@@ -113,14 +113,14 @@ public class ChatService : IChatService
 
         if (question == null || string.IsNullOrWhiteSpace(question.MessageText))
         {
-            throw new InvalidOperationException("Không tìm thấy câu hỏi tương ứng");
+            throw new InvalidOperationException("Khong tim thay cau hoi tuong ung");
         }
 
         var kb = new KnowledgeBase
         {
             Title = question.MessageText.Trim(),
             Content = dto.AnswerText.Trim(),
-            Category = string.IsNullOrWhiteSpace(dto.Category) ? "Khác" : dto.Category.Trim(),
+            Category = string.IsNullOrWhiteSpace(dto.Category) ? "Khac" : dto.Category.Trim(),
             Tags = BuildTagsFromQuestion(question.MessageText),
             IsActive = dto.ActivateImmediately,
             UpdatedAt = DateTime.UtcNow,
@@ -154,7 +154,6 @@ public class ChatService : IChatService
     {
         var effectiveMessage = dto.MessageText ?? dto.Message ?? string.Empty;
 
-        // Save user message
         var userMessage = new LichSuChat
         {
             UserId = userId,
@@ -166,10 +165,9 @@ public class ChatService : IChatService
         await _chatRepository.AddAsync(userMessage);
         await _chatRepository.SaveChangesAsync();
 
-        // Generate simple AI response (search knowledge base)
-        var response = await GenerateResponseAsync(effectiveMessage, userId, dto.SessionId);
+        var buildingCode = await ResolveBuildingCodeAsync(userId);
+        var response = await GenerateResponseAsync(effectiveMessage, userId, dto.SessionId, buildingCode);
 
-        // Save assistant message
         var assistantMessage = new LichSuChat
         {
             UserId = userId,
@@ -189,7 +187,7 @@ public class ChatService : IChatService
     public async Task<ChatConversationDto> GetConversationAsync(int userId)
     {
         var messages = await GetChatHistoryAsync(userId);
-        
+
         return new ChatConversationDto
         {
             UserId = userId,
@@ -199,58 +197,129 @@ public class ChatService : IChatService
         };
     }
 
-    private async Task<ChatResponseResult> GenerateResponseAsync(string userMessage, int userId, string? sessionId)
+    private async Task<ChatResponseResult> GenerateResponseAsync(string userMessage, int userId, string? sessionId, string? buildingCode)
     {
-        // Always use n8n AI webhook for answer generation.
+        if (string.IsNullOrWhiteSpace(buildingCode))
+        {
+            return KnowledgeGapResponse("Toi chua xac dinh duoc toa nha cua tai khoan nay. Vui long lien he ban quan ly de cap nhat phong/hop dong truoc khi dung chatbot.");
+        }
+
         try
         {
             var client = _httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(60);
+            client.Timeout = TimeSpan.FromSeconds(90);
             var payload = JsonSerializer.Serialize(new
             {
-                message = userMessage,
+                building_code = buildingCode,
+                question = userMessage,
                 sessionId = string.IsNullOrWhiteSpace(sessionId) ? userId.ToString() : sessionId
             });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            var res = await client.PostAsync(_n8nWebhookUrl, content);
+            var res = await client.PostAsync($"{_chatbotBaseUrl}/api/v1/chat", content);
             var json = await res.Content.ReadAsStringAsync();
 
-            _logger.LogInformation("n8n webhook response: status={StatusCode}, body={Body}", (int)res.StatusCode, json);
+            _logger.LogInformation("Chatbot response: status={StatusCode}, buildingCode={BuildingCode}", (int)res.StatusCode, buildingCode);
 
             if (res.IsSuccessStatusCode)
             {
-                var text = ExtractN8nText(json);
-                _logger.LogInformation("Extracted text from n8n: '{Text}'", text);
+                var text = ExtractResponseText(json);
 
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     return new ChatResponseResult
                     {
                         Text = text,
-                        IsKnowledgeGap = false
+                        IsKnowledgeGap = LooksLikeKnowledgeGap(text)
                     };
                 }
 
-                _logger.LogWarning("n8n responded OK but no parsable text. url={Url}, body={Body}", _n8nWebhookUrl, json);
+                _logger.LogWarning("Chatbot responded OK but no parsable text. url={Url}, body={Body}", _chatbotBaseUrl, json);
             }
             else
             {
-                _logger.LogWarning("n8n webhook returned non-success status. url={Url}, status={StatusCode}, body={Body}", _n8nWebhookUrl, (int)res.StatusCode, json);
+                _logger.LogWarning("Chatbot returned non-success status. url={Url}, status={StatusCode}, body={Body}", _chatbotBaseUrl, (int)res.StatusCode, json);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "n8n webhook call failed. url={Url}", _n8nWebhookUrl);
+            _logger.LogWarning(ex, "Chatbot call failed. url={Url}", _chatbotBaseUrl);
         }
 
-        return new ChatResponseResult
-        {
-            Text = "Tôi chưa tìm thấy thông tin đủ chính xác để trả lời. Câu hỏi của bạn đã được ghi nhận để ban quản lý bổ sung vào kho tri thức.",
-            IsKnowledgeGap = true
-        };
+        return KnowledgeGapResponse("Toi chua tim thay thong tin du chinh xac de tra loi. Cau hoi cua ban da duoc ghi nhan de ban quan ly bo sung vao kho tri thuc.");
     }
 
-    private static string? ExtractN8nText(string body)
+    private async Task<string?> ResolveBuildingCodeAsync(int userId)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == userId);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        if (user.ResidentId.HasValue)
+        {
+            var now = DateTime.UtcNow;
+            var currentResidency = await _context.ChiTietOs
+                .AsNoTracking()
+                .Include(item => item.HopDong)
+                    .ThenInclude(contract => contract.Room)
+                        .ThenInclude(room => room.Floor)
+                .Where(item =>
+                    item.ResidentId == user.ResidentId.Value
+                    && item.FromDate <= now
+                    && (!item.ToDate.HasValue || item.ToDate.Value >= now))
+                .OrderByDescending(item => item.FromDate)
+                .FirstOrDefaultAsync();
+
+            if (currentResidency?.HopDong?.Room?.Floor != null)
+            {
+                return currentResidency.HopDong.Room.Floor.BuildingId.ToString();
+            }
+
+            var latestResidency = await _context.ChiTietOs
+                .AsNoTracking()
+                .Include(item => item.HopDong)
+                    .ThenInclude(contract => contract.Room)
+                        .ThenInclude(room => room.Floor)
+                .Where(item => item.ResidentId == user.ResidentId.Value)
+                .OrderByDescending(item => item.FromDate)
+                .FirstOrDefaultAsync();
+
+            if (latestResidency?.HopDong?.Room?.Floor != null)
+            {
+                return latestResidency.HopDong.Room.Floor.BuildingId.ToString();
+            }
+        }
+
+        if (user.OwnerUserId.HasValue)
+        {
+            var buildingId = await _context.Buildings
+                .AsNoTracking()
+                .Where(item => item.OwnerUserId == user.OwnerUserId.Value && !item.IsDeleted)
+                .OrderBy(item => item.Id)
+                .Select(item => (int?)item.Id)
+                .FirstOrDefaultAsync();
+
+            if (buildingId.HasValue)
+            {
+                return buildingId.Value.ToString();
+            }
+        }
+
+        return null;
+    }
+
+    private static ChatResponseResult KnowledgeGapResponse(string text)
+        => new()
+        {
+            Text = text,
+            IsKnowledgeGap = true
+        };
+
+    private static string? ExtractResponseText(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
         {
@@ -259,7 +328,6 @@ public class ChatService : IChatService
 
         var trimmed = body.Trim();
 
-        // Some webhooks return plain text instead of JSON.
         if (!(trimmed.StartsWith("{") || trimmed.StartsWith("[")))
         {
             return trimmed;
@@ -276,7 +344,6 @@ public class ChatService : IChatService
         }
         catch
         {
-            // If JSON parsing fails, fallback to raw text.
             return trimmed;
         }
 
@@ -314,7 +381,7 @@ public class ChatService : IChatService
             {
                 var preferredKeys = new[]
                 {
-                    "reply", "output", "answer", "response", "message", "text", "content", "result", "data"
+                    "answer", "reply", "output", "response", "message", "text", "content", "result", "data"
                 };
 
                 foreach (var key in preferredKeys)
@@ -345,6 +412,21 @@ public class ChatService : IChatService
             default:
                 return null;
         }
+    }
+
+    private static bool LooksLikeKnowledgeGap(string text)
+    {
+        var normalized = text.ToLowerInvariant();
+        return normalized.Contains("khong tim thay")
+            || normalized.Contains("khong co trong he thong")
+            || normalized.Contains("chua tim thay")
+            || normalized.Contains("chua du du lieu")
+            || normalized.Contains("khong du thong tin")
+            || normalized.Contains("không tìm thấy")
+            || normalized.Contains("không có trong hệ thống")
+            || normalized.Contains("chưa tìm thấy")
+            || normalized.Contains("chưa đủ dữ liệu")
+            || normalized.Contains("không đủ thông tin");
     }
 
     private static string BuildTagsFromQuestion(string question)

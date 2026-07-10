@@ -1,4 +1,4 @@
-import { Upload, FileText, CheckCircle2 } from 'lucide-react';
+import { Upload, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { UploadFileModal } from './KnowledgeModals';
 import { knowledgeService, KnowledgeBase } from '../../services/feature.service';
@@ -28,7 +28,7 @@ export function KnowledgeBaseTable() {
       <PageHeader
         eyebrow="Trợ lý ảo AI"
         title="Kho tri thức"
-        description="Đồng bộ tài liệu với AI, gửi sang n8n và cập nhật luồng RAG để chatbot sử dụng."
+        description="Quản lý tri thức trong Prop-Tech/Supabase; chạy ingest để cập nhật ChromaDB cho Chatbot RAG."
         actions={
           <button
             onClick={() => setUploadModal(true)}
@@ -57,8 +57,6 @@ export function KnowledgeBaseTable() {
           <p className="text-xs text-gray-600 mt-1">mục</p>
         </div>
       </div>
-
-      
 
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
