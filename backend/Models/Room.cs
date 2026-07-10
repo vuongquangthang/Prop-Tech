@@ -63,16 +63,16 @@ public class Room
     [Column("SO_PHONG_VE_SINH")]
     public int? BathroomCount { get; set; }
 
-    [Column("ANH_PHONG_JSON", TypeName = "nvarchar(max)")]
+    [Column("ANH_PHONG_JSON")]
     public string ImageUrlsJson { get; set; } = "[]";
 
-    [Column("TIEN_NGHI_JSON", TypeName = "nvarchar(max)")]
+    [Column("TIEN_NGHI_JSON")]
     public string AmenitiesJson { get; set; } = "[]";
 
-    [Column("DICH_VU_JSON", TypeName = "nvarchar(max)")]
+    [Column("DICH_VU_JSON")]
     public string ServiceIdsJson { get; set; } = "[]";
 
-    [Column("GIA_DICH_VU_JSON", TypeName = "nvarchar(max)")]
+    [Column("GIA_DICH_VU_JSON")]
     public string ServicePricesJson { get; set; } = "[]";
 
     [StringLength(500)]

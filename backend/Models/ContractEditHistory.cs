@@ -22,7 +22,7 @@ public class ContractEditHistory
     public string Summary { get; set; } = null!;
 
     [Required]
-    [Column("DU_LIEU_JSON", TypeName = "nvarchar(max)")]
+    [Column("DU_LIEU_JSON")]
     public string SnapshotJson { get; set; } = null!;
 
     [Column("CAP_NHAT_BOI_ID")]

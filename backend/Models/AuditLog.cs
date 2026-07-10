@@ -29,10 +29,10 @@ public class AuditLog
     [Column("entity_id")]
     public int? EntityId { get; set; }
 
-    [Column("old_values", TypeName = "NVARCHAR(MAX)")]
+    [Column("old_values")]
     public string? OldValues { get; set; }
 
-    [Column("new_values", TypeName = "NVARCHAR(MAX)")]
+    [Column("new_values")]
     public string? NewValues { get; set; }
 
     [StringLength(45)]

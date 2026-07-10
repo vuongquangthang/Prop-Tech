@@ -1,6 +1,6 @@
 import { X, Plus, Upload, Edit, Trash2, FileText, AlertTriangle, Check, FolderPlus, Settings } from 'lucide-react';
 import { useState } from 'react';
-import { knowledgeService, n8nService } from '../../services/feature.service';
+import { knowledgeService } from '../../services/feature.service';
 
 interface KnowledgeModalProps {
   knowledge?: any;
@@ -407,7 +407,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
     if (!selectedFile) return;
     setUploadStep('processing');
     try {
-      await n8nService.uploadDocument(selectedFile);
+      await knowledgeService.uploadDocument(selectedFile, 'Khác', true);
       setUploadStep('result');
     } catch (err: any) {
       setErrorMsg(err?.message || 'Đã xảy ra lỗi khi xử lý file');

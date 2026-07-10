@@ -46,7 +46,7 @@ public class Notification
     public string Title { get; set; } = null!;
 
     [Required]
-    [Column("content", TypeName = "NVARCHAR(MAX)")]
+    [Column("content")]
     public string Content { get; set; } = null!;
 
     [StringLength(20)]

@@ -266,6 +266,9 @@ public class RoomService : IRoomService
 
     public async Task<RoomDto> CreateAsync(CreateRoomDto dto, int ownerUserId)
     {
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
         // Validate floor exists
@@ -341,10 +344,14 @@ public class RoomService : IRoomService
         }
 
         return await MapToDto(createdRoom);
+        });
     }
 
     public async Task<RoomDto> UpdateAsync(int id, UpdateRoomDto dto, int ownerUserId)
     {
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
         var room = await _dbContext.Rooms
@@ -445,6 +452,7 @@ public class RoomService : IRoomService
         }
 
         return await MapToDto(updatedRoom);
+        });
     }
 
     public async Task DeleteAsync(int id, int ownerUserId)

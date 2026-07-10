@@ -66,7 +66,7 @@ public class User
     [Column("ADDRESS")]
     public string? Address { get; set; }
 
-    [Column("AVATAR_URL", TypeName = "nvarchar(max)")]
+    [Column("AVATAR_URL")]
     public string? AvatarUrl { get; set; }
 
     // Navigation properties

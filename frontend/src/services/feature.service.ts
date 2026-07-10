@@ -177,51 +177,6 @@ export const reportService = {
 };
 
 // Chat Services
-/**
- * N8N Integration Service
- * Direct communication with n8n RAG system
- */
-export const n8nService = {
-  // Upload documents to n8n form endpoint for RAG processing
-  uploadDocument: async (file: File): Promise<{ success: boolean; message?: string }> => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await fetch(
-        'https://lhdpo.app.n8n.cloud/form/00211f43-8279-4906-81f9-1b0b97d8646b',
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-      
-      return { success: true, message: 'Tài liệu đã được đồng bộ với AI' };
-    } catch (error: any) {
-      console.error('N8N upload error:', error);
-      throw new Error(error?.message || 'Lỗi khi đồng bộ tài liệu với AI');
-    }
-  },
-
-  // Send chat message via backend API (which calls n8n RAG webhook)
-  sendChatMessage: async (message: string): Promise<{ text: string }> => {
-    try {
-      const response = await api.post<ChatMessage>(
-        API_ENDPOINTS.CHAT.SEND,
-        { messageText: message }
-      );
-      return { text: response.data.messageText };
-    } catch (error: any) {
-      console.error('Chat error:', error);
-      throw new Error(error?.message || 'Lỗi khi gửi tin nhắn');
-    }
-  },
-};
-
 export const chatService = {
   getHistory: async (limit: number = 100) => {
     try {

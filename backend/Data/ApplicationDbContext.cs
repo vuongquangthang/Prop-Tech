@@ -69,6 +69,12 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        var isPostgres = Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+        var activeRowFilter = isPostgres ? "\"IS_DELETED\" = FALSE" : "[IS_DELETED] = 0";
+        var activeRoomFilter = isPostgres ? "\"TRANG_THAI\" <> 'Đã xóa'" : "[TRANG_THAI] <> N'Đã xóa'";
+        var paymentRefCheck = isPostgres
+            ? "(\"HOA_DON_ID\" IS NOT NULL AND \"TAT_TOAN_ID\" IS NULL) OR (\"HOA_DON_ID\" IS NULL AND \"TAT_TOAN_ID\" IS NOT NULL)"
+            : "([HOA_DON_ID] IS NOT NULL AND [TAT_TOAN_ID] IS NULL) OR ([HOA_DON_ID] IS NULL AND [TAT_TOAN_ID] IS NOT NULL)";
 
         // ========== CẤU TRÚC VẬT LÝ ==========
         
@@ -77,7 +83,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.OwnerUserId, e.BuildingName })
                 .IsUnique()
-                .HasFilter("[IS_DELETED] = 0");
+                .HasFilter(activeRowFilter);
             entity.HasOne(e => e.OwnerUser)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerUserId)
@@ -89,7 +95,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.BuildingId, e.FloorNumber })
                 .IsUnique()
-                .HasFilter("[IS_DELETED] = 0");
+                .HasFilter(activeRowFilter);
             entity.HasOne(e => e.Building)
                 .WithMany(e => e.Floors)
                 .HasForeignKey(e => e.BuildingId)
@@ -101,7 +107,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.FloorId, e.RoomCode })
                 .IsUnique()
-                .HasFilter("[TRANG_THAI] <> N'Đã xóa'");
+                .HasFilter(activeRoomFilter);
             entity.HasOne(e => e.Floor)
                 .WithMany(e => e.Rooms)
                 .HasForeignKey(e => e.FloorId)
@@ -353,7 +359,7 @@ public class ApplicationDbContext : DbContext
             // Constraint: CHỈ thanh toán cho 1 trong 2 (HoaDon hoặc TatToan)
             entity.ToTable(t => t.HasCheckConstraint(
                 "CHK_THANH_TOAN_REF",
-                "([HOA_DON_ID] IS NOT NULL AND [TAT_TOAN_ID] IS NULL) OR ([HOA_DON_ID] IS NULL AND [TAT_TOAN_ID] IS NOT NULL)"
+                paymentRefCheck
             ));
         });
 

@@ -73,6 +73,7 @@ public class FloorService : IFloorService
             Id = floor.Id,
             BuildingId = floor.BuildingId,
             BuildingName = floor.Building.BuildingName,
+            BuildingAddress = floor.Building.Address,
             FloorNumber = floor.FloorNumber,
             TotalRooms = floor.Rooms.Count(room => room.Status != "Đã xóa"),
             Rooms = floor.Rooms
@@ -84,6 +85,7 @@ public class FloorService : IFloorService
                     FloorId = room.FloorId,
                     BuildingId = floor.BuildingId,
                     BuildingName = floor.Building.BuildingName,
+                    BuildingAddress = floor.Building.Address,
                     FloorNumber = floor.FloorNumber,
                     RoomCode = room.RoomCode,
                     Area = room.Area,
@@ -214,6 +216,7 @@ public class FloorService : IFloorService
             Id = floor.Id,
             BuildingId = floor.BuildingId,
             BuildingName = floor.Building?.BuildingName ?? "",
+            BuildingAddress = floor.Building?.Address ?? "",
             FloorNumber = floor.FloorNumber,
             TotalRooms = floor.Rooms?.Count(room => room.Status != "Đã xóa") ?? 0
         };
