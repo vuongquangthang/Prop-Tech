@@ -384,7 +384,7 @@ function normalizePostRecord(post: any): PostRecord {
     post.buildingAddress ??
     roomObj?.buildingAddress ??
     roomObj?.address ??
-    `${resolvedBuildingName} - Tầng ${resolvedFloorNumber} - ${resolvedRoomCode}`;
+    `Tầng ${resolvedFloorNumber} - ${resolvedBuildingName} - ${resolvedRoomCode}`;
 
   return {
     id: Number(post.id ?? Date.now()),

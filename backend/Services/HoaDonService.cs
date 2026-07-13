@@ -143,7 +143,7 @@ public class HoaDonService : IHoaDonService
             .Include(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
             .Where(hd =>
                 hd.Room.Floor.Building.OwnerUserId == ownerUserId &&
-                hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= new DateTime(year, month, 1)))
+                hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= CreatePeriodStartUtc(year, month)))
             .ToListAsync();
 
         var serviceIds = contracts
@@ -156,7 +156,7 @@ public class HoaDonService : IHoaDonService
             .Where(history => serviceIds.Contains(history.ServiceId))
             .OrderBy(history => history.EffectiveDate)
             .ToListAsync();
-        var invoiceIssuedAt = DateTime.UtcNow;
+        var invoiceIssuedDate = GetVietnamToday();
 
         decimal ResolveMarketPrice(int serviceId, decimal fallbackPrice)
         {
@@ -164,8 +164,9 @@ public class HoaDonService : IHoaDonService
                 .Where(history => history.ServiceId == serviceId)
                 .ToList();
             var effectiveHistory = histories
-                .Where(history => history.EffectiveDate <= invoiceIssuedAt)
+                .Where(history => GetVietnamDate(history.EffectiveDate) <= invoiceIssuedDate)
                 .OrderByDescending(history => history.EffectiveDate)
+                .ThenByDescending(history => history.ChangedAt)
                 .FirstOrDefault();
             if (effectiveHistory != null)
             {
@@ -248,7 +249,7 @@ public class HoaDonService : IHoaDonService
                             // Meter reading (Electricity or Water)
                             if (IsElectricityFormulaItem(item))
                             {
-                                var elecUsage = activeUsages.FirstOrDefault(u => IsElectricityService(u.Service));
+                                var elecUsage = await SelectElectricityUsageAsync(activeUsages, month, year);
                                 if (elecUsage != null)
                                 {
                                     var prev = await _context.ChiSoDiens
@@ -277,7 +278,7 @@ public class HoaDonService : IHoaDonService
                             }
                             else if (IsWaterFormulaItem(item))
                             {
-                                var waterUsage = activeUsages.FirstOrDefault(u => IsWaterService(u.Service));
+                                var waterUsage = await SelectWaterUsageAsync(activeUsages, month, year);
                                 if (waterUsage != null)
                                 {
                                     var prev = await _context.ChiSoNuocs
@@ -350,7 +351,24 @@ public class HoaDonService : IHoaDonService
                     total += contract.ActualRentPrice;
 
                     // 2. Điện/Nước/Dịch vụ khác từ activeUsages
-                    foreach (var usage in activeUsages)
+                    var selectedElectricityUsage = await SelectElectricityUsageAsync(activeUsages, month, year);
+                    var selectedWaterUsage = await SelectWaterUsageAsync(activeUsages, month, year);
+                    var billableUsages = activeUsages
+                        .Where(usage =>
+                            !IsElectricityService(usage.Service)
+                            && !IsWaterService(usage.Service))
+                        .ToList();
+                    if (selectedElectricityUsage != null)
+                    {
+                        billableUsages.Insert(0, selectedElectricityUsage);
+                    }
+                    if (selectedWaterUsage != null)
+                    {
+                        var insertIndex = selectedElectricityUsage != null ? 1 : 0;
+                        billableUsages.Insert(insertIndex, selectedWaterUsage);
+                    }
+
+                    foreach (var usage in billableUsages)
                     {
                         var configuredPrice = usage.OverrideUnitPrice ?? usage.Service.CommonUnitPrice ?? 0;
                         var unitPrice = IsElectricityService(usage.Service) || IsWaterService(usage.Service)
@@ -928,14 +946,63 @@ public class HoaDonService : IHoaDonService
 
     private static List<ChiTietSuDungDichVu> GetActiveServiceUsagesForPeriod(IEnumerable<ChiTietSuDungDichVu> usages, short year, byte month)
     {
-        var periodStart = new DateTime(year, month, 1);
-        var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+        var periodStart = CreatePeriodStartUtc(year, month);
+        var periodEnd = CreatePeriodEndUtc(year, month);
 
         return usages
-            .Where(u => u.Service.IsActive
+            .Where(u => u.Service != null
+                && u.Service.IsActive
                 && u.ApplyFrom <= periodEnd
                 && (u.ApplyTo == null || u.ApplyTo >= periodStart))
             .ToList();
+    }
+
+    private async Task<ChiTietSuDungDichVu?> SelectElectricityUsageAsync(IEnumerable<ChiTietSuDungDichVu> activeUsages, byte month, short year)
+    {
+        var candidates = activeUsages
+            .Where(usage => IsElectricityService(usage.Service))
+            .OrderByDescending(usage => usage.ApplyFrom)
+            .ThenByDescending(usage => usage.Id)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var candidateIds = candidates.Select(usage => usage.Id).ToList();
+        var recordedUsageIds = await _context.ChiSoDiens
+            .Where(reading => candidateIds.Contains(reading.ServiceUsageDetailId)
+                && reading.Month == month
+                && reading.Year == year)
+            .Select(reading => reading.ServiceUsageDetailId)
+            .ToListAsync();
+
+        return candidates.FirstOrDefault(usage => recordedUsageIds.Contains(usage.Id))
+            ?? candidates.First();
+    }
+
+    private async Task<ChiTietSuDungDichVu?> SelectWaterUsageAsync(IEnumerable<ChiTietSuDungDichVu> activeUsages, byte month, short year)
+    {
+        var candidates = activeUsages
+            .Where(usage => IsWaterService(usage.Service))
+            .OrderByDescending(usage => usage.ApplyFrom)
+            .ThenByDescending(usage => usage.Id)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var candidateIds = candidates.Select(usage => usage.Id).ToList();
+        var recordedUsageIds = await _context.ChiSoNuocs
+            .Where(reading => candidateIds.Contains(reading.ServiceUsageDetailId)
+                && reading.Month == month
+                && reading.Year == year)
+            .Select(reading => reading.ServiceUsageDetailId)
+            .ToListAsync();
+
+        return candidates.FirstOrDefault(usage => recordedUsageIds.Contains(usage.Id))
+            ?? candidates.First();
     }
 
     private async Task<List<string>> GetUtilityReadingAnomalyReasonsAsync(IEnumerable<ChiTietSuDungDichVu> activeUsages, short year, byte month)
@@ -1041,8 +1108,12 @@ public class HoaDonService : IHoaDonService
         if (service == null) return false;
         if (service.Id == 1) return true;
 
-        var normalized = NormalizeKey(service.ServiceType);
-        return normalized == "dien" || normalized == "electricity" || normalized == "electric";
+        var type = NormalizeKey(service.ServiceType);
+        var name = NormalizeKey(service.Name);
+
+        return type is "dien" or "electricity" or "electric"
+            || name.Contains("dien")
+            || name.Contains("electric");
     }
 
     private static bool IsWaterService(Service? service)
@@ -1050,8 +1121,12 @@ public class HoaDonService : IHoaDonService
         if (service == null) return false;
         if (service.Id == 2) return true;
 
-        var normalized = NormalizeKey(service.ServiceType);
-        return normalized == "nuoc" || normalized == "water";
+        var type = NormalizeKey(service.ServiceType);
+        var name = NormalizeKey(service.Name);
+
+        return type is "nuoc" or "water"
+            || name.Contains("nuoc")
+            || name.Contains("water");
     }
 
     private static string NormalizeKey(string? value)
@@ -1077,7 +1152,30 @@ public class HoaDonService : IHoaDonService
         if (day < 1) day = 1;
         if (day > 28) day = 28;
 
-        return new DateTime(year, month, day).AddMonths(1);
+        return DateTime.SpecifyKind(new DateTime(year, month, day).AddMonths(1), DateTimeKind.Utc);
+    }
+
+    private static DateTime CreatePeriodStartUtc(short year, byte month)
+    {
+        return DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
+    }
+
+    private static DateTime CreatePeriodEndUtc(short year, byte month)
+    {
+        return CreatePeriodStartUtc(year, month).AddMonths(1).AddTicks(-1);
+    }
+
+    private static DateTime GetVietnamToday()
+    {
+        return DateTime.UtcNow.AddHours(7).Date;
+    }
+
+    private static DateTime GetVietnamDate(DateTime value)
+    {
+        var utcValue = value.Kind == DateTimeKind.Utc
+            ? value
+            : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+        return utcValue.AddHours(7).Date;
     }
 
     private static List<ContractBillingFormulaItem> ParseBillingFormula(string? json)

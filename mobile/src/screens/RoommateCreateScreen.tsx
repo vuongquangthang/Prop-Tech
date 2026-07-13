@@ -461,7 +461,7 @@ export default function RoommateCreateScreen() {
                   </View>
                   <View style={styles.roomInfoCell}>
                     <Text style={styles.roomInfoLabel}>Vị trí</Text>
-                    <Text style={styles.roomInfoValue}>{room.buildingName} - Tầng {room.floorNumber}</Text>
+                    <Text style={styles.roomInfoValue}>Tầng {room.floorNumber} - {room.buildingName}</Text>
                   </View>
                   <View style={styles.roomInfoCell}>
                     <Text style={styles.roomInfoLabel}>Diện tích</Text>

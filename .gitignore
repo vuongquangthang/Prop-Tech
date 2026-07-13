@@ -104,3 +104,4 @@ mobile/tsconfig.json
 docs/use-case-specification.md
 qa-test-results.md
 qa-test-results.txt
+backend/schemadb.csv

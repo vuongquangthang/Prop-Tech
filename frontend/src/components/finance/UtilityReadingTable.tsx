@@ -114,6 +114,8 @@ export function UtilityReadingTable() {
           roomId: r.roomId,
           month: selectedMonth,
           year: selectedYear,
+          elecUsageDetailId: r.elecUsageDetailId,
+          waterUsageDetailId: r.waterUsageDetailId,
           newElecReading: edits[r.roomId]?.newElec ? parseInt(edits[r.roomId].newElec, 10) : undefined,
           newWaterReading: edits[r.roomId]?.newWater ? parseInt(edits[r.roomId].newWater, 10) : undefined,
         }));
@@ -296,7 +298,7 @@ export function UtilityReadingTable() {
                       <tr key={room.roomId} style={{ borderBottom: '1px solid var(--surface-border)' }} className="hover:bg-[var(--surface-bg)] transition-colors">
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{room.roomCode}</span>
-                          {room.buildingName && <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{room.buildingName} - Tầng {room.floorName}</div>}
+                          {room.buildingName && <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{room.floorName ? `Tầng ${room.floorName} - ` : ''}{room.buildingName}</div>}
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: 'var(--type-body)', color: 'var(--text-secondary)' }}>{room.residentName || '-'}</td>
 

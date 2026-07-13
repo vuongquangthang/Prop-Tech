@@ -8,6 +8,8 @@ public class RecordUtilityReadingDto
     public int RoomId { get; set; }
     public byte Month { get; set; }
     public short Year { get; set; }
+    public long? ElecUsageDetailId { get; set; }
+    public long? WaterUsageDetailId { get; set; }
     public decimal? NewElecReading { get; set; }
     public decimal? NewWaterReading { get; set; }
 }

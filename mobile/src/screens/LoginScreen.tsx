@@ -47,7 +47,7 @@ export default function LoginScreen({ navigation }: Props) {
       Alert.alert(
         'Đăng nhập thất bại',
         isNetworkError
-          ? 'Không kết nối được đến máy chủ.\nKiểm tra lại kết nối mạng.'
+          ? `Không kết nối được đến máy chủ.\n\nĐã thử:\n${(err.attemptedUrls || []).join('\n')}`
           : err.response?.data?.message || 'Số điện thoại hoặc mật khẩu không đúng'
       );
     }

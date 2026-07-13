@@ -71,7 +71,7 @@ export function CreatePostPage() {
   const getRoomLocation = (room: RoomOption | any) => {
     const buildingName = room?.buildingName ?? room?.building ?? 'Chưa xác định';
     const floorNumber = room?.floorNumber ?? room?.floor;
-    return floorNumber ? `${buildingName} - Tầng ${floorNumber}` : buildingName;
+    return [floorNumber ? `Tầng ${floorNumber}` : '', buildingName].filter(Boolean).join(' - ');
   };
   const getRoomAddress = (room: RoomOption | any) => {
     return room?.buildingAddress ?? room?.address ?? room?.building?.address ?? room?.buildingDetail?.address ?? '';

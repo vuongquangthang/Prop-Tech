@@ -1,5 +1,5 @@
 import * as SignalR from '@microsoft/signalr';
-import { API_BASE_URL } from './api.service';
+import { getApiBaseUrl } from './api.service';
 import { secureStorage } from '../utils/secureStorage';
 
 const STORAGE_KEYS = {
@@ -46,7 +46,7 @@ class SignalRService {
       }
 
       this.connection = new SignalR.HubConnectionBuilder()
-        .withUrl(`${API_BASE_URL}/hubs/notifications`, {
+        .withUrl(`${getApiBaseUrl()}/hubs/notifications`, {
           accessTokenFactory: async () => {
             const t = await secureStorage.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
             return t || '';

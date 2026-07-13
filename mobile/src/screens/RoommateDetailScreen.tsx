@@ -260,7 +260,7 @@ export default function RoommateDetailScreen() {
 
               <View style={styles.postBody}>
                 <Text style={styles.postTitle}>{post.title}</Text>
-                <Text style={styles.postLocation}>{post.buildingName} · Tầng {post.floorNumber} · Phòng {post.roomCode}</Text>
+                <Text style={styles.postLocation}>Tầng {post.floorNumber} · {post.buildingName} · Phòng {post.roomCode}</Text>
 
                 <View style={styles.priceRow}>
                   <Text style={styles.priceValue}>{formatCurrency(room?.rentPrice ?? post.baseRentPrice)} VNĐ</Text>
@@ -293,7 +293,7 @@ export default function RoommateDetailScreen() {
                 </View>
                 <View style={styles.infoCell}>
                   <Text style={styles.infoLabel}>Vị trí</Text>
-                  <Text style={styles.infoValue}>{post.buildingName} - Tầng {post.floorNumber}</Text>
+                  <Text style={styles.infoValue}>Tầng {post.floorNumber} - {post.buildingName}</Text>
                 </View>
                 <View style={styles.infoCell}>
                   <Text style={styles.infoLabel}>Diện tích</Text>

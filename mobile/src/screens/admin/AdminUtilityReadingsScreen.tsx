@@ -147,6 +147,8 @@ export default function AdminUtilityReadingsScreen() {
           roomId: room.roomId,
           month: selectedMonth,
           year: selectedYear,
+          elecUsageDetailId: room.elecUsageDetailId,
+          waterUsageDetailId: room.waterUsageDetailId,
           newElecReading: elecValue,
           newWaterReading: waterValue,
         });

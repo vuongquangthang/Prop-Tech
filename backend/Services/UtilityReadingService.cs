@@ -28,8 +28,8 @@ public class UtilityReadingService : IUtilityReadingService
     /// </summary>
     public async Task<List<RoomUtilityReadingDto>> GetMonthReadingsAsync(short year, byte month, int ownerUserId)
     {
-        var periodStart = new DateTime(year, month, 1);
-        var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+        var periodStart = CreatePeriodStartUtc(year, month);
+        var periodEnd = CreatePeriodEndUtc(year, month);
 
         // Lấy phòng có hợp đồng giao với kỳ đang chọn
         var rooms = await _context.Rooms
@@ -57,28 +57,24 @@ public class UtilityReadingService : IUtilityReadingService
             var residentName = activeContract.ChiTietOs
                 .Where(ct => ct.FromDate <= periodEnd && (ct.ToDate == null || ct.ToDate >= periodStart))
                 .OrderBy(ct => ct.FromDate)
-                .Select(ct => ct.Resident.FullName)
+                .Select(ct => ct.Resident != null ? ct.Resident.FullName : null)
                 .FirstOrDefault();
 
             // Tìm usage detail cho điện có hiệu lực trong kỳ (ServiceId = 1)
-            var elecUsage = room.ChiTietSuDungDichVus
-                .Where(u => u.Service.IsActive
-                            && IsElectricityService(u.Service)
-                            && u.ApplyFrom <= periodEnd
-                            && (u.ApplyTo == null || u.ApplyTo >= periodStart))
-                .OrderByDescending(u => u.ApplyFrom)
-                .FirstOrDefault();
-            elecUsage ??= await EnsureUtilityUsageAsync(room, activeContract, periodStart, periodEnd, ownerUserId, IsElectricityService);
+            var elecUsage = await SelectElectricityUsageAsync(
+                room.ChiTietSuDungDichVus,
+                periodStart,
+                periodEnd,
+                month,
+                year);
 
             // Tìm usage detail cho nước có hiệu lực trong kỳ
-            var waterUsage = room.ChiTietSuDungDichVus
-                .Where(u => u.Service.IsActive
-                            && IsWaterService(u.Service)
-                            && u.ApplyFrom <= periodEnd
-                            && (u.ApplyTo == null || u.ApplyTo >= periodStart))
-                .OrderByDescending(u => u.ApplyFrom)
-                .FirstOrDefault();
-            waterUsage ??= await EnsureUtilityUsageAsync(room, activeContract, periodStart, periodEnd, ownerUserId, IsWaterService);
+            var waterUsage = await SelectWaterUsageAsync(
+                room.ChiTietSuDungDichVus,
+                periodStart,
+                periodEnd,
+                month,
+                year);
 
             // Lấy chỉ số cũ (tháng trước)
             decimal? oldElec = null;
@@ -188,10 +184,17 @@ public class UtilityReadingService : IUtilityReadingService
                 if (dto.NewElecReading.HasValue)
                 {
                     // Use the same logic as invoice calculation: get service active during the period
-                    var periodStart = new DateTime(dto.Year, dto.Month, 1);
-                    var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
-                    var elecUsage = room.ChiTietSuDungDichVus
-                        .Where(u => u.Service.IsActive
+                    var periodStart = CreatePeriodStartUtc(dto.Year, dto.Month);
+                    var periodEnd = CreatePeriodEndUtc(dto.Year, dto.Month);
+                    var elecUsage = SelectSubmittedUtilityUsage(
+                        room.ChiTietSuDungDichVus,
+                        dto.ElecUsageDetailId,
+                        periodStart,
+                        periodEnd,
+                        IsElectricityService)
+                        ?? room.ChiTietSuDungDichVus
+                        .Where(u => u.Service != null
+                                    && u.Service.IsActive
                                     && IsElectricityService(u.Service)
                                     && u.ApplyFrom <= periodEnd 
                                     && (u.ApplyTo == null || u.ApplyTo >= periodStart))
@@ -263,10 +266,17 @@ public class UtilityReadingService : IUtilityReadingService
                 if (dto.NewWaterReading.HasValue)
                 {
                     // Use the same logic as invoice calculation: get service active during the period
-                    var periodStart = new DateTime(dto.Year, dto.Month, 1);
-                    var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
-                    var waterUsage = room.ChiTietSuDungDichVus
-                        .Where(u => u.Service.IsActive
+                    var periodStart = CreatePeriodStartUtc(dto.Year, dto.Month);
+                    var periodEnd = CreatePeriodEndUtc(dto.Year, dto.Month);
+                    var waterUsage = SelectSubmittedUtilityUsage(
+                        room.ChiTietSuDungDichVus,
+                        dto.WaterUsageDetailId,
+                        periodStart,
+                        periodEnd,
+                        IsWaterService)
+                        ?? room.ChiTietSuDungDichVus
+                        .Where(u => u.Service != null
+                                    && u.Service.IsActive
                                     && IsWaterService(u.Service)
                                     && u.ApplyFrom <= periodEnd 
                                     && (u.ApplyTo == null || u.ApplyTo >= periodStart))
@@ -552,5 +562,101 @@ public class UtilityReadingService : IUtilityReadingService
         }
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static ChiTietSuDungDichVu? SelectSubmittedUtilityUsage(
+        IEnumerable<ChiTietSuDungDichVu> usages,
+        long? usageDetailId,
+        DateTime periodStart,
+        DateTime periodEnd,
+        Func<Service?, bool> serviceMatcher)
+    {
+        if (!usageDetailId.HasValue)
+        {
+            return null;
+        }
+
+        return usages.FirstOrDefault(u => u.Id == usageDetailId.Value
+            && u.Service != null
+            && u.Service.IsActive
+            && serviceMatcher(u.Service)
+            && u.ApplyFrom <= periodEnd
+            && (u.ApplyTo == null || u.ApplyTo >= periodStart));
+    }
+
+    private async Task<ChiTietSuDungDichVu?> SelectElectricityUsageAsync(
+        IEnumerable<ChiTietSuDungDichVu> usages,
+        DateTime periodStart,
+        DateTime periodEnd,
+        byte month,
+        short year)
+    {
+        var candidates = usages
+            .Where(u => u.Service != null
+                && u.Service.IsActive
+                && IsElectricityService(u.Service)
+                && u.ApplyFrom <= periodEnd
+                && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+            .OrderByDescending(u => u.ApplyFrom)
+            .ThenByDescending(u => u.Id)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var candidateIds = candidates.Select(u => u.Id).ToList();
+        var recordedUsageIds = await _context.ChiSoDiens
+            .Where(reading => candidateIds.Contains(reading.ServiceUsageDetailId)
+                && reading.Month == month
+                && reading.Year == year)
+            .Select(reading => reading.ServiceUsageDetailId)
+            .ToListAsync();
+
+        return candidates.FirstOrDefault(usage => recordedUsageIds.Contains(usage.Id))
+            ?? candidates.First();
+    }
+
+    private async Task<ChiTietSuDungDichVu?> SelectWaterUsageAsync(
+        IEnumerable<ChiTietSuDungDichVu> usages,
+        DateTime periodStart,
+        DateTime periodEnd,
+        byte month,
+        short year)
+    {
+        var candidates = usages
+            .Where(u => u.Service != null
+                && u.Service.IsActive
+                && IsWaterService(u.Service)
+                && u.ApplyFrom <= periodEnd
+                && (u.ApplyTo == null || u.ApplyTo >= periodStart))
+            .OrderByDescending(u => u.ApplyFrom)
+            .ThenByDescending(u => u.Id)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var candidateIds = candidates.Select(u => u.Id).ToList();
+        var recordedUsageIds = await _context.ChiSoNuocs
+            .Where(reading => candidateIds.Contains(reading.ServiceUsageDetailId)
+                && reading.Month == month
+                && reading.Year == year)
+            .Select(reading => reading.ServiceUsageDetailId)
+            .ToListAsync();
+
+        return candidates.FirstOrDefault(usage => recordedUsageIds.Contains(usage.Id))
+            ?? candidates.First();
+    }
+
+    private static DateTime CreatePeriodStartUtc(short year, byte month)
+    {
+        return DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
+    }
+
+    private static DateTime CreatePeriodEndUtc(short year, byte month)
+    {
+        return CreatePeriodStartUtc(year, month).AddMonths(1).AddTicks(-1);
     }
 }

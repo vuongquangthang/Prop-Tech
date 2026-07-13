@@ -752,7 +752,7 @@ export function BuildingSidebar({
                 <p className="text-sm text-gray-500">
                   {detailTarget.type === 'building'
                     ? detailTarget.building.buildingName
-                    : `${detailTarget.building.buildingName} - Tầng ${detailTarget.floor.floorNumber}`}
+                    : `Tầng ${detailTarget.floor.floorNumber} - ${detailTarget.building.buildingName}`}
                 </p>
               </div>
               <button

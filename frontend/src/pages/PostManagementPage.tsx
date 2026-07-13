@@ -107,10 +107,14 @@ export function PostManagementPage() {
   const sorted = useMemo(() => [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [posts]);
 
   const getPostLocationAddress = (post: any) => {
-    const roomCode = post?.roomCode || '—';
     const buildingName = post?.buildingName || '—';
+    const floorNumber = post?.floorNumber ?? post?.floor;
     const address = post?.address;
-    return address ? `${roomCode} - ${buildingName} - ${address}` : `${roomCode} - ${buildingName}`;
+    return [
+      floorNumber ? `Tầng ${floorNumber}` : '',
+      buildingName,
+      address || '',
+    ].filter(Boolean).join(' • ');
   };
 
   useEffect(() => {

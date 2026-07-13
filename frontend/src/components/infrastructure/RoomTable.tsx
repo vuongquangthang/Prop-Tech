@@ -418,7 +418,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     asset => appliesToBuilding(asset, selectedEditBuildingId),
   );
   const addLocationLabel = selectedAddFloor
-    ? `${selectedAddFloor.buildingName ? selectedAddFloor.buildingName : 'Tòa'} - Tầng ${selectedAddFloor.floorNumber}`
+    ? `Tầng ${selectedAddFloor.floorNumber} - ${selectedAddFloor.buildingName ? selectedAddFloor.buildingName : 'Tòa'}`
     : 'Chưa chọn tầng';
 
   const getFloorBuildingAddress = (floorId: number) => {
@@ -1331,7 +1331,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                     const floor = floors.find(item => item.id === detailRoom.floorId);
                     const buildingName = detailRoom.buildingName || floor?.buildingName || 'Chưa xác định tòa';
                     const floorNumber = detailRoom.floorNumber ?? floor?.floorNumber;
-                    return `${buildingName}${floorNumber ? ` • Tầng ${floorNumber}` : ''}`;
+                    return [floorNumber ? `Tầng ${floorNumber}` : '', buildingName].filter(Boolean).join(' • ');
                   })()}
                 </p>
               </div>
@@ -1346,8 +1346,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                 const buildingName = detailRoom.buildingName || floor?.buildingName || 'Chưa xác định tòa';
                 const floorNumber = detailRoom.floorNumber ?? floor?.floorNumber;
                 const locationParts = [
-                  buildingName,
                   floorNumber ? `Tầng ${floorNumber}` : '',
+                  buildingName,
                   detailRoom.address || detailRoom.buildingAddress || '',
                 ].filter(Boolean);
                 const isApartment = detailRoom.type === 'apartment';
@@ -1530,7 +1530,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
             <div className="p-6 space-y-6">
               <div className="bg-blue-50 border border-blue-300 rounded p-4">
                 <p className="text-sm text-blue-800">
-                  <strong>Vị trí:</strong> {floors.find(f => f.id === selectedRoom.floorId)?.buildingName ? `${floors.find(f => f.id === selectedRoom.floorId)?.buildingName} - ` : ''}Tầng {floors.find(f => f.id === selectedRoom.floorId)?.floorNumber ?? selectedRoom.floorId}
+                  <strong>Vị trí:</strong> Tầng {floors.find(f => f.id === selectedRoom.floorId)?.floorNumber ?? selectedRoom.floorId}{floors.find(f => f.id === selectedRoom.floorId)?.buildingName ? ` • ${floors.find(f => f.id === selectedRoom.floorId)?.buildingName}` : ''}
                 </p>
                 {selectedRoom.buildingAddress && (
                   <p className="mt-1 text-sm text-blue-800">
