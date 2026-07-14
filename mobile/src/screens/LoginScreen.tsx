@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
+import { secureStorage } from '../utils/secureStorage';
+import { useEffect } from 'react';
 
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/AuthStack';
@@ -22,12 +24,40 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 };
 
+const REMEMBER_LOGIN_KEY = 'remember_login';
+const REMEMBERED_PHONE_KEY = 'remembered_phone';
+
 export default function LoginScreen({ navigation }: Props) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const { login, isLoading, error, clearError } = useAuthStore();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRememberedLogin = async () => {
+      const [remembered, savedPhone] = await Promise.all([
+        secureStorage.getItemAsync(REMEMBER_LOGIN_KEY),
+        secureStorage.getItemAsync(REMEMBERED_PHONE_KEY),
+      ]);
+
+      if (!isMounted) return;
+
+      const shouldRemember = remembered === 'true';
+      setRememberMe(shouldRemember);
+      if (shouldRemember && savedPhone) {
+        setPhoneNumber(savedPhone);
+      }
+    };
+
+    void loadRememberedLogin();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (!phoneNumber.trim()) {
@@ -41,6 +71,13 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       clearError();
       await login(phoneNumber.trim(), password);
+      if (rememberMe) {
+        await secureStorage.setItemAsync(REMEMBER_LOGIN_KEY, 'true');
+        await secureStorage.setItemAsync(REMEMBERED_PHONE_KEY, phoneNumber.trim());
+      } else {
+        await secureStorage.deleteItemAsync(REMEMBER_LOGIN_KEY);
+        await secureStorage.deleteItemAsync(REMEMBERED_PHONE_KEY);
+      }
       // Navigation will be handled by RootNavigator based on user.mustChangePassword
     } catch (err: any) {
       const isNetworkError = !err.response;
