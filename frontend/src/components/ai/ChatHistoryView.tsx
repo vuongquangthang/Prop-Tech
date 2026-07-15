@@ -1,7 +1,7 @@
 import { ThumbsUp, ThumbsDown, MessageSquare, Plus, X, Check } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { chatService, ChatMessage, UnansweredChatItem } from '../../services/feature.service';
-import { PageHeader } from '../ui/product-system';
+import { PageHeader, SegmentedTabs, StatusBadge, EmptyState } from '../ui/product-system';
 
 interface ChatSession {
   id: string;
@@ -207,177 +207,207 @@ export function ChatHistoryView() {
   const sessionMessages = selectedSession?.messages || [];
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="space-y-4">
       <PageHeader
         eyebrow="Trợ lý ảo AI"
         title="Lịch sử hội thoại"
         description="Rà soát hội thoại AI, các câu chưa đủ dữ liệu và bổ sung nhanh vào kho tri thức."
       />
 
-      <div className="flex min-h-0 flex-1">
-      {/* Chat List - Left Panel */}
-      <div className="w-96 bg-white border-r-2 border-gray-300 flex flex-col">
-        <div className="border-b border-gray-300 p-4">
-          <h3 className="text-base text-gray-800 mb-3">Danh sách hội thoại</h3>
-          
-          {/* Filter Buttons */}
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setFilter('all')}
-              className={`flex-1 px-3 py-2 text-xs rounded border ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Tất cả ({chatSessions.length})
-            </button>
-            <button 
-              onClick={() => setFilter('satisfied')}
-              className={`flex-1 px-3 py-2 text-xs rounded border ${filter === 'satisfied' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Hài lòng ({chatSessions.filter(s => s.satisfied).length})
-            </button>
-            <button 
-              onClick={() => setFilter('unsatisfied')}
-              className={`flex-1 px-3 py-2 text-xs rounded border ${filter === 'unsatisfied' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Không hài lòng ({chatSessions.filter(s => !s.satisfied).length})
-            </button>
+      {/* Vùng 2 cột: chiều cao cố định theo màn hình, mỗi cột cuộn độc lập.
+          Dùng inline style cho layout/màu vì Tailwind của dự án được build tĩnh
+          (không hỗ trợ arbitrary values / min-h-0 / grid-cols-[..]). */}
+      <div
+        className="product-card overflow-hidden"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '360px 1fr',
+          height: 'calc(100dvh - var(--admin-topbar-height) - 210px)',
+          minHeight: '460px',
+        }}
+      >
+        {/* Chat List - Left Panel */}
+        <div
+          className="flex flex-col"
+          style={{ minHeight: 0, borderRight: '1px solid var(--border)', background: 'var(--card)' }}
+        >
+          <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h3 className="text-sm mb-3" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Danh sách hội thoại</h3>
+            <SegmentedTabs
+              activeKey={filter}
+              onChange={(key) => setFilter(key as 'all' | 'satisfied' | 'unsatisfied')}
+              items={[
+                { key: 'all', label: 'Tất cả', count: chatSessions.length },
+                { key: 'satisfied', label: 'Hài lòng', count: chatSessions.filter(s => s.satisfied).length },
+                { key: 'unsatisfied', label: 'Chưa ổn', count: chatSessions.filter(s => !s.satisfied).length },
+              ]}
+            />
+          </div>
+
+          {/* Session List — cuộn độc lập */}
+          <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+            {filteredSessions.length > 0 ? (
+              filteredSessions.map((session) => {
+                const isActive = selectedChat === session.id;
+                return (
+                  <button
+                    type="button"
+                    key={session.id}
+                    onClick={() => setSelectedChat(session.id)}
+                    className="relative w-full text-left p-4"
+                    style={{
+                      paddingLeft: 28,
+                      borderBottom: '1px solid var(--border)',
+                      background: isActive ? 'var(--primary-soft)' : 'transparent',
+                      transition: 'background 0.15s ease',
+                    }}
+                  >
+                    <span
+                      className="absolute"
+                      style={{ left: 0, top: 0, bottom: 0, width: 4, background: isActive ? 'var(--primary)' : 'transparent' }}
+                    />
+                    <div className="flex items-start justify-between mb-2 gap-2">
+                      <div className="flex-1" style={{ minWidth: 0 }}>
+                        <p className="text-sm truncate" style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{session.resident}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{session.phone}</p>
+                      </div>
+                      {session.satisfied ? (
+                        <ThumbsUp size={16} style={{ flexShrink: 0, color: 'var(--success)' }} />
+                      ) : (
+                        <ThumbsDown size={16} style={{ flexShrink: 0, color: 'var(--error)' }} />
+                      )}
+                    </div>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>{session.time}</p>
+                    {session.unresolvedCount > 0 && (
+                      <div className="mb-1">
+                        <StatusBadge tone="danger">Cần bổ sung {session.unresolvedCount} câu</StatusBadge>
+                      </div>
+                    )}
+                    <p className="text-xs truncate italic" style={{ color: 'var(--text-secondary)' }}>"{session.lastMessage}"</p>
+                  </button>
+                );
+              })
+            ) : (
+              <EmptyState
+                icon={<MessageSquare size={44} />}
+                title={chatSessions.length === 0 ? 'Chưa có lịch sử hội thoại' : 'Không có hội thoại phù hợp'}
+                description="Các cuộc hội thoại với chatbot AI sẽ được hiển thị ở đây."
+              />
+            )}
           </div>
         </div>
-        
-        {/* Session List */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredSessions.length > 0 ? (
-            filteredSessions.map((session) => (
-              <div 
-                key={session.id}
-                onClick={() => setSelectedChat(session.id)}
-                className={`relative p-4 pl-8 border-b border-gray-200 cursor-pointer hover:bg-gray-50 ${selectedChat === session.id ? 'bg-blue-50' : ''}`}
+
+        {/* Chat Content - Right Panel */}
+        <div className="flex flex-col" style={{ minHeight: 0, background: 'var(--surface-subtle)' }}>
+          {selectedChat ? (
+            <>
+              {/* Chat Header — cố định */}
+              <div
+                className="px-6 py-4 flex items-center justify-between gap-3"
+                style={{ flexShrink: 0, background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
               >
-                {/* left accent bar (absolute so it won't shift layout) */}
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${selectedChat === session.id ? 'bg-blue-500' : 'bg-transparent'}`} />
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{session.resident}</p>
-                    <p className="text-xs text-gray-600">{session.phone}</p>
-                  </div>
-                  {session.satisfied ? (
-                    <ThumbsUp size={16} className="text-green-600" />
-                  ) : (
-                    <ThumbsDown size={16} className="text-red-600" />
-                  )}
+                <div style={{ minWidth: 0 }}>
+                  <p className="text-sm truncate" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedSession?.resident}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{selectedSession?.time}</p>
                 </div>
-                <p className="text-xs text-gray-500 mb-1">{session.time}</p>
-                {session.unresolvedCount > 0 && (
-                  <p className="text-xs text-red-700 mb-1">Cần bổ sung {session.unresolvedCount} câu tri thức</p>
-                )}
-                <p className="text-xs text-gray-700 truncate italic">"{session.lastMessage}"</p>
+                <button
+                  onClick={() => {
+                    if (selectedUnansweredList.length > 0) {
+                      setSelectedUnanswered(selectedUnansweredList[0]);
+                    }
+                  }}
+                  disabled={selectedUnansweredList.length === 0}
+                  className="px-3 py-2 text-xs rounded flex items-center gap-2"
+                  style={{
+                    flexShrink: 0,
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                    opacity: selectedUnansweredList.length === 0 ? 0.4 : 1,
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>Thêm vào KB ({selectedUnansweredList.length})</span>
+                </button>
               </div>
-            ))
+
+              {/* Chat Messages — cuộn độc lập */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ minHeight: 0 }}>
+                {sessionMessages.map((message, index) => (
+                  <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-md ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
+                      {message.sender === 'ai' && (
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
+                            style={{ background: 'var(--primary)', fontSize: 10, fontWeight: 600 }}
+                          >AI</div>
+                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Trả lời bởi AI</span>
+                        </div>
+                      )}
+                      <div
+                        className="px-4 py-3 rounded-lg"
+                        style={
+                          message.sender === 'user'
+                            ? { background: 'var(--primary)', color: '#fff' }
+                            : { background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
+                        }
+                      >
+                        <p className="text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.text}</p>
+                        {message.sender === 'ai' && message.isKnowledgeGap && (
+                          <p className="text-xs mt-2" style={{ color: 'var(--error)' }}>AI chưa đủ dữ liệu cho câu này</p>
+                        )}
+                      </div>
+                      <p className="text-xs mt-1 px-1" style={{ color: 'var(--text-secondary)' }}>{message.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {selectedUnansweredList.length > 0 && (
+                <div className="px-6 pb-4" style={{ flexShrink: 0 }}>
+                  <div
+                    className="rounded-lg p-3 space-y-2 overflow-y-auto"
+                    style={{ background: 'var(--error-soft)', border: '1px solid var(--error)', maxHeight: 176 }}
+                  >
+                    <p className="text-sm" style={{ fontWeight: 600, color: 'var(--error-foreground)' }}>Các câu cần bổ sung tri thức</p>
+                    {selectedUnansweredList.map((item) => (
+                      <div key={item.assistantMessageId} className="rounded p-3" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                        <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>{item.question}</p>
+                        <button
+                          onClick={() => setSelectedUnanswered(item)}
+                          className="px-3 py-1.5 text-xs rounded text-white"
+                          style={{ background: 'var(--error)' }}
+                        >
+                          Trả lời và thêm vào KB
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Satisfaction Footer — cố định */}
+              <div className="px-6 py-3" style={{ flexShrink: 0, background: 'var(--card)', borderTop: '1px solid var(--border)' }}>
+                {selectedSession?.satisfied ? (
+                  <div className="flex items-center space-x-2" style={{ color: 'var(--success-foreground)' }}>
+                    <ThumbsUp size={16} />
+                    <span className="text-sm">Cư dân hài lòng với câu trả lời</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2" style={{ color: 'var(--error-foreground)' }}>
+                    <ThumbsDown size={16} />
+                    <span className="text-sm">Cư dân không hài lòng - Cần bổ sung tri thức</span>
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
-            <div className="flex flex-col items-center justify-center p-8 space-y-3">
-              <MessageSquare size={48} className="text-gray-300" />
-              <p className="text-sm text-gray-500 text-center">
-                {chatSessions.length === 0 
-                  ? 'Chưa có lịch sử hội thoại nào' 
-                  : 'Không tìm thấy hội thoại phù hợp với bộ lọc'}
-              </p>
-              <p className="text-xs text-gray-400 text-center">
-                Các cuộc hội thoại với chatbot AI sẽ được hiển thị ở đây
-              </p>
+            <div className="flex-1 flex items-center justify-center p-8">
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Chọn một cuộc hội thoại để xem chi tiết</p>
             </div>
           )}
         </div>
-      </div>
-      
-      {/* Chat Content - Right Panel */}
-      <div className="flex-1 flex flex-col bg-gray-50">
-        {selectedChat ? (
-          <>
-            {/* Chat Header */}
-            <div className="bg-white border-b border-gray-300 px-6 py-4 flex items-center justify-between">
-              <div>
-                <p className="text-base text-gray-900">
-                  {selectedSession?.resident}
-                </p>
-                <p className="text-xs text-gray-600">
-                  {selectedSession?.time}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  if (selectedUnansweredList.length > 0) {
-                    setSelectedUnanswered(selectedUnansweredList[0]);
-                  }
-                }}
-                disabled={selectedUnansweredList.length === 0}
-                className="px-3 py-2 bg-white border border-gray-800 text-gray-800 text-xs rounded hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-40"
-              >
-                <Plus size={14} />
-                <span>Thêm vào KB ({selectedUnansweredList.length})</span>
-              </button>
-            </div>
-            
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {sessionMessages.map((message, index) => (
-                <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-md ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
-                    {message.sender === 'ai' && (
-                      <div className="flex items-center space-x-2 mb-1">
-                        <div className="w-6 h-6 bg-gray-800 rounded-full flex items-center justify-center text-white text-xs">AI</div>
-                        <span className="text-xs text-gray-500">Trả lời bởi AI</span>
-                      </div>
-                    )}
-                    <div className={`px-4 py-3 rounded-lg ${message.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-300 text-gray-800'}`}>
-                      <p className="text-sm">{message.text}</p>
-                      {message.sender === 'ai' && message.isKnowledgeGap && (
-                        <p className="text-xs text-red-700 mt-2">AI chưa đủ dữ liệu cho câu này</p>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1 px-1">{message.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {selectedUnansweredList.length > 0 && (
-              <div className="px-6 pb-4">
-                <div className="bg-red-50 border border-red-300 rounded p-3 space-y-2">
-                  <p className="text-sm text-red-800 font-bold">Các câu cần bổ sung tri thức</p>
-                  {selectedUnansweredList.map((item) => (
-                    <div key={item.assistantMessageId} className="bg-white border border-red-200 rounded p-3">
-                      <p className="text-sm text-gray-900 mb-2">{item.question}</p>
-                      <button
-                        onClick={() => setSelectedUnanswered(item)}
-                        className="px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                      >
-                        Trả lời và thêm vào KB
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Satisfaction Footer */}
-            <div className="bg-white border-t border-gray-300 px-6 py-4">
-              {selectedSession?.satisfied ? (
-                <div className="flex items-center space-x-2 text-green-700">
-                  <ThumbsUp size={16} />
-                  <span className="text-sm">Cư dân hài lòng với câu trả lời</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2 text-red-700">
-                  <ThumbsDown size={16} />
-                  <span className="text-sm">Cư dân không hài lòng - Cần bổ sung tri thức</span>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-gray-500">Chọn một cuộc hội thoại để xem chi tiết</p>
-          </div>
-        )}
       </div>
 
       {selectedUnanswered && (
@@ -387,7 +417,6 @@ export function ChatHistoryView() {
           onSaved={loadData}
         />
       )}
-      </div>
     </div>
   );
 }
