@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { LoginResponse, RefreshTokenRequest } from '../types/dto';
 import { secureStorage } from '../utils/secureStorage';
 
@@ -12,15 +13,54 @@ const envBaseUrl =
   typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
 const defaultApiBaseUrl = Platform.OS === 'web'
   ? 'http://localhost:5052'
-  : 'http://192.168.100.152:5052';
-export const API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl : defaultApiBaseUrl;
-const BASE_URL = API_BASE_URL;
+  : 'http://192.168.2.11:5052';
+
+const extractHost = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
+  }
+
+  const withoutProtocol = value.replace(/^[a-z]+:\/\//i, '');
+  const host = withoutProtocol.split('/')[0]?.split(':')[0];
+  return host && host !== 'localhost' && host !== '127.0.0.1' ? host : undefined;
+};
+
+const getExpoHostApiBaseUrl = () => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoClient?.hostUri ||
+    (Constants.manifest as any)?.debuggerHost ||
+    (Constants as any).expoGoConfig?.debuggerHost ||
+    NativeModules.SourceCode?.scriptURL;
+  const host = extractHost(hostUri);
+
+  return host ? `http://${host}:5052` : undefined;
+};
+
+export let API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl.trim() : defaultApiBaseUrl;
+
+export const getApiBaseUrl = () => API_BASE_URL;
+
+const uniqueUrls = (urls: Array<string | undefined>) =>
+  urls
+    .map((url) => url?.trim())
+    .filter((url): url is string => Boolean(url))
+    .filter((url, index, arr) => arr.indexOf(url) === index);
+
+const API_BASE_URL_FALLBACKS = uniqueUrls([
+  API_BASE_URL,
+  getExpoHostApiBaseUrl(),
+  defaultApiBaseUrl,
+  Platform.OS === 'android' ? 'http://10.0.2.2:5052' : undefined,
+  'http://localhost:5052',
+]);
 
 // Storage keys
 const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   USER: 'user',
+  API_BASE_URL: 'api_base_url',
 };
 
 class ApiService {
@@ -33,7 +73,7 @@ class ApiService {
 
   constructor() {
     this.api = axios.create({
-      baseURL: BASE_URL,
+      baseURL: API_BASE_URL,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -86,7 +126,7 @@ class ApiService {
 
             // Call refresh token endpoint
             const response = await axios.post<LoginResponse>(
-              `${BASE_URL}/api/auth/refresh-token`,
+              `${getApiBaseUrl()}/api/auth/refresh-token`,
               { refreshToken } as RefreshTokenRequest,
               {
                 headers: { 'Content-Type': 'application/json' },
@@ -168,6 +208,12 @@ class ApiService {
     await secureStorage.deleteItemAsync(STORAGE_KEYS.USER);
   }
 
+  async saveApiBaseUrl(baseUrl: string): Promise<void> {
+    const normalized = this.normalizeBaseUrl(baseUrl);
+    this.setApiBaseUrl(normalized);
+    await secureStorage.setItemAsync(STORAGE_KEYS.API_BASE_URL, normalized);
+  }
+
   // ==================== API METHODS ====================
 
   getAxiosInstance(): AxiosInstance {
@@ -180,6 +226,10 @@ class ApiService {
   }
 
   async post<T>(url: string, data?: any, config?: any): Promise<T> {
+    if (url.toLowerCase() === '/api/auth/login') {
+      return this.postLoginWithFallback<T>(url, data, config);
+    }
+
     const response = await this.api.post<T>(url, data, config);
     return response.data;
   }
@@ -197,6 +247,60 @@ class ApiService {
   async patch<T>(url: string, data?: any, config?: any): Promise<T> {
     const response = await this.api.patch<T>(url, data, config);
     return response.data;
+  }
+
+  private async postLoginWithFallback<T>(url: string, data?: any, config?: any): Promise<T> {
+    let lastNetworkError: any = null;
+    const savedBaseUrl = await secureStorage.getItemAsync(STORAGE_KEYS.API_BASE_URL);
+    const fallbackUrls = uniqueUrls([
+      savedBaseUrl || undefined,
+      API_BASE_URL,
+      getExpoHostApiBaseUrl(),
+      ...API_BASE_URL_FALLBACKS,
+    ]);
+    const attemptedUrls: string[] = [];
+
+    for (const baseUrl of fallbackUrls) {
+      attemptedUrls.push(baseUrl);
+      try {
+        const response = await axios.post<T>(`${baseUrl}${url}`, data, {
+          ...config,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(config?.headers || {}),
+          },
+          timeout: config?.timeout ?? 10000,
+        });
+
+        this.setApiBaseUrl(baseUrl);
+        return response.data;
+      } catch (error: any) {
+        if (error.response) {
+          throw error;
+        }
+
+        lastNetworkError = error;
+        console.warn(`Không kết nối được API: ${baseUrl}`, error?.message);
+      }
+    }
+
+    const error = lastNetworkError || new Error('Không kết nối được đến máy chủ');
+    (error as any).attemptedUrls = attemptedUrls;
+    throw error;
+  }
+
+  private normalizeBaseUrl(baseUrl: string) {
+    return baseUrl.trim().replace(/\/+$/, '');
+  }
+
+  private setApiBaseUrl(baseUrl: string) {
+    baseUrl = this.normalizeBaseUrl(baseUrl);
+    if (API_BASE_URL === baseUrl) {
+      return;
+    }
+
+    API_BASE_URL = baseUrl;
+    this.api.defaults.baseURL = baseUrl;
   }
 }
 

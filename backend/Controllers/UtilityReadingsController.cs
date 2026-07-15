@@ -11,10 +11,12 @@ namespace backend.Controllers;
 public class UtilityReadingsController : ControllerBase
 {
     private readonly IUtilityReadingService _service;
+    private readonly ILogger<UtilityReadingsController> _logger;
 
-    public UtilityReadingsController(IUtilityReadingService service)
+    public UtilityReadingsController(IUtilityReadingService service, ILogger<UtilityReadingsController> logger)
     {
         _service = service;
+        _logger = logger;
     }
 
     /// <summary>
@@ -31,6 +33,7 @@ public class UtilityReadingsController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to get utility readings for {Month}/{Year}", month, year);
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }
@@ -52,6 +55,7 @@ public class UtilityReadingsController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to record utility readings batch");
             return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
         }
     }

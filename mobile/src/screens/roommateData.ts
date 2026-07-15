@@ -80,7 +80,7 @@ export const roomInfo: RoomInfo = {
     'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop',
   ],
   roomCode: 'B-105',
-  location: 'Tòa B - Tầng 1',
+  location: 'Tầng 1 - Tòa B',
   area: '42 m²',
   maxOccupants: 3,
   rentPrice: 7800000,

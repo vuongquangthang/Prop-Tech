@@ -233,7 +233,7 @@ export default function AdminPostsScreen() {
         <View style={styles.cardTitleWrap}>
           <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
           <Text style={styles.cardMeta}>
-            {item.roomCode} · {item.buildingName} · Tầng {item.floorNumber}
+            {item.roomCode} · Tầng {item.floorNumber} · {item.buildingName}
           </Text>
         </View>
         <TouchableOpacity
@@ -342,7 +342,7 @@ export default function AdminPostsScreen() {
               </ScrollView>
               {selectedRoom && (
                 <Text style={styles.roomHint}>
-                  {selectedRoom.buildingName || 'Tòa nhà'} · Tầng {selectedRoom.floorNumber || '—'} · {selectedRoom.status || 'Chưa rõ trạng thái'}
+                  Tầng {selectedRoom.floorNumber || '—'} · {selectedRoom.buildingName || 'Tòa nhà'} · {selectedRoom.status || 'Chưa rõ trạng thái'}
                 </Text>
               )}
 
@@ -440,7 +440,7 @@ export default function AdminPostsScreen() {
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>{selectedPost?.roomCode}</Text>
-                <Text style={styles.modalMeta}>{selectedPost?.buildingName} · Tầng {selectedPost?.floorNumber}</Text>
+                <Text style={styles.modalMeta}>Tầng {selectedPost?.floorNumber} · {selectedPost?.buildingName}</Text>
               </View>
               <TouchableOpacity onPress={() => setSelectedPost(null)}>
                 <Ionicons name="close" size={22} color="#334155" />

@@ -24,6 +24,8 @@ export interface RecordUtilityReading {
   roomId: number;
   month: number;
   year: number;
+  elecUsageDetailId?: number | null;
+  waterUsageDetailId?: number | null;
   newElecReading?: number;
   newWaterReading?: number;
 }

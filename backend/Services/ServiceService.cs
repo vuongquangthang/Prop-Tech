@@ -696,10 +696,12 @@ public class ServiceService : IServiceService
         var currentHistory = histories
             .Where(history => GetVietnamDate(history.EffectiveDate) <= vietnamToday)
             .OrderByDescending(history => history.EffectiveDate)
+            .ThenByDescending(history => history.ChangedAt)
             .FirstOrDefault();
         var scheduledHistory = histories
             .Where(history => GetVietnamDate(history.EffectiveDate) > vietnamToday)
             .OrderBy(history => history.EffectiveDate)
+            .ThenByDescending(history => history.ChangedAt)
             .FirstOrDefault();
 
         var currentPrice = currentHistory?.NewPrice
