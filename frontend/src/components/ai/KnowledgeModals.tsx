@@ -377,6 +377,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [uploadResult, setUploadResult] = useState<Awaited<ReturnType<typeof knowledgeService.uploadDocument>> | null>(null);
   const fileInputRef = { current: null as HTMLInputElement | null };
 
   const handleFileSelect = (file: File) => {
@@ -393,6 +394,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
       return;
     }
     setSelectedFile(file);
+    setUploadResult(null);
     setErrorMsg('');
   };
 
@@ -407,7 +409,8 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
     if (!selectedFile) return;
     setUploadStep('processing');
     try {
-      await knowledgeService.uploadDocument(selectedFile, 'Khác', true);
+      const result = await knowledgeService.uploadDocument(selectedFile, 'Khác', true);
+      setUploadResult(result);
       setUploadStep('result');
     } catch (err: any) {
       setErrorMsg(err?.message || 'Đã xảy ra lỗi khi xử lý file');
@@ -437,7 +440,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 space-y-4">
           <div className="bg-blue-50 border border-blue-300 rounded p-4">
             <p className="text-sm text-blue-800">
-              📄 <strong>Hỗ trợ:</strong> PDF, DOCX, DOC, TXT • <strong>Tối đa:</strong> 10MB • Tài liệu sẽ được đồng bộ với hệ thống RAG AI.
+              📄 <strong>Hỗ trợ:</strong> PDF, DOCX, DOC, TXT • <strong>Tối đa:</strong> 10MB • Tài liệu sẽ được trích xuất, lưu vào kho tri thức và tự đồng bộ ChromaDB cho AI.
             </p>
           </div>
 
@@ -476,7 +479,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {/* Processing step - syncing with AI */}
+          {/* Processing step - extracting and saving knowledge */}
           {uploadStep === 'processing' && (
             <div className="py-8 text-center space-y-4">
               <div className="flex justify-center">
@@ -486,10 +489,10 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
               <div>
-                <p className="text-lg text-gray-800 font-bold">Đang đồng bộ dữ liệu với AI...</p>
+                <p className="text-lg text-gray-800 font-bold">Đang trích xuất, lưu và đồng bộ tri thức...</p>
                 <p className="text-sm text-gray-600 mt-2">"{selectedFile?.name}"</p>
                 <p className="text-xs text-gray-500 mt-2 px-4">
-                  Hệ thống RAG đang xử lý tài liệu của bạn. Đây là quá trình tự động, không cần trích xuất thủ công.
+                  Hệ thống đang lưu dữ liệu vào Prop-Tech và cập nhật ChromaDB cho Chatbot RAG.
                 </p>
               </div>
             </div>
@@ -515,14 +518,20 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                     <Check size={32} className="text-white" />
                   </div>
                 </div>
-                <p className="text-lg text-green-800 font-bold mb-2">Đồng bộ thành công!</p>
+                <p className="text-lg text-green-800 font-bold mb-2">
+                  {uploadResult?.ingestSucceeded ? 'Đã lưu và đồng bộ AI!' : 'Đã lưu vào kho tri thức!'}
+                </p>
                 <p className="text-sm text-green-700">
-                  Tài liệu <strong>"{selectedFile?.name}"</strong> đã được gửi tới hệ thống RAG AI. 
-                  Hệ thống sẽ xử lý và cập nhật database tri thức trong vài giây.
+                  Tài liệu <strong>"{selectedFile?.name}"</strong> đã được lưu vào database tri thức.
+                  {uploadResult?.ingestSucceeded
+                    ? ` ChromaDB đã được cập nhật${uploadResult.ingestDocuments ? ` với ${uploadResult.ingestDocuments} đoạn dữ liệu` : ''}.`
+                    : ' ChromaDB chưa cập nhật, vui lòng kiểm tra service Chatbot hoặc chạy ingest lại.'}
                 </p>
-                <p className="text-xs text-green-600 mt-3 px-4 py-2 bg-green-100 rounded">
-                  💡 Bạn có thể đóng cửa sổ này. Tài liệu sẽ được hệ thống xử lý ở phía sau.
-                </p>
+                {!uploadResult?.ingestSucceeded && (
+                  <p className="text-xs text-amber-700 mt-3 px-4 py-2 bg-amber-100 rounded">
+                    Trạng thái ingest: {uploadResult?.ingestMessage || 'Chưa nhận được xác nhận từ Chatbot service.'}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -535,7 +544,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 Hủy
               </button>
               <button
-                onClick={() => { if (uploadStep === 'error') { setUploadStep('upload'); setSelectedFile(null); } }}
+                onClick={() => { if (uploadStep === 'error') { setUploadStep('upload'); setSelectedFile(null); setUploadResult(null); } }}
                 style={{ display: uploadStep === 'error' ? undefined : 'none' }}
                 className="px-4 py-2 bg-white border border-gray-800 text-gray-800 text-sm rounded hover:bg-gray-50"
               >
@@ -547,13 +556,13 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2 disabled:opacity-40"
               >
                 <Upload size={16} />
-                <span>Bắt đầu đồng bộ</span>
+                <span>Bắt đầu xử lý</span>
               </button>
             </>
           )}
           {uploadStep === 'processing' && (
             <button disabled className="px-4 py-2 bg-gray-400 text-white text-sm rounded cursor-not-allowed">
-              Đang đồng bộ...
+              Đang xử lý...
             </button>
           )}
           {uploadStep === 'result' && (

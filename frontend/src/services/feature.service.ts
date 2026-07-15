@@ -431,6 +431,10 @@ export const knowledgeService = {
         fileName: string;
         totalExtracted: number;
         activated: number;
+        ingestTriggered: boolean;
+        ingestSucceeded: boolean;
+        ingestMessage?: string;
+        ingestDocuments?: number;
         entries: KnowledgeBase[];
       }>(API_ENDPOINTS.KNOWLEDGE.UPLOAD_DOCUMENT, formData, {
       });

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Globalization;
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
@@ -201,7 +202,7 @@ public class ChatService : IChatService
     {
         if (string.IsNullOrWhiteSpace(buildingCode))
         {
-            return KnowledgeGapResponse("Toi chua xac dinh duoc toa nha cua tai khoan nay. Vui long lien he ban quan ly de cap nhat phong/hop dong truoc khi dung chatbot.");
+            return KnowledgeGapResponse("Tôi chưa xác định được tòa nhà của tài khoản này. Vui lòng liên hệ ban quản lý để cập nhật phòng hoặc hợp đồng trước khi dùng chatbot.");
         }
 
         try
@@ -245,7 +246,7 @@ public class ChatService : IChatService
             _logger.LogWarning(ex, "Chatbot call failed. url={Url}", _chatbotBaseUrl);
         }
 
-        return KnowledgeGapResponse("Toi chua tim thay thong tin du chinh xac de tra loi. Cau hoi cua ban da duoc ghi nhan de ban quan ly bo sung vao kho tri thuc.");
+        return KnowledgeGapResponse("Tôi chưa tìm thấy thông tin đủ chính xác để trả lời. Câu hỏi của bạn đã được ghi nhận để ban quản lý bổ sung vào kho tri thức.");
     }
 
     private async Task<string?> ResolveBuildingCodeAsync(int userId)
@@ -416,17 +417,37 @@ public class ChatService : IChatService
 
     private static bool LooksLikeKnowledgeGap(string text)
     {
-        var normalized = text.ToLowerInvariant();
+        var normalized = RemoveDiacritics(text).ToLowerInvariant();
         return normalized.Contains("khong tim thay")
             || normalized.Contains("khong co trong he thong")
             || normalized.Contains("chua tim thay")
             || normalized.Contains("chua du du lieu")
             || normalized.Contains("khong du thong tin")
+            || normalized.Contains("bo sung vao kho tri thuc")
             || normalized.Contains("không tìm thấy")
             || normalized.Contains("không có trong hệ thống")
             || normalized.Contains("chưa tìm thấy")
             || normalized.Contains("chưa đủ dữ liệu")
             || normalized.Contains("không đủ thông tin");
+    }
+
+    private static string RemoveDiacritics(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            builder.Append(c == 'đ' ? 'd' : c == 'Đ' ? 'D' : c);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private static string BuildTagsFromQuestion(string question)

@@ -485,6 +485,11 @@ export function CreatePostPage() {
       return;
     }
 
+    if (isRentedRoom(selectedRoom) && (moveInType !== 'from-date' || !moveInDateInput)) {
+      toast.error('Phòng đang được thuê, vui lòng chọn ngày có thể vào ở');
+      return;
+    }
+
     const servicePricesPayload = localServices.map((s, i) => ({
       key: s.key ?? `s-${i}`,
       name: s.name ?? s.serviceName ?? 'Dịch vụ',

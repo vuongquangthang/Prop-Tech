@@ -28,8 +28,7 @@ public class UtilityReadingService : IUtilityReadingService
     /// </summary>
     public async Task<List<RoomUtilityReadingDto>> GetMonthReadingsAsync(short year, byte month, int ownerUserId)
     {
-        var periodStart = new DateTime(year, month, 1);
-        var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+        var (periodStart, periodEnd) = CreateUtcPeriodRange(year, month);
 
         // Lấy phòng có hợp đồng giao với kỳ đang chọn
         var rooms = await _context.Rooms
@@ -188,8 +187,7 @@ public class UtilityReadingService : IUtilityReadingService
                 if (dto.NewElecReading.HasValue)
                 {
                     // Use the same logic as invoice calculation: get service active during the period
-                    var periodStart = new DateTime(dto.Year, dto.Month, 1);
-                    var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+                    var (periodStart, periodEnd) = CreateUtcPeriodRange(dto.Year, dto.Month);
                     var elecUsage = room.ChiTietSuDungDichVus
                         .Where(u => u.Service.IsActive
                                     && IsElectricityService(u.Service)
@@ -263,8 +261,7 @@ public class UtilityReadingService : IUtilityReadingService
                 if (dto.NewWaterReading.HasValue)
                 {
                     // Use the same logic as invoice calculation: get service active during the period
-                    var periodStart = new DateTime(dto.Year, dto.Month, 1);
-                    var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+                    var (periodStart, periodEnd) = CreateUtcPeriodRange(dto.Year, dto.Month);
                     var waterUsage = room.ChiTietSuDungDichVus
                         .Where(u => u.Service.IsActive
                                     && IsWaterService(u.Service)
@@ -440,6 +437,9 @@ public class UtilityReadingService : IUtilityReadingService
         int ownerUserId,
         Func<Service?, bool> serviceMatcher)
     {
+        periodStart = EnsureUtc(periodStart);
+        periodEnd = EnsureUtc(periodEnd);
+
         var contract = activeContract ?? await _context.HopDongs
             .Include(hd => hd.ChiTietOs)
             .Where(hd => hd.RoomId == room.Id
@@ -498,8 +498,8 @@ public class UtilityReadingService : IUtilityReadingService
             ServiceId = matchedService.Id,
             ResidentId = primaryResidentId,
             RoomId = room.Id,
-            ApplyFrom = contract.StartDate > periodStart ? contract.StartDate : periodStart,
-            ApplyTo = contract.ExpectedEndDate,
+            ApplyFrom = EnsureUtc(contract.StartDate > periodStart ? contract.StartDate : periodStart),
+            ApplyTo = EnsureUtcOrNull(contract.ExpectedEndDate),
             Quantity = 1,
             CreatedAt = DateTime.UtcNow,
             Note = "Tự tạo khi chốt chỉ số điện/nước"
@@ -511,6 +511,27 @@ public class UtilityReadingService : IUtilityReadingService
         room.ChiTietSuDungDichVus.Add(usage);
 
         return usage;
+    }
+
+    private static (DateTime Start, DateTime End) CreateUtcPeriodRange(short year, byte month)
+    {
+        var start = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+        return (start, start.AddMonths(1).AddTicks(-1));
+    }
+
+    private static DateTime EnsureUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+    }
+
+    private static DateTime? EnsureUtcOrNull(DateTime? value)
+    {
+        return value.HasValue ? EnsureUtc(value.Value) : null;
     }
 
     private static bool IsElectricityService(Service? service)

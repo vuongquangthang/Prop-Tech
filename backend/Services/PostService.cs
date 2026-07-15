@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using backend.Data;
 using backend.DTOs;
@@ -51,9 +52,11 @@ public class PostService : IPostService
     private static IQueryable<BaiDangTimPhong> FilterPostsForOwner(IQueryable<BaiDangTimPhong> query, int ownerUserId)
     {
         return query.Where(post =>
-            post.CreatedByUserId == ownerUserId
-            || (post.Room != null
-                && post.Room.Floor.Building.OwnerUserId == ownerUserId));
+            post.Room != null
+            && post.Room.Floor.Building.OwnerUserId == ownerUserId
+            && (post.CreatedByUserId == null
+                || post.CreatedByUser == null
+                || post.CreatedByUser.Role != "CuDan"));
     }
 
     public async Task<List<PostDto>> GetAllAsync(int ownerUserId)
@@ -130,17 +133,31 @@ public class PostService : IPostService
 
         User? creator = null;
         var requiresReview = false;
+        var isCreatingSharedPost = false;
         if (createdByUserId.HasValue)
         {
             creator = await _context.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(item => item.Id == createdByUserId.Value);
             requiresReview = IsResident(creator);
+            isCreatingSharedPost = requiresReview;
             var effectiveOwnerUserId = ownerUserId ?? creator?.OwnerUserId ?? createdByUserId.Value;
-            if (creator?.Role is "Admin" or "QuanLy" && room.Floor.Building.OwnerUserId != effectiveOwnerUserId)
+            if (isCreatingSharedPost)
+            {
+                if (creator?.OwnerUserId is > 0 && room.Floor.Building.OwnerUserId != creator.OwnerUserId)
+                {
+                    throw new InvalidOperationException("Bạn không có quyền đăng bài cho phòng này");
+                }
+            }
+            else if (effectiveOwnerUserId > 0 && room.Floor.Building.OwnerUserId != effectiveOwnerUserId)
             {
                 throw new InvalidOperationException("Bạn không có quyền đăng bài cho phòng này");
             }
+        }
+
+        if (!isCreatingSharedPost)
+        {
+            ValidateOwnerRentalPost(dto, room);
         }
 
         var existingPosts = await _context.BaiDangTimPhongs
@@ -158,8 +175,10 @@ public class PostService : IPostService
             {
                 var sameCreatorPosts = existingPosts
                     .Where(item => item.CreatedByUserId == createdByUserId.Value)
+                    .Where(item => IsSharedRoommatePost(item) == isCreatingSharedPost)
                     .ToList();
                 var hasLivePostFromAnotherCreator = liveExistingPosts
+                    .Where(item => IsSharedRoommatePost(item) == isCreatingSharedPost)
                     .Any(item => item.CreatedByUserId != createdByUserId.Value);
 
                 if (hasLivePostFromAnotherCreator)
@@ -198,12 +217,12 @@ public class PostService : IPostService
                     postToUpdate.CreatedByUser ??= creator;
                     return MapToDto(postToUpdate);
                 }
-                else if (liveExistingPosts.Count > 0)
+                else if (liveExistingPosts.Any(item => IsSharedRoommatePost(item) == isCreatingSharedPost))
                 {
                     throw new InvalidOperationException("Phòng này đã có bài đăng");
                 }
             }
-            else if (liveExistingPosts.Count > 0)
+            else if (liveExistingPosts.Any(item => !IsSharedRoommatePost(item)))
             {
                 throw new InvalidOperationException("Phòng này đã có bài đăng");
             }
@@ -651,8 +670,11 @@ public class PostService : IPostService
 
     public async Task DeleteAsync(int id, int ownerUserId)
     {
-        var post = await FilterPostsForOwner(_context.BaiDangTimPhongs, ownerUserId)
+        var post = await _context.BaiDangTimPhongs
             .Include(item => item.CreatedByUser)
+            .Include(item => item.Room)
+                .ThenInclude(room => room!.Floor)
+                    .ThenInclude(floor => floor.Building)
             .FirstOrDefaultAsync(item => item.Id == id);
         if (post == null)
         {
@@ -661,6 +683,13 @@ public class PostService : IPostService
 
         var isResidentOwnedPost = post.CreatedByUserId == ownerUserId
             && string.Equals(post.CreatedByUser?.Role, "CuDan", StringComparison.OrdinalIgnoreCase);
+        var isOwnerRentalPost = post.Room?.Floor.Building.OwnerUserId == ownerUserId
+            && !IsSharedRoommatePost(post);
+
+        if (!isResidentOwnedPost && !isOwnerRentalPost)
+        {
+            throw new InvalidOperationException("Bài đăng không tồn tại");
+        }
 
         var duplicatePosts = await _context.BaiDangTimPhongs
             .Where(item => item.RoomId == post.RoomId && item.CreatedByUserId == post.CreatedByUserId)
@@ -717,8 +746,32 @@ public class PostService : IPostService
         ClearModerationDeletion(post);
     }
 
+    private static void ValidateOwnerRentalPost(CreatePostDto dto, Room room)
+    {
+        if (!IsOccupiedRoomStatus(room.Status))
+        {
+            return;
+        }
+
+        if (!StringEquals(dto.MoveInType, "from-date") || !dto.MoveInDate.HasValue)
+        {
+            throw new InvalidOperationException("Phòng đang được thuê, vui lòng chọn ngày có thể vào ở để đăng bài phòng sắp trống.");
+        }
+    }
+
+    private static bool IsOccupiedRoomStatus(string? status)
+    {
+        var normalized = NormalizeText(status);
+        return normalized == "da thue"
+            || normalized == "rented"
+            || normalized == "occupied";
+    }
+
     private static bool IsResident(User? user)
         => string.Equals(user?.Role, "CuDan", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSharedRoommatePost(BaiDangTimPhong post)
+        => IsResident(post.CreatedByUser);
 
     private static bool IsResidentOwnedPost(BaiDangTimPhong post, int? userId)
         => userId.HasValue
@@ -985,6 +1038,26 @@ public class PostService : IPostService
 
     private static bool StringEquals(string? left, string? right)
         => string.Equals(left?.Trim(), right?.Trim(), StringComparison.Ordinal);
+
+    private static string NormalizeText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(c == 'đ' ? 'd' : c);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
 
     private sealed class PostHistoryPayload
     {

@@ -201,6 +201,7 @@ builder.Services.AddScoped<backend.Services.IUserService, backend.Services.UserS
 
 // Tier 2: KnowledgeBase & Notifications
 builder.Services.AddScoped<backend.Services.IKnowledgeBaseService, backend.Services.KnowledgeBaseService>();
+builder.Services.AddScoped<backend.Services.IChatbotIngestService, backend.Services.ChatbotIngestService>();
 builder.Services.AddScoped<backend.Services.INhatKyNhacNoService, backend.Services.NhatKyNhacNoService>();
 builder.Services.AddScoped<backend.Services.IAuditLogService, backend.Services.AuditLogService>();
 builder.Services.AddScoped<backend.Services.INotificationService, backend.Services.NotificationService>();

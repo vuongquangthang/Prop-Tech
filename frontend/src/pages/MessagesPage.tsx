@@ -22,6 +22,10 @@ function canViewManagedConversations(role?: string): boolean {
   return normalized === 'admin' || normalized === 'quanly' || normalized === 'manager';
 }
 
+function isResidentPost(post: any): boolean {
+  return String(post?.createdByUserRole ?? '').trim().toLowerCase() === 'cudan';
+}
+
 function getTrouytinRoomUrl(roomId: string): string {
   const value = roomId.trim();
   return value ? `${TROUYTIN_WEB_BASE_URL}/rooms/${encodeURIComponent(value)}` : '';
@@ -76,7 +80,7 @@ export function MessagesPage() {
     if (canSeeManagedConversations) {
       const posts = await postService.getPosts().catch(() => []);
       posts.forEach((post) => {
-        if (post.createdByUserId) {
+        if (post.createdByUserId && !isResidentPost(post)) {
           partnerIds.add(buildPropTechPartnerUserId(post.createdByUserId));
         }
       });

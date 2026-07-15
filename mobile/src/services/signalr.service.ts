@@ -51,7 +51,6 @@ class SignalRService {
             const t = await secureStorage.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
             return t || '';
           },
-          transport: SignalR.HttpTransportType.WebSockets,
         })
         .withAutomaticReconnect({
           nextRetryDelayInMilliseconds: (retryContext) => {
@@ -167,14 +166,18 @@ class SignalRService {
       });
 
       this.connection.onclose((error) => {
-        console.error('❌ SignalR connection closed:', error);
+        if (error) {
+          console.warn('SignalR connection closed:', error);
+        } else {
+          console.log('SignalR connection closed');
+        }
       });
 
       // Start connection
       await this.connection.start();
       console.log('✅ SignalR connected successfully');
     } catch (error) {
-      console.error('❌ SignalR connection failed:', error);
+      console.warn('SignalR connection failed:', error);
       this.connection = null;
     } finally {
       this.isConnecting = false;

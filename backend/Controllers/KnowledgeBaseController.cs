@@ -12,10 +12,14 @@ namespace backend.Controllers;
 public class KnowledgeBaseController : ControllerBase
 {
     private readonly IKnowledgeBaseService _service;
+    private readonly IChatbotIngestService _chatbotIngestService;
 
-    public KnowledgeBaseController(IKnowledgeBaseService service)
+    public KnowledgeBaseController(
+        IKnowledgeBaseService service,
+        IChatbotIngestService chatbotIngestService)
     {
         _service = service;
+        _chatbotIngestService = chatbotIngestService;
     }
 
     /// <summary>
@@ -202,6 +206,15 @@ public class KnowledgeBaseController : ControllerBase
                 return BadRequest(new { message = "Kích thước file không được vượt quá 10MB" });
 
             var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, User.GetOwnerUserId());
+            if (result.TotalExtracted > 0)
+            {
+                var ingestResult = await _chatbotIngestService.RebuildAsync();
+                result.IngestTriggered = ingestResult.Triggered;
+                result.IngestSucceeded = ingestResult.Success;
+                result.IngestMessage = ingestResult.Message;
+                result.IngestDocuments = ingestResult.Documents;
+            }
+
             return Ok(result);
         }
         catch (InvalidOperationException ex)

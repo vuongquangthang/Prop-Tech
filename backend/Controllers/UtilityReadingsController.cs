@@ -21,7 +21,7 @@ public class UtilityReadingsController : ControllerBase
     /// Lấy danh sách chỉ số điện/nước tháng đã chọn
     /// </summary>
     [HttpGet("month/{year}/{month}")]
-    [Authorize(Roles = "Admin,QuanLy,NhanVien")]
+    [Authorize(Roles = "Admin,QuanLy,KeToan,NhanVien")]
     public async Task<ActionResult<List<RoomUtilityReadingDto>>> GetMonthReadings(short year, byte month)
     {
         try
@@ -39,7 +39,7 @@ public class UtilityReadingsController : ControllerBase
     /// Chốt chỉ số hàng loạt
     /// </summary>
     [HttpPost("record-batch")]
-    [Authorize(Roles = "Admin,QuanLy,NhanVien")]
+    [Authorize(Roles = "Admin,QuanLy,KeToan,NhanVien")]
     public async Task<ActionResult<BatchReadingResultDto>> RecordBatch([FromBody] List<RecordUtilityReadingDto> readings)
     {
         try

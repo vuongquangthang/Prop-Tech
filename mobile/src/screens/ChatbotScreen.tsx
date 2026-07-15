@@ -135,7 +135,7 @@ export default function ChatbotScreen() {
       };
       setMessages(prev => [...prev, botMessage]);
     } catch (error: any) {
-      console.error('Chatbot error:', error);
+      console.warn('Chatbot request failed:', error?.message || error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',

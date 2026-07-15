@@ -137,13 +137,15 @@ public class HoaDonService : IHoaDonService
         var result = new CalculateInvoiceResultDto();
 
         // Lấy tất cả hợp đồng đang active (có cư dân)
+        var periodStartUtc = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+
         var contracts = await _context.HopDongs
             .Include(hd => hd.Room).ThenInclude(r => r.ChiTietSuDungDichVus).ThenInclude(u => u.Service)
             .Include(hd => hd.Room).ThenInclude(r => r.Floor).ThenInclude(f => f.Building)
             .Include(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
             .Where(hd =>
                 hd.Room.Floor.Building.OwnerUserId == ownerUserId &&
-                hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= new DateTime(year, month, 1)))
+                hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= periodStartUtc))
             .ToListAsync();
 
         var serviceIds = contracts
@@ -626,7 +628,7 @@ public class HoaDonService : IHoaDonService
             ContractId = dto.ContractId,
             Month = dto.Month,
             Year = dto.Year,
-            DueDate = dto.DueDate,
+            DueDate = NormalizeUtc(dto.DueDate),
             TotalAmount = 0,
             Status = "Chưa thanh toán"
         };
@@ -928,7 +930,7 @@ public class HoaDonService : IHoaDonService
 
     private static List<ChiTietSuDungDichVu> GetActiveServiceUsagesForPeriod(IEnumerable<ChiTietSuDungDichVu> usages, short year, byte month)
     {
-        var periodStart = new DateTime(year, month, 1);
+        var periodStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
 
         return usages
@@ -1077,7 +1079,22 @@ public class HoaDonService : IHoaDonService
         if (day < 1) day = 1;
         if (day > 28) day = 28;
 
-        return new DateTime(year, month, day).AddMonths(1);
+        return new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc).AddMonths(1);
+    }
+
+    private static DateTime? NormalizeUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
     }
 
     private static List<ContractBillingFormulaItem> ParseBillingFormula(string? json)

@@ -33,7 +33,7 @@ public class LichSuChatRepository : Repository<LichSuChat>, ILichSuChatRepositor
     {
         return await _context.LichSuChats
             .Include(x => x.User)
-            .Where(x => x.User.OwnerUserId == ownerUserId)
+            .Where(x => x.User.OwnerUserId == ownerUserId && x.User.Role == "CuDan")
             .OrderByDescending(x => x.CreatedAt)
             .Take(limit)
             .ToListAsync();

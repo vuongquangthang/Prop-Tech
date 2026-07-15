@@ -50,6 +50,10 @@ function canViewManagedConversations(role?: string): boolean {
   return normalized === 'admin' || normalized === 'quanly' || normalized === 'manager';
 }
 
+function isResidentPost(post: any): boolean {
+  return String(post?.createdByUserRole ?? '').trim().toLowerCase() === 'cudan';
+}
+
 function getPostDisplayStatus(post: any) {
   const status = String(post?.status ?? '').trim().toLowerCase();
   if (status === 'deleted' || post?.deletionSource === 'trouytin_admin') {
@@ -133,7 +137,7 @@ export function PostManagementPage() {
       const partnerIds = new Set<string>([buildPropTechPartnerUserId(user.id)]);
       if (canViewManagedConversations(user.role)) {
         posts.forEach((post) => {
-          if (post.createdByUserId) {
+          if (post.createdByUserId && !isResidentPost(post)) {
             partnerIds.add(buildPropTechPartnerUserId(post.createdByUserId));
           }
         });

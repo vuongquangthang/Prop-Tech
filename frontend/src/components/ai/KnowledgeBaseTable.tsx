@@ -28,14 +28,14 @@ export function KnowledgeBaseTable() {
       <PageHeader
         eyebrow="Trợ lý ảo AI"
         title="Kho tri thức"
-        description="Quản lý tri thức trong Prop-Tech/Supabase; chạy ingest để cập nhật ChromaDB cho Chatbot RAG."
+        description="Quản lý tri thức trong Prop-Tech/Supabase. Khi tải tài liệu, hệ thống tự đồng bộ ChromaDB cho Chatbot RAG."
         actions={
           <button
             onClick={() => setUploadModal(true)}
             className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center gap-2"
           >
             <Upload size={16} />
-            <span>Tải tài liệu lên AI</span>
+            <span>Tải tài liệu vào kho tri thức</span>
           </button>
         }
       />
@@ -101,7 +101,7 @@ export function KnowledgeBaseTable() {
               {!loading && recentItems.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                    Chưa có dữ liệu tri thức. Hãy tải tài liệu đầu tiên để bắt đầu đồng bộ với AI.
+                    Chưa có dữ liệu tri thức. Hãy tải tài liệu đầu tiên để hệ thống lưu kho tri thức và đồng bộ AI.
                   </td>
                 </tr>
               )}

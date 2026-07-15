@@ -49,5 +49,9 @@ public class DocumentUploadResultDto
     public string FileName { get; set; } = null!;
     public int TotalExtracted { get; set; }
     public int Activated { get; set; }
+    public bool IngestTriggered { get; set; }
+    public bool IngestSucceeded { get; set; }
+    public string? IngestMessage { get; set; }
+    public int? IngestDocuments { get; set; }
     public List<KnowledgeBaseDto> Entries { get; set; } = new();
 }

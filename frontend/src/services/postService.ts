@@ -427,8 +427,8 @@ function normalizePostRecord(post: any): PostRecord {
 }
 
 function isManagedPost(post: PostRecord): boolean {
-  const role = String(post.createdByUserRole ?? '').trim();
-  return role === 'Admin' || role === 'QuanLy' || role === 'CuDan' || post.createdByUserId == null;
+  const role = String(post.createdByUserRole ?? '').trim().toLowerCase();
+  return ['admin', 'quanly', 'manager', 'ketoan', 'nhanvien'].includes(role) || post.createdByUserId == null;
 }
 
 export const postService = {
