@@ -329,6 +329,20 @@ export function PostManagementPage() {
                             );
                           })()}
                           <button onClick={() => setSelectedPost(p)} className="p-2 rounded hover:bg-gray-100"><Eye size={16} /></button>
+                          {(() => {
+                            const isDeleted = p.status === 'deleted' || p.deletionSource === 'trouytin_admin';
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/post-management/create?edit=${p.id}`)}
+                                className={`p-2 rounded hover:bg-gray-100 ${isDeleted ? 'text-brand-primary' : ''}`}
+                                title={isDeleted ? 'Chỉnh sửa & đăng lại bài (gửi duyệt lại)' : 'Chỉnh sửa bài đăng'}
+                                aria-label={isDeleted ? 'Chỉnh sửa và đăng lại bài đăng' : 'Chỉnh sửa bài đăng'}
+                              >
+                                <Pencil size={16} />
+                              </button>
+                            );
+                          })()}
                           <button
                             type="button"
                             onClick={() => handleRequestToggleLock(p)}
