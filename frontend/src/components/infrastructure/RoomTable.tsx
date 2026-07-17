@@ -18,6 +18,8 @@ interface RoomData {
   floorId: number;
   buildingName?: string;
   buildingAddress?: string;
+  buildingLatitude?: number | null;
+  buildingLongitude?: number | null;
   floorNumber?: number;
   code: string;
   address?: string | null;
@@ -309,6 +311,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     floorId: room.floorId || room.tangId || 0,
     buildingName: room.buildingName || '',
     buildingAddress: room.buildingAddress || room.building?.address || '',
+    buildingLatitude: room.buildingLatitude ?? room.building?.latitude ?? null,
+    buildingLongitude: room.buildingLongitude ?? room.building?.longitude ?? null,
     floorNumber: room.floorNumber || room.soTang || undefined,
     code: room.roomCode || room.maPhong || '',
     address: room.address || '',
@@ -1046,27 +1050,17 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
                 <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
                   <div>
-                    <label className="block text-sm text-gray-700 mb-2">Địa chỉ phòng</label>
-                    <textarea
-                      rows={2}
-                      placeholder="Nhập địa chỉ/phần mô tả vị trí phòng. Nếu không tìm được, chọn toạ độ thủ công bên dưới."
-                      value={addAddress}
-                      onChange={e => setAddAddress(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                    />
+                    <label className="block text-sm text-gray-700 mb-2">Địa chỉ &amp; vị trí (theo toà nhà)</label>
+                    <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded bg-gray-100 text-gray-700">
+                      {selectedAddFloor?.buildingAddress || 'Chưa cập nhật địa chỉ toà nhà'}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Vị trí phòng lấy theo toà nhà, không chỉnh sửa tại đây. Muốn đổi, hãy cập nhật ở phần quản lý toà nhà.</p>
                   </div>
                   <LocationPicker
-                    lat={addLatitude}
-                    lng={addLongitude}
-                    addressQuery={[addAddress, addRoomCode].filter(Boolean).join(' ')}
-                    onChange={(lat, lng, location) => {
-                      setAddLatitude(lat);
-                      setAddLongitude(lng);
-                      setAddLocationMeta(location ?? null);
-                      if (location?.address && (location.source === 'manual-nearby-scan' || !addAddress.trim())) {
-                        setAddAddress(location.address);
-                      }
-                    }}
+                    readOnly
+                    lat={selectedAddFloor?.buildingLatitude ?? null}
+                    lng={selectedAddFloor?.buildingLongitude ?? null}
+                    onChange={() => { /* read-only: vị trí theo toà nhà */ }}
                   />
                 </div>
 
@@ -1541,27 +1535,17 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
 
               <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">Địa chỉ phòng</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Nhập địa chỉ/phần mô tả vị trí phòng. Nếu không tìm được, chọn toạ độ thủ công bên dưới."
-                    value={editAddress}
-                    onChange={e => setEditAddress(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                  />
+                  <label className="block text-sm text-gray-700 mb-2">Địa chỉ &amp; vị trí (theo toà nhà)</label>
+                  <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded bg-gray-100 text-gray-700">
+                    {selectedRoom.buildingAddress || 'Chưa cập nhật địa chỉ toà nhà'}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Vị trí phòng lấy theo toà nhà, không chỉnh sửa tại đây. Muốn đổi, hãy cập nhật ở phần quản lý toà nhà.</p>
                 </div>
                 <LocationPicker
-                  lat={editLatitude}
-                  lng={editLongitude}
-                  addressQuery={[editAddress, editRoomCode].filter(Boolean).join(' ')}
-                  onChange={(lat, lng, location) => {
-                    setEditLatitude(lat);
-                    setEditLongitude(lng);
-                    setEditLocationMeta(location ?? null);
-                    if (location?.address && (location.source === 'manual-nearby-scan' || !editAddress.trim())) {
-                      setEditAddress(location.address);
-                    }
-                  }}
+                  readOnly
+                  lat={selectedRoom.buildingLatitude ?? null}
+                  lng={selectedRoom.buildingLongitude ?? null}
+                  onChange={() => { /* read-only: vị trí theo toà nhà */ }}
                 />
               </div>
 
