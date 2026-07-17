@@ -79,19 +79,15 @@ export function hasAnyRole(userRole: string, allowedRoles: UserRole[]): boolean 
   return allowedRoles.includes(userRole as UserRole);
 }
 
-// Get default redirect path based on role
+// Prop-Tech web (frontend) CHỈ dành cho Admin (chủ nhà). Cư dân (Resident) và các
+// role khác không có quyền vào web — dùng app mobile. Nên chỉ Admin có route mặc
+// định trong web, còn lại chuyển tới trang không có quyền truy cập.
 export function getDefaultRoute(role: string): string {
   switch (role) {
     case UserRole.ADMIN:
       return '/dashboard';
-    case UserRole.MANAGER:
-      return '/post-management';
-    case UserRole.ACCOUNTANT:
-    case UserRole.STAFF:
-    case UserRole.RESIDENT:
-      return '/unauthorized';
     default:
-      return '/';
+      return '/unauthorized';
   }
 }
 
@@ -111,14 +107,14 @@ export const ROUTE_ACCESS = {
   '/settlement': [UserRole.ADMIN],
   '/utility-reading': [UserRole.ADMIN],
   '/maintenance-request': [UserRole.ADMIN],
-  '/post-management': [UserRole.ADMIN, UserRole.MANAGER],
-  '/post-management/create': [UserRole.ADMIN, UserRole.MANAGER],
-  '/messages': [UserRole.ADMIN, UserRole.MANAGER],
+  '/post-management': [UserRole.ADMIN],
+  '/post-management/create': [UserRole.ADMIN],
+  '/messages': [UserRole.ADMIN],
   '/knowledge-base': [UserRole.ADMIN],
   '/chat-history': [UserRole.ADMIN],
   '/revenue-report': [UserRole.ADMIN],
   '/occupancy-report': [UserRole.ADMIN],
   '/user-accounts': [UserRole.ADMIN],
-  '/audit-logs': [UserRole.ADMIN, UserRole.MANAGER],
+  '/audit-logs': [UserRole.ADMIN],
   
 };
