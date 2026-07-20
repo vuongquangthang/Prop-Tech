@@ -131,6 +131,7 @@ public class PaymentController : ControllerBase
                 {
                     TransactionCode = webhookData.OrderCode.ToString(),
                     Status = "SUCCESS",
+                    PaidAmount = webhookData.Amount,
                     PaidAt = DateTime.UtcNow
                 });
             }

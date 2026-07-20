@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Filter, Image as ImageIcon, MessageSquareWarning, Upload, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock3, Circle, Filter, Image as ImageIcon, MessageSquareWarning, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useData } from '../../contexts/DataContext';
@@ -207,6 +207,103 @@ const getAvailableStatuses = (currentStatus: string) => {
   };
   return statusFlow[currentStatus as keyof typeof statusFlow] || ['new'];
 };
+
+const formatTimelineTime = (value?: string) => {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
+
+function IncidentTimeline({ request }: { request: any }) {
+  const statusIndex = {
+    new: 0,
+    in_progress: 1,
+    review: 2,
+    completed: 3,
+  }[request.status] ?? 0;
+
+  const reportedAt = request.fullIncident?.reportedAt || request.time;
+  const resolvedAt = request.fullIncident?.resolvedAt ? formatTimelineTime(request.fullIncident.resolvedAt) : '';
+
+  const steps = [
+    {
+      key: 'new',
+      title: '1. Cư dân báo sự cố',
+      description: 'Yêu cầu đã được gửi vào hệ thống và chờ tiếp nhận.',
+      time: formatTimelineTime(reportedAt),
+      icon: MessageSquareWarning,
+    },
+    {
+      key: 'in_progress',
+      title: '2. Đang xử lý',
+      description: 'Bộ phận vận hành đang kiểm tra và triển khai xử lý.',
+      time: request.status === 'new' ? 'Chưa tới mốc này' : 'Đang/đã được xử lý bởi bộ phận vận hành.',
+      icon: Clock3,
+    },
+    {
+      key: 'review',
+      title: '3. Chờ nghiệm thu',
+      description: 'Đã gửi kết quả cho cư dân để xác nhận hoàn tất hay yêu cầu làm lại.',
+      time: request.status === 'completed' ? 'Đã vượt qua bước này' : request.status === 'review' ? 'Đang chờ cư dân phản hồi' : 'Chưa tới mốc này',
+      icon: CheckCircle2,
+    },
+    {
+      key: 'completed',
+      title: '4. Hoàn thành',
+      description: 'Sự cố được đóng sau khi cư dân xác nhận hài lòng.',
+      time: resolvedAt || (request.status === 'completed' ? 'Đã hoàn thành' : 'Chưa hoàn thành'),
+      icon: Circle,
+    },
+  ];
+
+  return (
+    <section className="dashboard-incident-section dashboard-incident-timeline-section">
+      <div className="dashboard-incident-section-title">
+        <Clock3 size={18} />
+        <div>
+          <h3>Mốc quy trình xử lý</h3>
+          <p>Nhìn nhanh sự cố đang ở bước nào và đã đi qua những mốc nào</p>
+        </div>
+      </div>
+
+      <div className="dashboard-incident-timeline" role="list" aria-label="Mốc quy trình xử lý sự cố">
+        {steps.map((step, index) => {
+          const stepIndex = index;
+          const isDone = request.status === 'completed' ? true : stepIndex < statusIndex;
+          const isActive = stepIndex === statusIndex;
+          const StepIcon = step.icon;
+
+          return (
+            <div
+              key={step.key}
+              role="listitem"
+              className={`dashboard-incident-timeline-item ${isDone ? 'is-done' : ''} ${isActive ? 'is-active' : ''}`}
+            >
+              <div className="dashboard-incident-timeline-marker">
+                <StepIcon size={16} />
+              </div>
+              <div className="dashboard-incident-timeline-content">
+                <div className="dashboard-incident-timeline-title-row">
+                  <h4>{step.title}</h4>
+                </div>
+                <p>{step.description}</p>
+                <strong>{step.time}</strong>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 export function MaintenanceRequestTable() {
   const [searchParams] = useSearchParams();
@@ -498,6 +595,8 @@ export function MaintenanceRequestTable() {
 
             <div className="dashboard-incident-modal-body">
               <main className="dashboard-incident-main">
+                <IncidentTimeline request={selectedRequest} />
+
                 <section className="dashboard-incident-section">
                   <div className="dashboard-incident-section-title">
                     <MessageSquareWarning size={18} />

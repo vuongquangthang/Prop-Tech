@@ -210,6 +210,10 @@ public class PaymentService : IPaymentService
         transaction.Status = dto.Status;
         if (dto.Status == "SUCCESS")
         {
+            if (dto.PaidAmount.HasValue && dto.PaidAmount.Value > 0)
+            {
+                transaction.Amount = dto.PaidAmount.Value;
+            }
             transaction.PaidAt = dto.PaidAt ?? DateTime.UtcNow;
         }
 
@@ -223,10 +227,15 @@ public class PaymentService : IPaymentService
             if (invoice != null)
             {
                 // Calculate total paid amount
-                var allPayments = await _thanhToanRepository.GetByInvoiceIdAsync(invoice.Id);
-                var totalPaid = allPayments
-                    .Where(p => p.Status == "SUCCESS" || (p.Id == transaction.Id && dto.Status == "SUCCESS"))
-                    .Sum(p => p.Amount);
+                var paidAmount = transaction.Amount;
+                var totalPaidBeforeThisTransaction = await _context.ThanhToans
+                    .Where(payment =>
+                        payment.Id != transaction.Id
+                        && payment.InvoiceId == invoice.Id
+                        && payment.Status == "SUCCESS")
+                    .SumAsync(payment => (decimal?)payment.Amount) ?? 0;
+
+                var totalPaid = totalPaidBeforeThisTransaction + paidAmount;
 
                 if (totalPaid >= invoice.TotalAmount)
                 {

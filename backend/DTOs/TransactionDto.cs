@@ -35,6 +35,7 @@ public class PaymentCallbackDto
 {
     public string TransactionCode { get; set; } = null!;
     public string Status { get; set; } = null!; // SUCCESS, FAILED
+    public decimal? PaidAmount { get; set; }
     public string? GatewayTransactionId { get; set; }
     public string? GatewayResponse { get; set; }
     public DateTime? PaidAt { get; set; }

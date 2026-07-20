@@ -146,6 +146,21 @@ export default function IssueDetailScreen() {
     return new Date(dateStr).toLocaleString('vi-VN');
   };
 
+  const formatTimelineTime = (dateStr?: string) => {
+    if (!dateStr) return 'Chưa có mốc thời gian';
+
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return dateStr;
+
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const beforeImages = (() => {
     if (!request?.mediaUrls) return [] as string[];
     try {
@@ -191,20 +206,65 @@ export default function IssueDetailScreen() {
   const statusInfo = getStatusInfo(request.status);
   const showActions = request.status === 'Chờ nghiệm thu';
 
-  const reachedStatuses = {
-    received: request.status !== 'Chờ xử lý',
-    processing: ['Đang xử lý', 'Chờ nghiệm thu', 'Đã đóng', 'Hoàn thành', 'Yêu cầu sửa lại', 'Từ chối'].includes(request.status),
-    review: ['Chờ nghiệm thu', 'Đã đóng', 'Hoàn thành', 'Yêu cầu sửa lại'].includes(request.status),
-    final: ['Đã đóng', 'Hoàn thành', 'Yêu cầu sửa lại', 'Từ chối'].includes(request.status),
-  };
+  const timelineStatusIndex = (() => {
+    switch (request.status) {
+      case 'Chờ xử lý':
+        return 0;
+      case 'Đang xử lý':
+        return 1;
+      case 'Chờ nghiệm thu':
+        return 2;
+      case 'Hoàn thành':
+      case 'Đã đóng':
+        return 3;
+      case 'Yêu cầu sửa lại':
+      case 'Từ chối':
+        return 2;
+      default:
+        return 0;
+    }
+  })();
 
-  const finalLabel = request.status === 'Yêu cầu sửa lại'
-    ? 'Cư dân phản hồi: Yêu cầu sửa lại'
-    : request.status === 'Từ chối'
-      ? 'Ban quản lý từ chối yêu cầu'
-      : request.status === 'Đã đóng' || request.status === 'Hoàn thành'
-        ? 'Sự cố đã được đóng'
-        : 'Kết thúc xử lý';
+  const timelineSteps = [
+    {
+      key: 'reported',
+      title: 'Cư dân báo sự cố',
+      description: 'Yêu cầu đã được gửi vào hệ thống.',
+      time: formatTimelineTime(request.createdAt),
+      icon: 'alert-circle-outline' as const,
+    },
+    {
+      key: 'processing',
+      title: 'Ban quản lý tiếp nhận',
+      description: 'Sự cố được ghi nhận và bắt đầu xử lý.',
+      time: request.status === 'Chờ xử lý' ? 'Chưa có mốc thời gian' : formatTimelineTime(request.updatedAt || request.createdAt),
+      icon: 'construct-outline' as const,
+    },
+    {
+      key: 'review',
+      title: 'Chờ cư dân nghiệm thu',
+      description: 'Ban quản lý đã phản hồi kết quả, chờ cư dân kiểm tra.',
+      time: request.status === 'Chờ nghiệm thu' ? formatTimelineTime(request.updatedAt || request.createdAt) : 'Chưa có mốc thời gian',
+      icon: 'checkmark-done-outline' as const,
+    },
+    {
+      key: 'final',
+      title: request.status === 'Yêu cầu sửa lại'
+        ? 'Cư dân yêu cầu sửa lại'
+        : request.status === 'Từ chối'
+          ? 'Ban quản lý từ chối yêu cầu'
+          : 'Sự cố đã hoàn thành',
+      description: 'Yêu cầu được đóng sau khi có phản hồi cuối cùng.',
+      time: request.status === 'Yêu cầu sửa lại'
+        ? formatTimelineTime(request.updatedAt || request.createdAt)
+        : request.status === 'Từ chối'
+          ? formatTimelineTime(request.closedAt || request.updatedAt || request.createdAt)
+          : request.status === 'Đã đóng' || request.status === 'Hoàn thành'
+            ? formatTimelineTime(request.closedAt || request.updatedAt || request.createdAt)
+            : 'Chưa có mốc thời gian',
+      icon: 'checkmark-circle-outline' as const,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -227,6 +287,25 @@ export default function IssueDetailScreen() {
           <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>
             {statusInfo.label}
           </Text>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryIcon, { backgroundColor: statusInfo.bgColor }]}> 
+              <Ionicons name="time-outline" size={18} color={statusInfo.color} />
+            </View>
+            <View style={styles.summaryTextBlock}>
+              <Text style={styles.summaryTitle}>Đang theo dõi tiến độ xử lý</Text>
+              <Text style={styles.summaryText}>
+                {request.status === 'Chờ xử lý' && 'Sự cố đã được ghi nhận, đang chờ ban quản lý tiếp nhận.'}
+                {request.status === 'Đang xử lý' && 'Ban quản lý đang kiểm tra và xử lý sự cố.'}
+                {request.status === 'Chờ nghiệm thu' && 'Đã gửi kết quả, vui lòng kiểm tra và phản hồi.'}
+                {(request.status === 'Hoàn thành' || request.status === 'Đã đóng') && 'Sự cố đã được đóng và hoàn tất quy trình.'}
+                {request.status === 'Yêu cầu sửa lại' && 'Cư dân đã yêu cầu sửa lại, ban quản lý cần xử lý tiếp.'}
+                {request.status === 'Từ chối' && 'Yêu cầu đã bị từ chối, vui lòng xem lại nội dung.'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {request.description && (
@@ -268,46 +347,50 @@ export default function IssueDetailScreen() {
 
         <View style={styles.divider} />
 
-        <Text style={styles.sectionTitle}>Tiến độ xử lý</Text>
-        <View style={styles.timeline}>
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, styles.activeDot]} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Cư dân gửi yêu cầu</Text>
-              <Text style={styles.timelineText}>{formatDateTime(request.createdAt)}</Text>
+        <View style={styles.timelineCard}>
+          <View style={styles.timelineHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Tiến độ xử lý</Text>
+              <Text style={styles.timelineSubtitle}>Các mốc được sắp theo đúng quy trình tiếp nhận và phản hồi.</Text>
             </View>
           </View>
 
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, reachedStatuses.received ? styles.activeDot : styles.inactiveDot]} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Ban quản lý tiếp nhận</Text>
-              <Text style={styles.timelineText}>{reachedStatuses.received ? formatDateTime(request.updatedAt || request.createdAt) : 'Chưa tiếp nhận'}</Text>
-            </View>
-          </View>
+          <View style={styles.timeline}>
+            {timelineSteps.map((step, index) => {
+              const isDone = index < timelineStatusIndex || request.status === 'Đã đóng' || request.status === 'Hoàn thành';
+              const isCurrent = index === timelineStatusIndex && request.status !== 'Từ chối';
+              return (
+                <View key={step.key} style={styles.timelineItem}>
+                  <View style={styles.timelineRailWrap}>
+                    <View style={[
+                      styles.timelineDot,
+                      isDone && styles.doneDot,
+                      !isDone && !isCurrent && styles.inactiveDot,
+                      isCurrent && styles.currentDot,
+                    ]}>
+                      <Ionicons
+                        name={step.icon}
+                        size={10}
+                        color={isDone || isCurrent ? '#FFFFFF' : '#9CA3AF'}
+                      />
+                    </View>
+                    {index < timelineSteps.length - 1 && <View style={[styles.timelineRail, isDone && styles.doneRail]} />}
+                  </View>
 
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, reachedStatuses.processing ? styles.activeDot : styles.inactiveDot]} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Đang xử lý sự cố</Text>
-              <Text style={styles.timelineText}>{request.status === 'Đang xử lý' ? formatDateTime(request.updatedAt || request.createdAt) : (reachedStatuses.processing ? 'Đã qua bước này' : 'Chưa xử lý')}</Text>
-            </View>
-          </View>
-
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, reachedStatuses.review ? styles.activeDot : styles.inactiveDot]} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Chờ cư dân nghiệm thu</Text>
-              <Text style={styles.timelineText}>{request.status === 'Chờ nghiệm thu' ? formatDateTime(request.updatedAt || request.createdAt) : (reachedStatuses.review ? 'Đã phản hồi nghiệm thu' : 'Chưa tới bước nghiệm thu')}</Text>
-            </View>
-          </View>
-
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, reachedStatuses.final ? styles.activeDot : styles.inactiveDot]} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>{finalLabel}</Text>
-              <Text style={styles.timelineText}>{reachedStatuses.final ? formatDateTime(request.closedAt || request.updatedAt || request.createdAt) : 'Đang chờ phản hồi cuối'}</Text>
-            </View>
+                  <View style={[
+                    styles.timelineContent,
+                    isDone && styles.timelineContentDone,
+                    isCurrent && styles.timelineContentCurrent,
+                  ]}>
+                    <View style={styles.timelineTitleRow}>
+                      <Text style={styles.timelineTitle}>{step.title}</Text>
+                    </View>
+                    <Text style={styles.timelineText}>{step.description}</Text>
+                    <Text style={styles.timelineTime}>{step.time}</Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -458,6 +541,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
   },
+  summaryCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  summaryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  summaryTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  summaryText: {
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 19,
+  },
   divider: {
     height: 1,
     backgroundColor: '#F3F4F6',
@@ -475,31 +595,92 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 14,
   },
-  timeline: {
+  timelineCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 14,
-    paddingLeft: 8,
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 10,
+  },
+  timelineSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  timeline: {
+    paddingTop: 2,
   },
   timelineItem: {
     flexDirection: 'row',
-    marginBottom: 10,
-    position: 'relative',
+    marginBottom: 12,
+  },
+  timelineRailWrap: {
+    width: 18,
+    alignItems: 'center',
+    marginRight: 12,
   },
   timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#E5E7EB',
-    marginRight: 12,
-    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
   activeDot: {
     backgroundColor: '#3B82F6',
   },
+  doneDot: {
+    backgroundColor: '#16A34A',
+  },
+  currentDot: {
+    backgroundColor: '#1D4ED8',
+    transform: [{ scale: 1.08 }],
+  },
   inactiveDot: {
     backgroundColor: '#D1D5DB',
   },
+  timelineRail: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#E5E7EB',
+    marginTop: -1,
+  },
+  doneRail: {
+    backgroundColor: '#BBF7D0',
+  },
   timelineContent: {
     flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  timelineContentCurrent: {
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+  },
+  timelineContentDone: {
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+  },
+  timelineTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   timelineTitle: {
     fontSize: 14,
@@ -508,9 +689,14 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   timelineText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#4B5563',
-    lineHeight: 20,
+    lineHeight: 19,
+  },
+  timelineTime: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 6,
   },
   resultCard: {
     backgroundColor: '#F9FAFB',

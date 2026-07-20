@@ -26,7 +26,7 @@ public interface IThanhToanService
     Task<List<ThanhToanDto>> GetByUserIdAsync(int userId);
     /// <summary>
     /// Xử lý webhook từ PayOS: xác minh chữ ký, tìm hóa đơn theo orderCode
-    /// và đánh dấu "Đã thanh toán" bất kể số tiền thực tế.
+    /// và đối soát theo số tiền thực nhận để quyết định "Đã thanh toán" hay "Đã thanh toán một phần".
     /// </summary>
     Task<string> ProcessPayOSWebhookAsync(Webhook webhookBody);
 }
@@ -402,7 +402,7 @@ public class ThanhToanService : IThanhToanService
     }
 
     /// <summary>
-    /// Xử lý webhook PayOS: xác minh → tìm ThanhToan → đánh "Đã thanh toán" bất kể số tiền.
+    /// Xử lý webhook PayOS: xác minh → tìm ThanhToan → đối soát số tiền thực nhận.
     /// Logic: dùng orderCode (= TransactionCode) để tra cứu hóa đơn gốc.
     /// </summary>
     public async Task<string> ProcessPayOSWebhookAsync(Webhook webhookBody)
@@ -433,19 +433,39 @@ public class ThanhToanService : IThanhToanService
 
         // 4. Cập nhật ThanhToan → SUCCESS
         transaction.Status = "SUCCESS";
+        transaction.Amount = webhookData.Amount;
         transaction.PaidAt = DateTime.UtcNow;
         _thanhToanRepository.Update(transaction);
 
-        // 5. Tìm HoaDon và đánh "Đã thanh toán" — BẤT KỂ số tiền thực tế
-        //    (test mode gửi 5k nhưng hóa đơn vẫn được gạch nợ)
-        string invoiceStatus = "Đã thanh toán";
+        // 5. Tìm HoaDon và xác định trạng thái theo số tiền thực nhận
+        var paidBefore = await _context.ThanhToans
+            .Where(item =>
+                item.Id != transaction.Id
+                && item.InvoiceId == transaction.InvoiceId
+                && item.Status == "SUCCESS")
+            .SumAsync(item => (decimal?)item.Amount) ?? 0;
+
+        var totalPaid = paidBefore + transaction.Amount;
+
         HoaDon? invoice = null;
+        var invoiceStatus = "Đã thanh toán một phần";
         if (transaction.InvoiceId.HasValue)
         {
             invoice = await _hoaDonRepository.GetByIdAsync(transaction.InvoiceId.Value);
             if (invoice != null)
             {
-                invoice.Status = invoiceStatus;
+                invoiceStatus = totalPaid >= invoice.TotalAmount
+                    ? "Đã thanh toán"
+                    : "Đã thanh toán một phần";
+
+                if (totalPaid >= invoice.TotalAmount)
+                {
+                    invoice.Status = invoiceStatus;
+                }
+                else if (totalPaid > 0)
+                {
+                    invoice.Status = invoiceStatus;
+                }
                 _hoaDonRepository.Update(invoice);
             }
         }

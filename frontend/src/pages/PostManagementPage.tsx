@@ -432,7 +432,7 @@ export function PostManagementPage() {
                           onPreview={(index) => setDetailPreviewImage({
                             images: galleryImages,
                             index,
-                            titlePrefix: 'Ảnh bài đăng',
+                            titlePrefix: selectedPost.title || 'Bài đăng cho thuê phòng',
                           })}
                         />
                       </div>
@@ -700,19 +700,19 @@ function PostDetailGallery({
   if (visibleImages.length === 0) return null;
 
   return (
-    <div className="flex w-full gap-3 overflow-x-auto pb-2">
+    <div className="flex w-full gap-2 overflow-x-auto pb-2 sm:gap-3">
       {visibleImages.map(({ src, originalIndex }) => (
           <button
             key={`${src}-${originalIndex}`}
             type="button"
             onClick={() => onPreview(originalIndex)}
-            className="h-28 w-44 shrink-0 overflow-hidden border border-gray-200 bg-gray-100 sm:h-32 sm:w-52"
-            title={`Xem ảnh ${originalIndex + 1}`}
+            className="group relative h-28 w-40 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100 shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md sm:h-32 sm:w-48 md:h-36 md:w-56"
+            aria-label={`Ảnh bài đăng ${originalIndex + 1}`}
           >
             <img
               src={src}
               alt={`Ảnh bài đăng ${originalIndex + 1}`}
-              className="h-full w-full object-cover transition-opacity hover:opacity-90"
+              className="h-full w-full object-cover transition duration-200 group-hover:scale-105 group-hover:opacity-95"
               onError={() => setFailedImages((current) => new Set(current).add(src))}
             />
           </button>
