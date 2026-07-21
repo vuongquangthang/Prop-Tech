@@ -31,6 +31,8 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             "chờ xử lý" or "cho xu ly" or "choxuly" or "pending" => "Chờ xử lý",
             "đang xử lý" or "dang xu ly" or "dangxuly" or "in-progress" or "inprogress" => "Đang xử lý",
             "chờ nghiệm thu" or "cho nghiem thu" or "chonghiemthu" or "review" => "Chờ nghiệm thu",
+            "sửa lại" or "sua lai" or "sualai" or "rework" or "yêu cầu sửa lại" or "yeu cau sua lai" or "yeucausualai"
+                or "không hài lòng" or "khong hai long" or "khonghailong" => "Sửa lại",
             "đã đóng" or "da dong" or "dadong" or "closed" => "Đã đóng",
             "hoàn thành" or "hoan thanh" or "hoanthanh" or "completed" or "resolved" => "Hoàn thành",
             _ => status?.Trim() ?? string.Empty
@@ -262,10 +264,10 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             var currentStatus = NormalizeStatus(request.Status);
             var nextStatus = NormalizeStatus(dto.Status);
 
-            // BQL workflow: from review, can only keep waiting or return to pending.
-            if (currentStatus == "Chờ nghiệm thu" && nextStatus != "Chờ nghiệm thu" && nextStatus != "Chờ xử lý")
+            // BQL workflow: from review, web side only keeps waiting; resident feedback uses close endpoint.
+            if (currentStatus == "Chờ nghiệm thu" && nextStatus != "Chờ nghiệm thu")
             {
-                throw new InvalidOperationException("Sự cố ở trạng thái nghiệm thu chỉ được giữ chờ phản hồi cư dân hoặc chuyển về chờ xử lý.");
+                throw new InvalidOperationException("Sự cố ở trạng thái nghiệm thu chỉ được giữ chờ phản hồi cư dân.");
             }
 
             // Never allow direct completion through generic update endpoint.
@@ -351,9 +353,9 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
             throw new InvalidOperationException("Chỉ được phản hồi đóng/mở lại khi sự cố đang ở trạng thái chờ nghiệm thu.");
         }
 
-        if (requestedStatus != "Đã đóng" && requestedStatus != "Chờ xử lý")
+        if (requestedStatus != "Đã đóng" && requestedStatus != "Sửa lại")
         {
-            throw new InvalidOperationException("Phản hồi nghiệm thu chỉ hợp lệ với trạng thái 'Đã đóng' hoặc 'Chờ xử lý'.");
+            throw new InvalidOperationException("Phản hồi nghiệm thu chỉ hợp lệ với trạng thái 'Đã đóng' hoặc 'Sửa lại'.");
         }
 
         request.Status = requestedStatus;

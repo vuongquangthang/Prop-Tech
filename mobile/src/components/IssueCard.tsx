@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { palette } from '../theme/palette';
 
 interface IssueCardProps {
   tag: string;
@@ -28,14 +29,14 @@ export function IssueCard({ tag, title, id, roomLabel, status, onPress }: IssueC
           </View>
           {roomLabel && (
             <View style={styles.roomRow}>
-              <Ionicons name="home-outline" size={14} color="#1A4B84" />
+              <Ionicons name="home-outline" size={14} color={palette.primary} />
               <Text style={styles.roomText}>{roomLabel}</Text>
             </View>
           )}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.id}>{id}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
       </View>
     </TouchableOpacity>
   );
@@ -43,17 +44,17 @@ export function IssueCard({ tag, title, id, roomLabel, status, onPress }: IssueC
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    borderRadius: 16,
+    borderColor: palette.borderSoft,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 4,
   },
   content: {
     flexDirection: 'row',
@@ -72,8 +73,8 @@ const styles = StyleSheet.create({
   tagContainer: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 4,
+    backgroundColor: palette.surfaceSoft,
+    borderRadius: 999,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -89,14 +90,14 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#6B7280',
+    color: palette.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   title: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
     marginBottom: 4,
   },
   roomRow: {
@@ -108,10 +109,10 @@ const styles = StyleSheet.create({
   roomText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A4B84',
+    color: palette.primary,
   },
   id: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: palette.textMuted,
   },
 });

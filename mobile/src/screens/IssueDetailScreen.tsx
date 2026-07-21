@@ -83,7 +83,7 @@ export default function IssueDetailScreen() {
             try {
               setIsSubmitting(true);
               await maintenanceService.close(id, {
-                status: 'Chờ xử lý',
+                status: 'Sửa lại',
                 adminNote: 'Cư dân yêu cầu sửa lại',
               });
               Alert.alert('Thành công', 'Đã gửi yêu cầu sửa lại đến ban quản lý');
@@ -134,7 +134,8 @@ export default function IssueDetailScreen() {
       'Đang xử lý': { label: 'Đang xử lý', color: '#1A4B84', bgColor: '#E8F0FB' },
       'Chờ nghiệm thu': { label: 'Chờ nghiệm thu', color: '#7C3AED', bgColor: '#F3E8FF' },
       'Hoàn thành': { label: 'Hoàn thành', color: '#059669', bgColor: '#D1FAE5' },
-      'Yêu cầu sửa lại': { label: 'Yêu cầu sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
+      'Sửa lại': { label: 'Sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
+      'Yêu cầu sửa lại': { label: 'Sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
       'Từ chối': { label: 'Từ chối', color: '#DC2626', bgColor: '#FEE2E2' },
       'Đã đóng': { label: 'Đã đóng', color: '#6B7280', bgColor: '#F3F4F6' },
     };
@@ -217,6 +218,7 @@ export default function IssueDetailScreen() {
       case 'Hoàn thành':
       case 'Đã đóng':
         return 3;
+      case 'Sửa lại':
       case 'Yêu cầu sửa lại':
       case 'Từ chối':
         return 2;
@@ -249,13 +251,13 @@ export default function IssueDetailScreen() {
     },
     {
       key: 'final',
-      title: request.status === 'Yêu cầu sửa lại'
+      title: request.status === 'Sửa lại' || request.status === 'Yêu cầu sửa lại'
         ? 'Cư dân yêu cầu sửa lại'
         : request.status === 'Từ chối'
           ? 'Ban quản lý từ chối yêu cầu'
           : 'Sự cố đã hoàn thành',
       description: 'Yêu cầu được đóng sau khi có phản hồi cuối cùng.',
-      time: request.status === 'Yêu cầu sửa lại'
+      time: request.status === 'Sửa lại' || request.status === 'Yêu cầu sửa lại'
         ? formatTimelineTime(request.updatedAt || request.createdAt)
         : request.status === 'Từ chối'
           ? formatTimelineTime(request.closedAt || request.updatedAt || request.createdAt)
@@ -301,7 +303,7 @@ export default function IssueDetailScreen() {
                 {request.status === 'Đang xử lý' && 'Ban quản lý đang kiểm tra và xử lý sự cố.'}
                 {request.status === 'Chờ nghiệm thu' && 'Đã gửi kết quả, vui lòng kiểm tra và phản hồi.'}
                 {(request.status === 'Hoàn thành' || request.status === 'Đã đóng') && 'Sự cố đã được đóng và hoàn tất quy trình.'}
-                {request.status === 'Yêu cầu sửa lại' && 'Cư dân đã yêu cầu sửa lại, ban quản lý cần xử lý tiếp.'}
+                {(request.status === 'Sửa lại' || request.status === 'Yêu cầu sửa lại') && 'Cư dân đã yêu cầu sửa lại, ban quản lý cần xử lý tiếp.'}
                 {request.status === 'Từ chối' && 'Yêu cầu đã bị từ chối, vui lòng xem lại nội dung.'}
               </Text>
             </View>

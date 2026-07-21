@@ -23,10 +23,12 @@ public interface IServiceService
 public class ServiceService : IServiceService
 {
     private readonly ApplicationDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public ServiceService(ApplicationDbContext context)
+    public ServiceService(ApplicationDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<List<ServiceDto>> GetAllAsync(int ownerUserId)
@@ -279,6 +281,9 @@ public class ServiceService : IServiceService
             && GetVietnamDate(service.EffectiveDate.Value) != GetVietnamDate(requestedEffectiveDate);
         var priceChanged = dto.CommonUnitPrice.HasValue
             && (dto.CommonUnitPrice.Value != (service.CommonUnitPrice ?? 0) || pendingDateChanged);
+        decimal? notificationOldPrice = null;
+        decimal? notificationNewPrice = null;
+        DateTime? notificationEffectiveDate = null;
 
         if (priceChanged)
         {
@@ -303,10 +308,13 @@ public class ServiceService : IServiceService
 
             service.CommonUnitPrice = newPrice;
             service.EffectiveDate = effectiveDate;
+            notificationOldPrice = currentPrice;
+            notificationNewPrice = newPrice;
+            notificationEffectiveDate = effectiveDate;
 
-            if (IsMarketPriceService(service) && GetVietnamDate(effectiveDate) <= vietnamToday)
+            if (GetVietnamDate(effectiveDate) <= vietnamToday)
             {
-                await SynchronizeMarketPriceAsync(service, newPrice, ownerUserId);
+                await SynchronizeServicePriceAsync(service, newPrice, ownerUserId);
             }
         }
         else if (dto.CommonUnitPrice.HasValue)
@@ -320,10 +328,20 @@ public class ServiceService : IServiceService
         }
 
         await _context.SaveChangesAsync();
+        if (priceChanged && notificationNewPrice.HasValue && notificationEffectiveDate.HasValue)
+        {
+            await NotifyServicePriceChangeAsync(
+                service,
+                notificationOldPrice ?? 0,
+                notificationNewPrice.Value,
+                notificationEffectiveDate.Value,
+                ownerUserId);
+        }
+
         return MapToDto(service);
     }
 
-    private async Task SynchronizeMarketPriceAsync(Service service, decimal newPrice, int ownerUserId)
+    private async Task SynchronizeServicePriceAsync(Service service, decimal newPrice, int ownerUserId)
     {
         var jsonOptions = new JsonSerializerOptions
         {
@@ -407,14 +425,48 @@ public class ServiceService : IServiceService
         }
     }
 
-    private static bool IsMarketPriceService(Service service)
+    private async Task NotifyServicePriceChangeAsync(Service service, decimal oldPrice, decimal newPrice, DateTime effectiveDate, int ownerUserId)
     {
-        var type = NormalizeKey(service.ServiceType);
-        var name = NormalizeKey(service.Name);
-        return type == "dien"
-            || type == "nuoc"
-            || name.Contains("dien")
-            || name.Contains("nuoc");
+        try
+        {
+            var now = DateTime.UtcNow;
+            var recipientUserIds = await _context.ChiTietOs
+                .AsNoTracking()
+                .Where(residency =>
+                    residency.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId
+                    && residency.HopDong.StartDate <= now
+                    && (residency.HopDong.ExpectedEndDate == null || residency.HopDong.ExpectedEndDate >= now)
+                    && residency.FromDate <= now
+                    && (residency.ToDate == null || residency.ToDate >= now)
+                    && _context.ChiTietSuDungDichVus.Any(usage =>
+                        usage.ServiceId == service.Id
+                        && usage.RoomId == residency.HopDong.RoomId
+                        && usage.ApplyFrom <= now
+                        && (usage.ApplyTo == null || usage.ApplyTo >= now)))
+                .SelectMany(residency => residency.Resident.Users
+                    .Where(user => user.Role == "CuDan" && !user.IsLocked)
+                    .Select(user => user.Id))
+                .Distinct()
+                .ToListAsync();
+
+            if (recipientUserIds.Count == 0)
+            {
+                return;
+            }
+
+            var effectiveDateText = GetVietnamDate(effectiveDate).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+            var title = $"Thay đổi giá dịch vụ {service.Name}";
+            var content = $"Đơn giá dịch vụ {service.Name} thay đổi từ {oldPrice:N0} VNĐ lên {newPrice:N0} VNĐ, áp dụng từ {effectiveDateText}. Các hợp đồng/phòng có dùng dịch vụ này sẽ được cập nhật theo ngày áp dụng; hóa đơn đã xuất trước đó vẫn giữ nguyên đơn giá cũ.";
+
+            foreach (var userId in recipientUserIds)
+            {
+                await _notificationService.SendToUserAsync(userId, title, content, "SERVICE_PRICE");
+            }
+        }
+        catch
+        {
+            // Không chặn luồng cập nhật giá nếu gửi thông báo thất bại.
+        }
     }
 
     public async Task DeleteAsync(int id, int ownerUserId)

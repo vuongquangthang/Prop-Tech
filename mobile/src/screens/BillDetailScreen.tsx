@@ -324,7 +324,7 @@ export default function BillDetailScreen() {
               {(paymentInfo.checkoutUrl || paymentInfo.paymentUrl) ? (
                 <TouchableOpacity
                   style={styles.openGatewayButton}
-                  onPress={() => Linking.openURL((paymentInfo.checkoutUrl || paymentInfo.paymentUrl)!)}
+                  onPress={() => Linking.openURL(paymentService.getGatewayUrl((paymentInfo.checkoutUrl || paymentInfo.paymentUrl)!))}
                 >
                   <Ionicons name="open-outline" size={16} color="#1A4B84" />
                   <Text style={styles.openGatewayText}>Mở trang thanh toán</Text>

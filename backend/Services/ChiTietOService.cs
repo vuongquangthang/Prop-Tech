@@ -1,6 +1,7 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
+using System.Text;
 
 namespace backend.Services;
 
@@ -86,6 +87,7 @@ public class ChiTietOService : IChiTietOService
         // Set ToDate to mark as moved out
         chiTietO.ToDate = DateTime.UtcNow;
         _chiTietORepository.Update(chiTietO);
+        await PromotePrimaryResidentIfMissingAsync(contractId);
         await _chiTietORepository.SaveChangesAsync();
     }
 
@@ -104,7 +106,65 @@ public class ChiTietOService : IChiTietOService
 
         chiTietO.ToDate = toDate;
         _chiTietORepository.Update(chiTietO);
+        await PromotePrimaryResidentIfMissingAsync(contractId);
         await _chiTietORepository.SaveChangesAsync();
+    }
+
+    private async Task PromotePrimaryResidentIfMissingAsync(int contractId)
+    {
+        var activeResidents = (await _chiTietORepository.GetByContractIdAsync(contractId))
+            .Where(item => item.ToDate == null)
+            .ToList();
+
+        if (activeResidents.Count == 0 || activeResidents.Any(item => IsPrimaryResidentRole(item.ResidencyRole)))
+        {
+            return;
+        }
+
+        var promotedResident = activeResidents
+            .OrderBy(item => IsTenantRole(item.ResidencyRole) ? 0 : 1)
+            .ThenBy(item => item.FromDate)
+            .ThenBy(item => item.ResidentId)
+            .First();
+
+        promotedResident.ResidencyRole = "Người thuê chính";
+        _chiTietORepository.Update(promotedResident);
+    }
+
+    private static bool IsPrimaryResidentRole(string? role)
+    {
+        var normalized = RemoveDiacritics(role).ToLowerInvariant();
+        return normalized.Contains("nguoi thue chinh")
+            || normalized.Contains("chu ho")
+            || normalized.Contains("chu phong")
+            || normalized.Contains("primary")
+            || normalized.Contains("owner");
+    }
+
+    private static bool IsTenantRole(string? role)
+    {
+        var normalized = RemoveDiacritics(role).ToLowerInvariant();
+        return normalized.Contains("nguoi thue") || normalized.Contains("tenant");
+    }
+
+    private static string RemoveDiacritics(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private ResidentInContractDto MapToDto(ChiTietO chiTietO)

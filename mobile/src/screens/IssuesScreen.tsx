@@ -14,6 +14,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { IssueCard } from '../components/IssueCard';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
 import signalRService from '../services/signalr.service';
+import { palette } from '../theme/palette';
 
 export default function IssuesScreen() {
   const navigation = useNavigation();
@@ -72,7 +73,7 @@ export default function IssuesScreen() {
     if (selectedTab === 'all') return requests;
     
     const statusMap: { [key: string]: string[] } = {
-      'pending': ['Chờ xử lý', 'Yêu cầu sửa lại'],
+      'pending': ['Chờ xử lý', 'Sửa lại', 'Yêu cầu sửa lại'],
       'processing': ['Đang xử lý'],
       'review': ['Chờ nghiệm thu'],
       'completed': ['Hoàn thành', 'Đã đóng'],
@@ -87,7 +88,7 @@ export default function IssuesScreen() {
   const filteredRequests = getFilteredRequests();
 
   const statusMap: { [key: string]: string[] } = {
-    pending: ['Chờ xử lý', 'Yêu cầu sửa lại'],
+    pending: ['Chờ xử lý', 'Sửa lại', 'Yêu cầu sửa lại'],
     processing: ['Đang xử lý'],
     review: ['Chờ nghiệm thu'],
     completed: ['Hoàn thành', 'Đã đóng'],
@@ -102,7 +103,7 @@ export default function IssuesScreen() {
   }), [requests]);
 
   const tabs: { value: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] = [
-    { value: 'all',        label: 'Tất cả',      icon: 'list-outline',             color: '#1A4B84', bg: '#E8F0FB' },
+    { value: 'all',        label: 'Tất cả',      icon: 'list-outline',             color: palette.primary, bg: palette.primarySoft },
     { value: 'pending',    label: 'Chờ xử lý',   icon: 'time-outline',             color: '#D97706', bg: '#FFFBEB' },
     { value: 'processing', label: 'Đang xử lý',  icon: 'construct-outline',        color: '#7C3AED', bg: '#F5F3FF' },
     { value: 'review',     label: 'Nghiệm thu',  icon: 'eye-outline',              color: '#0891B2', bg: '#ECFEFF' },
@@ -113,7 +114,7 @@ export default function IssuesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#4B5563" />
+          <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Danh sách sự cố</Text>
         <View style={{ width: 52 }} />
@@ -153,12 +154,12 @@ export default function IssuesScreen() {
       {/* Issue List */}
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.loadingText}>Đang tải...</Text>
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#DC2626" />
+          <Ionicons name="alert-circle-outline" size={48} color={palette.danger} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadRequests}>
             <Text style={styles.retryText}>Thử lại</Text>
@@ -172,7 +173,7 @@ export default function IssuesScreen() {
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.centerContainer}>
-              <Ionicons name="document-outline" size={52} color="#D1D5DB" />
+              <Ionicons name="document-outline" size={52} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>Không có sự cố nào</Text>
               <Text style={styles.emptyText}>Không tìm thấy sự cố phù hợp với bộ lọc hiện tại.</Text>
             </View>
@@ -210,29 +211,29 @@ export default function IssuesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: palette.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: palette.text },
 
   /* Filter Panel — matches BillsScreen */
   filterPanel: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomColor: palette.borderSoft,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 4,
   },
   statusRow: { flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 8, gap: 4 },
   statusTab: {
@@ -256,7 +257,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
   },
-  statusTabLabel: { fontSize: 10, fontWeight: '600', color: '#9CA3AF', textAlign: 'center' },
+  statusTabLabel: { fontSize: 10, fontWeight: '600', color: '#94A3B8', textAlign: 'center' },
   badge: {
     minWidth: 14,
     height: 14,
@@ -277,29 +278,34 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     paddingHorizontal: 32,
   },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#6B7280' },
-  errorText: { marginTop: 8, fontSize: 14, color: '#DC2626', textAlign: 'center' },
-  emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: '700', color: '#374151' },
-  emptyText: { marginTop: 6, fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 20 },
-  retryButton: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1A4B84', borderRadius: 8 },
+  loadingText: { marginTop: 12, fontSize: 14, color: palette.textMuted },
+  errorText: { marginTop: 8, fontSize: 14, color: palette.danger, textAlign: 'center' },
+  emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: '700', color: palette.text },
+  emptyText: { marginTop: 6, fontSize: 13, color: palette.textMuted, textAlign: 'center', lineHeight: 20 },
+  retryButton: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: palette.primary, borderRadius: 12 },
   retryText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 
   /* Footer */
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: palette.borderSoft,
   },
   reportButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     borderRadius: 12,
     paddingVertical: 14,
     gap: 8,
+    shadowColor: palette.shadow,
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   reportButtonText: {
     color: '#FFFFFF',

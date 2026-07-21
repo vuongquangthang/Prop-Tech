@@ -75,7 +75,7 @@ export function QuickAccessTables() {
       .then(data => {
         const newOnes = data
           .filter((r: MaintenanceRequest) =>
-            r.status === 'Pending' || r.status === 'Chờ xử lý' || r.status === 'pending' || r.status === 'new' || r.status === 'Mới' || r.status === 'Yêu cầu sửa lại',
+            r.status === 'Pending' || r.status === 'Chờ xử lý' || r.status === 'pending' || r.status === 'new' || r.status === 'Mới' || r.status === 'Sửa lại' || r.status === 'Yêu cầu sửa lại',
           )
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setTotalIssues(newOnes.length);

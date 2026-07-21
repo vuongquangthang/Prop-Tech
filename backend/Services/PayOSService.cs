@@ -29,21 +29,39 @@ public interface IPayOSService
 
 public class PayOSService : IPayOSService
 {
-    private readonly PayOSClient _client;
     private readonly IHoaDonRepository _hoaDonRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PayOSService> _logger;
 
     public PayOSService(
-        PayOSClient client,
         IHoaDonRepository hoaDonRepository,
         IConfiguration configuration,
         ILogger<PayOSService> logger)
     {
-        _client = client;
         _hoaDonRepository = hoaDonRepository;
         _configuration = configuration;
         _logger = logger;
+    }
+
+    private PayOSClient CreateClient()
+    {
+        var clientId = _configuration["PayOS:ClientId"];
+        var apiKey = _configuration["PayOS:ApiKey"];
+        var checksumKey = _configuration["PayOS:ChecksumKey"];
+
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(checksumKey))
+        {
+            throw new InvalidOperationException("Chưa cấu hình PayOS: cần ClientId, ApiKey và ChecksumKey để khởi tạo thanh toán.");
+        }
+
+        return new PayOSClient(clientId, apiKey, checksumKey);
+    }
+
+    private bool HasPayOSConfig()
+    {
+        return !string.IsNullOrWhiteSpace(_configuration["PayOS:ClientId"])
+            && !string.IsNullOrWhiteSpace(_configuration["PayOS:ApiKey"])
+            && !string.IsNullOrWhiteSpace(_configuration["PayOS:ChecksumKey"]);
     }
 
     public async Task<PayOSCreateResult> CreatePaymentLinkAsync(long orderCode, int hoaDonId, string returnUrl, string cancelUrl)
@@ -65,6 +83,33 @@ public class PayOSService : IPayOSService
             "PayOS CreateLink: orderCode={OrderCode}, hoaDonId={HoaDonId}, realAmount={RealAmount}đ, payosAmount={PayOSAmount}đ, testMode={IsTestMode}",
             orderCode, hoaDonId, realAmount, payosAmount, isTestMode);
 
+        if (!HasPayOSConfig())
+        {
+            if (!isTestMode)
+            {
+                throw new InvalidOperationException("Chưa cấu hình PayOS: cần ClientId, ApiKey và ChecksumKey để khởi tạo thanh toán.");
+            }
+
+            var fallbackAmount = realAmount > int.MaxValue
+                ? int.MaxValue
+                : (int)Math.Round(realAmount, MidpointRounding.AwayFromZero);
+
+            _logger.LogWarning(
+                "PayOS config is missing. Using mock payment gateway for orderCode={OrderCode}, hoaDonId={HoaDonId}",
+                orderCode, hoaDonId);
+
+            return new PayOSCreateResult(
+                $"/payment/gateway?txn={orderCode}",
+                "",
+                realAmount,
+                fallbackAmount,
+                "",
+                "",
+                "",
+                description
+            );
+        }
+
         var request = new CreatePaymentLinkRequest
         {
             OrderCode = orderCode,
@@ -74,7 +119,8 @@ public class PayOSService : IPayOSService
             CancelUrl = cancelUrl
         };
 
-        var result = await _client.PaymentRequests.CreateAsync(request);
+        var client = CreateClient();
+        var result = await client.PaymentRequests.CreateAsync(request);
         _logger.LogInformation(
             "PayOS link created: CheckoutUrl={CheckoutUrl}, QrCode={QrCode}, AccountNumber={AccountNumber}, AccountName={AccountName}, Bin={Bin}",
             result.CheckoutUrl, result.QrCode, result.AccountNumber, result.AccountName, result.Bin);
@@ -94,6 +140,7 @@ public class PayOSService : IPayOSService
 
     public async Task<WebhookData> VerifyWebhookAsync(Webhook webhookBody)
     {
-        return await _client.Webhooks.VerifyAsync(webhookBody);
+        var client = CreateClient();
+        return await client.Webhooks.VerifyAsync(webhookBody);
     }
 }

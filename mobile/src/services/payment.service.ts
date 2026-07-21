@@ -131,8 +131,12 @@ class PaymentService {
    * Get the full payment gateway URL (for opening in browser)
    */
   getGatewayUrl(paymentUrl: string): string {
-    // paymentUrl is like "/payment/gateway?txn=..."
-    return `${API_URL}${paymentUrl}`;
+    if (paymentUrl.startsWith('http://') || paymentUrl.startsWith('https://')) {
+      return paymentUrl;
+    }
+
+    const normalizedPath = paymentUrl.startsWith('/') ? paymentUrl : `/${paymentUrl}`;
+    return `${API_URL}${normalizedPath}`;
   }
 }
 

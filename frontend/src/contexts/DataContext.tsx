@@ -14,7 +14,7 @@ export interface Incident {
   description: string;
   imageUrl?: string;
   mediaUrls?: string;
-  status: 'pending' | 'in-progress' | 'review' | 'resolved';
+  status: 'pending' | 'in-progress' | 'review' | 'rework' | 'resolved';
   priority: 'low' | 'medium' | 'high';
   reportedBy: string;
   reportedAt: string;
@@ -187,9 +187,12 @@ function mapMaintenanceStatus(status: string | undefined): Incident['status'] {
     case 'dadong':
     case 'closed':
       return 'resolved';
+    case 'sửalại':
+    case 'sualai':
     case 'yêucầusửalại':
     case 'yeucausualai':
-      return 'pending';
+    case 'rework':
+      return 'rework';
     case 'chờnghiệmthu':
     case 'chonghiemthu':
     case 'review':
@@ -211,6 +214,8 @@ function mapBackendStatus(status: Incident['status']): string {
       return 'Đang xử lý';
     case 'review':
       return 'Chờ nghiệm thu';
+    case 'rework':
+      return 'Sửa lại';
     case 'resolved':
       return 'Đã đóng';
     default:
@@ -670,7 +675,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const getPendingIncidentCount = () => {
-    return incidents.filter(i => i.status === 'pending').length;
+    return incidents.filter(i => i.status === 'pending' || i.status === 'rework').length;
   };
 
   const refreshData = async () => {

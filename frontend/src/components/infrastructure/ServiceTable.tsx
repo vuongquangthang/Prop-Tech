@@ -1097,7 +1097,7 @@ export function ServiceTable() {
                 </div>
                 <div>
                   <h3 className="text-lg text-gray-800">Xác nhận sửa dịch vụ</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Thao tác này sẽ cập nhật thông tin dịch vụ.</p>
+                  <p className="mt-0.5 text-xs text-gray-500">Thao tác này có thể ảnh hưởng đến hợp đồng đang dùng dịch vụ.</p>
                 </div>
               </div>
               <button
@@ -1113,8 +1113,30 @@ export function ServiceTable() {
 
             <div className="space-y-4 px-6 py-5">
               <p className="text-sm leading-6 text-gray-700">
-                Bạn có chắc chắn muốn cập nhật dịch vụ này không?
+                Bạn có chắc chắn muốn cập nhật đơn giá dịch vụ <strong>{selectedService.name}</strong> không?
               </p>
+              <div className="rounded border border-orange-200 bg-orange-50 p-4 text-sm leading-6 text-orange-900">
+                <p className="font-semibold">Lưu ý trước khi xác nhận:</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  <li>Giá dịch vụ trong các hợp đồng/phòng đang sử dụng dịch vụ này sẽ được cập nhật theo ngày áp dụng.</li>
+                  <li>Hệ thống sẽ gửi thông báo thay đổi giá đến app của cư dân thuộc các phòng có hợp đồng liên quan.</li>
+                  <li>Các hóa đơn đã xuất trước ngày áp dụng vẫn giữ nguyên đơn giá snapshot cũ.</li>
+                </ul>
+              </div>
+              <div className="grid grid-cols-2 gap-3 rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Giá hiện tại</p>
+                  <p className="font-bold text-gray-800">{Number(selectedService.price || 0).toLocaleString('vi-VN')} VNĐ</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Giá mới</p>
+                  <p className="font-bold text-gray-800">{updatePriceVnd.toLocaleString('vi-VN')} VNĐ</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-500">Ngày áp dụng</p>
+                  <p className="font-semibold text-gray-800">{formatEffectiveDate(updateEffectiveDate)}</p>
+                </div>
+              </div>
             </div>
 
             <div className="admin-content-modal-footer flex items-center justify-end gap-3 px-6 py-4">
@@ -1133,7 +1155,7 @@ export function ServiceTable() {
                 className="flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:opacity-50"
               >
                 {updateLoading && <Loader2 size={14} className="animate-spin" />}
-                <span>Xác nhận sửa</span>
+                <span>Xác nhận đổi giá</span>
               </button>
             </div>
           </div>

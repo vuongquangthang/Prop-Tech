@@ -187,6 +187,7 @@ const statusConfig = {
   new: { label: 'Chờ xử lý', color: 'bg-blue-100 text-blue-800 border-blue-300' },
   in_progress: { label: 'Đang xử lý', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
   review: { label: 'Chờ nghiệm thu', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+  rework: { label: 'Sửa lại', color: 'bg-red-100 text-red-800 border-red-300' },
   completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-800 border-green-300' },
 };
 
@@ -203,6 +204,7 @@ const getAvailableStatuses = (currentStatus: string) => {
     in_progress: ['in_progress', 'review'],
     // Chờ cư dân nghiệm thu trên ứng dụng; phía quản lý không được đổi trạng thái.
     review: ['review'],
+    rework: ['rework', 'in_progress'],
     completed: ['completed'],
   };
   return statusFlow[currentStatus as keyof typeof statusFlow] || ['new'];
@@ -227,6 +229,7 @@ function IncidentTimeline({ request }: { request: any }) {
     new: 0,
     in_progress: 1,
     review: 2,
+    rework: 2,
     completed: 3,
   }[request.status] ?? 0;
 
@@ -257,9 +260,11 @@ function IncidentTimeline({ request }: { request: any }) {
     },
     {
       key: 'completed',
-      title: '4. Hoàn thành',
-      description: 'Sự cố được đóng sau khi cư dân xác nhận hài lòng.',
-      time: resolvedAt || (request.status === 'completed' ? 'Đã hoàn thành' : 'Chưa hoàn thành'),
+      title: request.status === 'rework' ? '4. Cư dân yêu cầu sửa lại' : '4. Hoàn thành',
+      description: request.status === 'rework'
+        ? 'Cư dân chưa hài lòng và yêu cầu xử lý lại sự cố.'
+        : 'Sự cố được đóng sau khi cư dân xác nhận hài lòng.',
+      time: request.status === 'rework' ? 'Cần xử lý lại' : resolvedAt || (request.status === 'completed' ? 'Đã hoàn thành' : 'Chưa hoàn thành'),
       icon: Circle,
     },
   ];
@@ -278,7 +283,7 @@ function IncidentTimeline({ request }: { request: any }) {
         {steps.map((step, index) => {
           const stepIndex = index;
           const isDone = request.status === 'completed' ? true : stepIndex < statusIndex;
-          const isActive = stepIndex === statusIndex;
+          const isActive = stepIndex === statusIndex || (request.status === 'rework' && step.key === 'completed');
           const StepIcon = step.icon;
 
           return (
@@ -343,6 +348,7 @@ export function MaintenanceRequestTable() {
         'pending': 'new',
         'in-progress': 'in_progress',
         'review': 'review',
+        'rework': 'rework',
         'resolved': 'completed',
       };
 
@@ -380,7 +386,7 @@ export function MaintenanceRequestTable() {
   useEffect(() => {
     const requestId = searchParams.get('requestId');
     const requestedStatus = searchParams.get('status');
-    if (requestedStatus && ['new', 'in_progress', 'review', 'completed'].includes(requestedStatus)) {
+    if (requestedStatus && ['new', 'in_progress', 'review', 'rework', 'completed'].includes(requestedStatus)) {
       setActiveTab(requestedStatus);
     }
     if (!requestId || requests.length === 0) return;
@@ -404,6 +410,7 @@ export function MaintenanceRequestTable() {
     { key: 'new', label: 'Chờ xử lý', count: requests.filter(r => r.status === 'new').length },
     { key: 'in_progress', label: 'Đang xử lý', count: requests.filter(r => r.status === 'in_progress').length },
     { key: 'review', label: 'Chờ nghiệm thu', count: requests.filter(r => r.status === 'review').length },
+    { key: 'rework', label: 'Sửa lại', count: requests.filter(r => r.status === 'rework').length },
     { key: 'completed', label: 'Hoàn thành', count: requests.filter(r => r.status === 'completed').length },
   ];
 
@@ -421,6 +428,7 @@ export function MaintenanceRequestTable() {
         'new': 'pending',
         'in_progress': 'in-progress',
         'review': 'review',
+        'rework': 'rework',
         'completed': 'resolved',
       };
       

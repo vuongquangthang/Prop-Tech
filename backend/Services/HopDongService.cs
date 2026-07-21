@@ -444,6 +444,7 @@ public class HopDongService : IHopDongService
             var activeResidents = existingResidents.Where(x => x.ToDate == null).ToList();
             var desiredResidentIds = residentDtos.Select(x => x.ResidentId).ToHashSet();
             var syncDate = (dto.StartDate ?? contract.StartDate).Date;
+            var syncedActiveResidents = new List<ChiTietO>();
 
             foreach (var active in activeResidents)
             {
@@ -463,17 +464,27 @@ public class HopDongService : IHopDongService
                 {
                     existingActive.ResidencyRole = residentDto.ResidencyRole;
                     _chiTietORepository.Update(existingActive);
+                    syncedActiveResidents.Add(existingActive);
                     continue;
                 }
 
-                await _chiTietORepository.AddAsync(new ChiTietO
+                var newResidency = new ChiTietO
                 {
                     ContractId = contract.Id,
                     ResidentId = residentDto.ResidentId,
                     ResidencyRole = residentDto.ResidencyRole,
                     FromDate = residentDto.FromDate == default ? syncDate : residentDto.FromDate,
                     ToDate = null
-                });
+                };
+
+                await _chiTietORepository.AddAsync(newResidency);
+                syncedActiveResidents.Add(newResidency);
+            }
+
+            var promotedResident = PromotePrimaryResidentIfMissing(syncedActiveResidents);
+            if (promotedResident != null)
+            {
+                _chiTietORepository.Update(promotedResident);
             }
 
             await EnsureResidentAccountsAsync(residentDtos);
@@ -1233,6 +1244,63 @@ public class HopDongService : IHopDongService
         }
 
         return true;
+    }
+
+    private static ChiTietO? PromotePrimaryResidentIfMissing(IEnumerable<ChiTietO> activeResidents)
+    {
+        var residents = activeResidents
+            .Where(item => item.ToDate == null)
+            .ToList();
+
+        if (residents.Count == 0 || residents.Any(item => IsPrimaryResidentRole(item.ResidencyRole)))
+        {
+            return null;
+        }
+
+        var promotedResident = residents
+            .OrderBy(item => IsTenantRole(item.ResidencyRole) ? 0 : 1)
+            .ThenBy(item => item.FromDate)
+            .ThenBy(item => item.ResidentId)
+            .First();
+
+        promotedResident.ResidencyRole = "Người thuê chính";
+        return promotedResident;
+    }
+
+    private static bool IsPrimaryResidentRole(string? role)
+    {
+        var normalized = RemoveDiacritics(role).ToLowerInvariant();
+        return normalized.Contains("nguoi thue chinh")
+            || normalized.Contains("chu ho")
+            || normalized.Contains("chu phong")
+            || normalized.Contains("primary")
+            || normalized.Contains("owner");
+    }
+
+    private static bool IsTenantRole(string? role)
+    {
+        var normalized = RemoveDiacritics(role).ToLowerInvariant();
+        return normalized.Contains("nguoi thue") || normalized.Contains("tenant");
+    }
+
+    private static string RemoveDiacritics(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private async Task<string> GenerateContractCodeAsync(int contractYear)

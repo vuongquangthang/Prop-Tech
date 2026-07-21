@@ -14,6 +14,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BillCard } from '../components/BillCard';
 import invoiceService, { Invoice } from '../services/invoice.service';
 import signalRService from '../services/signalr.service';
+import { palette } from '../theme/palette';
 
 export default function BillsScreen() {
   const navigation = useNavigation<any>();
@@ -98,7 +99,7 @@ export default function BillsScreen() {
   const filteredInvoices = getFilteredInvoices();
 
   const statusTabs: { value: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] = [
-    { value: 'all',     label: 'Tất cả',    icon: 'list-outline',             color: '#1A4B84', bg: '#E8F0FB' },
+    { value: 'all',     label: 'Tất cả',    icon: 'list-outline',             color: palette.primary, bg: palette.primarySoft },
     { value: 'unpaid',  label: 'Chưa TT',   icon: 'time-outline',             color: '#D97706', bg: '#FFFBEB' },
     { value: 'paid',    label: 'Đã TT',     icon: 'checkmark-circle-outline', color: '#059669', bg: '#ECFDF5' },
     { value: 'overdue', label: 'Quá hạn',   icon: 'alert-circle-outline',     color: '#DC2626', bg: '#FEF2F2' },
@@ -120,7 +121,7 @@ export default function BillsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#4B5563" />
+          <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Lịch sử hóa đơn</Text>
         {isFiltering ? (
@@ -181,12 +182,12 @@ export default function BillsScreen() {
 
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.loadingText}>Đang tải...</Text>
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#DC2626" />
+          <Ionicons name="alert-circle-outline" size={48} color={palette.danger} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadInvoices}>
             <Text style={styles.retryText}>Thử lại</Text>
@@ -200,7 +201,7 @@ export default function BillsScreen() {
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.centerContainer}>
-              <Ionicons name="document-outline" size={52} color="#D1D5DB" />
+              <Ionicons name="document-outline" size={52} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>Không có hóa đơn</Text>
               <Text style={styles.emptyText}>Không tìm thấy hóa đơn phù hợp với bộ lọc hiện tại.</Text>
             </View>
@@ -232,28 +233,28 @@ export default function BillsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: palette.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  resetText: { fontSize: 13, fontWeight: '600', color: '#1A4B84', width: 52, textAlign: 'right' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: palette.text },
+  resetText: { fontSize: 13, fontWeight: '600', color: palette.primary, width: 52, textAlign: 'right' },
   filterPanel: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomColor: palette.borderSoft,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 4,
   },
   yearRow: {
     flexDirection: 'row',
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
   filterRowLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: palette.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     width: 34,
@@ -276,14 +277,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: palette.surfaceSoft,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  yearChipActive: { backgroundColor: '#E8F0FB', borderColor: '#1A4B84' },
-  yearChipText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
-  yearChipTextActive: { color: '#1A4B84' },
-  panelDivider: { height: 1, backgroundColor: '#F3F4F6', marginHorizontal: 16 },
+  yearChipActive: { backgroundColor: palette.primarySoft, borderColor: palette.primary },
+  yearChipText: { fontSize: 13, fontWeight: '600', color: palette.textMuted },
+  yearChipTextActive: { color: palette.primary },
+  panelDivider: { height: 1, backgroundColor: palette.borderSoft, marginHorizontal: 16 },
   statusRow: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 10, gap: 6 },
   statusTab: {
     flex: 1,
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     backgroundColor: 'transparent',
   },
-  statusTabLabel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF' },
+  statusTabLabel: { fontSize: 11, fontWeight: '600', color: '#94A3B8' },
   badge: {
     minWidth: 16,
     height: 16,
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
     top: 10,
     right: 10,
     zIndex: 10,
-    backgroundColor: '#16a34a',
+    backgroundColor: palette.success,
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -332,10 +333,10 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     paddingHorizontal: 32,
   },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#6B7280' },
-  errorText: { marginTop: 8, fontSize: 14, color: '#DC2626', textAlign: 'center' },
-  emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: '700', color: '#374151' },
-  emptyText: { marginTop: 6, fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 20 },
-  retryButton: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1A4B84', borderRadius: 8 },
+  loadingText: { marginTop: 12, fontSize: 14, color: palette.textMuted },
+  errorText: { marginTop: 8, fontSize: 14, color: palette.danger, textAlign: 'center' },
+  emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: '700', color: palette.text },
+  emptyText: { marginTop: 6, fontSize: 13, color: palette.textMuted, textAlign: 'center', lineHeight: 20 },
+  retryButton: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: palette.primary, borderRadius: 12 },
   retryText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 });

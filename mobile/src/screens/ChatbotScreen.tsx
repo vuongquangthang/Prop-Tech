@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import apiService from '../services/api.service';
+import { palette } from '../theme/palette';
 
 interface Message {
   id: string;
@@ -29,6 +30,7 @@ const MessageItem = memo(({ item }: { item: Message }) => {
         <View style={styles.botMessageContainer}>
           <View style={styles.botAvatar}>
             <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
+              <Ionicons name="chatbubbles" size={18} color={palette.primary} />
           </View>
           <View style={styles.botMessage}>
             <Text style={styles.botMessageText}>{item.text}</Text>
@@ -45,7 +47,7 @@ const MessageItem = memo(({ item }: { item: Message }) => {
           <Text style={styles.userMessageText}>{item.text}</Text>
         </View>
         <View style={styles.userAvatar}>
-          <Ionicons name="person" size={18} color="#6B7280" />
+          <Ionicons name="person" size={18} color={palette.textMuted} />
         </View>
       </View>
     </View>
@@ -156,7 +158,7 @@ export default function ChatbotScreen() {
       >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#4B5563" />
+          <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Trợ lý ảo tòa nhà</Text>
         <View style={{ width: 24 }} />
@@ -181,9 +183,10 @@ export default function ChatbotScreen() {
                 <View style={styles.botMessageContainer}>
                   <View style={styles.botAvatar}>
                     <Ionicons name="chatbubbles" size={18} color="#1A4B84" />
+                    <Ionicons name="chatbubbles" size={18} color={palette.primary} />
                   </View>
                   <View style={styles.botMessage}>
-                    <ActivityIndicator size="small" color="#1A4B84" />
+                    <ActivityIndicator size="small" color={palette.primary} />
                   </View>
                 </View>
               </View>
@@ -212,6 +215,7 @@ export default function ChatbotScreen() {
             style={styles.input}
             placeholder="Nhập câu hỏi..."
             placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={palette.textMuted}
             value={message}
             onChangeText={setMessage}
             onSubmitEditing={handleSend}
@@ -222,6 +226,7 @@ export default function ChatbotScreen() {
             disabled={isTyping || !message.trim()}
           >
             <Ionicons name="send" size={16} color="#FFFFFF" />
+                      <Ionicons name="send" size={16} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
         <Text style={styles.disclaimer}>
@@ -237,6 +242,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -246,16 +252,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: palette.borderSoft,
+    backgroundColor: palette.surface,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
+    color: palette.text,
   },
   messagesContainer: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   messagesContent: {
     padding: 16,
@@ -279,11 +287,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 1,
     borderColor: '#BFDBFE',
+    backgroundColor: palette.primarySoft,
+    borderColor: '#BFDBFE',
   },
   botMessage: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: palette.borderSoft,
     borderRadius: 16,
     borderTopLeftRadius: 4,
     padding: 12,
@@ -296,6 +306,7 @@ const styles = StyleSheet.create({
   botMessageText: {
     fontSize: 14,
     color: '#374151',
+      color: palette.text,
     lineHeight: 20,
   },
   userMessageContainer: {
@@ -326,6 +337,8 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#E5E7EB',
+      backgroundColor: '#E2E8F0',
+      borderColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
@@ -355,12 +368,15 @@ const styles = StyleSheet.create({
   suggestionText: {
     fontSize: 12,
     color: '#1A4B84',
+    color: palette.primary,
   },
   inputContainer: {
     padding: 16,
     backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
+      borderTopColor: palette.borderSoft,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
@@ -375,7 +391,12 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+    backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
+      borderColor: palette.border,
+      color: palette.text,
+      backgroundColor: palette.primary,
+      backgroundColor: palette.surfaceSoft,
     borderColor: '#E5E7EB',
     borderRadius: 24,
     paddingHorizontal: 16,

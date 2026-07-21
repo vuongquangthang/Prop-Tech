@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { palette } from '../theme/palette';
 
 interface NavButtonProps {
   icon: React.ReactNode;
@@ -40,9 +41,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
     marginTop: 4,
-    color: '#9CA3AF',
+    color: '#94A3B8',
   },
   activeLabel: {
-    color: '#1A4B84',
+    color: palette.primary,
   },
 });

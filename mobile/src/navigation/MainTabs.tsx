@@ -6,6 +6,7 @@ import RoommateMessagesScreen from '../screens/RoommateMessagesScreen';
 import BillsScreen from '../screens/BillsScreen';
 import IssuesScreen from '../screens/IssuesScreen';
 import AccountScreen from '../screens/AccountScreen';
+import { palette } from '../theme/palette';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -41,12 +42,20 @@ export const MainTabs = () => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#1A4B84',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: palette.primary,
+        tabBarInactiveTintColor: '#94A3B8',
         tabBarStyle: {
           height: 84,
           paddingBottom: 28,
           paddingTop: 8,
+          backgroundColor: palette.surface,
+          borderTopColor: palette.border,
+          borderTopWidth: 1,
+          shadowColor: palette.shadow,
+          shadowOpacity: 1,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: -6 },
+          elevation: 18,
         },
         tabBarLabelStyle: {
           fontSize: 12,

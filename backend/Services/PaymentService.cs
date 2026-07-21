@@ -105,7 +105,34 @@ public class PaymentService : IPaymentService
         // và trả về RealAmount để lưu đúng vào ThanhToan
         var returnUrl = _config["PayOS:ReturnUrl"] ?? "proptech://payment/success";
         var cancelUrl = _config["PayOS:CancelUrl"] ?? "proptech://payment/cancel";
-        var payosResult = await _payOSService.CreatePaymentLinkAsync(orderCode, invoiceId, returnUrl, cancelUrl);
+        PayOSCreateResult payosResult;
+        try
+        {
+            payosResult = await _payOSService.CreatePaymentLinkAsync(orderCode, invoiceId, returnUrl, cancelUrl);
+        }
+        catch (Exception ex) when (CanFallbackToMockGateway(ex))
+        {
+            _logger.LogWarning(
+                ex,
+                "PayOS is not configured. Falling back to mock payment gateway for invoice {InvoiceId}, orderCode {OrderCode}",
+                invoiceId,
+                orderCode);
+
+            var fallbackAmount = invoice.TotalAmount > int.MaxValue
+                ? int.MaxValue
+                : (int)Math.Round(invoice.TotalAmount, MidpointRounding.AwayFromZero);
+
+            payosResult = new PayOSCreateResult(
+                $"/payment/gateway?txn={orderCode}",
+                "",
+                invoice.TotalAmount,
+                fallbackAmount,
+                "",
+                "",
+                "",
+                $"Thanh toan HD #{invoiceId}"
+            );
+        }
 
         // Create new pending transaction - lưu số tiền THỰC (RealAmount) để đối soát
         var transactionCode = orderCode.ToString();
@@ -184,6 +211,19 @@ public class PaymentService : IPaymentService
             BankName            = bankInfo?.ShortName ?? "",
             BankLogoUrl         = bankInfo?.Logo ?? ""
         };
+    }
+
+    private bool CanFallbackToMockGateway(Exception ex)
+    {
+        if (!_config.GetValue<bool>("PayOS:IsTestMode"))
+        {
+            return false;
+        }
+
+        var message = ex.Message;
+        return message.Contains("Key cannot be null or empty", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Chưa cấu hình PayOS", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("ChecksumKey", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<PaymentCallbackResponseDto> ProcessPaymentCallbackAsync(PaymentCallbackDto dto)

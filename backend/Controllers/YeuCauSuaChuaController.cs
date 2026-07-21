@@ -199,19 +199,22 @@ public class YeuCauSuaChuaController : ControllerBase
             var normalizedStatus = (dto.Status ?? string.Empty).Trim().ToLowerInvariant();
             var isSatisfiedStatus = normalizedStatus == "đã đóng" || normalizedStatus == "da dong" || normalizedStatus == "dadong" || normalizedStatus == "closed"
                 || normalizedStatus == "hoàn thành" || normalizedStatus == "hoan thanh" || normalizedStatus == "hoanthanh" || normalizedStatus == "completed";
-            var isReworkStatus = normalizedStatus == "chờ xử lý" || normalizedStatus == "cho xu ly" || normalizedStatus == "choxuly" || normalizedStatus == "pending";
+            var isReworkStatus = normalizedStatus == "sửa lại" || normalizedStatus == "sua lai" || normalizedStatus == "sualai" || normalizedStatus == "rework"
+                || normalizedStatus == "yêu cầu sửa lại" || normalizedStatus == "yeu cau sua lai" || normalizedStatus == "yeucausualai"
+                || normalizedStatus == "không hài lòng" || normalizedStatus == "khong hai long" || normalizedStatus == "khonghailong"
+                || normalizedStatus == "chờ xử lý" || normalizedStatus == "cho xu ly" || normalizedStatus == "choxuly" || normalizedStatus == "pending";
 
-            // Only resident can mark request as completed/satisfied.
-            if (isSatisfiedStatus
+            // Only resident can submit acceptance or rework feedback.
+            if ((isSatisfiedStatus || isReworkStatus)
                 && userRole != "CuDan")
             {
-                return BadRequest(new { message = "Chỉ cư dân mới có thể xác nhận hài lòng để đóng sự cố." });
+                return BadRequest(new { message = "Chỉ cư dân mới có thể phản hồi nghiệm thu sự cố." });
             }
 
             // Close endpoint only accepts resident feedback statuses.
             if (!isSatisfiedStatus && !isReworkStatus)
             {
-                return BadRequest(new { message = "Phản hồi nghiệm thu chỉ chấp nhận trạng thái 'Đã đóng' hoặc 'Chờ xử lý'." });
+                return BadRequest(new { message = "Phản hồi nghiệm thu chỉ chấp nhận trạng thái 'Đã đóng' hoặc 'Sửa lại'." });
             }
 
             // Backward compatibility: old clients may send "Hoàn thành" for resident satisfaction.
@@ -221,7 +224,7 @@ public class YeuCauSuaChuaController : ControllerBase
             }
             else if (isReworkStatus)
             {
-                dto.Status = "Chờ xử lý";
+                dto.Status = "Sửa lại";
             }
 
             if (userRole == "CuDan")

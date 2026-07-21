@@ -23,6 +23,7 @@ import maintenanceService from '../services/maintenance.service';
 import apiService from '../services/api.service';
 import { useAuthStore } from '../store/authStore';
 import { contractService, ContractDetail } from '../services/contract.service';
+import { palette } from '../theme/palette';
 
 export default function ReportIssueScreen() {
   const navigation = useNavigation();
@@ -218,7 +219,7 @@ export default function ReportIssueScreen() {
       >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#4B5563" />
+          <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Báo cáo sự cố</Text>
         <View style={{ width: 24 }} />
@@ -241,7 +242,7 @@ export default function ReportIssueScreen() {
             <Text style={styles.label}>Phòng xảy ra sự cố *</Text>
             {isLoadingRooms ? (
               <View style={styles.roomLoading}>
-                <ActivityIndicator size="small" color="#1A4B84" />
+                <ActivityIndicator size="small" color={palette.primary} />
                 <Text style={styles.roomLoadingText}>Đang tải danh sách phòng...</Text>
               </View>
             ) : contracts.length > 0 ? (
@@ -257,7 +258,7 @@ export default function ReportIssueScreen() {
                       <Ionicons
                         name="home-outline"
                         size={20}
-                        color={selected ? '#1A4B84' : '#6B7280'}
+                        color={selected ? palette.primary : '#6B7280'}
                       />
                       <View style={styles.roomButtonContent}>
                         <Text style={[styles.roomButtonTitle, selected && styles.roomButtonTitleActive]}>
@@ -267,14 +268,14 @@ export default function ReportIssueScreen() {
                           <Text style={styles.roomButtonSubtitle}>{contract.contractCode}</Text>
                         )}
                       </View>
-                      {selected && <Ionicons name="checkmark-circle" size={20} color="#1A4B84" />}
+                      {selected && <Ionicons name="checkmark-circle" size={20} color={palette.primary} />}
                     </TouchableOpacity>
                   );
                 })}
               </View>
             ) : (
               <View style={styles.roomError}>
-                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+                <Ionicons name="alert-circle-outline" size={18} color={palette.danger} />
                 <Text style={styles.roomErrorText}>Không tìm thấy phòng đang thuê</Text>
               </View>
             )}
@@ -296,7 +297,7 @@ export default function ReportIssueScreen() {
                   <Ionicons
                     name={maintenanceService.getIssueTypeIcon(type) as any}
                     size={18}
-                    color={selectedType === type ? '#1A4B84' : '#6B7280'}
+                    color={selectedType === type ? palette.primary : '#6B7280'}
                   />
                   <Text
                     numberOfLines={2}
@@ -355,11 +356,11 @@ export default function ReportIssueScreen() {
             {selectedImages.length < 3 && (
               <View style={styles.photoButtons}>
                 <TouchableOpacity style={styles.photoButton} onPress={() => pickImages('camera')}>
-                  <Ionicons name="camera" size={28} color="#1A4B84" />
+                  <Ionicons name="camera" size={28} color={palette.primary} />
                   <Text style={styles.photoButtonText}>Camera</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.photoButton} onPress={() => pickImages('library')}>
-                  <Ionicons name="images" size={28} color="#1A4B84" />
+                  <Ionicons name="images" size={28} color={palette.primary} />
                   <Text style={styles.photoButtonText}>Thư viện</Text>
                 </TouchableOpacity>
               </View>
@@ -406,7 +407,7 @@ export default function ReportIssueScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -415,12 +416,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
+    backgroundColor: palette.surface,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   content: {
     flex: 1,
@@ -431,7 +433,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
-    color: '#4B5563',
+    color: palette.textMuted,
     marginBottom: 24,
   },
   form: {
@@ -451,13 +453,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: palette.border,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
   },
   roomButtonActive: {
-    borderColor: '#1A4B84',
-    backgroundColor: '#E8F0FB',
+    borderColor: palette.primary,
+    backgroundColor: palette.primarySoft,
   },
   roomButtonContent: {
     flex: 1,
@@ -465,10 +467,10 @@ const styles = StyleSheet.create({
   roomButtonTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#374151',
+    color: palette.text,
   },
   roomButtonTitleActive: {
-    color: '#1A4B84',
+    color: palette.primary,
   },
   roomButtonSubtitle: {
     marginTop: 2,
@@ -482,12 +484,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: palette.borderSoft,
     borderRadius: 12,
   },
   roomLoadingText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   roomError: {
     minHeight: 52,
@@ -508,39 +510,39 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#111827',
+    color: palette.text,
     marginBottom: 8,
   },
   select: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: palette.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   selectText: {
     fontSize: 14,
-    color: '#374151',
+    color: palette.text,
   },
   textarea: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: palette.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#374151',
+    color: palette.text,
     textAlignVertical: 'top',
     minHeight: 100,
   },
   charCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: palette.textMuted,
     textAlign: 'right',
     marginTop: 4,
   },
@@ -554,7 +556,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#BFDBFE',
-    backgroundColor: '#E8F0FB',
+    backgroundColor: palette.primarySoft,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -562,12 +564,12 @@ const styles = StyleSheet.create({
   photoButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1A4B84',
+    color: palette.primary,
     marginTop: 8,
   },
   photoNote: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: palette.textMuted,
     marginTop: 8,
   },
   imagePreviewRow: {
@@ -586,13 +588,13 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: palette.border,
   },
   removeImageBtn: {
     position: 'absolute',
     top: -6,
     right: -6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 10,
   },
   footer: {
@@ -602,14 +604,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 12 : 6,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: palette.borderSoft,
+    backgroundColor: palette.surface,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: palette.border,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -617,18 +619,18 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: palette.text,
   },
   submitButton: {
     flex: 1,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 1,
+    shadowRadius: 10,
     elevation: 3,
   },
   submitButtonText: {
@@ -637,7 +639,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   submitButtonDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: '#94A3B8',
     opacity: 0.5,
   },
   typeGrid: {
@@ -651,25 +653,25 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 2,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: palette.border,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
   },
   typeButtonActive: {
-    borderColor: '#1A4B84',
-    backgroundColor: '#E8F0FB',
+    borderColor: palette.primary,
+    backgroundColor: palette.primarySoft,
   },
   typeButtonText: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#6B7280',
+    color: palette.textMuted,
     marginTop: 4,
     textAlign: 'center',
   },
   typeButtonTextActive: {
-    color: '#1A4B84',
+    color: palette.primary,
     fontWeight: '600',
   },
 });

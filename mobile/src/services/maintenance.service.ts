@@ -11,7 +11,7 @@ export interface MaintenanceRequest {
   description?: string;
   mediaUrls?: string; // JSON string array
   imageUrls?: string[]; // Parsed array (helper)
-  status: 'Chờ xử lý' | 'Đang xử lý' | 'Chờ nghiệm thu' | 'Hoàn thành' | 'Từ chối' | 'Yêu cầu sửa lại' | 'Đã đóng';
+  status: 'Chờ xử lý' | 'Đang xử lý' | 'Chờ nghiệm thu' | 'Hoàn thành' | 'Từ chối' | 'Sửa lại' | 'Yêu cầu sửa lại' | 'Đã đóng';
   adminNote?: string;
   completionImageUrl?: string;
   createdAt: string;
@@ -134,7 +134,8 @@ class MaintenanceService {
       'Đang xử lý': { label: 'Đang xử lý', color: '#1A4B84', bgColor: '#E8F0FB' },
       'Chờ nghiệm thu': { label: 'Chờ nghiệm thu', color: '#7C3AED', bgColor: '#F3E8FF' },
       'Hoàn thành': { label: 'Hoàn thành', color: '#059669', bgColor: '#D1FAE5' },
-      'Yêu cầu sửa lại': { label: 'Yêu cầu sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
+      'Sửa lại': { label: 'Sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
+      'Yêu cầu sửa lại': { label: 'Sửa lại', color: '#DC2626', bgColor: '#FEE2E2' },
       'Từ chối': { label: 'Từ chối', color: '#DC2626', bgColor: '#FEE2E2' },
       'Đã đóng': { label: 'Đã đóng', color: '#6B7280', bgColor: '#F3F4F6' },
     };

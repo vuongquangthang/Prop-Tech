@@ -19,6 +19,7 @@ import { roomService, MyRoom, ServiceInfo, ElectricityTier, RoomDetail } from '.
 import { contractService, ContractDetail } from '../services/contract.service';
 import { useAuthStore } from '../store/authStore';
 import { resolveImageUrl } from '../utils/image';
+import { palette } from '../theme/palette';
 
 export default function RoomDetailScreen() {
   const navigation = useNavigation();
@@ -329,7 +330,7 @@ export default function RoomDetailScreen() {
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
         </View>
       </SafeAreaView>
     );
@@ -346,7 +347,7 @@ export default function RoomDetailScreen() {
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color="#DC2626" />
+          <Ionicons name="alert-circle" size={48} color={palette.danger} />
           <Text style={styles.errorText}>{error || 'Không tìm thấy thông tin phòng'}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadRoomData}>
             <Text style={styles.retryButtonText}>Thử lại</Text>
@@ -378,7 +379,7 @@ export default function RoomDetailScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.roomHeader}>
             <View style={styles.roomBadge}>
-              <Ionicons name="home" size={24} color="#1A4B84" />
+              <Ionicons name="home" size={24} color={palette.primary} />
             </View>
             <View style={styles.roomHeaderText}>
               <Text style={styles.roomCode}>{room.roomCode}</Text>
@@ -437,7 +438,7 @@ export default function RoomDetailScreen() {
         {/* Contract Info Card */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="document-text" size={20} color="#1A4B84" />
+            <Ionicons name="document-text" size={20} color={palette.primary} />
             <Text style={styles.sectionTitle}>Thông tin hợp đồng</Text>
           </View>
 
@@ -486,7 +487,7 @@ export default function RoomDetailScreen() {
             disabled={isContractLoading}
           >
             {isContractLoading ? (
-              <ActivityIndicator size="small" color="#1A4B84" />
+              <ActivityIndicator size="small" color={palette.primary} />
             ) : (
               <>
                 <Text style={styles.contractDetailButtonText}>
@@ -495,7 +496,7 @@ export default function RoomDetailScreen() {
                 <Ionicons
                   name={showContractDetail ? 'chevron-up' : 'chevron-forward'}
                   size={18}
-                  color="#1A4B84"
+                  color={palette.primary}
                 />
               </>
             )}
@@ -506,13 +507,13 @@ export default function RoomDetailScreen() {
         {((roomDetail && roomDetail.amenities && roomDetail.amenities.length > 0) || (room.amenities && room.amenities.length > 0)) && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="layers" size={20} color="#1A4B84" />
+              <Ionicons name="layers" size={20} color={palette.primary} />
               <Text style={styles.sectionTitle}>Tiện nghi</Text>
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
               {(roomDetail?.amenities?.length ? roomDetail.amenities : room.amenities || []).map((a: string, i: number) => (
-                <View key={i} style={{ backgroundColor: '#F3F4F6', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, marginRight: 8, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, color: '#374151' }}>{a}</Text>
+                <View key={i} style={{ backgroundColor: palette.surfaceSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, marginRight: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 13, color: palette.text }}>{a}</Text>
                 </View>
               ))}
             </View>
@@ -522,7 +523,7 @@ export default function RoomDetailScreen() {
         {roomDetail?.assets && roomDetail.assets.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="archive" size={20} color="#1A4B84" />
+              <Ionicons name="archive" size={20} color={palette.primary} />
               <Text style={styles.sectionTitle}>Tài sản trong phòng</Text>
             </View>
             {roomDetail.assets.map((asset) => (
@@ -538,7 +539,7 @@ export default function RoomDetailScreen() {
         {room.services.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="grid" size={20} color="#1A4B84" />
+              <Ionicons name="grid" size={20} color={palette.primary} />
               <Text style={styles.sectionTitle}>Dịch vụ</Text>
             </View>
 
@@ -558,7 +559,7 @@ export default function RoomDetailScreen() {
         {room.electricityTiers.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="flash" size={20} color="#F59E0B" />
+              <Ionicons name="flash" size={20} color={palette.warning} />
               <Text style={styles.sectionTitle}>Bảng giá điện</Text>
             </View>
 
@@ -597,7 +598,7 @@ export default function RoomDetailScreen() {
         {room.waterPricePerCubicMeter && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="water" size={20} color="#06B6D4" />
+              <Ionicons name="water" size={20} color="#0891B2" />
               <Text style={styles.sectionTitle}>Giá nước</Text>
             </View>
 

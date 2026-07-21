@@ -210,6 +210,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [activePricingCatalog, setActivePricingCatalog] = useState<any[]>([]);
   const [tenantList, setTenantList] = useState<any[]>([]);
+  const [selectedPrimaryResidentKey, setSelectedPrimaryResidentKey] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [durationMonths, setDurationMonths] = useState('12');
   const [durationOptions, setDurationOptions] = useState<number[]>([6, 12, 24]);
@@ -287,6 +288,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           fromDate: r.fromDate || r.FromDate || '', avatar: '👤'
         }));
         setFamilyMembers(members); setTenantList(residents);
+        setSelectedPrimaryResidentKey(primaryResident ? `resident:${getResidentIdValue(primaryResident)}` : '');
         if (detailStartDate && detailEndDate) {
           const start = new Date(detailStartDate); const end = new Date(detailEndDate);
           const months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
@@ -334,6 +336,67 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     () => selectedServices.filter(requiresManualQuantity),
     [selectedServices],
   );
+
+  const getResidentIdValue = (resident: any) => String(resident?.residentId ?? resident?.ResidentId ?? resident?.id ?? resident?.Id ?? '');
+  const getResidentDisplayName = (resident: any) => resident?.fullName ?? resident?.FullName ?? resident?.hoTen ?? resident?.name ?? 'Không rõ tên';
+  const getResidentPhone = (resident: any) => resident?.phoneNumber ?? resident?.PhoneNumber ?? resident?.soDienThoai ?? resident?.phone ?? '';
+
+  const originalPrimaryResident = useMemo(() => {
+    return tenantList?.find((resident: any) => isPrimaryResidentRole(resident.residencyRole ?? resident.ResidencyRole))
+      ?? tenantList?.[0]
+      ?? null;
+  }, [tenantList]);
+
+  const primaryResidentOptions = useMemo(() => {
+    const options: Array<{ key: string; label: string; phone: string; source: 'resident' | 'member'; data: any }> = [];
+    const usedKeys = new Set<string>();
+
+    if (originalPrimaryResident) {
+      const key = `resident:${getResidentIdValue(originalPrimaryResident)}`;
+      if (!usedKeys.has(key)) {
+        usedKeys.add(key);
+        options.push({
+          key,
+          label: getResidentDisplayName(originalPrimaryResident),
+          phone: getResidentPhone(originalPrimaryResident),
+          source: 'resident',
+          data: originalPrimaryResident,
+        });
+      }
+    }
+
+    familyMembers.forEach((member) => {
+      const key = `member:${member.id}`;
+      if (usedKeys.has(key)) return;
+      usedKeys.add(key);
+      options.push({
+        key,
+        label: member.name || 'Thành viên chưa đặt tên',
+        phone: member.phone || '',
+        source: 'member',
+        data: member,
+      });
+    });
+
+    return options;
+  }, [originalPrimaryResident, familyMembers]);
+
+  const selectedPrimaryResident = useMemo(() => {
+    return primaryResidentOptions.find((option) => option.key === selectedPrimaryResidentKey)
+      ?? primaryResidentOptions[0]
+      ?? null;
+  }, [primaryResidentOptions, selectedPrimaryResidentKey]);
+
+  useEffect(() => {
+    if (primaryResidentOptions.length === 0) {
+      if (selectedPrimaryResidentKey) setSelectedPrimaryResidentKey('');
+      return;
+    }
+
+    if (!primaryResidentOptions.some((option) => option.key === selectedPrimaryResidentKey)) {
+      setSelectedPrimaryResidentKey(primaryResidentOptions[0].key);
+    }
+  }, [primaryResidentOptions, selectedPrimaryResidentKey]);
 
   useEffect(() => {
     const availableServiceIds = new Set(
@@ -455,24 +518,15 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     setLoading(true); setError(null);
     try {
       const currentResidents = tenantList || contract?.residents || [];
-      const mainResident = currentResidents.find((r: any) => isPrimaryResidentRole(r.residencyRole))
-        ?? currentResidents[0];
+      const mainResident = originalPrimaryResident;
       const existingResidentIds = new Set(
         currentResidents
           .map((r: any) => Number(r.residentId || r.id || 0))
           .filter((id: number) => id > 0)
       );
       const residentsPayload: any[] = [];
-      if (mainResident) {
-        residentsPayload.push({
-          residentId: mainResident.residentId || mainResident.id,
-          residencyRole: mainResident.residencyRole || 'Người thuê chính',
-          fromDate: mainResident.fromDate || mainResident.FromDate || startDate,
-          email: mainResident.email || undefined,
-        });
-      }
-
-      for (const member of familyMembers) {
+      const selectedPrimaryKey = selectedPrimaryResident?.key || (mainResident ? `resident:${getResidentIdValue(mainResident)}` : '');
+      const ensureMemberResidentId = async (member: FamilyMember) => {
         let residentId = Number(member.id);
         const isExistingResident = Number.isFinite(residentId) && residentId > 0 && existingResidentIds.has(residentId);
 
@@ -490,9 +544,48 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           }
         }
 
+        return residentId;
+      };
+
+      if (selectedPrimaryKey.startsWith('member:')) {
+        const selectedMemberId = selectedPrimaryKey.replace('member:', '');
+        const selectedMember = familyMembers.find((member) => member.id === selectedMemberId);
+        if (selectedMember) {
+          const residentId = await ensureMemberResidentId(selectedMember);
+          residentsPayload.push({
+            residentId,
+            residencyRole: 'Người thuê chính',
+            fromDate: selectedMember.fromDate || startDate,
+            email: selectedMember.email || undefined,
+          });
+        }
+      } else if (mainResident) {
+        residentsPayload.push({
+          residentId: mainResident.residentId || mainResident.ResidentId || mainResident.id || mainResident.Id,
+          residencyRole: 'Người thuê chính',
+          fromDate: mainResident.fromDate || mainResident.FromDate || startDate,
+          email: mainResident.email || mainResident.Email || undefined,
+        });
+      }
+
+      if (mainResident && selectedPrimaryKey !== `resident:${getResidentIdValue(mainResident)}`) {
+        residentsPayload.push({
+          residentId: mainResident.residentId || mainResident.ResidentId || mainResident.id || mainResident.Id,
+          residencyRole: 'Người ở cùng',
+          fromDate: mainResident.fromDate || mainResident.FromDate || startDate,
+          email: mainResident.email || mainResident.Email || undefined,
+        });
+      }
+
+      for (const member of familyMembers) {
+        if (`member:${member.id}` === selectedPrimaryKey) {
+          continue;
+        }
+
+        const residentId = await ensureMemberResidentId(member);
         residentsPayload.push({
           residentId,
-          residencyRole: member.relationship || 'Thành viên',
+          residencyRole: isPrimaryResidentRole(member.relationship) ? 'Người ở cùng' : (member.relationship || 'Người ở cùng'),
           fromDate: member.fromDate || startDate,
           email: member.email || undefined,
         });
@@ -521,8 +614,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     </div>);
   }
 
-  const mainResident = tenantList?.find((r: any) => isPrimaryResidentRole(r.residencyRole))
-    ?? tenantList?.[0];
+  const mainResident = selectedPrimaryResident?.data ?? originalPrimaryResident;
   const displayContractCode = contractDetail?.contractCode
     ?? contractDetail?.ContractCode
     ?? contract?.code
@@ -584,19 +676,36 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><User size={16} className="mr-2" />BƯỚC 1: Thông tin chủ hộ</h4>
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 mb-2">Chọn chủ phòng / người đại diện *</label>
+              <select
+                value={selectedPrimaryResident?.key ?? ''}
+                onChange={(event) => setSelectedPrimaryResidentKey(event.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500"
+              >
+                {primaryResidentOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}{option.phone ? ` - ${option.phone}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Người được chọn sẽ có quyền thanh toán hóa đơn trên app. Người chủ phòng cũ sẽ chuyển thành thành viên ở cùng.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               {mainResident && (<>
                 <div><label className="block text-sm text-gray-700 mb-2">Họ và tên</label>
-                  <input type="text" value={mainResident?.fullName || mainResident?.hoTen || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                  <input type="text" value={getResidentDisplayName(mainResident)} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
                 <div><label className="block text-sm text-gray-700 mb-2">CMND/CCCD</label>
-                  <input type="text" value={mainResident?.idCardNumber || mainResident?.soCCCD || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                  <input type="text" value={mainResident?.idCardNumber || mainResident?.IdCardNumber || mainResident?.soCCCD || mainResident?.idCard || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
                 <div><label className="block text-sm text-gray-700 mb-2">Số điện thoại</label>
-                  <input type="text" value={mainResident?.phoneNumber || mainResident?.soDienThoai || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                  <input type="text" value={getResidentPhone(mainResident)} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
                 <div><label className="block text-sm text-gray-700 mb-2">Email</label>
-                  <input type="email" value={mainResident?.email || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
+                  <input type="email" value={mainResident?.email || mainResident?.Email || ''} disabled className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100" /></div>
               </>)}
             </div>
-            <p className="text-xs text-gray-500 mt-3">ℹ️ Thông tin chủ hộ được cố định.</p>
+            <p className="text-xs text-gray-500 mt-3">ℹ️ Thông tin cá nhân được cố định, chỉ thay đổi người đại diện phòng bằng ô chọn phía trên.</p>
           </div>
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">

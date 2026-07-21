@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { palette } from '../theme/palette';
 
 interface BillCardProps {
   month: string;
@@ -19,7 +20,7 @@ export function BillCard({ month, roomLabel, status, amount, isActive, onPress }
           <Text style={styles.month}>Hóa đơn {month}</Text>
           {roomLabel && (
             <View style={styles.roomRow}>
-              <Ionicons name="home-outline" size={14} color="#1A4B84" />
+              <Ionicons name="home-outline" size={14} color={palette.primary} />
               <Text style={styles.roomText}>{roomLabel}</Text>
             </View>
           )}
@@ -28,7 +29,7 @@ export function BillCard({ month, roomLabel, status, amount, isActive, onPress }
             {amount}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
       </View>
     </TouchableOpacity>
   );
@@ -36,17 +37,17 @@ export function BillCard({ month, roomLabel, status, amount, isActive, onPress }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    borderRadius: 16,
+    borderColor: palette.borderSoft,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 4,
   },
   content: {
     flexDirection: 'row',
@@ -59,12 +60,12 @@ const styles = StyleSheet.create({
   month: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
     marginBottom: 4,
   },
   status: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
     marginBottom: 8,
   },
   roomRow: {
@@ -76,14 +77,14 @@ const styles = StyleSheet.create({
   roomText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A4B84',
+    color: palette.primary,
   },
   amount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A4B84',
+    color: palette.primary,
   },
   activeAmount: {
-    color: '#1A4B84',
+    color: palette.secondary,
   },
 });

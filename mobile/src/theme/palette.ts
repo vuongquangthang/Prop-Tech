@@ -1,0 +1,16 @@
+export const palette = {
+  background: '#F5F7FB',
+  surface: '#FFFFFF',
+  surfaceAlt: '#F8FAFC',
+  surfaceSoft: '#EEF2F7',
+  border: '#E2E8F0',
+  borderSoft: '#EDF2F7',
+  text: '#0F172A',
+  textMuted: '#64748B',
+  primary: '#184E77',
+  primarySoft: '#E8F2FB',
+  secondary: '#0F766E',
+  success: '#16A34A',
+  danger: '#DC2626',
+  shadow: 'rgba(15, 23, 42, 0.08)',
+} as const;

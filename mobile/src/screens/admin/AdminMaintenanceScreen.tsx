@@ -20,7 +20,7 @@ import maintenanceService, { MaintenanceRequest } from '../../services/maintenan
 import { fileService } from '../../services/file.service';
 import { resolveImageUrl } from '../../utils/image';
 
-const STATUS_FILTERS = ['Tất cả', 'Chờ xử lý', 'Đang xử lý', 'Chờ nghiệm thu', 'Yêu cầu sửa lại', 'Đã đóng'];
+const STATUS_FILTERS = ['Tất cả', 'Chờ xử lý', 'Đang xử lý', 'Chờ nghiệm thu', 'Sửa lại', 'Đã đóng'];
 
 const formatDateTime = (value?: string) => {
   if (!value) return '—';
@@ -75,7 +75,7 @@ export default function AdminMaintenanceScreen() {
   }, [loadRequests]);
 
   const stats = useMemo(() => {
-    const pending = requests.filter((item) => item.status === 'Chờ xử lý' || item.status === 'Yêu cầu sửa lại').length;
+    const pending = requests.filter((item) => item.status === 'Chờ xử lý' || item.status === 'Sửa lại' || item.status === 'Yêu cầu sửa lại').length;
     const processing = requests.filter((item) => item.status === 'Đang xử lý').length;
     const review = requests.filter((item) => item.status === 'Chờ nghiệm thu').length;
     return { total: requests.length, pending, processing, review };
