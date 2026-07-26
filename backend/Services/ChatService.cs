@@ -23,6 +23,7 @@ internal sealed class ChatResponseResult
 {
     public string Text { get; set; } = string.Empty;
     public bool IsKnowledgeGap { get; set; }
+    public List<int> RoomIds { get; set; } = new();
 }
 
 public class ChatService : IChatService
@@ -182,7 +183,9 @@ public class ChatService : IChatService
         await _chatRepository.SaveChangesAsync();
 
         var created = await _chatRepository.GetByIdAsync(assistantMessage.Id);
-        return MapToDto(created!);
+        var result = MapToDto(created!);
+        result.Rooms = await LoadRoomNavigationAsync(response.RoomIds);
+        return result;
     }
 
     public async Task<ChatConversationDto> GetConversationAsync(int userId)
@@ -230,7 +233,8 @@ public class ChatService : IChatService
                     return new ChatResponseResult
                     {
                         Text = text,
-                        IsKnowledgeGap = LooksLikeKnowledgeGap(text)
+                        IsKnowledgeGap = LooksLikeKnowledgeGap(text),
+                        RoomIds = ExtractRoomIds(json)
                     };
                 }
 
@@ -247,6 +251,32 @@ public class ChatService : IChatService
         }
 
         return KnowledgeGapResponse("Tôi chưa tìm thấy thông tin đủ chính xác để trả lời. Câu hỏi của bạn đã được ghi nhận để ban quản lý bổ sung vào kho tri thức.");
+    }
+
+    private async Task<List<ChatRoomNavigationDto>> LoadRoomNavigationAsync(
+        IReadOnlyCollection<int> roomIds)
+    {
+        if (roomIds.Count == 0)
+        {
+            return new List<ChatRoomNavigationDto>();
+        }
+
+        var distinctIds = roomIds.Where(id => id > 0).Distinct().ToList();
+        var roomsById = await _context.Rooms
+            .AsNoTracking()
+            .Where(room => distinctIds.Contains(room.Id))
+            .Select(room => new { room.Id, room.RoomCode })
+            .ToDictionaryAsync(room => room.Id);
+
+        return distinctIds
+            .Where(roomsById.ContainsKey)
+            .Select(roomId => new ChatRoomNavigationDto
+            {
+                RoomId = roomId,
+                RoomName = roomsById[roomId].RoomCode,
+                DetailUrl = $"/rooms/{roomId}"
+            })
+            .ToList();
     }
 
     private async Task<string?> ResolveBuildingCodeAsync(int userId)
@@ -349,6 +379,104 @@ public class ChatService : IChatService
         }
 
         return null;
+    }
+
+    private static List<int> ExtractRoomIds(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return new List<int>();
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var roomIds = new List<int>();
+            CollectRoomIds(doc.RootElement, roomIds, 0);
+            return roomIds.Where(id => id > 0).Distinct().ToList();
+        }
+        catch (JsonException)
+        {
+            return new List<int>();
+        }
+    }
+
+    private static void CollectRoomIds(JsonElement element, List<int> roomIds, int depth)
+    {
+        if (depth > 8)
+        {
+            return;
+        }
+
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Name.Equals("roomId", StringComparison.OrdinalIgnoreCase)
+                    || property.Name.Equals("room_id", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddRoomId(property.Value, roomIds);
+                    continue;
+                }
+
+                if (property.Name.Equals("source", StringComparison.OrdinalIgnoreCase)
+                    && property.Value.ValueKind == JsonValueKind.String)
+                {
+                    AddRoomIdFromSource(property.Value.GetString(), roomIds);
+                    continue;
+                }
+
+                CollectRoomIds(property.Value, roomIds, depth + 1);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                CollectRoomIds(item, roomIds, depth + 1);
+            }
+        }
+    }
+
+    private static void AddRoomId(JsonElement value, List<int> roomIds)
+    {
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var numericId))
+        {
+            roomIds.Add(numericId);
+        }
+        else if (value.ValueKind == JsonValueKind.String
+            && int.TryParse(value.GetString(), out var stringId))
+        {
+            roomIds.Add(stringId);
+        }
+    }
+
+    private static void AddRoomIdFromSource(string? source, List<int> roomIds)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return;
+        }
+
+        const string marker = "room-";
+        var markerIndex = source.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+        {
+            return;
+        }
+
+        var idStart = markerIndex + marker.Length;
+        var idLength = 0;
+        while (idStart + idLength < source.Length && char.IsDigit(source[idStart + idLength]))
+        {
+            idLength++;
+        }
+
+        if (idLength > 0
+            && int.TryParse(source.AsSpan(idStart, idLength), out var roomId))
+        {
+            roomIds.Add(roomId);
+        }
     }
 
     private static string? TryExtractTextFromElement(JsonElement element, int depth)
