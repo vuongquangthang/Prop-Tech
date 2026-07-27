@@ -12,13 +12,30 @@ LoadDotEnv();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Kestrel. Docker sets ASPNETCORE_URLS=http://+:8080; local dev defaults to 5052.
+// Configure Kestrel - CHI HTTP (Render/cloud tu lo HTTPS o tang ngoai).
+// Uu tien bien PORT cua Render, roi ASPNETCORE_URLS, cuoi cung 5052 (local).
+// Loc bo moi endpoint https:// de tranh loi "No server certificate" khi deploy.
+var renderPort = Environment.GetEnvironmentVariable("PORT");
 var configuredUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
-builder.WebHost.UseUrls(
-    string.IsNullOrWhiteSpace(configuredUrls)
-        ? ["http://0.0.0.0:5052"]
-        : configuredUrls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-);
+string[] urls;
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+    urls = [$"http://0.0.0.0:{renderPort}"];
+}
+else if (!string.IsNullOrWhiteSpace(configuredUrls))
+{
+    // Chi giu endpoint http, bo https (tranh can SSL cert).
+    urls = configuredUrls
+        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(u => u.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+    if (urls.Length == 0) urls = ["http://0.0.0.0:5052"];
+}
+else
+{
+    urls = ["http://0.0.0.0:5052"];
+}
+builder.WebHost.UseUrls(urls);
 
 // Add services to the container
 builder.Services.AddScoped<backend.Filters.AuditLogActionFilter>();
