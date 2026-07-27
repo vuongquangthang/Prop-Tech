@@ -21,7 +21,7 @@ import { fileService } from '../../services/file.service';
 import { resolveImageUrl } from '../../utils/image';
 import { palette, radius } from '../../theme/palette';
 
-const STATUS_FILTERS = ['Tất cả', 'Chờ xử lý', 'Đang xử lý', 'Chờ nghiệm thu', 'Sửa lại', 'Đã đóng'];
+const STATUS_FILTERS = ['Tất cả', 'Chờ xử lý', 'Sửa lại', 'Đang xử lý', 'Chờ nghiệm thu', 'Đã đóng'];
 
 const formatDateTime = (value?: string) => {
   if (!value) return '—';

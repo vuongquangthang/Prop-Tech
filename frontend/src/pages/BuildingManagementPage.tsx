@@ -3,8 +3,7 @@ import { BuildingSidebar } from '../components/infrastructure/BuildingSidebar';
 import { RoomTable } from '../components/infrastructure/RoomTable';
 import { ServiceTable } from '../components/infrastructure/ServiceTable';
 import { AssetTable } from '../components/infrastructure/AssetTable';
-import { PageHeader } from '../components/ui/product-system';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight, Home, Maximize2, Minimize2, Package, PlugZap } from 'lucide-react';
 
 type InfrastructureStep = 'rooms' | 'services' | 'assets';
 type InfrastructureContext = {
@@ -44,59 +43,104 @@ export function BuildingManagementPage() {
     }));
   };
 
-  return (
-    <div className="flex h-full min-h-0 flex-col" style={{ padding: 'var(--space-layout)', gap: '14px' }}>
-      <PageHeader
-        eyebrow="Quản lý hạ tầng"
-        title="Vận hành tòa nhà trên một màn hình"
-        description="Thêm tầng, cập nhật thông tin tầng, phòng, đơn giá dịch vụ và thiết bị/tài sản mà không cần chuyển phân hệ."
-      />
+  const openAllSteps = () => {
+    setOpenSteps({ rooms: true, services: true, assets: true });
+  };
 
+  const closeAllSteps = () => {
+    setOpenSteps({ rooms: false, services: false, assets: false });
+  };
+
+  const contextTypeLabel =
+    infrastructureContext.type === 'floor'
+      ? 'Đang chọn tầng'
+      : infrastructureContext.type === 'building'
+        ? 'Đang chọn tòa'
+        : 'Toàn bộ hạ tầng';
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-page)]" style={{ padding: 'var(--space-layout)', gap: '14px' }}>
       <div
         className="grid min-h-0 flex-1 overflow-hidden"
-        style={{ gridTemplateColumns: '300px minmax(0, 1fr)', gap: 'var(--space-layout)' }}
+        style={{ gridTemplateColumns: '320px minmax(0, 1fr)', gap: 'var(--space-layout)' }}
       >
-        <div className="min-h-0 overflow-hidden">
-          <BuildingSidebar
-            selectedFloor={selectedFloorId}
-            onSelectFloor={setSelectedFloorId}
-            selectedBuilding={selectedBuildingId}
-            onSelectBuilding={setSelectedBuildingId}
-            onContextChange={setInfrastructureContext}
-            onRequestAddRoom={handleRequestAddRoom}
-            onStructureChange={() => setStructureRefreshKey((current) => current + 1)}
-            structureRefreshKey={structureRefreshKey}
-          />
+        <div className="min-h-0 overflow-hidden border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
+          <div className="border-b border-[var(--surface-border)] bg-[var(--surface-muted)] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--brand-primary)]">
+                <Building2 size={18} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Cấu trúc tòa nhà</p>
+                <p className="text-xs text-[var(--text-secondary)]">Chọn tòa hoặc tầng để thao tác</p>
+              </div>
+            </div>
+          </div>
+          <div className="h-[calc(100%-66px)] min-h-0 overflow-hidden">
+            <BuildingSidebar
+              selectedFloor={selectedFloorId}
+              onSelectFloor={setSelectedFloorId}
+              selectedBuilding={selectedBuildingId}
+              onSelectBuilding={setSelectedBuildingId}
+              onContextChange={setInfrastructureContext}
+              onRequestAddRoom={handleRequestAddRoom}
+              onStructureChange={() => setStructureRefreshKey((current) => current + 1)}
+              structureRefreshKey={structureRefreshKey}
+            />
+          </div>
         </div>
 
         <div className="min-h-0 overflow-y-auto pr-1">
-          <div className="space-y-5">
-            <div className="flex items-center justify-between border border-[var(--surface-border)] bg-[var(--surface-card)] px-4 py-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Ngữ cảnh thao tác</p>
-                <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{infrastructureContext.label}</p>
+          <div className="space-y-4">
+            <div className="sticky top-0 z-10 border border-[var(--surface-border)] bg-[linear-gradient(135deg,var(--surface-card)_0%,var(--brand-surface)_100%)] shadow-sm">
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--brand-primary)]">{contextTypeLabel}</span>
+                  <div className="flex shrink-0 items-center gap-1 border border-[var(--surface-border)] bg-[var(--surface-card)] p-1 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={openAllSteps}
+                      aria-label="Mở tất cả"
+                      title="Mở tất cả"
+                      className="inline-flex h-8 w-8 items-center justify-center text-[var(--text-primary)] transition-colors hover:bg-[var(--brand-surface)]"
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                    <span className="h-5 w-px bg-[var(--surface-border)]" />
+                    <button
+                      type="button"
+                      onClick={closeAllSteps}
+                      aria-label="Thu gọn"
+                      title="Thu gọn"
+                      className="inline-flex h-8 w-8 items-center justify-center text-[var(--text-primary)] transition-colors hover:bg-[var(--brand-surface)]"
+                    >
+                      <Minimize2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <h2 className="mt-1 truncate text-lg font-semibold leading-tight text-[var(--text-primary)]">
+                  {infrastructureContext.label}
+                </h2>
               </div>
-              <span className="border border-[var(--surface-border)] bg-[var(--surface-muted)] px-3 py-1 text-sm font-medium text-[var(--text-secondary)]">
-                {infrastructureContext.type === 'floor'
-                  ? 'Đang chọn tầng'
-                  : infrastructureContext.type === 'building'
-                    ? 'Đang chọn tòa'
-                    : 'Toàn bộ'}
-              </span>
+
             </div>
 
-            <section className="rounded border border-[var(--surface-border)] bg-[var(--surface-card)]">
+            <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
               <button
                 type="button"
                 onClick={() => toggleStep('rooms')}
-                className="flex w-full items-start justify-between gap-4 border-b border-[var(--surface-border)] px-5 py-4 text-left transition-colors hover:bg-[var(--surface-muted)]"
+                className="flex w-full items-center justify-between gap-4 border-b border-[var(--surface-border)] bg-[var(--surface-muted)] px-5 py-4 text-left transition-colors hover:bg-[var(--brand-surface)]"
                 aria-expanded={openSteps.rooms}
               >
-                <span>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--brand-primary)]">Bước 1</span>
-                  <span className="mt-1 block text-lg font-semibold text-[var(--text-primary)]">Thông tin phòng trong tòa</span>
+                <span className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center bg-[var(--brand-surface)] text-[var(--brand-primary)]">
+                    <Home size={18} />
+                  </span>
+                  <span>
+                    <span className="mt-1 block text-lg font-semibold text-[var(--text-primary)]">Thông tin phòng trong tòa</span>
+                  </span>
                 </span>
-                <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
                   {openSteps.rooms ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </span>
               </button>
@@ -111,20 +155,24 @@ export function BuildingManagementPage() {
               </div>
             </section>
 
-            <section className="rounded border border-[var(--surface-border)] bg-[var(--surface-card)]">
+            <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
               <button
                 type="button"
                 onClick={() => toggleStep('services')}
-                className="flex w-full items-start justify-between gap-4 border-b border-[var(--surface-border)] px-5 py-4 text-left transition-colors hover:bg-[var(--surface-muted)]"
+                className="flex w-full items-center justify-between gap-4 border-b border-[var(--surface-border)] bg-[var(--surface-muted)] px-5 py-4 text-left transition-colors hover:bg-[var(--brand-surface)]"
                 aria-expanded={openSteps.services}
               >
-                <span>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--brand-primary)]">Bước 2</span>
-                  <span className="mt-1 block text-lg font-semibold text-[var(--text-primary)]">
-                    Đơn giá dịch vụ áp dụng cho tòa/phòng
+                <span className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center bg-[var(--brand-surface)] text-[var(--brand-primary)]">
+                    <PlugZap size={18} />
+                  </span>
+                  <span>
+                    <span className="mt-1 block text-lg font-semibold text-[var(--text-primary)]">
+                      Đơn giá dịch vụ áp dụng cho tòa/phòng
+                    </span>
                   </span>
                 </span>
-                <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
                   {openSteps.services ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </span>
               </button>
@@ -133,18 +181,22 @@ export function BuildingManagementPage() {
               </div>
             </section>
 
-            <section className="rounded border border-[var(--surface-border)] bg-[var(--surface-card)]">
+            <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
               <button
                 type="button"
                 onClick={() => toggleStep('assets')}
-                className="flex w-full items-start justify-between gap-4 border-b border-[var(--surface-border)] px-5 py-4 text-left transition-colors hover:bg-[var(--surface-muted)]"
+                className="flex w-full items-center justify-between gap-4 border-b border-[var(--surface-border)] bg-[var(--surface-muted)] px-5 py-4 text-left transition-colors hover:bg-[var(--brand-surface)]"
                 aria-expanded={openSteps.assets}
               >
-                <span>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--brand-primary)]">Bước 3</span>
-                  <span className="mt-1 block text-lg font-semibold text-[var(--text-primary)]">Thiết bị và tài sản trong phòng</span>
+                <span className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center bg-[var(--brand-surface)] text-[var(--brand-primary)]">
+                    <Package size={18} />
+                  </span>
+                  <span>
+                    <span className="mt-1 block text-lg font-semibold text-[var(--text-primary)]">Thiết bị và tài sản trong phòng</span>
+                  </span>
                 </span>
-                <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
                   {openSteps.assets ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </span>
               </button>

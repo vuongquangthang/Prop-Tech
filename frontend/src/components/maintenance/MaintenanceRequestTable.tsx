@@ -408,9 +408,9 @@ export function MaintenanceRequestTable() {
   // Tính toán số lượng động cho từng tab
   const tabs = [
     { key: 'new', label: 'Chờ xử lý', count: requests.filter(r => r.status === 'new').length },
+    { key: 'rework', label: 'Sửa lại', count: requests.filter(r => r.status === 'rework').length },
     { key: 'in_progress', label: 'Đang xử lý', count: requests.filter(r => r.status === 'in_progress').length },
     { key: 'review', label: 'Chờ nghiệm thu', count: requests.filter(r => r.status === 'review').length },
-    { key: 'rework', label: 'Sửa lại', count: requests.filter(r => r.status === 'rework').length },
     { key: 'completed', label: 'Hoàn thành', count: requests.filter(r => r.status === 'completed').length },
   ];
 

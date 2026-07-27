@@ -547,14 +547,14 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4 space-y-4">
-          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá - {filteredServiceGroups.length}/{serviceGroups.length} dịch vụ</h2>
             {embedded && (
               <button
                 onClick={openAddModal}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+                className="ml-auto inline-flex shrink-0 items-center gap-1.5 bg-gray-800 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-700"
               >
-                <Plus size={16} />
+                <Plus size={14} />
                 <span>Thêm dịch vụ mới</span>
               </button>
             )}
