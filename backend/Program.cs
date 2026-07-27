@@ -134,6 +134,9 @@ else
     Console.WriteLine("🗄️  Storage: Local disk (uploads/) - chua cau hinh R2");
 }
 
+builder.Services.AddScoped<backend.Services.IEmailService, backend.Services.EmailService>();
+builder.Services.AddScoped<backend.Repositories.IPaymentAccountRepository, backend.Repositories.PaymentAccountRepository>();
+builder.Services.AddScoped<backend.Services.IPaymentAccountService, backend.Services.PaymentAccountService>();
 builder.Services.AddScoped<backend.Repositories.IUserRepository, backend.Repositories.UserRepository>();
 builder.Services.AddScoped<backend.Repositories.IBuildingRepository, backend.Repositories.BuildingRepository>();
 builder.Services.AddScoped<backend.Repositories.IFloorRepository, backend.Repositories.FloorRepository>();

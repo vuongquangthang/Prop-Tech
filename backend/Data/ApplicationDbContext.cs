@@ -45,6 +45,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<ChiTietPhieuTatToan> ChiTietPhieuTatToans { get; set; } = null!;
     public DbSet<ThanhToan> ThanhToans { get; set; } = null!;
 
+    // Tài khoản nhận tiền của Owner (multi-owner payment)
+    public DbSet<PaymentAccount> PaymentAccounts { get; set; } = null!;
+
     // Tài sản
     public DbSet<TaiSan> TaiSans { get; set; } = null!;
     public DbSet<TaiSanBuildingScope> TaiSanBuildingScopes { get; set; } = null!;
@@ -363,8 +366,18 @@ public class ApplicationDbContext : DbContext
             ));
         });
 
+        // ========== TÀI KHOẢN NHẬN TIỀN (multi-owner payment) ==========
+        modelBuilder.Entity<PaymentAccount>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.BankBin, e.BankAccountNo });
+            // Ep timestamp without time zone (khop bang tao bang SQL, tranh loi Npgsql UTC Kind).
+            entity.Property(e => e.CreatedAt).HasColumnType("timestamp without time zone");
+            entity.Property(e => e.ConnectedAt).HasColumnType("timestamp without time zone");
+        });
+
         // ========== TÀI SẢN ==========
-        
+
         modelBuilder.Entity<TaiSan>(entity =>
         {
             entity.HasKey(e => e.Id);

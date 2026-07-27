@@ -3,6 +3,8 @@ using backend.Models;
 using backend.Repositories;
 using backend.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Text;
@@ -44,7 +46,14 @@ public class HopDongService : IHopDongService
     private readonly IUserRepository _userRepository;
     private readonly INotificationRepository _notificationRepository;
     private readonly INotificationService _notificationService;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<HopDongService> _logger;
     private readonly ApplicationDbContext _context;
+
+    // Thong tin tai khoan cu dan vua tao tu dong (de gui email). Gom trong 1 luot tao HD.
+    private readonly List<NewResidentAccount> _pendingAccountEmails = new();
+
+    private sealed record NewResidentAccount(string Email, string FullName, string PhoneNumber, string PlainPassword);
 
     public HopDongService(
         IHopDongRepository hopDongRepository,
@@ -56,6 +65,8 @@ public class HopDongService : IHopDongService
         IUserRepository userRepository,
         INotificationRepository notificationRepository,
         INotificationService notificationService,
+        IEmailService emailService,
+        ILogger<HopDongService> logger,
         ApplicationDbContext context)
     {
         _hopDongRepository = hopDongRepository;
@@ -67,6 +78,8 @@ public class HopDongService : IHopDongService
         _userRepository = userRepository;
         _notificationRepository = notificationRepository;
         _notificationService = notificationService;
+        _emailService = emailService;
+        _logger = logger;
         _context = context;
     }
 
@@ -168,6 +181,8 @@ public class HopDongService : IHopDongService
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
+        // Reset danh sach email gom (phong truong hop ExecutionStrategy retry lan 2).
+        _pendingAccountEmails.Clear();
         // FIX #1: Use database transaction for atomic operation (ALL-or-NOTHING)
         using (var transaction = await _context.Database.BeginTransactionAsync())
         {
@@ -274,6 +289,10 @@ public class HopDongService : IHopDongService
                 // Commit transaction
                 await transaction.CommitAsync();
 
+                // Gui email thong tin tai khoan cho cu dan SAU khi commit thanh cong
+                // (tranh gui mail roi transaction bi rollback). Loi mail khong chan.
+                await SendPendingAccountEmailsAsync();
+
                 // Reload to get navigation properties
                 var createdContract = await _hopDongRepository.GetWithDetailsAsync(contract.Id);
                 return MapToDto(createdContract!);
@@ -281,6 +300,7 @@ public class HopDongService : IHopDongService
             catch
             {
                 // Transaction will auto-rollback on exception
+                _pendingAccountEmails.Clear(); // bo cac email gom duoc vi HD khong duoc tao
                 await transaction.RollbackAsync();
                 throw;
             }
@@ -1343,6 +1363,8 @@ public class HopDongService : IHopDongService
             return;
         }
 
+        // Nhanh nay: cu dan KHONG co email -> khong gui mail duoc.
+        // Giu mat khau mac dinh 123456 de admin con bao mieng cho cu dan (theo quyet dinh nghiep vu).
         var defaultPassword = "123456";
         var user = new User
         {
@@ -1415,12 +1437,12 @@ public class HopDongService : IHopDongService
         }
 
         // Create new user account with email
-        var defaultPassword = "123456";
+        var plainPassword = GenerateRandomPassword();
         var user = new User
         {
             PhoneNumber = phone,
             Email = email.Trim(),
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(plainPassword),
             Role = "CuDan",
             ResidentId = residentId,
             OwnerUserId = resident.OwnerUserId,
@@ -1430,6 +1452,68 @@ public class HopDongService : IHopDongService
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
+
+        // Gom tai khoan moi tao de gui email thong tin dang nhap sau khi tao HD xong.
+        _pendingAccountEmails.Add(new NewResidentAccount(
+            email.Trim(), resident.FullName ?? phone, phone, plainPassword));
+        _logger.LogInformation("📧 Da gom tai khoan MOI (email={Email}, phone={Phone}) vao hang doi gui mail", email.Trim(), phone);
+    }
+
+    /// <summary>Sinh mat khau ngau nhien 10 ky tu (chu + so), tranh ky tu de nham lan.</summary>
+    private static string GenerateRandomPassword()
+    {
+        const string chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var bytes = RandomNumberGenerator.GetBytes(10);
+        var sb = new StringBuilder(10);
+        foreach (var b in bytes)
+        {
+            sb.Append(chars[b % chars.Length]);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Gui email thong tin dang nhap cho cac tai khoan cu dan vua tao. Loi email KHONG chan tao HD.</summary>
+    private async Task SendPendingAccountEmailsAsync()
+    {
+        _logger.LogInformation("📧 SendPendingAccountEmails: co {Count} tai khoan can gui mail", _pendingAccountEmails.Count);
+        if (_pendingAccountEmails.Count == 0) return;
+
+        foreach (var account in _pendingAccountEmails)
+        {
+            try
+            {
+                _logger.LogInformation("📧 Dang gui email tai khoan toi {Email} (SMTP configured={Cfg})",
+                    account.Email, _emailService.IsConfigured);
+                var subject = "Tài khoản Prop-Tech của bạn";
+                var body = BuildAccountEmailBody(account);
+                await _emailService.SendAsync(account.Email, subject, body);
+                _logger.LogInformation("📧 ✅ Da gui xong email toi {Email}", account.Email);
+            }
+            catch (Exception ex)
+            {
+                // Khong chan tao HD chi vi loi gui mail.
+                _logger.LogWarning(ex, "📧 ❌ Gui email tai khoan toi {Email} that bai", account.Email);
+            }
+        }
+        _pendingAccountEmails.Clear();
+    }
+
+    private static string BuildAccountEmailBody(NewResidentAccount account)
+    {
+        return $@"
+            <div style='font-family:Arial,sans-serif;max-width:520px;margin:auto'>
+              <h2 style='color:#1A4B84'>Prop-Tech</h2>
+              <p>Xin chào <b>{System.Net.WebUtility.HtmlEncode(account.FullName)}</b>,</p>
+              <p>Tài khoản cư dân của bạn đã được tạo. Thông tin đăng nhập:</p>
+              <table style='border-collapse:collapse;margin:12px 0'>
+                <tr><td style='padding:6px 12px;color:#666'>Số điện thoại</td>
+                    <td style='padding:6px 12px;font-weight:bold'>{System.Net.WebUtility.HtmlEncode(account.PhoneNumber)}</td></tr>
+                <tr><td style='padding:6px 12px;color:#666'>Mật khẩu</td>
+                    <td style='padding:6px 12px;font-weight:bold;font-size:18px;color:#0f2942'>{System.Net.WebUtility.HtmlEncode(account.PlainPassword)}</td></tr>
+              </table>
+              <p style='color:#b45309'>Vì lý do bảo mật, vui lòng <b>đổi mật khẩu ngay lần đăng nhập đầu tiên</b>.</p>
+              <p style='color:#888;font-size:13px'>Đây là email tự động, vui lòng không trả lời.</p>
+            </div>";
     }
 
     private async Task LockRoomPostsAsync(int roomId, string roomStatus)
