@@ -12,6 +12,18 @@ public class ChatMessageDto
     public string MessageText { get; set; } = null!;
     public bool IsKnowledgeGap { get; set; }
     public DateTime CreatedAt { get; set; }
+    public List<ChatRoomNavigationDto> Rooms { get; set; } = new();
+}
+
+/// <summary>
+/// Structured room data returned with a chatbot answer so clients can navigate
+/// without parsing room names from the natural-language message.
+/// </summary>
+public class ChatRoomNavigationDto
+{
+    public int RoomId { get; set; }
+    public string RoomName { get; set; } = null!;
+    public string DetailUrl { get; set; } = null!;
 }
 
 /// <summary>
