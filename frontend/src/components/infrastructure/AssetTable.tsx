@@ -59,7 +59,12 @@ interface RoomAssignment {
   floorNumber?: number;
 }
 
-export function AssetTable() {
+interface AssetTableProps {
+  embedded?: boolean;
+  contextBuildingId?: number | null;
+}
+
+export function AssetTable({ embedded = false, contextBuildingId = null }: AssetTableProps = {}) {
   const [assets, setAssets] = useState<TaiSanDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +155,16 @@ export function AssetTable() {
       };
     });
   }, [assets]);
+
+  const filteredAssetGroups = useMemo(() => {
+    if (typeof contextBuildingId !== 'number') {
+      return assetGroups;
+    }
+
+    return assetGroups.filter((asset) =>
+      asset.buildingIds.length === 0 || asset.buildingIds.includes(contextBuildingId),
+    );
+  }, [assetGroups, contextBuildingId]);
 
   const allBuildingIds = buildings.map((building) => building.id);
   const selectedAllBuildings = allBuildingIds.length > 0 && formData.buildingIds.length === allBuildingIds.length;
@@ -412,25 +427,40 @@ export function AssetTable() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Quản lý hạ tầng"
-        title="Tài sản trong phòng"
-        description="Quản lý danh mục tài sản, số lượng và các phòng đang sử dụng."
-        actions={
-          <button
-            onClick={() => { setAssetScopeMode('common'); setFormData({ assetName: '', assetCode: '', buildingIds: [] }); setShowAddModal(true); }}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
-          >
-            <Plus size={16} />
-            <span>Thêm tài sản</span>
-          </button>
-        }
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="Quản lý hạ tầng"
+          title="Tài sản trong phòng"
+          description="Quản lý danh mục tài sản, số lượng và các phòng đang sử dụng."
+          actions={
+            <button
+              onClick={() => { setAssetScopeMode('common'); setFormData({ assetName: '', assetCode: '', buildingIds: [] }); setShowAddModal(true); }}
+              className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+            >
+              <Plus size={16} />
+              <span>Thêm tài sản</span>
+            </button>
+          }
+        />
+      )}
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Danh sách tài sản - {assetGroups.length} loại tài sản</h2>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-lg text-gray-800">
+              Danh sách tài sản - {filteredAssetGroups.length}/{assetGroups.length} loại tài sản
+            </h2>
+            {embedded && (
+              <button
+                onClick={() => { setAssetScopeMode('common'); setFormData({ assetName: '', assetCode: '', buildingIds: [] }); setShowAddModal(true); }}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+              >
+                <Plus size={16} />
+                <span>Thêm tài sản</span>
+              </button>
+            )}
+          </div>
         </div>
         
         {loading ? (
@@ -454,13 +484,13 @@ export function AssetTable() {
                 </tr>
               </thead>
               <tbody>
-                {assetGroups.length === 0 ? (
+                {filteredAssetGroups.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                       Chưa có tài sản nào. Nhấn "Thêm tài sản" để bắt đầu.
                     </td>
                   </tr>
-                ) : assetGroups.map((asset, index) => (
+                ) : filteredAssetGroups.map((asset, index) => (
                   <tr key={asset.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-700">{index + 1}</td>
                     <td className="px-6 py-4 text-sm text-gray-800 font-medium">{asset.assetName}</td>

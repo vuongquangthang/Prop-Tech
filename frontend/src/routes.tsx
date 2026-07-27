@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { Navigate, createBrowserRouter } from "react-router";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -9,8 +9,6 @@ import { AdminLayout } from "./components/AdminLayout";
 import { WireframeOverviewPage } from "./pages/WireframeOverviewPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { BuildingManagementPage } from "./pages/BuildingManagementPage";
-import { ServicePricingPage } from "./pages/ServicePricingPage";
-import { AssetInventoryPage } from "./pages/AssetInventoryPage";
 import { ResidentManagementPage } from "./pages/ResidentManagementPage";
 import { ContractManagementPage } from "./pages/ContractManagementPage";
 import { SettlementPage } from "./pages/SettlementPage";
@@ -84,11 +82,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "service-pricing",
-        element: <AdminRoute><ServicePricingPage /></AdminRoute>,
+        element: <Navigate to="/building-management" replace />,
       },
       {
         path: "asset-inventory",
-        element: <StaffRoute><AssetInventoryPage /></StaffRoute>,
+        element: <Navigate to="/building-management" replace />,
       },
       {
         path: "resident-management",

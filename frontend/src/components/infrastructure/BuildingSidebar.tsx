@@ -28,6 +28,12 @@ interface BuildingSidebarProps {
   onSelectFloor: (floorId: number | null) => void;
   selectedBuilding: number | null;
   onSelectBuilding: (buildingId: number | null) => void;
+  onContextChange?: (context: {
+    type: 'all' | 'building' | 'floor';
+    buildingId: number | null;
+    floorId: number | null;
+    label: string;
+  }) => void;
   onRequestAddRoom?: (floorId: number) => void;
   onStructureChange?: () => void;
   structureRefreshKey?: number;
@@ -38,6 +44,7 @@ export function BuildingSidebar({
   onSelectFloor,
   selectedBuilding,
   onSelectBuilding,
+  onContextChange,
   onRequestAddRoom,
   onStructureChange,
   structureRefreshKey = 0
@@ -440,7 +447,11 @@ export function BuildingSidebar({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {/* Show all rooms button */}
             <button
-              onClick={() => { onSelectFloor(null); onSelectBuilding(null); }}
+              onClick={() => {
+                onSelectFloor(null);
+                onSelectBuilding(null);
+                onContextChange?.({ type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng' });
+              }}
               className="w-full text-left rounded transition-colors"
               style={{
                 padding: '10px 16px',
@@ -466,8 +477,19 @@ export function BuildingSidebar({
                   <button
                     onClick={() => {
                       setExpandedBuilding(expandedBuilding === building.id ? null : building.id);
-                      onSelectBuilding(selectedBuilding === building.id ? null : building.id);
+                      const nextSelectedBuilding = selectedBuilding === building.id ? null : building.id;
+                      onSelectBuilding(nextSelectedBuilding);
                       onSelectFloor(null);
+                      onContextChange?.(
+                        nextSelectedBuilding
+                          ? {
+                              type: 'building',
+                              buildingId: building.id,
+                              floorId: null,
+                              label: building.buildingName,
+                            }
+                          : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng' },
+                      );
                     }}
                     className="flex min-w-0 items-center justify-between rounded transition-colors"
                     style={{
@@ -516,7 +538,21 @@ export function BuildingSidebar({
                           }}
                         >
                           <button
-                            onClick={() => { onSelectFloor(selectedFloor === floor.id ? null : floor.id); onSelectBuilding(null); }}
+                            onClick={() => {
+                              const nextSelectedFloor = selectedFloor === floor.id ? null : floor.id;
+                              onSelectFloor(nextSelectedFloor);
+                              onSelectBuilding(null);
+                              onContextChange?.(
+                                nextSelectedFloor
+                                  ? {
+                                      type: 'floor',
+                                      buildingId: building.id,
+                                      floorId: floor.id,
+                                      label: `Tầng ${floor.floorNumber} • ${building.buildingName}`,
+                                    }
+                                  : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng' },
+                              );
+                            }}
                             className="min-w-0 text-left rounded transition-colors"
                             style={{
                               padding: '10px 12px 10px 16px',

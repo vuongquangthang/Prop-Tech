@@ -78,7 +78,12 @@ const normalizeServiceType = (raw: string | undefined, serviceName?: string): Se
   return raw?.trim() || 'Theo tháng';
 };
 
-export function ServiceTable() {
+interface ServiceTableProps {
+  embedded?: boolean;
+  contextBuildingId?: number | null;
+}
+
+export function ServiceTable({ embedded = false, contextBuildingId = null }: ServiceTableProps = {}) {
   const [services, setServices] = useState<ServiceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -239,15 +244,20 @@ export function ServiceTable() {
 
       const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
       const matchesType = serviceTypeFilter === 'all' || service.type === serviceTypeFilter;
-      const matchesBuilding =
-        serviceBuildingFilter === 'all'
+      const matchesContextBuilding =
+        typeof contextBuildingId === 'number'
+          ? service.buildingIds.length === 0 || service.buildingIds.includes(contextBuildingId)
+          : true;
+      const matchesManualBuilding =
+        typeof contextBuildingId === 'number'
+          || serviceBuildingFilter === 'all'
           || (serviceBuildingFilter === 'common' && service.buildingIds.length === 0)
           || (serviceBuildingFilter !== 'common'
             && service.buildingIds.includes(Number(serviceBuildingFilter)));
 
-      return matchesSearch && matchesType && matchesBuilding;
+      return matchesSearch && matchesType && matchesContextBuilding && matchesManualBuilding;
     });
-  }, [serviceGroups, serviceSearch, serviceTypeFilter, serviceBuildingFilter]);
+  }, [contextBuildingId, serviceGroups, serviceSearch, serviceTypeFilter, serviceBuildingFilter]);
 
   const getBuildingLabel = (building: BuildingOption) => building.buildingName || building.name || `Tòa #${building.id}`;
 
@@ -517,26 +527,37 @@ export function ServiceTable() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Quản lý hạ tầng"
-        title="Dịch vụ & đơn giá"
-        description="Quản lý danh mục dịch vụ, đơn vị tính, đơn giá hiện tại và lịch sử cập nhật giá."
-        actions={
-          <button
-          onClick={openAddModal}
-          className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
-          >
-            <Plus size={16} />
-            <span>Thêm dịch vụ mới</span>
-          </button>
-        }
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="Quản lý hạ tầng"
+          title="Dịch vụ & đơn giá"
+          description="Quản lý danh mục dịch vụ, đơn vị tính, đơn giá hiện tại và lịch sử cập nhật giá."
+          actions={
+            <button
+            onClick={openAddModal}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+            >
+              <Plus size={16} />
+              <span>Thêm dịch vụ mới</span>
+            </button>
+          }
+        />
+      )}
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4 space-y-4">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
             <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá - {filteredServiceGroups.length}/{serviceGroups.length} dịch vụ</h2>
+            {embedded && (
+              <button
+                onClick={openAddModal}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
+              >
+                <Plus size={16} />
+                <span>Thêm dịch vụ mới</span>
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Filter size={18} style={{ color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }} />
