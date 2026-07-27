@@ -17,6 +17,12 @@ public interface IPaymentService
     Task<PaymentCallbackResponseDto> ProcessPaymentCallbackAsync(PaymentCallbackDto dto);
     Task<ThanhToanDto?> GetPendingPaymentByInvoiceIdAsync(int invoiceId);
     Task CancelPaymentAsync(long transactionId, int userId);
+
+    /// <summary>Doi soat webhook SePay: khop (TK nhan -> Owner) + (ma HD trong noi dung) + so tien -> Paid.</summary>
+    Task<PaymentCallbackResponseDto> ConfirmByWebhookAsync(SePayWebhookDto webhook);
+
+    /// <summary>MOCK demo: danh dau hoa don da tra (khong can tien that). Van di qua doi soat Owner + so tien.</summary>
+    Task<PaymentCallbackResponseDto> ConfirmMockAsync(int invoiceId);
 }
 
 public class PaymentService : IPaymentService
@@ -30,7 +36,11 @@ public class PaymentService : IPaymentService
     private readonly IPayOSService _payOSService;
     private readonly IConfiguration _config;
     private readonly IVietQRService _vietQRService;
+    private readonly IPaymentAccountRepository _paymentAccountRepository;
     private readonly ApplicationDbContext _context;
+
+    // Tien to noi dung chuyen khoan de nhan dien hoa don: HD{maHoaDon}, vd HD1001.
+    private const string TransferPrefix = "HD";
 
     public PaymentService(
         IThanhToanRepository thanhToanRepository,
@@ -42,6 +52,7 @@ public class PaymentService : IPaymentService
         IPayOSService payOSService,
         IConfiguration config,
         IVietQRService vietQRService,
+        IPaymentAccountRepository paymentAccountRepository,
         ApplicationDbContext context)
     {
         _thanhToanRepository = thanhToanRepository;
@@ -53,6 +64,7 @@ public class PaymentService : IPaymentService
         _payOSService = payOSService;
         _config = config;
         _vietQRService = vietQRService;
+        _paymentAccountRepository = paymentAccountRepository;
         _context = context;
     }
 
@@ -98,24 +110,34 @@ public class PaymentService : IPaymentService
             await _thanhToanRepository.SaveChangesAsync();
         }
 
-        // Generate unique orderCode for PayOS (millisecond timestamp)
-        var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // === MULTI-OWNER: xac dinh Owner so huu hoa don -> lay TK nhan tien cua Owner do ===
+        var contract = await _hopDongRepository.GetWithDetailsAsync(invoice.ContractId);
+        var room = contract?.Room;
+        var ownerUserId = room?.Floor?.Building?.OwnerUserId;
+        if (!ownerUserId.HasValue)
+        {
+            throw new InvalidOperationException("Không xác định được chủ nhà của hóa đơn này");
+        }
 
-        // Tạo link PayOS — PayOSService tự xử lý test mode (amount 5k vs thật)
-        // và trả về RealAmount để lưu đúng vào ThanhToan
-        var returnUrl = _config["PayOS:ReturnUrl"] ?? "proptech://payment/success";
-        var cancelUrl = _config["PayOS:CancelUrl"] ?? "proptech://payment/cancel";
-        var payosResult = await _payOSService.CreatePaymentLinkAsync(orderCode, invoiceId, returnUrl, cancelUrl);
+        var paymentAccount = await _paymentAccountRepository.GetActiveByOwnerAsync(ownerUserId.Value);
+        if (paymentAccount == null)
+        {
+            throw new InvalidOperationException(
+                "Chủ nhà chưa cấu hình tài khoản nhận tiền. Vui lòng liên hệ chủ nhà/quản lý.");
+        }
 
-        // Create new pending transaction - lưu số tiền THỰC (RealAmount) để đối soát
-        var transactionCode = orderCode.ToString();
+        // Noi dung CK duy nhat de doi soat: HD{maHoaDon}. Tien di THANG vao TK Owner.
+        var transferDescription = $"{TransferPrefix}{invoiceId}";
+        var transactionCode = transferDescription; // dung ma HD lam transaction code (duy nhat theo hoa don)
+
+        // Create new pending transaction (so tien thuc te cua hoa don)
         var transaction = new ThanhToan
         {
             InvoiceId = invoiceId,
-            Amount = payosResult.RealAmount,   // số tiền thực, không phải test amount
+            Amount = invoice.TotalAmount,
             PaymentType = dto.PaymentMethod ?? "QR",
             TransactionCode = transactionCode,
-            TransferDescription = payosResult.Description,
+            TransferDescription = transferDescription,
             Status = "PENDING",
             CreatedAt = DateTime.UtcNow,
             PaidAt = null
@@ -124,43 +146,37 @@ public class PaymentService : IPaymentService
         await _thanhToanRepository.AddAsync(transaction);
         await _thanhToanRepository.SaveChangesAsync();
 
-        // Get contract and room info for notification
-        var contract = await _hopDongRepository.GetWithDetailsAsync(invoice.ContractId);
-        var room = contract?.Room;
-        var ownerUserId = room?.Floor?.Building?.OwnerUserId;
-
         // Send SignalR notification - Payment initiated
         try
         {
-            if (ownerUserId.HasValue)
+            await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId.Value)).SendAsync("PaymentInitiated", new
             {
-                await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId.Value)).SendAsync("PaymentInitiated", new
-                {
-                    transactionId = transaction.Id,
-                    transactionCode = transaction.TransactionCode,
-                    invoiceId = invoice.Id,
-                    month = invoice.Month,
-                    year = invoice.Year,
-                    roomCode = room?.RoomCode,
-                    amount = transaction.Amount,
-                    status = "PENDING"
-                });
-            }
-            _logger.LogInformation("💰 PayOS payment initiated: {TransactionCode} for invoice {InvoiceId}", transactionCode, invoice.Id);
+                transactionId = transaction.Id,
+                transactionCode = transaction.TransactionCode,
+                invoiceId = invoice.Id,
+                month = invoice.Month,
+                year = invoice.Year,
+                roomCode = room?.RoomCode,
+                amount = transaction.Amount,
+                status = "PENDING"
+            });
+            _logger.LogInformation("💰 Payment initiated (owner {Owner}): {TransactionCode} for invoice {InvoiceId}",
+                ownerUserId.Value, transactionCode, invoice.Id);
         }
         catch (Exception ex)
         {
             _logger.LogWarning("⚠️  Failed to send SignalR notification: {Error}", ex.Message);
         }
 
-        // Gọi VietQR song song: lấy tên/logo ngân hàng + tạo ảnh QR đẹp
-        var bankInfoTask = _vietQRService.GetBankInfoByBinAsync(payosResult.Bin);
+        // Sinh QR VietQR tro TK cua Owner + noi dung HD{id}. Chay song song lay logo ngan hang.
+        var amountInt = (int)invoice.TotalAmount;
+        var bankInfoTask = _vietQRService.GetBankInfoByBinAsync(paymentAccount.BankBin);
         var vietQrTask   = _vietQRService.GenerateQRDataUrlAsync(
-            payosResult.AccountNumber,
-            payosResult.AccountName,
-            payosResult.Bin,
-            payosResult.PaymentAmount,
-            payosResult.Description);
+            paymentAccount.BankAccountNo,
+            paymentAccount.AccountHolder,
+            paymentAccount.BankBin,
+            amountInt,
+            transferDescription);
 
         await Task.WhenAll(bankInfoTask, vietQrTask);
 
@@ -172,24 +188,27 @@ public class PaymentService : IPaymentService
             TransactionId       = transaction.Id,
             TransactionCode     = transactionCode,
             Status              = "PENDING",
-            Amount              = payosResult.PaymentAmount,
-            // Dùng ảnh QR từ VietQR (có logo ngân hàng), fallback về QrCode của PayOS
-            QrCodeUrl           = !string.IsNullOrEmpty(qrDataUrl) ? qrDataUrl : payosResult.QrCode,
-            PaymentUrl          = payosResult.CheckoutUrl,
-            CheckoutUrl         = payosResult.CheckoutUrl,
-            BankAccountNumber   = payosResult.AccountNumber,
-            BankAccountName     = payosResult.AccountName,
-            BankBin             = payosResult.Bin,
-            TransferDescription = payosResult.Description,
-            BankName            = bankInfo?.ShortName ?? "",
+            Amount              = amountInt,
+            QrCodeUrl           = qrDataUrl,
+            PaymentUrl          = "",
+            CheckoutUrl         = "",
+            BankAccountNumber   = paymentAccount.BankAccountNo,
+            BankAccountName     = paymentAccount.AccountHolder,
+            BankBin             = paymentAccount.BankBin,
+            TransferDescription = transferDescription,
+            BankName            = bankInfo?.ShortName ?? paymentAccount.BankName ?? "",
             BankLogoUrl         = bankInfo?.Logo ?? ""
         };
     }
 
     public async Task<PaymentCallbackResponseDto> ProcessPaymentCallbackAsync(PaymentCallbackDto dto)
     {
-        // Find transaction by code
-        var transaction = await _thanhToanRepository.FirstOrDefaultAsync(t => t.TransactionCode == dto.TransactionCode);
+        // Find transaction by code. Co the co NHIEU transaction cung ma (vd bam thanh toan
+        // nhieu lan -> cai cu CANCELLED, cai moi PENDING). Uu tien PENDING de xu ly dung cai
+        // dang cho, tranh bat nham cai da CANCELLED.
+        var transaction = await _thanhToanRepository.FirstOrDefaultAsync(
+                t => t.TransactionCode == dto.TransactionCode && t.Status == "PENDING")
+            ?? await _thanhToanRepository.FirstOrDefaultAsync(t => t.TransactionCode == dto.TransactionCode);
         if (transaction == null)
         {
             throw new InvalidOperationException("Giao dịch không tồn tại");
@@ -272,22 +291,49 @@ public class PaymentService : IPaymentService
         try
         {
             var eventName = dto.Status == "SUCCESS" ? "PaymentSuccess" : "PaymentFailed";
+            var payload = new
+            {
+                transactionId = transaction.Id,
+                transactionCode = transaction.TransactionCode,
+                invoiceId = invoice2?.Id,
+                month = invoice2?.Month,
+                year = invoice2?.Year,
+                roomCode = room?.RoomCode,
+                amount = transaction.Amount,
+                status = dto.Status,
+                invoiceStatus = invoiceStatus,
+                paidAt = transaction.PaidAt,
+                gatewayResponse = dto.GatewayResponse
+            };
+
+            // 1) Bao cho CHU NHA (dashboard).
             if (ownerUserId.HasValue)
             {
-                await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId.Value)).SendAsync(eventName, new
+                await _hubContext.Clients.Group(NotificationHub.OwnerGroup(ownerUserId.Value))
+                    .SendAsync(eventName, payload);
+            }
+
+            // 2) Bao cho CU DAN dang tra hoa don (app mobile tu cap nhat trang thai).
+            //    Lay tat ca user gan voi cac cu dan trong hop dong.
+            if (invoice2 != null)
+            {
+                var residentIds = await _context.ChiTietOs
+                    .Where(ct => ct.ContractId == invoice2.ContractId)
+                    .Select(ct => ct.ResidentId)
+                    .Distinct()
+                    .ToListAsync();
+                if (residentIds.Count > 0)
                 {
-                    transactionId = transaction.Id,
-                    transactionCode = transaction.TransactionCode,
-                    invoiceId = invoice2?.Id,
-                    month = invoice2?.Month,
-                    year = invoice2?.Year,
-                    roomCode = room?.RoomCode,
-                    amount = transaction.Amount,
-                    status = dto.Status,
-                    invoiceStatus = invoiceStatus,
-                    paidAt = transaction.PaidAt,
-                    gatewayResponse = dto.GatewayResponse
-                });
+                    var residentUserIds = await _context.Users
+                        .Where(u => u.ResidentId.HasValue && residentIds.Contains(u.ResidentId.Value))
+                        .Select(u => u.Id)
+                        .ToListAsync();
+                    foreach (var uid in residentUserIds)
+                    {
+                        await _hubContext.Clients.Group(NotificationHub.UserGroup(uid))
+                            .SendAsync(eventName, payload);
+                    }
+                }
             }
             _logger.LogInformation($"💳 Payment {dto.Status}: {dto.TransactionCode}");
         }
@@ -428,5 +474,99 @@ public class PaymentService : IPaymentService
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
-    /// <summary>
+    // ===================== DOI SOAT MULTI-OWNER =====================
+
+    public async Task<PaymentCallbackResponseDto> ConfirmByWebhookAsync(SePayWebhookDto webhook)
+    {
+        // 1) Chi xu ly tien VAO.
+        if (!string.IsNullOrEmpty(webhook.TransferType) &&
+            !webhook.TransferType.Equals("in", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PaymentCallbackResponseDto { Success = false, Message = "Bỏ qua giao dịch không phải tiền vào" };
+        }
+
+        // 2) Tach ma hoa don tu noi dung CK: tim "HD{so}".
+        var content = $"{webhook.Content} {webhook.Code} {webhook.Description}";
+        var invoiceId = ExtractInvoiceId(content);
+        if (invoiceId == null)
+        {
+            _logger.LogWarning("Webhook SePay: khong tim thay ma HD trong noi dung '{Content}'", content);
+            return new PaymentCallbackResponseDto { Success = false, Message = "Không tìm thấy mã hóa đơn trong nội dung chuyển khoản" };
+        }
+
+        // 3) Xac dinh Owner tu TK nhan tien -> doi chieu voi Owner so huu hoa don.
+        var invoice = await _hoaDonRepository.GetByIdAsync(invoiceId.Value);
+        if (invoice == null)
+        {
+            return new PaymentCallbackResponseDto { Success = false, Message = $"Hóa đơn #{invoiceId} không tồn tại" };
+        }
+
+        var contract = await _hopDongRepository.GetWithDetailsAsync(invoice.ContractId);
+        var ownerOfInvoice = contract?.Room?.Floor?.Building?.OwnerUserId;
+
+        // Doi chieu TK nhan (neu tim thay trong DB). Voi BIDV dung VA (tai khoan ao),
+        // so accountNumber webhook gui co the la so VA dong -> khong co trong DB.
+        // Truong hop do KHONG chan (da co ma HD + so tien de doi soat), chi log.
+        if (!string.IsNullOrWhiteSpace(webhook.AccountNumber))
+        {
+            var receivingAccount = await _paymentAccountRepository
+                .GetByBankAccountAsync(string.Empty, webhook.AccountNumber);
+            if (receivingAccount == null)
+            {
+                // TK/VA khong khop DB -> khong chan, dua vao ma HD + so tien.
+                _logger.LogWarning("Webhook SePay: TK/VA nhan {Acc} khong co trong DB (co the la VA dong) - van xu ly theo ma HD",
+                    webhook.AccountNumber);
+            }
+            else if (ownerOfInvoice.HasValue && receivingAccount.OwnerUserId != ownerOfInvoice.Value)
+            {
+                // Tim thay account nhung khac Owner so huu hoa don -> chan (chong tra nham).
+                _logger.LogWarning("Webhook SePay: TK nhan thuoc Owner {A} nhung hoa don thuoc Owner {B}",
+                    receivingAccount.OwnerUserId, ownerOfInvoice);
+                return new PaymentCallbackResponseDto { Success = false, Message = "Tài khoản nhận không khớp chủ nhà của hóa đơn" };
+            }
+        }
+
+        // 4) Doi chieu so tien (webhook >= so tien hoa don thi coi la du).
+        if (webhook.TransferAmount.HasValue && webhook.TransferAmount.Value + 0.5m < invoice.TotalAmount)
+        {
+            _logger.LogWarning("Webhook SePay: so tien {Paid} < hoa don {Total}", webhook.TransferAmount, invoice.TotalAmount);
+            // Van cho ProcessPaymentCallbackAsync xu ly (co the "thanh toan mot phan").
+        }
+
+        // 5) Da khop -> danh dau da tra qua luong callback co san.
+        return await ProcessPaymentCallbackAsync(new PaymentCallbackDto
+        {
+            TransactionCode = $"{TransferPrefix}{invoiceId}",
+            Status = "SUCCESS",
+            PaidAt = DateTime.UtcNow,
+            GatewayResponse = $"SePay ref={webhook.ReferenceCode}"
+        });
+    }
+
+    public async Task<PaymentCallbackResponseDto> ConfirmMockAsync(int invoiceId)
+    {
+        var invoice = await _hoaDonRepository.GetByIdAsync(invoiceId);
+        if (invoice == null)
+        {
+            return new PaymentCallbackResponseDto { Success = false, Message = $"Hóa đơn #{invoiceId} không tồn tại" };
+        }
+        _logger.LogInformation("🧪 MOCK payment cho hoa don {InvoiceId}", invoiceId);
+        return await ProcessPaymentCallbackAsync(new PaymentCallbackDto
+        {
+            TransactionCode = $"{TransferPrefix}{invoiceId}",
+            Status = "SUCCESS",
+            PaidAt = DateTime.UtcNow,
+            GatewayResponse = "MOCK payment (demo)"
+        });
+    }
+
+    /// <summary>Tach ma hoa don tu chuoi noi dung CK: tim mau "HD" + so.</summary>
+    private static int? ExtractInvoiceId(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return null;
+        var match = System.Text.RegularExpressions.Regex.Match(
+            content, @"HD\s*0*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var id)) return id;
+        return null;
+    }
 }

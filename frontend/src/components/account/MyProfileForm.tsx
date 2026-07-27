@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getStoredAuthToken } from '../../lib/api-client';
 import { authService } from '../../services/api.service';
 import { PageHeader } from '../ui/product-system';
+import { PaymentAccountForm } from './PaymentAccountForm';
 
 export function MyProfileForm() {
   const [loading, setLoading] = useState(true);
@@ -26,7 +27,9 @@ export function MyProfileForm() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { changePassword, updateUser } = useAuth();
+  const { changePassword, updateUser, user } = useAuth();
+  // Chỉ chủ nhà/quản lý mới cấu hình tài khoản nhận tiền.
+  const canManagePaymentAccount = ['Admin', 'QuanLy'].includes(user?.role || '');
 
   useEffect(() => {
     // Only fetch profile if user is logged in (has token)
@@ -346,7 +349,14 @@ export function MyProfileForm() {
           </button>
         </div>
       </div>
-      
+
+      {/* Tài khoản nhận tiền - chỉ chủ nhà/quản lý */}
+      {canManagePaymentAccount && (
+        <div className="mt-6">
+          <PaymentAccountForm />
+        </div>
+      )}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="admin-content-modal-overlay">
