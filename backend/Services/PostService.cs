@@ -12,7 +12,7 @@ public interface IPostService
 {
     Task<List<PostDto>> GetAllAsync(int ownerUserId);
     Task<PostDto?> GetByIdAsync(int id, int? ownerUserId = null);
-    Task<PostDto?> GetByUserIdAsync(int userId);
+    Task<PostDto?> GetByUserIdAsync(int userId, int? roomId = null);
     Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null, int? ownerUserId = null);
     Task<PostDto> RecordViewAsync(int id);
     Task<PostDto> SyncMessageCountAsync(int id, int messages);
@@ -98,16 +98,23 @@ public class PostService : IPostService
         return post == null ? null : MapToDto(post);
     }
 
-    public async Task<PostDto?> GetByUserIdAsync(int userId)
+    public async Task<PostDto?> GetByUserIdAsync(int userId, int? roomId = null)
     {
-        var post = await _context.BaiDangTimPhongs
+        var query = _context.BaiDangTimPhongs
             .AsNoTracking()
             .Include(item => item.CreatedByUser)
             .Include(item => item.Room)
                 .ThenInclude(room => room!.Floor)
                     .ThenInclude(floor => floor.Building)
             .Where(item => item.CreatedByUserId == userId)
-            .Where(item => item.Status != DeletedPostStatus)
+            .Where(item => item.Status != DeletedPostStatus);
+
+        if (roomId.HasValue)
+        {
+            query = query.Where(item => item.RoomId == roomId.Value);
+        }
+
+        var post = await query
             .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefaultAsync();
 

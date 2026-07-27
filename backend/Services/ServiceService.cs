@@ -457,10 +457,16 @@ public class ServiceService : IServiceService
             var effectiveDateText = GetVietnamDate(effectiveDate).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
             var title = $"Thay đổi giá dịch vụ {service.Name}";
             var content = $"Đơn giá dịch vụ {service.Name} thay đổi từ {oldPrice:N0} VNĐ lên {newPrice:N0} VNĐ, áp dụng từ {effectiveDateText}. Các hợp đồng/phòng có dùng dịch vụ này sẽ được cập nhật theo ngày áp dụng; hóa đơn đã xuất trước đó vẫn giữ nguyên đơn giá cũ.";
+            var linkUrl =
+                $"service-price-change://detail?serviceId={service.Id}" +
+                $"&serviceName={Uri.EscapeDataString(service.Name)}" +
+                $"&oldPrice={oldPrice.ToString(CultureInfo.InvariantCulture)}" +
+                $"&newPrice={newPrice.ToString(CultureInfo.InvariantCulture)}" +
+                $"&effectiveDate={effectiveDate:yyyy-MM-dd}";
 
             foreach (var userId in recipientUserIds)
             {
-                await _notificationService.SendToUserAsync(userId, title, content, "SERVICE_PRICE");
+                await _notificationService.SendToUserAsync(userId, title, content, "SERVICE_PRICE", service.Id, linkUrl);
             }
         }
         catch

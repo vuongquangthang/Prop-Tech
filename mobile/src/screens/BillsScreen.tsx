@@ -7,19 +7,28 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  Modal,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { BillCard } from '../components/BillCard';
 import invoiceService, { Invoice } from '../services/invoice.service';
 import signalRService from '../services/signalr.service';
 import { palette } from '../theme/palette';
+import { contractService, ContractDetail } from '../services/contract.service';
+import { useAuthStore } from '../store/authStore';
 
 export default function BillsScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const routeContractId = Number(route.params?.contractId) || undefined;
+  const activeContractId = useAuthStore((state) => state.activeContractId);
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedContractId, setSelectedContractId] = useState<number | 'all'>(activeContractId ?? 'all');
+  const [contractPickerOpen, setContractPickerOpen] = useState(false);
+  const [contracts, setContracts] = useState<ContractDetail[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -49,6 +58,29 @@ export default function BillsScreen() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    contractService
+      .getMyContracts()
+      .then((items) => {
+        if (!mounted) return;
+        setContracts(items);
+        const nextContractId = routeContractId && items.some((item) => item.id === routeContractId)
+          ? routeContractId
+          : activeContractId && items.some((item) => item.id === activeContractId)
+            ? activeContractId
+            : items[0]?.id;
+        setSelectedContractId(nextContractId ?? 'all');
+      })
+      .catch(() => {
+        if (mounted) setContracts([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeContractId, routeContractId]);
+
+  useEffect(() => {
     const unsub = signalRService.onInvoiceUpdate(() => {
       loadInvoices();
     });
@@ -69,17 +101,23 @@ export default function BillsScreen() {
   }, [invoices]);
 
   const statusCounts = useMemo(() => {
-    const base = selectedYear === 'all' ? invoices : invoices.filter(inv => inv.year.toString() === selectedYear);
+    const contractFiltered = selectedContractId === 'all'
+      ? invoices
+      : invoices.filter(inv => inv.contractId === selectedContractId);
+    const base = selectedYear === 'all' ? contractFiltered : contractFiltered.filter(inv => inv.year.toString() === selectedYear);
     return {
       all: base.length,
       unpaid: base.filter(inv => inv.status === 'Chưa thanh toán').length,
       paid: base.filter(inv => inv.status === 'Đã thanh toán').length,
       overdue: base.filter(inv => invoiceService.isOverdue(inv)).length,
     };
-  }, [invoices, selectedYear]);
+  }, [invoices, selectedContractId, selectedYear]);
 
   const getFilteredInvoices = () => {
     let filtered = invoices;
+    if (selectedContractId !== 'all') {
+      filtered = filtered.filter(inv => inv.contractId === selectedContractId);
+    }
     if (selectedYear !== 'all') {
       filtered = filtered.filter(inv => inv.year.toString() === selectedYear);
     }
@@ -97,6 +135,11 @@ export default function BillsScreen() {
   };
 
   const filteredInvoices = getFilteredInvoices();
+  const formatContractLabel = (contract?: ContractDetail) =>
+    contract?.roomNumber ? `Phòng ${contract.roomNumber}` : contract?.contractCode || `HĐ #${contract?.id}`;
+  const selectedContractLabel = selectedContractId === 'all'
+    ? 'Tất cả hợp đồng'
+    : formatContractLabel(contracts.find((contract) => contract.id === selectedContractId));
 
   const statusTabs: { value: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] = [
     { value: 'all',     label: 'Tất cả',    icon: 'list-outline',             color: palette.primary, bg: palette.primarySoft },
@@ -115,25 +158,37 @@ export default function BillsScreen() {
     return `Hạn thanh toán: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('vi-VN') : ''}`;
   };
 
-  const isFiltering = selectedYear !== 'all' || selectedStatus !== 'all';
+  const isFiltering = selectedYear !== 'all' || selectedStatus !== 'all' || selectedContractId !== (activeContractId ?? contracts[0]?.id ?? 'all');
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.headerSideButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Lịch sử hóa đơn</Text>
         {isFiltering ? (
-          <TouchableOpacity onPress={() => { setSelectedYear('all'); setSelectedStatus('all'); }}>
+          <TouchableOpacity style={styles.headerRightSlot} onPress={() => { setSelectedContractId(activeContractId ?? contracts[0]?.id ?? 'all'); setSelectedYear('all'); setSelectedStatus('all'); }}>
             <Text style={styles.resetText}>Xoá lọc</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 52 }} />
+          <View style={styles.headerRightSlot} />
         )}
       </View>
 
       <View style={styles.filterPanel}>
+        {contracts.length > 1 && (
+          <View style={styles.contractRow}>
+            <Text style={styles.filterRowLabel}>Hợp đồng</Text>
+            <TouchableOpacity style={styles.contractDropdownButton} onPress={() => setContractPickerOpen(true)}>
+              <Text style={styles.contractDropdownText} numberOfLines={1}>{selectedContractLabel}</Text>
+              <Ionicons name="chevron-down" size={18} color={palette.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {contracts.length > 1 && <View style={styles.panelDivider} />}
+
         <View style={styles.yearRow}>
           <Text style={styles.filterRowLabel}>Năm</Text>
           <View style={styles.yearChips}>
@@ -179,6 +234,39 @@ export default function BillsScreen() {
           })}
         </View>
       </View>
+
+      <Modal visible={contractPickerOpen} transparent animationType="fade" onRequestClose={() => setContractPickerOpen(false)}>
+        <View style={styles.dropdownBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setContractPickerOpen(false)} />
+          <View style={styles.dropdownCard}>
+            <Text style={styles.dropdownTitle}>Chọn hợp đồng</Text>
+            <TouchableOpacity
+              style={[styles.dropdownOption, selectedContractId === 'all' && styles.dropdownOptionActive]}
+              onPress={() => { setSelectedContractId('all'); setContractPickerOpen(false); }}
+            >
+              <Text style={[styles.dropdownOptionText, selectedContractId === 'all' && styles.dropdownOptionTextActive]}>
+                Tất cả hợp đồng
+              </Text>
+              {selectedContractId === 'all' && <Ionicons name="checkmark" size={18} color={palette.primary} />}
+            </TouchableOpacity>
+            {contracts.map((contract) => {
+              const selected = selectedContractId === contract.id;
+              return (
+                <TouchableOpacity
+                  key={contract.id}
+                  style={[styles.dropdownOption, selected && styles.dropdownOptionActive]}
+                  onPress={() => { setSelectedContractId(contract.id); setContractPickerOpen(false); }}
+                >
+                  <Text style={[styles.dropdownOptionText, selected && styles.dropdownOptionTextActive]} numberOfLines={1}>
+                    {formatContractLabel(contract)}
+                  </Text>
+                  {selected && <Ionicons name="checkmark" size={18} color={palette.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
 
       {isLoading ? (
         <View style={styles.centerContainer}>
@@ -238,14 +326,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
     paddingHorizontal: 20,
     paddingVertical: 14,
     backgroundColor: palette.surface,
     borderBottomWidth: 1,
     borderBottomColor: palette.borderSoft,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: palette.text },
-  resetText: { fontSize: 13, fontWeight: '600', color: palette.primary, width: 52, textAlign: 'right' },
+  headerSideButton: { width: 52, height: 28, justifyContent: 'center', zIndex: 2 },
+  headerRightSlot: { width: 52, minHeight: 28, alignItems: 'flex-end', justifyContent: 'center', zIndex: 2 },
+  headerTitle: {
+    position: 'absolute',
+    left: 72,
+    right: 72,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: palette.text,
+  },
+  resetText: { fontSize: 13, fontWeight: '600', color: palette.primary, textAlign: 'right' },
   filterPanel: {
     backgroundColor: palette.surface,
     borderBottomWidth: 1,
@@ -259,30 +358,92 @@ const styles = StyleSheet.create({
   yearRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 8,
   },
   filterRowLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
     color: palette.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    width: 34,
+    letterSpacing: 0.45,
+    width: 68,
+    flexShrink: 0,
   },
-  yearChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 },
-  yearChip: {
+  contractRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  contractDropdownButton: {
+    flex: 1,
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    backgroundColor: palette.surfaceSoft,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+  },
+  contractDropdownText: { flex: 1, fontSize: 12, fontWeight: '700', color: palette.text },
+  dropdownBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dropdownCard: {
+    backgroundColor: palette.surface,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: palette.borderSoft,
+  },
+  dropdownTitle: { fontSize: 16, fontWeight: '800', color: palette.text, marginBottom: 8 },
+  dropdownOption: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  dropdownOptionActive: { backgroundColor: palette.primarySoft },
+  dropdownOptionText: { flex: 1, fontSize: 14, fontWeight: '700', color: palette.textMuted },
+  dropdownOptionTextActive: { color: palette.primary },
+  contractChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 },
+  contractChip: {
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
     backgroundColor: palette.surfaceSoft,
     borderWidth: 1.5,
     borderColor: 'transparent',
+    maxWidth: 150,
+  },
+  contractChipActive: { backgroundColor: palette.primarySoft, borderColor: palette.primary },
+  contractChipText: { fontSize: 13, fontWeight: '600', color: palette.textMuted },
+  contractChipTextActive: { color: palette.primary },
+  yearChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, flex: 1 },
+  yearChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    backgroundColor: palette.surfaceSoft,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
   yearChipActive: { backgroundColor: palette.primarySoft, borderColor: palette.primary },
-  yearChipText: { fontSize: 13, fontWeight: '600', color: palette.textMuted },
+  yearChipText: { fontSize: 12, fontWeight: '600', color: palette.textMuted },
   yearChipTextActive: { color: palette.primary },
   panelDivider: { height: 1, backgroundColor: palette.borderSoft, marginHorizontal: 16 },
   statusRow: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 10, gap: 6 },

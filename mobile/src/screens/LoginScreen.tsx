@@ -60,6 +60,8 @@ export default function LoginScreen({ navigation }: Props) {
   }, []);
 
   const handleLogin = async () => {
+    if (isLoading) return;
+
     if (!phoneNumber.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập số điện thoại');
       return;
@@ -70,7 +72,7 @@ export default function LoginScreen({ navigation }: Props) {
     }
     try {
       clearError();
-      await login(phoneNumber.trim(), password);
+      const loggedInUser = await login(phoneNumber.trim(), password);
       if (rememberMe) {
         await secureStorage.setItemAsync(REMEMBER_LOGIN_KEY, 'true');
         await secureStorage.setItemAsync(REMEMBERED_PHONE_KEY, phoneNumber.trim());
@@ -78,7 +80,12 @@ export default function LoginScreen({ navigation }: Props) {
         await secureStorage.deleteItemAsync(REMEMBER_LOGIN_KEY);
         await secureStorage.deleteItemAsync(REMEMBERED_PHONE_KEY);
       }
-      // Navigation will be handled by RootNavigator based on user.mustChangePassword
+      if (loggedInUser.mustChangePassword ?? (loggedInUser as any).MustChangePassword) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'ForceChangePassword' }],
+        });
+      }
     } catch (err: any) {
       const isNetworkError = !err.response;
       Alert.alert(

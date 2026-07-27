@@ -14,8 +14,8 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { contractService } from '../services/contract.service';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { contractService, ContractDetail } from '../services/contract.service';
 import { postService } from '../services/post.service';
 import { MyRoom, roomService, RoomDetail } from '../services/room.service';
 import { resolveImageUrl } from '../utils/image';
@@ -24,6 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { fileService } from '../services/file.service';
 import { useAuthStore } from '../store/authStore';
 import type { CreatePostDto, PostServiceLineItemDto } from '../types/dto';
+import { palette } from '../theme/palette';
 
 type PriceMap = Record<string, string>;
 
@@ -156,13 +157,19 @@ const buildServiceRows = (room: MyRoom): RoomFormService[] => {
 
 export default function RoommateCreateScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const user = useAuthStore((state) => state.user);
+  const activeContractId = useAuthStore((state) => state.activeContractId);
+  const routeContractId = Number(route.params?.contractId) || undefined;
+  const routeRoomId = Number(route.params?.roomId) || undefined;
   const scrollRef = useRef<ScrollView>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [room, setRoom] = useState<MyRoom | null>(null);
   const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
+  const [contracts, setContracts] = useState<ContractDetail[]>([]);
+  const [selectedPostContractId, setSelectedPostContractId] = useState<number | null>(routeContractId ?? activeContractId);
   const [services, setServices] = useState<RoomFormService[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,94 +191,145 @@ export default function RoommateCreateScreen() {
   const [roomAmenities, setRoomAmenities] = useState<string[]>([]);
   const roomMeta = getRoomMeta(roomDetail);
 
+  const hydrateContractRoom = useCallback(async (contract: ContractDetail, shouldResetTitle: boolean) => {
+    const detail = await roomService.getRoomDetail(contract.roomId);
+    setRoomDetail(detail);
+
+    const primary = contract.residents?.find((resident) =>
+      resident.residencyRole &&
+      (resident.residencyRole.includes('Người thuê') || resident.residencyRole.includes('Chủ'))
+    ) || contract.residents?.[0];
+
+    const myRoom: MyRoom = {
+      roomId: detail.id,
+      roomCode: detail.roomCode || '',
+      area: detail.area ?? null,
+      maxOccupants: detail.maxOccupants ?? null,
+      amenities: detail.amenities ?? [],
+      status: detail.status ?? 'N/A',
+      buildingId: 0,
+      buildingName: detail.buildingName ?? '',
+      buildingAddress: '',
+      floorId: 0,
+      floorNumber: detail.floorNumber ?? 0,
+      contractId: contract.id,
+      contractStartDate: contract.startDate,
+      contractEndDate: contract.expectedEndDate ?? null,
+      rentPrice: contract.actualRentPrice,
+      deposit: contract.depositAmount ?? 0,
+      householdHeadName: primary?.fullName,
+      services: [],
+      electricityBasePrice: null,
+      electricityTiers: [],
+      waterPricePerCubicMeter: null,
+    };
+    setRoom(myRoom);
+
+    let amenityList: string[] = Array.isArray(detail.amenities) ? detail.amenities : [];
+    const assets = Array.isArray(detail.assets) ? detail.assets : [];
+    const assetNames = assets.map((asset) => asset.assetName).filter(Boolean);
+    if (assetNames.length) {
+      amenityList = assetNames;
+    }
+    setRoomAmenities(amenityList);
+
+    const now = new Date();
+    const activeResidents = contract.residents.filter((resident) => {
+      if (!resident.toDate) return true;
+      const toDate = new Date(resident.toDate);
+      return !Number.isNaN(toDate.getTime()) && toDate > now;
+    }).length;
+    setCurrentOccupants(activeResidents);
+
+    let dbServices: ServiceInRoomDto[] = [];
+    try {
+      dbServices = await servicesService.getByRoom(myRoom.roomId);
+    } catch (err) {
+      console.warn('Không thể tải danh sách dịch vụ từ DB', err);
+    }
+
+    const roomRows = dbServices.length
+      ? dbServices.map((service) => ({
+          key: `svc-${service.serviceId}`,
+          name: service.serviceName,
+          unit: service.unit || '',
+          beforePrice: Number(service.unitPrice || 0),
+        }))
+      : buildServiceRows(myRoom);
+    setServices(roomRows);
+
+    setBaseRentPrice(formatCurrency(myRoom.rentPrice || 0));
+    const initialServicePrices: PriceMap = {};
+    roomRows.forEach((item) => {
+      initialServicePrices[item.key] = item.beforePrice > 0 ? formatCurrency(item.beforePrice) : '';
+    });
+    setServicePrices(initialServicePrices);
+
+    const defaultNeedMore = myRoom.maxOccupants ? Math.max(1, myRoom.maxOccupants - activeResidents) : 1;
+    setNeedMore(String(defaultNeedMore));
+
+    try {
+      const totalPeople = Math.max(1, activeResidents + defaultNeedMore);
+      const perPerson = Math.round((myRoom.rentPrice || 0) / totalPeople);
+      const formatted = formatCurrency(perPerson);
+      setBaseRentPrice(formatted);
+      setLastAutoBaseValue(formatted);
+      setAutoBase(true);
+    } catch (err) {
+      setBaseRentPrice(formatCurrency(myRoom.rentPrice || 0));
+    }
+
+    if (shouldResetTitle || !title.trim()) {
+      setTitle(`Tìm bạn ở ghép phòng ${myRoom.roomCode}`);
+    }
+  }, [title]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     setImages([]);
     try {
-      const myRoom = await roomService.getMyRoom();
-      setRoom(myRoom);
+      const contractItems = await contractService.getMyContracts();
+      setContracts(contractItems);
+      const contract = contractItems.find((item) => item.id === selectedPostContractId)
+        || contractItems.find((item) => item.id === routeContractId)
+        || contractItems.find((item) => item.roomId === routeRoomId)
+        || contractItems.find((item) => item.id === activeContractId)
+        || contractItems[0];
 
-      // preload amenities
-      let amenityList: string[] = Array.isArray(myRoom.amenities) ? myRoom.amenities : [];
-      try {
-        const detail = await roomService.getRoomDetail(myRoom.roomId);
-        setRoomDetail(detail);
-        const assets = Array.isArray(detail.assets) ? detail.assets : [];
-        const assetNames = assets.map((asset) => asset.assetName).filter(Boolean);
-        if (assetNames.length) {
-          amenityList = assetNames;
-        }
-
-      } catch (err) {
-        console.warn('Không thể tải tiện nghi từ DB', err);
-      }
-      setRoomAmenities(amenityList);
-
-      const contract = await contractService.getById(myRoom.contractId);
-      const now = new Date();
-      const activeResidents = contract.residents.filter((resident) => {
-        if (!resident.toDate) return true;
-        const toDate = new Date(resident.toDate);
-        return !Number.isNaN(toDate.getTime()) && toDate > now;
-      }).length;
-      setCurrentOccupants(activeResidents);
-
-      let dbServices: ServiceInRoomDto[] = [];
-      try {
-        dbServices = await servicesService.getByRoom(myRoom.roomId);
-      } catch (err) {
-        console.warn('Không thể tải danh sách dịch vụ từ DB', err);
+      if (!contract) {
+        throw new Error('Không tìm thấy hợp đồng còn hiệu lực');
       }
 
-      const roomRows = dbServices.length
-        ? dbServices.map((service) => ({
-            key: `svc-${service.serviceId}`,
-            name: service.serviceName,
-            unit: service.unit || '',
-            beforePrice: Number(service.unitPrice || 0),
-          }))
-        : buildServiceRows(myRoom);
-      setServices(roomRows);
-
-      setBaseRentPrice(formatCurrency(myRoom.rentPrice || 0));
-      const initialServicePrices: PriceMap = {};
-      roomRows.forEach((item) => {
-        initialServicePrices[item.key] = item.beforePrice > 0 ? formatCurrency(item.beforePrice) : '';
-      });
-      setServicePrices(initialServicePrices);
-
-      const defaultNeedMore = myRoom.maxOccupants ? Math.max(1, myRoom.maxOccupants - activeResidents) : 1;
-      setNeedMore(String(defaultNeedMore));
-
-      // auto-calculate per-person rent (base rent after split)
-      try {
-        const totalPeople = Math.max(1, activeResidents + defaultNeedMore);
-        const perPerson = Math.round((myRoom.rentPrice || 0) / totalPeople);
-        const formatted = formatCurrency(perPerson);
-        setBaseRentPrice(formatted);
-        setLastAutoBaseValue(formatted);
-        setAutoBase(true);
-      } catch (err) {
-        // fallback: keep room rent
-        setBaseRentPrice(formatCurrency(myRoom.rentPrice || 0));
-      }
-
-      if (!title.trim()) {
-        setTitle(`Tìm bạn ở ghép phòng ${myRoom.roomCode}`);
-      }
+      setSelectedPostContractId(contract.id);
+      await hydrateContractRoom(contract, false);
     } catch (e: any) {
       setError(e?.message || 'Không thể tải dữ liệu phòng');
     } finally {
       setLoading(false);
     }
-  }, [title, useAuthStore((s) => s.activeContractId)]);
+  }, [activeContractId, hydrateContractRoom, routeContractId, routeRoomId, selectedPostContractId]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData])
   );
+
+  const handleSelectContract = async (contract: ContractDetail) => {
+    if (contract.id === selectedPostContractId || saving) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setImages([]);
+      setSelectedPostContractId(contract.id);
+      await hydrateContractRoom(contract, true);
+    } catch (e: any) {
+      setError(e?.message || 'Không thể tải dữ liệu phòng');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onChangeServicePrice = (key: string, value: string) => {
     setServicePrices((prev) => ({ ...prev, [key]: formatMoneyInput(value) }));
@@ -438,6 +496,25 @@ export default function RoommateCreateScreen() {
           <>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Thông tin phòng</Text>
+              {contracts.length > 1 && (
+                <View style={styles.contractPickerRow}>
+                  {contracts.map((contract) => {
+                    const selected = selectedPostContractId === contract.id;
+                    return (
+                      <TouchableOpacity
+                        key={contract.id}
+                        style={[styles.contractPickerChip, selected && styles.contractPickerChipActive]}
+                        onPress={() => handleSelectContract(contract)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={[styles.contractPickerText, selected && styles.contractPickerTextActive]} numberOfLines={1}>
+                          {contract.roomNumber ? `Phòng ${contract.roomNumber}` : contract.contractCode || `HĐ #${contract.id}`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
               {Array.isArray(roomDetail?.imageUrls) && roomDetail.imageUrls.map(resolveImageUrl).filter(Boolean).length > 0 ? (
                 <View style={styles.roomMediaBlock}>
                   <Text style={styles.roomSectionLabel}>Ảnh phòng:</Text>
@@ -688,6 +765,33 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
   roomText: { fontSize: 14, color: '#374151' },
+  contractPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  contractPickerChip: {
+    maxWidth: 150,
+    borderWidth: 1,
+    borderColor: '#D8E8F5',
+    borderRadius: 18,
+    backgroundColor: '#F7FCFF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  contractPickerChipActive: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primarySoft,
+  },
+  contractPickerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: palette.textMuted,
+  },
+  contractPickerTextActive: {
+    color: palette.primary,
+  },
   roomMediaBlock: {
     gap: 8,
   },

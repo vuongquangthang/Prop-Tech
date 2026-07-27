@@ -21,6 +21,7 @@ import apiService from '../services/api.service';
 // @ts-ignore - TypeScript cache issue, restart TS server if error persists
 import { roomService, MyRoom } from '../services/room.service';
 import ContractPicker from '../components/ContractPicker';
+import { palette, radius } from '../theme/palette';
 
 export default function AccountScreen() {
   const navigation = useNavigation();
@@ -109,8 +110,15 @@ export default function AccountScreen() {
     );
   };
 
+  const accountDisplayName =
+    user?.displayName ||
+    user?.fullName ||
+    user?.residentName ||
+    user?.phoneNumber ||
+    'Cư dân';
+
   const getInitials = () => {
-    const name = myRoom?.householdHeadName || user?.residentName || '';
+    const name = accountDisplayName === user?.phoneNumber ? '' : accountDisplayName;
     const parts = name.trim().split(' ');
     if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     if (name.length > 0) return name[0].toUpperCase();
@@ -120,11 +128,11 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.headerSideButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#4B5563" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tài khoản</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerRightSlot} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -135,7 +143,7 @@ export default function AccountScreen() {
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>
-              {myRoom?.householdHeadName || user?.residentName || user?.phoneNumber || 'Cư dân'}
+              {accountDisplayName}
             </Text>
             <Text style={styles.profilePhone}>{user?.phoneNumber}</Text>
             <View style={styles.roleBadge}>
@@ -149,7 +157,7 @@ export default function AccountScreen() {
         {/* Contract picker */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>HỢP ĐỒNG</Text>
-          <View style={[styles.card, { padding: 12, marginTop: 8 }]}> 
+          <View style={styles.contractPickerShell}> 
             <ContractPicker />
           </View>
         </View>
@@ -167,7 +175,7 @@ export default function AccountScreen() {
             <SettingRow
               icon="person-outline"
               title="Họ và tên"
-              subtitle={user?.residentName || 'Chưa cập nhật'}
+              subtitle={accountDisplayName !== user?.phoneNumber ? accountDisplayName : 'Chưa cập nhật'}
               borderBottom
             />
             <SettingRow
@@ -329,47 +337,56 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    position: 'relative',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
+  headerSideButton: { width: 52, height: 28, justifyContent: 'center', zIndex: 2 },
+  headerRightSlot: { width: 52, minHeight: 28, zIndex: 2 },
   headerTitle: {
-    fontSize: 18,
+    position: 'absolute',
+    left: 72,
+    right: 72,
+    textAlign: 'center',
+    fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   content: {
     flex: 1,
-    padding: 24,
+    padding: 20,
   },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: palette.primaryDark,
+    borderRadius: radius.xl,
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#38BDF8',
+    shadowColor: palette.shadowStrong,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
+    elevation: 7,
   },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#1A4B84',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -385,51 +402,54 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#FFFFFF',
     marginBottom: 2,
   },
   profilePhone: {
     fontSize: 13,
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.72)',
     marginBottom: 6,
   },
   roleBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#E8F0FB',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     paddingHorizontal: 10,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: radius.sm,
   },
   roleBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: '#FFFFFF',
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: '700',
+    color: palette.textMuted,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 4,
+  },
+  contractPickerShell: {
+    marginTop: 8,
   },
   logoutButton: {
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
+    backgroundColor: palette.danger,
+    borderRadius: radius.md,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -448,9 +468,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: palette.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     paddingBottom: Platform.OS === 'ios' ? 32 : 20,
   },
   modalHeader: {
@@ -459,12 +479,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   modalBody: {
     padding: 20,
@@ -472,7 +492,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#374151',
+    color: palette.text,
     marginBottom: 6,
     marginTop: 12,
   },
@@ -480,16 +500,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceAlt,
     paddingHorizontal: 12,
   },
   passwordInput: {
     flex: 1,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#111827',
+    color: palette.text,
   },
   eyeBtn: {
     padding: 4,
@@ -503,21 +523,21 @@ const styles = StyleSheet.create({
   cancelBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
+    borderColor: palette.border,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
   },
   cancelBtnText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: palette.text,
   },
   confirmBtn: {
     flex: 1,
-    backgroundColor: '#1A4B84',
-    borderRadius: 10,
+    backgroundColor: palette.primary,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
   },

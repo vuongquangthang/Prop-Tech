@@ -32,7 +32,10 @@ public class ChiTietOService : IChiTietOService
     public async Task<List<ResidentInContractDto>> GetResidentsByContractAsync(int contractId)
     {
         var residents = await _chiTietORepository.GetByContractIdAsync(contractId);
-        return residents.Select(MapToDto).ToList();
+        return residents
+            .Where(resident => resident.ToDate == null)
+            .Select(MapToDto)
+            .ToList();
     }
 
     public async Task<ResidentInContractDto> AddResidentToContractAsync(int contractId, CreateChiTietODto dto)
@@ -56,6 +59,18 @@ public class ChiTietOService : IChiTietOService
         if (existing != null && existing.ToDate == null)
         {
             throw new InvalidOperationException("Cư dân đã có trong hợp đồng này");
+        }
+
+        if (existing != null)
+        {
+            existing.ResidencyRole = dto.ResidencyRole;
+            existing.FromDate = dto.FromDate;
+            existing.ToDate = null;
+            _chiTietORepository.Update(existing);
+            await _chiTietORepository.SaveChangesAsync();
+
+            var reactivated = await _chiTietORepository.GetByContractAndResidentAsync(contractId, dto.ResidentId);
+            return MapToDto(reactivated!);
         }
 
         // Create new ChiTietO record

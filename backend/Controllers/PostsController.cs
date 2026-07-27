@@ -70,12 +70,12 @@ public class PostsController : ControllerBase
 
     [HttpGet("my")]
     [Authorize(Roles = "CuDan")]
-    public async Task<ActionResult<PostDto>> GetMy()
+    public async Task<ActionResult<PostDto>> GetMy([FromQuery] int? roomId = null)
     {
         try
         {
             var userId = GetUserId();
-            var post = await _postService.GetByUserIdAsync(userId);
+            var post = await _postService.GetByUserIdAsync(userId, roomId);
             if (post == null)
             {
                 return NotFound(new { message = "Bạn chưa có bài đăng nào" });

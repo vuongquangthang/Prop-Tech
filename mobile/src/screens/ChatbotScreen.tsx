@@ -214,8 +214,7 @@ export default function ChatbotScreen() {
           <TextInput
             style={styles.input}
             placeholder="Nhập câu hỏi..."
-            placeholderTextColor="#9CA3AF"
-                        placeholderTextColor={palette.textMuted}
+            placeholderTextColor={palette.textMuted}
             value={message}
             onChangeText={setMessage}
             onSubmitEditing={handleSend}
@@ -226,7 +225,6 @@ export default function ChatbotScreen() {
             disabled={isTyping || !message.trim()}
           >
             <Ionicons name="send" size={16} color="#FFFFFF" />
-                      <Ionicons name="send" size={16} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
         <Text style={styles.disclaimer}>
@@ -241,7 +239,6 @@ export default function ChatbotScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     backgroundColor: palette.background,
   },
   header: {
@@ -251,14 +248,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
     borderBottomColor: palette.borderSoft,
     backgroundColor: palette.surface,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
     color: palette.text,
   },
   messagesContainer: {
@@ -281,12 +276,10 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E8F0FB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
     backgroundColor: palette.primarySoft,
     borderColor: '#BFDBFE',
   },
@@ -297,7 +290,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderTopLeftRadius: 4,
     padding: 12,
-    shadowColor: '#000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -305,8 +298,7 @@ const styles = StyleSheet.create({
   },
   botMessageText: {
     fontSize: 14,
-    color: '#374151',
-      color: palette.text,
+    color: palette.text,
     lineHeight: 20,
   },
   userMessageContainer: {
@@ -317,11 +309,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   userMessage: {
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     borderRadius: 16,
     borderTopRightRadius: 4,
     padding: 12,
-    shadowColor: '#000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -336,14 +328,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E5E7EB',
-      backgroundColor: '#E2E8F0',
-      borderColor: '#BFDBFE',
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#BFDBFE',
   },
   suggestionsContainer: {
     flexDirection: 'row',
@@ -359,7 +349,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#BFDBFE',
     borderRadius: 16,
-    shadowColor: '#000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -367,17 +357,14 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 12,
-    color: '#1A4B84',
     color: palette.primary,
   },
   inputContainer: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
     backgroundColor: palette.surface,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-      borderTopColor: palette.borderSoft,
-    shadowColor: '#000',
+    borderTopColor: palette.borderSoft,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -390,20 +377,15 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
-      borderColor: palette.border,
-      color: palette.text,
-      backgroundColor: palette.primary,
-      backgroundColor: palette.surfaceSoft,
-    borderColor: '#E5E7EB',
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceSoft,
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingRight: 48,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#111827',
+    color: palette.text,
   },
   sendButton: {
     position: 'absolute',
@@ -411,10 +393,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

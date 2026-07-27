@@ -12,8 +12,9 @@ class PostService {
     return apiService.get<PostDto>(`${this.baseUrl}/${id}`);
   }
 
-  async getMyPost(): Promise<PostDto> {
-    return apiService.get<PostDto>(`${this.baseUrl}/my`);
+  async getMyPost(roomId?: number): Promise<PostDto> {
+    const query = roomId ? `?roomId=${roomId}` : '';
+    return apiService.get<PostDto>(`${this.baseUrl}/my${query}`);
   }
 
   async create(data: CreatePostDto): Promise<PostDto> {

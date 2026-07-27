@@ -14,11 +14,7 @@ const menuItems = [
   { 
     icon: Building2, 
     label: 'Quản lý Hạ tầng',
-    subItems: [
-      { label: 'Cơ cấu Tòa nhà & Phòng', path: '/building-management' },
-      { label: 'Danh mục Dịch vụ & Đơn giá', path: '/service-pricing' },
-      { label: 'Quản lý Kho tài sản', path: '/asset-inventory' },
-    ]
+    path: '/building-management',
   },
   { 
     icon: Users, 

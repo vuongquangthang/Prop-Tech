@@ -321,7 +321,8 @@ public class YeuCauSuaChuaService : IYeuCauSuaChuaService
                     closed.UserId,
                     "Yêu cầu sửa chữa hoàn thành",
                     $"Yêu cầu sửa chữa tại {(room != null ? $"phòng {room.RoomCode}" : "phòng của bạn")} ({closed.IssueType}) đã hoàn thành. Vui lòng kiểm tra và nghiệm thu.",
-                    "COMPLAINT");
+                    "COMPLAINT",
+                    closed.Id);
             }
             catch { /* Không block flow chính */ }
         }

@@ -7,18 +7,28 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  Modal,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { IssueCard } from '../components/IssueCard';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
 import signalRService from '../services/signalr.service';
 import { palette } from '../theme/palette';
+import { contractService, ContractDetail } from '../services/contract.service';
+import { useAuthStore } from '../store/authStore';
 
 export default function IssuesScreen() {
   const navigation = useNavigation();
+  const route = useRoute<any>();
+  const routeContractId = Number(route.params?.contractId) || undefined;
+  const routeRoomId = Number(route.params?.roomId) || undefined;
+  const activeContractId = useAuthStore((state) => state.activeContractId);
   const [selectedTab, setSelectedTab] = useState('all');
+  const [selectedContractId, setSelectedContractId] = useState<number | 'all'>(activeContractId ?? 'all');
+  const [contractPickerOpen, setContractPickerOpen] = useState(false);
+  const [contracts, setContracts] = useState<ContractDetail[]>([]);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -47,6 +57,31 @@ export default function IssuesScreen() {
     loadRequests();
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    contractService
+      .getMyContracts()
+      .then((items) => {
+        if (!mounted) return;
+        setContracts(items);
+        const nextContractId = routeContractId && items.some((item) => item.id === routeContractId)
+          ? routeContractId
+          : routeRoomId && items.some((item) => item.roomId === routeRoomId)
+            ? items.find((item) => item.roomId === routeRoomId)?.id
+            : activeContractId && items.some((item) => item.id === activeContractId)
+              ? activeContractId
+              : items[0]?.id;
+        setSelectedContractId(nextContractId ?? 'all');
+      })
+      .catch(() => {
+        if (mounted) setContracts([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeContractId, routeContractId, routeRoomId]);
+
   useFocusEffect(
     useCallback(() => {
       loadRequests();
@@ -69,8 +104,20 @@ export default function IssuesScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  const selectedContractRoomId = selectedContractId === 'all'
+    ? null
+    : contracts.find((contract) => contract.id === selectedContractId)?.roomId;
+
+  const scopedRequests = useMemo(() => {
+    return selectedContractRoomId ? requests.filter(req => req.roomId === selectedContractRoomId) : requests;
+  }, [requests, selectedContractRoomId]);
+
   const getFilteredRequests = () => {
-    if (selectedTab === 'all') return requests;
+    const selectedRoomId = selectedContractId === 'all'
+      ? null
+      : contracts.find((contract) => contract.id === selectedContractId)?.roomId;
+    let base = selectedRoomId ? requests.filter(req => req.roomId === selectedRoomId) : requests;
+    if (selectedTab === 'all') return base;
     
     const statusMap: { [key: string]: string[] } = {
       'pending': ['Chờ xử lý', 'Sửa lại', 'Yêu cầu sửa lại'],
@@ -80,12 +127,17 @@ export default function IssuesScreen() {
     };
     
     const statuses = statusMap[selectedTab];
-    if (!statuses) return requests;
+    if (!statuses) return base;
     
-    return requests.filter(req => statuses.includes(req.status));
+    return base.filter(req => statuses.includes(req.status));
   };
 
   const filteredRequests = getFilteredRequests();
+  const formatContractLabel = (contract?: ContractDetail) =>
+    contract?.roomNumber ? `Phòng ${contract.roomNumber}` : contract?.contractCode || `HĐ #${contract?.id}`;
+  const selectedContractLabel = selectedContractId === 'all'
+    ? 'Tất cả hợp đồng'
+    : formatContractLabel(contracts.find((contract) => contract.id === selectedContractId));
 
   const statusMap: { [key: string]: string[] } = {
     pending: ['Chờ xử lý', 'Sửa lại', 'Yêu cầu sửa lại'],
@@ -95,12 +147,12 @@ export default function IssuesScreen() {
   };
 
   const tabCounts = useMemo(() => ({
-    all: requests.length,
-    pending: requests.filter(r => statusMap.pending.includes(r.status)).length,
-    processing: requests.filter(r => statusMap.processing.includes(r.status)).length,
-    review: requests.filter(r => statusMap.review.includes(r.status)).length,
-    completed: requests.filter(r => statusMap.completed.includes(r.status)).length,
-  }), [requests]);
+    all: scopedRequests.length,
+    pending: scopedRequests.filter(r => statusMap.pending.includes(r.status)).length,
+    processing: scopedRequests.filter(r => statusMap.processing.includes(r.status)).length,
+    review: scopedRequests.filter(r => statusMap.review.includes(r.status)).length,
+    completed: scopedRequests.filter(r => statusMap.completed.includes(r.status)).length,
+  }), [scopedRequests]);
 
   const tabs: { value: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] = [
     { value: 'all',        label: 'Tất cả',      icon: 'list-outline',             color: palette.primary, bg: palette.primarySoft },
@@ -113,15 +165,26 @@ export default function IssuesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.headerSideButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Danh sách sự cố</Text>
-        <View style={{ width: 52 }} />
+        <View style={styles.headerRightSlot} />
       </View>
 
       {/* Filter Panel */}
       <View style={styles.filterPanel}>
+        {contracts.length > 1 && (
+          <View style={styles.contractRow}>
+            <Text style={styles.contractRowLabel}>Hợp đồng</Text>
+            <TouchableOpacity style={styles.contractDropdownButton} onPress={() => setContractPickerOpen(true)}>
+              <Text style={styles.contractDropdownText} numberOfLines={1}>{selectedContractLabel}</Text>
+              <Ionicons name="chevron-down" size={18} color={palette.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
+        {contracts.length > 1 && <View style={styles.panelDivider} />}
+
         <View style={styles.statusRow}>
           {tabs.map(tab => {
             const active = selectedTab === tab.value;
@@ -150,6 +213,39 @@ export default function IssuesScreen() {
           })}
         </View>
       </View>
+
+      <Modal visible={contractPickerOpen} transparent animationType="fade" onRequestClose={() => setContractPickerOpen(false)}>
+        <View style={styles.dropdownBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setContractPickerOpen(false)} />
+          <View style={styles.dropdownCard}>
+            <Text style={styles.dropdownTitle}>Chọn hợp đồng</Text>
+            <TouchableOpacity
+              style={[styles.dropdownOption, selectedContractId === 'all' && styles.dropdownOptionActive]}
+              onPress={() => { setSelectedContractId('all'); setContractPickerOpen(false); }}
+            >
+              <Text style={[styles.dropdownOptionText, selectedContractId === 'all' && styles.dropdownOptionTextActive]}>
+                Tất cả hợp đồng
+              </Text>
+              {selectedContractId === 'all' && <Ionicons name="checkmark" size={18} color={palette.primary} />}
+            </TouchableOpacity>
+            {contracts.map((contract) => {
+              const selected = selectedContractId === contract.id;
+              return (
+                <TouchableOpacity
+                  key={contract.id}
+                  style={[styles.dropdownOption, selected && styles.dropdownOptionActive]}
+                  onPress={() => { setSelectedContractId(contract.id); setContractPickerOpen(false); }}
+                >
+                  <Text style={[styles.dropdownOptionText, selected && styles.dropdownOptionTextActive]} numberOfLines={1}>
+                    {formatContractLabel(contract)}
+                  </Text>
+                  {selected && <Ionicons name="checkmark" size={18} color={palette.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
 
       {/* Issue List */}
       {isLoading ? (
@@ -216,13 +312,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
     paddingHorizontal: 20,
     paddingVertical: 14,
     backgroundColor: palette.surface,
     borderBottomWidth: 1,
     borderBottomColor: palette.borderSoft,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: palette.text },
+  headerSideButton: { width: 52, height: 28, justifyContent: 'center', zIndex: 2 },
+  headerRightSlot: { width: 52, minHeight: 28, zIndex: 2 },
+  headerTitle: {
+    position: 'absolute',
+    left: 72,
+    right: 72,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: palette.text,
+  },
 
   /* Filter Panel — matches BillsScreen */
   filterPanel: {
@@ -235,6 +342,63 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 4,
   },
+  contractRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  contractRowLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: palette.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    width: 68,
+  },
+  contractDropdownButton: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    backgroundColor: palette.surfaceSoft,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  contractDropdownText: { flex: 1, fontSize: 13, fontWeight: '700', color: palette.text },
+  dropdownBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dropdownCard: {
+    backgroundColor: palette.surface,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: palette.borderSoft,
+  },
+  dropdownTitle: { fontSize: 16, fontWeight: '800', color: palette.text, marginBottom: 8 },
+  dropdownOption: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  dropdownOptionActive: { backgroundColor: palette.primarySoft },
+  dropdownOptionText: { flex: 1, fontSize: 14, fontWeight: '700', color: palette.textMuted },
+  dropdownOptionTextActive: { color: palette.primary },
+  panelDivider: { height: 1, backgroundColor: palette.borderSoft, marginHorizontal: 12 },
   statusRow: { flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 8, gap: 4 },
   statusTab: {
     flex: 1,

@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { contractService } from '../services/contract.service';
+import { ContractDetail, contractService } from '../services/contract.service';
 import { useAuthStore } from '../store/authStore';
 import { postService } from '../services/post.service';
 import { roomService } from '../services/room.service';
@@ -28,6 +28,9 @@ export default function RoommatePostScreen() {
   const [currentOccupants, setCurrentOccupants] = useState<number | null>(null);
   const [needMore, setNeedMore] = useState<number | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [contracts, setContracts] = useState<ContractDetail[]>([]);
+  const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+  const [contractPickerOpen, setContractPickerOpen] = useState(false);
 
   const normalizeStatus = (value?: string | null) => (value || '').trim().toLowerCase();
 
@@ -79,10 +82,11 @@ export default function RoommatePostScreen() {
     return date.toLocaleDateString('vi-VN');
   };
 
-  const loadOccupancy = async (postData: PostDto) => {
+  const loadOccupancy = async (postData: PostDto, contractHint?: ContractDetail) => {
     try {
-      const myRoom = await roomService.getMyRoom();
-      const contract = await contractService.getById(myRoom.contractId);
+      const contract = contractHint
+        ? await contractService.getById(contractHint.id)
+        : await contractService.getById((await roomService.getMyRoom()).contractId);
       const now = new Date();
       const activeResidents = contract.residents.filter((resident) => {
         if (!resident.toDate) return true;
@@ -104,13 +108,27 @@ export default function RoommatePostScreen() {
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
 
-  const loadPost = useCallback(async () => {
+  const formatContractLabel = (contract?: ContractDetail) =>
+    contract?.roomNumber ? `Phòng ${contract.roomNumber}` : contract?.contractCode || `HĐ #${contract?.id}`;
+
+  const loadPost = useCallback(async (contractIdOverride?: number | null) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await postService.getMyPost();
+      const contractItems = await contractService.getMyContracts().catch(() => []);
+      setContracts(contractItems);
+      const requestedContractId = contractIdOverride ?? selectedContractId;
+      const nextContractId = requestedContractId && contractItems.some((item) => item.id === requestedContractId)
+        ? requestedContractId
+        : activeContractId && contractItems.some((item) => item.id === activeContractId)
+          ? activeContractId
+          : contractItems[0]?.id ?? null;
+      setSelectedContractId(nextContractId);
+
+      const selectedContract = contractItems.find((item) => item.id === nextContractId);
+      const data = await postService.getMyPost(selectedContract?.roomId);
       setPost(data);
-      await loadOccupancy(data);
+      await loadOccupancy(data, selectedContract);
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 404) {
         setPost(null);
@@ -125,7 +143,7 @@ export default function RoommatePostScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeContractId]);
+  }, [activeContractId, selectedContractId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -191,6 +209,15 @@ export default function RoommatePostScreen() {
 
   const isPendingReview = post ? normalizeStatus(post.status) === 'pending_review' : false;
   const statusMeta = post ? getStatusMeta(post) : null;
+  const selectedContract = contracts.find((contract) => contract.id === selectedContractId);
+  const selectedContractLabel = selectedContract ? formatContractLabel(selectedContract) : 'Chọn phòng';
+  const selectedRoomId = selectedContract?.roomId ?? post?.roomId;
+
+  const handleSelectContract = (contract: ContractDetail) => {
+    setSelectedContractId(contract.id);
+    setContractPickerOpen(false);
+    loadPost(contract.id);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -204,6 +231,16 @@ export default function RoommatePostScreen() {
             <Text style={styles.subtitle}>Tìm bạn ở ghép</Text>
           </View>
         </View>
+
+        {contracts.length > 1 && (
+          <View style={styles.contractSelectorCard}>
+            <Text style={styles.contractSelectorLabel}>Đang quản lý bài của</Text>
+            <TouchableOpacity style={styles.contractDropdownButton} onPress={() => setContractPickerOpen(true)}>
+              <Text style={styles.contractDropdownText} numberOfLines={1}>{selectedContractLabel}</Text>
+              <Ionicons name="chevron-down" size={18} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.center}>
@@ -276,7 +313,7 @@ export default function RoommatePostScreen() {
                 <View style={styles.actionsGrid}>
                   <TouchableOpacity
                     style={[styles.actionButton, styles.actionButtonWide]}
-                    onPress={() => navigation.navigate('RoommateDetail')}
+                    onPress={() => navigation.navigate('RoommateDetail', { roomId: selectedRoomId })}
                   >
                     <Ionicons name="eye-outline" size={16} color="#374151" />
                     <Text style={styles.actionButtonText}>Xem bài đăng</Text>
@@ -284,7 +321,7 @@ export default function RoommatePostScreen() {
 
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => navigation.navigate('RoommateEdit')}
+                    onPress={() => navigation.navigate('RoommateEdit', { roomId: selectedRoomId })}
                   >
                     <Ionicons name="create-outline" size={16} color="#374151" />
                     <Text style={styles.actionButtonText}>Sửa bài đăng</Text>
@@ -331,7 +368,7 @@ export default function RoommatePostScreen() {
 
             <TouchableOpacity
               style={styles.createButton}
-              onPress={() => navigation.navigate('RoommateCreate')}
+              onPress={() => navigation.navigate('RoommateCreate', { contractId: selectedContractId, roomId: selectedRoomId })}
             >
               <Ionicons name="add" size={16} color="#FFFFFF" />
               <Text style={styles.createButtonText}>Tạo bài đăng</Text>
@@ -339,6 +376,30 @@ export default function RoommatePostScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={contractPickerOpen} transparent animationType="fade" onRequestClose={() => setContractPickerOpen(false)}>
+        <View style={styles.dropdownBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setContractPickerOpen(false)} />
+          <View style={styles.dropdownCard}>
+            <Text style={styles.dropdownTitle}>Chọn phòng</Text>
+            {contracts.map((contract) => {
+              const selected = selectedContractId === contract.id;
+              return (
+                <TouchableOpacity
+                  key={contract.id}
+                  style={[styles.dropdownOption, selected && styles.dropdownOptionActive]}
+                  onPress={() => handleSelectContract(contract)}
+                >
+                  <Text style={[styles.dropdownOptionText, selected && styles.dropdownOptionTextActive]} numberOfLines={1}>
+                    {formatContractLabel(contract)}
+                  </Text>
+                  {selected && <Ionicons name="checkmark" size={18} color="#1A4B84" />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={showStatusDialog} transparent animationType="fade" onRequestClose={() => setShowStatusDialog(false)}>
         <View style={styles.dialogOverlay}>
@@ -398,6 +459,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
+  },
+  contractSelectorCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    gap: 8,
+  },
+  contractSelectorLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  contractDropdownButton: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  contractDropdownText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  dropdownBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dropdownCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  dropdownTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  dropdownOption: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  dropdownOptionActive: {
+    backgroundColor: '#EAF3FF',
+  },
+  dropdownOptionText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  dropdownOptionTextActive: {
+    color: '#1A4B84',
   },
   topStatsRow: {
     flexDirection: 'row',

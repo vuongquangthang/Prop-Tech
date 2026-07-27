@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { postMessageService } from '../services/post-message.service';
 import { PostConversationDto } from '../types/dto';
+import { palette, radius } from '../theme/palette';
 
 const formatRelativeTime = (value: string) => {
   const date = new Date(value);
@@ -106,7 +107,7 @@ export default function RoommateMessagesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Ionicons name="chevron-back" size={24} color="#374151" />
+          <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tin nhắn</Text>
         {totalPending > 0 ? (
@@ -119,11 +120,11 @@ export default function RoommateMessagesScreen() {
       </View>
 
       <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color="#6B7280" />
+        <Ionicons name="search-outline" size={18} color={palette.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Tìm kiếm tin nhắn..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={palette.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -156,7 +157,7 @@ export default function RoommateMessagesScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
         </View>
       ) : error ? (
         <View style={styles.errorWrap}>
@@ -195,7 +196,7 @@ export default function RoommateMessagesScreen() {
               <Ionicons
                 name={activeTab === 'pending' ? 'mail-open-outline' : 'chatbubbles-outline'}
                 size={32}
-                color="#9CA3AF"
+                color={palette.textMuted}
               />
               <Text style={styles.emptyText}>{emptyText}</Text>
             </View>
@@ -248,7 +249,7 @@ function ConversationItem({
               <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
             </View>
           ) : (
-            <Ionicons name="checkmark-done" size={16} color="#1A4B84" />
+            <Ionicons name="checkmark-done" size={16} color={palette.primary} />
           )}
         </View>
       </View>
@@ -259,36 +260,41 @@ function ConversationItem({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   backButton: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   headerTitle: {
-    flex: 1,
-    marginLeft: 6,
-    fontSize: 20,
+    position: 'absolute',
+    left: 72,
+    right: 72,
+    textAlign: 'center',
+    fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   pendingBadge: {
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    zIndex: 2,
   },
   pendingBadgeText: {
     color: '#FFFFFF',
@@ -301,23 +307,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     height: 42,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    borderRadius: 16,
+    borderColor: palette.borderSoft,
+    borderRadius: radius.lg,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: palette.surface,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 3,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#111827',
+    color: palette.text,
   },
   centered: {
     flex: 1,
@@ -330,17 +336,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: palette.dangerSoft,
     gap: 10,
   },
   errorText: {
     fontSize: 14,
-    color: '#B91C1C',
+    color: palette.danger,
   },
   retryButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1A4B84',
-    borderRadius: 8,
+    backgroundColor: palette.primary,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -355,32 +361,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     padding: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: palette.borderSoft,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 3,
   },
   tabButton: {
     flex: 1,
     minHeight: 42,
-    borderRadius: 12,
+    borderRadius: radius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   tabButtonActive: {
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   tabTextActive: {
     color: '#FFFFFF',
@@ -389,8 +395,8 @@ const styles = StyleSheet.create({
     minWidth: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#F3F4F6',
-    color: '#6B7280',
+    backgroundColor: palette.surfaceSoft,
+    color: palette.textMuted,
     textAlign: 'center',
     lineHeight: 22,
     fontSize: 11,
@@ -413,17 +419,18 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: palette.borderSoft,
+    borderRadius: radius.lg,
+    backgroundColor: palette.surface,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 3,
   },
   unreadCard: {
-    backgroundColor: '#F8FAFF',
+    backgroundColor: '#F6FBFF',
+    borderColor: '#A7E1FF',
   },
   avatarWrap: {
     width: 48,
@@ -438,12 +445,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarFallbackText: {
-    color: '#1D4ED8',
+    color: palette.primaryDark,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -460,7 +467,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: '#111827',
+    color: palette.text,
   },
   nameTextUnread: {
     fontWeight: '700',
@@ -468,14 +475,14 @@ const styles = StyleSheet.create({
   postMeta: {
     marginTop: 2,
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   timeText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   timeTextUnread: {
-    color: '#1A4B84',
+    color: palette.primary,
     fontWeight: '600',
   },
   conversationBottom: {
@@ -488,16 +495,16 @@ const styles = StyleSheet.create({
   messageText: {
     flex: 1,
     fontSize: 14,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   messageTextUnread: {
-    color: '#111827',
+    color: palette.text,
   },
   unreadBadge: {
     minWidth: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
@@ -513,6 +520,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
 });

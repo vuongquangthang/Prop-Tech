@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import invoiceService, { CalculateInvoiceResult, Invoice } from '../../services/invoice.service';
+import { palette, radius } from '../../theme/palette';
 
 const currentDate = new Date();
 
@@ -152,7 +153,7 @@ export default function AdminInvoicesScreen() {
       <TouchableOpacity style={styles.card} activeOpacity={0.86} onPress={() => setSelectedInvoice(item)}>
         <View style={styles.cardHeader}>
           <View style={styles.roomBadge}>
-            <Ionicons name="home-outline" size={19} color="#1A4B84" />
+            <Ionicons name="home-outline" size={19} color={palette.primary} />
           </View>
           <View style={styles.cardTitleWrap}>
             <Text style={styles.roomText}>{item.roomNumber || `Hóa đơn #${item.id}`}</Text>
@@ -193,11 +194,11 @@ export default function AdminInvoicesScreen() {
 
       <View style={styles.actionRow}>
         <TouchableOpacity style={styles.calculateButton} onPress={handleCalculate} disabled={calculating}>
-          {calculating ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="calculator-outline" size={18} color="#ffffff" />}
+          {calculating ? <ActivityIndicator color={palette.surface} /> : <Ionicons name="calculator-outline" size={18} color={palette.surface} />}
           <Text style={styles.calculateButtonText}>{calculating ? 'Đang tính...' : 'Tính nháp'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.approveButton} onPress={handleApproveAll} disabled={approving || activeTab !== 'draft'}>
-          {approving ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="send-outline" size={18} color="#ffffff" />}
+          {approving ? <ActivityIndicator color={palette.surface} /> : <Ionicons name="send-outline" size={18} color={palette.surface} />}
           <Text style={styles.approveButtonText}>Duyệt tất cả</Text>
         </TouchableOpacity>
       </View>
@@ -224,7 +225,7 @@ export default function AdminInvoicesScreen() {
 
       {loading && invoices.length === 0 ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.loadingText}>Đang tải hóa đơn...</Text>
         </View>
       ) : (
@@ -300,7 +301,7 @@ export default function AdminInvoicesScreen() {
               <View style={styles.actionBar}>
                 {isDraft(selectedInvoice) ? (
                   <TouchableOpacity style={styles.primaryFullButton} onPress={() => handleApproveOne(selectedInvoice)} disabled={approving}>
-                    {approving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryFullText}>Phê duyệt & gửi cư dân</Text>}
+                    {approving ? <ActivityIndicator color={palette.surface} /> : <Text style={styles.primaryFullText}>Phê duyệt & gửi cư dân</Text>}
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity style={styles.primaryFullButton} onPress={() => handleReminder(selectedInvoice)}>
@@ -317,62 +318,62 @@ export default function AdminInvoicesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F9FAFB' },
+  safeArea: { flex: 1, backgroundColor: palette.background },
   header: { paddingHorizontal: 10, paddingTop: 5, paddingBottom: 5 },
-  title: { color: '#0f172a', fontSize: 17, fontWeight: '800' },
-  subtitle: { color: '#64748b', fontSize: 10, marginTop: 2 },
-  monthRow: { marginHorizontal: 10, marginBottom: 5, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F3F4F6' },
-  monthButton: { width: 28, height: 28, borderRadius: 9, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' },
-  monthText: { minWidth: 104, textAlign: 'center', color: '#0f172a', fontSize: 12, fontWeight: '800' },
+  title: { color: palette.text, fontSize: 18, fontWeight: '900' },
+  subtitle: { color: palette.textMuted, fontSize: 10, marginTop: 2 },
+  monthRow: { marginHorizontal: 12, marginBottom: 7, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.borderSoft },
+  monthButton: { width: 28, height: 28, borderRadius: radius.sm, backgroundColor: palette.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
+  monthText: { minWidth: 104, textAlign: 'center', color: palette.text, fontSize: 12, fontWeight: '800' },
   actionRow: { flexDirection: 'row', paddingHorizontal: 10, gap: 6, marginTop: 5 },
-  calculateButton: { flex: 1, height: 36, borderRadius: 11, backgroundColor: '#1A4B84', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
-  calculateButtonText: { color: '#ffffff', fontWeight: '900' },
-  approveButton: { flex: 1, height: 36, borderRadius: 11, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
-  approveButtonText: { color: '#ffffff', fontWeight: '900' },
+  calculateButton: { flex: 1, height: 38, borderRadius: radius.lg, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
+  calculateButtonText: { color: palette.surface, fontWeight: '900' },
+  approveButton: { flex: 1, height: 38, borderRadius: radius.lg, backgroundColor: palette.success, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
+  approveButtonText: { color: palette.surface, fontWeight: '900' },
   statsRow: { flexDirection: 'row', paddingHorizontal: 10, gap: 5, marginTop: 5, marginBottom: 5 },
-  statCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: '#F3F4F6' },
-  statValue: { color: '#0f172a', fontSize: 11, fontWeight: '900' },
-  statLabel: { color: '#64748b', fontSize: 9, fontWeight: '700', marginTop: 1 },
-  tabs: { marginHorizontal: 10, flexDirection: 'row', backgroundColor: '#e8eef7', borderRadius: 12, padding: 3, marginBottom: 5 },
+  statCard: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: palette.borderSoft },
+  statValue: { color: palette.text, fontSize: 11, fontWeight: '900' },
+  statLabel: { color: palette.textMuted, fontSize: 9, fontWeight: '700', marginTop: 1 },
+  tabs: { marginHorizontal: 12, flexDirection: 'row', backgroundColor: palette.surfaceSoft, borderRadius: radius.lg, padding: 3, marginBottom: 7 },
   tab: { flex: 1, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  tabActive: { backgroundColor: '#ffffff' },
-  tabText: { color: '#64748b', fontSize: 13, fontWeight: '800' },
-  tabTextActive: { color: '#1A4B84' },
+  tabActive: { backgroundColor: palette.surface },
+  tabText: { color: palette.textMuted, fontSize: 13, fontWeight: '800' },
+  tabTextActive: { color: palette.primary },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#64748b', marginTop: 12 },
+  loadingText: { color: palette.textMuted, marginTop: 12 },
   listContent: { padding: 10, paddingBottom: 84 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  card: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: palette.borderSoft, shadowColor: palette.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  roomBadge: { width: 30, height: 30, borderRadius: 10, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  roomBadge: { width: 32, height: 32, borderRadius: radius.md, backgroundColor: palette.primarySoft, alignItems: 'center', justifyContent: 'center' },
   cardTitleWrap: { flex: 1 },
-  roomText: { color: '#0f172a', fontSize: 12, fontWeight: '900' },
-  metaText: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  roomText: { color: palette.text, fontSize: 12, fontWeight: '900' },
+  metaText: { color: palette.textMuted, fontSize: 10, marginTop: 2 },
   statusChip: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
   statusText: { fontSize: 12, fontWeight: '800' },
   amountRow: { marginTop: 7, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  amountLabel: { color: '#64748b', fontSize: 13, fontWeight: '700' },
-  amount: { color: '#0f172a', fontSize: 13, fontWeight: '900' },
+  amountLabel: { color: palette.textMuted, fontSize: 13, fontWeight: '700' },
+  amount: { color: palette.text, fontSize: 13, fontWeight: '900' },
   emptyBox: { alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { color: '#0f172a', fontSize: 14, fontWeight: '800', marginTop: 8 },
-  emptyText: { color: '#64748b', fontSize: 14, marginTop: 6 },
+  emptyTitle: { color: palette.text, fontSize: 14, fontWeight: '800', marginTop: 8 },
+  emptyText: { color: palette.textMuted, fontSize: 14, marginTop: 6 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.35)', justifyContent: 'center', padding: 12 },
   modalBackdropBottom: { flex: 1, backgroundColor: 'rgba(15,23,42,0.35)', justifyContent: 'flex-end' },
-  resultModal: { backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden' },
-  detailModal: { maxHeight: '82%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  modalHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  modalTitle: { color: '#0f172a', fontSize: 16, fontWeight: '900' },
-  modalMeta: { color: '#64748b', fontSize: 13, marginTop: 4 },
+  resultModal: { backgroundColor: palette.surface, borderRadius: radius.lg, overflow: 'hidden' },
+  detailModal: { maxHeight: '82%', backgroundColor: palette.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: 'hidden' },
+  modalHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: palette.borderSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  modalTitle: { color: palette.text, fontSize: 16, fontWeight: '900' },
+  modalMeta: { color: palette.textMuted, fontSize: 13, marginTop: 4 },
   resultBody: { padding: 12 },
   resultLine: { color: '#334155', fontSize: 15, lineHeight: 24, fontWeight: '700' },
-  resultAmount: { color: '#1A4B84', fontSize: 15, fontWeight: '900', marginTop: 6 },
-  resultNote: { color: '#92400e', backgroundColor: '#fffbeb', borderRadius: 14, padding: 10, marginTop: 12, lineHeight: 19 },
-  resultError: { color: '#dc2626', backgroundColor: '#fff1f2', borderRadius: 14, padding: 10, marginTop: 12, lineHeight: 19 },
+  resultAmount: { color: palette.primary, fontSize: 15, fontWeight: '900', marginTop: 6 },
+  resultNote: { color: '#92400e', backgroundColor: '#FEF3C7', borderRadius: radius.lg, padding: 10, marginTop: 12, lineHeight: 19 },
+  resultError: { color: palette.danger, backgroundColor: palette.dangerSoft, borderRadius: radius.lg, padding: 10, marginTop: 12, lineHeight: 19 },
   detailBody: { padding: 12 },
-  lineItem: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  lineTitle: { color: '#0f172a', fontSize: 15, fontWeight: '900' },
-  lineMeta: { color: '#64748b', fontSize: 13, marginTop: 4 },
-  lineAmount: { color: '#0f172a', fontSize: 15, fontWeight: '900' },
-  actionBar: { padding: 11, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  primaryFullButton: { height: 38, borderRadius: 11, backgroundColor: '#1A4B84', alignItems: 'center', justifyContent: 'center' },
-  primaryFullText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
+  lineItem: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: palette.borderSoft },
+  lineTitle: { color: palette.text, fontSize: 15, fontWeight: '900' },
+  lineMeta: { color: palette.textMuted, fontSize: 13, marginTop: 4 },
+  lineAmount: { color: palette.text, fontSize: 15, fontWeight: '900' },
+  actionBar: { padding: 11, borderTopWidth: 1, borderTopColor: palette.borderSoft },
+  primaryFullButton: { height: 38, borderRadius: radius.lg, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center' },
+  primaryFullText: { color: palette.surface, fontSize: 12, fontWeight: '900' },
 });

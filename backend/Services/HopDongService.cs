@@ -468,6 +468,17 @@ public class HopDongService : IHopDongService
                     continue;
                 }
 
+                var existingInactive = existingResidents.FirstOrDefault(x => x.ResidentId == residentDto.ResidentId);
+                if (existingInactive != null)
+                {
+                    existingInactive.ResidencyRole = residentDto.ResidencyRole;
+                    existingInactive.FromDate = residentDto.FromDate == default ? syncDate : residentDto.FromDate;
+                    existingInactive.ToDate = null;
+                    _chiTietORepository.Update(existingInactive);
+                    syncedActiveResidents.Add(existingInactive);
+                    continue;
+                }
+
                 var newResidency = new ChiTietO
                 {
                     ContractId = contract.Id,
@@ -1185,14 +1196,17 @@ public class HopDongService : IHopDongService
             contract.PaymentDayOfMonth,
             contract.BillingFormulaJson,
             contract.UpdatedAt,
-            Residents = contract.ChiTietOs.Select(item => new
-            {
-                item.ResidentId,
-                FullName = item.Resident?.FullName,
-                item.ResidencyRole,
-                item.FromDate,
-                item.ToDate
-            }).ToList()
+            Residents = contract.ChiTietOs
+                .Where(item => item.ToDate == null)
+                .Select(item => new
+                {
+                    item.ResidentId,
+                    FullName = item.Resident?.FullName,
+                    item.ResidencyRole,
+                    item.FromDate,
+                    item.ToDate
+                })
+                .ToList()
         });
     }
 
@@ -1212,18 +1226,21 @@ public class HopDongService : IHopDongService
             PaymentDayOfMonth = contract.PaymentDayOfMonth,
             BillingFormulaJson = contract.BillingFormulaJson,
             UpdatedAt = contract.UpdatedAt,
-            Residents = contract.ChiTietOs.Select(ct => new ResidentInContractDto
-            {
-                ResidentId = ct.ResidentId,
-                FullName = ct.Resident?.FullName,
-                PhoneNumber = ct.Resident?.PhoneNumber,
-                Email = ct.Resident?.Users?.FirstOrDefault()?.Email,
-                IdCardNumber = ct.Resident?.IdCardNumber,
-                Hometown = ct.Resident?.Hometown,
-                ResidencyRole = ct.ResidencyRole,
-                FromDate = ct.FromDate,
-                ToDate = ct.ToDate
-            }).ToList()
+            Residents = contract.ChiTietOs
+                .Where(ct => ct.ToDate == null)
+                .Select(ct => new ResidentInContractDto
+                {
+                    ResidentId = ct.ResidentId,
+                    FullName = ct.Resident?.FullName,
+                    PhoneNumber = ct.Resident?.PhoneNumber,
+                    Email = ct.Resident?.Users?.FirstOrDefault()?.Email,
+                    IdCardNumber = ct.Resident?.IdCardNumber,
+                    Hometown = ct.Resident?.Hometown,
+                    ResidencyRole = ct.ResidencyRole,
+                    FromDate = ct.FromDate,
+                    ToDate = ct.ToDate
+                })
+                .ToList()
         };
     }
 

@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import maintenanceService, { MaintenanceRequest } from '../../services/maintenance.service';
 import { fileService } from '../../services/file.service';
 import { resolveImageUrl } from '../../utils/image';
+import { palette, radius } from '../../theme/palette';
 
 const STATUS_FILTERS = ['Tất cả', 'Chờ xử lý', 'Đang xử lý', 'Chờ nghiệm thu', 'Sửa lại', 'Đã đóng'];
 
@@ -220,7 +221,7 @@ export default function AdminMaintenanceScreen() {
       </View>
 
       <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={18} color="#64748b" />
+        <Ionicons name="search-outline" size={18} color={palette.textMuted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -229,7 +230,12 @@ export default function AdminMaintenanceScreen() {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}
+      >
         {STATUS_FILTERS.map((status) => (
           <TouchableOpacity
             key={status}
@@ -243,7 +249,7 @@ export default function AdminMaintenanceScreen() {
 
       {loading && requests.length === 0 ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.loadingText}>Đang tải sự cố...</Text>
         </View>
       ) : (
@@ -307,13 +313,13 @@ export default function AdminMaintenanceScreen() {
                   <Image source={{ uri: proofImage.uri }} style={styles.proofImage} />
                 ) : (
                   <View style={styles.noProofBox}>
-                    <Ionicons name="camera-outline" size={26} color="#64748b" />
+                    <Ionicons name="camera-outline" size={26} color={palette.textMuted} />
                     <Text style={styles.noProofText}>Chưa có ảnh minh chứng</Text>
                   </View>
                 )}
 
                 <TouchableOpacity style={styles.cameraButton} onPress={pickProofImage} disabled={saving}>
-                  <Ionicons name="camera-outline" size={19} color="#1A4B84" />
+                  <Ionicons name="camera-outline" size={19} color={palette.primary} />
                   <Text style={styles.cameraButtonText}>{proofImage ? 'Chụp lại ảnh' : 'Chụp ảnh minh chứng'}</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -332,7 +338,7 @@ export default function AdminMaintenanceScreen() {
                 onPress={() => submitUpdate('Chờ nghiệm thu')}
                 disabled={saving}
               >
-                {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>Gửi nghiệm thu</Text>}
+                {saving ? <ActivityIndicator color={palette.surface} /> : <Text style={styles.primaryButtonText}>Gửi nghiệm thu</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -343,70 +349,71 @@ export default function AdminMaintenanceScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F9FAFB' },
+  safeArea: { flex: 1, backgroundColor: palette.background },
   header: { paddingHorizontal: 10, paddingTop: 5, paddingBottom: 5 },
-  title: { color: '#0f172a', fontSize: 17, fontWeight: '800' },
-  subtitle: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  title: { color: palette.text, fontSize: 18, fontWeight: '900' },
+  subtitle: { color: palette.textMuted, fontSize: 10, marginTop: 2 },
   statsRow: { flexDirection: 'row', paddingHorizontal: 10, gap: 5, marginBottom: 5 },
-  statCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: '#F3F4F6' },
-  statValue: { color: '#0f172a', fontSize: 13, fontWeight: '900' },
-  statLabel: { color: '#64748b', fontSize: 9, fontWeight: '700', marginTop: 1 },
+  statCard: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: palette.borderSoft },
+  statValue: { color: palette.text, fontSize: 13, fontWeight: '900' },
+  statLabel: { color: palette.textMuted, fontSize: 9, fontWeight: '700', marginTop: 1 },
   searchBox: {
     marginHorizontal: 10,
     marginBottom: 6,
     height: 36,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  searchInput: { flex: 1, color: '#0f172a', fontSize: 12 },
-  filterRow: { paddingHorizontal: 10, gap: 5, paddingBottom: 6 },
-  filterChip: { paddingHorizontal: 10, height: 29, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F3F4F6', justifyContent: 'center' },
-  filterChipActive: { backgroundColor: '#1A4B84', borderColor: '#1A4B84' },
-  filterText: { color: '#475569', fontSize: 13, fontWeight: '700' },
-  filterTextActive: { color: '#ffffff' },
+  searchInput: { flex: 1, color: palette.text, fontSize: 12 },
+  filterScroll: { flexGrow: 0, height: 38, marginBottom: 2 },
+  filterRow: { paddingHorizontal: 10, gap: 5, paddingBottom: 4 },
+  filterChip: { paddingHorizontal: 10, height: 30, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.borderSoft, justifyContent: 'center' },
+  filterChipActive: { backgroundColor: palette.primary, borderColor: palette.primary },
+  filterText: { color: '#334155', fontSize: 13, fontWeight: '700' },
+  filterTextActive: { color: palette.surface },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#64748b', marginTop: 12 },
-  listContent: { padding: 10, paddingBottom: 84 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  loadingText: { color: palette.textMuted, marginTop: 12 },
+  listContent: { paddingHorizontal: 10, paddingTop: 4, paddingBottom: 84 },
+  card: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: palette.borderSoft, shadowColor: palette.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   issueIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   cardTitleWrap: { flex: 1 },
-  cardTitle: { color: '#0f172a', fontSize: 12, fontWeight: '900' },
-  cardMeta: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  cardTitle: { color: palette.text, fontSize: 12, fontWeight: '900' },
+  cardMeta: { color: palette.textMuted, fontSize: 10, marginTop: 2 },
   statusChip: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
   statusChipText: { fontSize: 10, fontWeight: '800' },
-  description: { color: '#475569', fontSize: 11, lineHeight: 15, marginTop: 7 },
+  description: { color: '#334155', fontSize: 11, lineHeight: 15, marginTop: 7 },
   proofInline: { marginTop: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  proofInlineText: { color: '#0f766e', fontSize: 13, fontWeight: '700' },
+  proofInlineText: { color: palette.secondary, fontSize: 13, fontWeight: '700' },
   emptyBox: { alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { color: '#0f172a', fontSize: 14, fontWeight: '800', marginTop: 8 },
-  emptyText: { color: '#64748b', fontSize: 14, marginTop: 6 },
+  emptyTitle: { color: palette.text, fontSize: 14, fontWeight: '800', marginTop: 8 },
+  emptyText: { color: palette.textMuted, fontSize: 14, marginTop: 6 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.35)', justifyContent: 'flex-end' },
-  modalCard: { maxHeight: '88%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  modalHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', alignItems: 'center', gap: 8 },
-  modalTitle: { color: '#0f172a', fontSize: 16, fontWeight: '900' },
-  modalMeta: { color: '#64748b', fontSize: 13, marginTop: 4 },
-  closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  modalCard: { maxHeight: '88%', backgroundColor: palette.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: 'hidden' },
+  modalHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: palette.borderSoft, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modalTitle: { color: palette.text, fontSize: 16, fontWeight: '900' },
+  modalMeta: { color: palette.textMuted, fontSize: 13, marginTop: 4 },
+  closeButton: { width: 32, height: 32, borderRadius: radius.lg, backgroundColor: palette.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
   modalBody: { padding: 12 },
   sectionLabel: { color: '#334155', fontSize: 13, fontWeight: '900', textTransform: 'uppercase', marginTop: 16, marginBottom: 8 },
-  modalText: { color: '#475569', fontSize: 15, lineHeight: 22 },
+  modalText: { color: '#334155', fontSize: 15, lineHeight: 22 },
   imageRow: { gap: 10 },
-  thumbnail: { width: 76, height: 76, borderRadius: 12, backgroundColor: '#e2e8f0' },
-  noteInput: { minHeight: 72, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#f8fafc', padding: 9, textAlignVertical: 'top', color: '#0f172a', fontSize: 12 },
-  proofImage: { width: '100%', height: 140, borderRadius: 12, backgroundColor: '#e2e8f0' },
-  noProofBox: { height: 86, borderRadius: 12, backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'dashed', borderColor: '#cbd5e1', alignItems: 'center', justifyContent: 'center' },
-  noProofText: { color: '#64748b', fontSize: 13, fontWeight: '700', marginTop: 8 },
-  cameraButton: { marginTop: 8, height: 36, borderRadius: 11, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
-  cameraButtonText: { color: '#1A4B84', fontSize: 14, fontWeight: '800' },
-  actionBar: { padding: 11, borderTopWidth: 1, borderTopColor: '#F3F4F6', flexDirection: 'row', gap: 7 },
-  secondaryButton: { flex: 1, height: 38, borderRadius: 11, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  thumbnail: { width: 76, height: 76, borderRadius: radius.md, backgroundColor: palette.surfaceSoft },
+  noteInput: { minHeight: 72, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surfaceSoft, padding: 9, textAlignVertical: 'top', color: palette.text, fontSize: 12 },
+  proofImage: { width: '100%', height: 140, borderRadius: radius.md, backgroundColor: palette.surfaceSoft },
+  noProofBox: { height: 86, borderRadius: radius.md, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderStyle: 'dashed', borderColor: palette.border, alignItems: 'center', justifyContent: 'center' },
+  noProofText: { color: palette.textMuted, fontSize: 13, fontWeight: '700', marginTop: 8 },
+  cameraButton: { marginTop: 8, height: 36, borderRadius: radius.lg, borderWidth: 1, borderColor: '#BAE6FD', backgroundColor: palette.primarySoft, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  cameraButtonText: { color: palette.primary, fontSize: 14, fontWeight: '800' },
+  actionBar: { padding: 11, borderTopWidth: 1, borderTopColor: palette.borderSoft, flexDirection: 'row', gap: 7 },
+  secondaryButton: { flex: 1, height: 38, borderRadius: radius.lg, backgroundColor: palette.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { color: '#334155', fontSize: 12, fontWeight: '800' },
-  primaryButton: { flex: 1.2, height: 38, borderRadius: 11, backgroundColor: '#1A4B84', alignItems: 'center', justifyContent: 'center' },
-  primaryButtonText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
+  primaryButton: { flex: 1.2, height: 38, borderRadius: radius.lg, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonText: { color: palette.surface, fontSize: 12, fontWeight: '900' },
 });

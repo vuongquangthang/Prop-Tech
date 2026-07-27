@@ -102,6 +102,76 @@ public class HopDongController : ControllerBase
     }
 
     /// <summary>
+    /// Lấy hợp đồng còn hiệu lực liên quan cư dân đang đăng nhập
+    /// </summary>
+    [HttpGet("my")]
+    [Authorize(Roles = "CuDan")]
+    public async Task<ActionResult<List<HopDongDto>>> GetMyContracts()
+    {
+        try
+        {
+            var residentClaim = User.FindFirstValue("ResidentId");
+            if (!int.TryParse(residentClaim, out var residentId) || residentId <= 0)
+            {
+                return Ok(new List<HopDongDto>());
+            }
+
+            var ownerUserId = User.GetOwnerUserId();
+            var today = DateTime.UtcNow.Date;
+            var contracts = await _context.HopDongs
+                .AsNoTracking()
+                .Include(contract => contract.Room)
+                    .ThenInclude(room => room.Floor)
+                        .ThenInclude(floor => floor.Building)
+                .Include(contract => contract.ChiTietOs)
+                    .ThenInclude(residency => residency.Resident)
+                        .ThenInclude(resident => resident.Users)
+                .Where(contract =>
+                    contract.Room.Floor.Building.OwnerUserId == ownerUserId &&
+                    contract.StartDate.Date <= today &&
+                    (!contract.ExpectedEndDate.HasValue || contract.ExpectedEndDate.Value.Date >= today) &&
+                    contract.ChiTietOs.Any(residency => residency.ResidentId == residentId && residency.ToDate == null))
+                .OrderByDescending(contract => contract.StartDate)
+                .ToListAsync();
+
+            return Ok(contracts.Select(contract => new HopDongDto
+            {
+                Id = contract.Id,
+                ContractCode = contract.ContractCode,
+                RoomId = contract.RoomId,
+                RoomNumber = contract.Room?.RoomCode,
+                StartDate = contract.StartDate,
+                ExpectedEndDate = contract.ExpectedEndDate,
+                ActualRentPrice = contract.ActualRentPrice,
+                DepositAmount = contract.DepositAmount,
+                DepositPaid = contract.DepositPaid,
+                PaymentDayOfMonth = contract.PaymentDayOfMonth,
+                BillingFormulaJson = contract.BillingFormulaJson,
+                UpdatedAt = contract.UpdatedAt,
+                Residents = contract.ChiTietOs
+                    .Where(residency => residency.ToDate == null)
+                    .Select(residency => new ResidentInContractDto
+                    {
+                        ResidentId = residency.ResidentId,
+                        FullName = residency.Resident?.FullName,
+                        PhoneNumber = residency.Resident?.PhoneNumber,
+                        Email = residency.Resident?.Users?.FirstOrDefault()?.Email,
+                        IdCardNumber = residency.Resident?.IdCardNumber,
+                        Hometown = residency.Resident?.Hometown,
+                        ResidencyRole = residency.ResidencyRole,
+                        FromDate = residency.FromDate,
+                        ToDate = residency.ToDate
+                    })
+                    .ToList()
+            }).ToList());
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Lấy danh sách hợp đồng theo phòng
     /// </summary>
     [HttpGet("room/{roomId}")]

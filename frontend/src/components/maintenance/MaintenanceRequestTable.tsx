@@ -265,7 +265,7 @@ function IncidentTimeline({ request }: { request: any }) {
         ? 'Cư dân chưa hài lòng và yêu cầu xử lý lại sự cố.'
         : 'Sự cố được đóng sau khi cư dân xác nhận hài lòng.',
       time: request.status === 'rework' ? 'Cần xử lý lại' : resolvedAt || (request.status === 'completed' ? 'Đã hoàn thành' : 'Chưa hoàn thành'),
-      icon: Circle,
+      icon: request.status === 'completed' ? CheckCircle2 : Circle,
     },
   ];
 
@@ -283,7 +283,7 @@ function IncidentTimeline({ request }: { request: any }) {
         {steps.map((step, index) => {
           const stepIndex = index;
           const isDone = request.status === 'completed' ? true : stepIndex < statusIndex;
-          const isActive = stepIndex === statusIndex || (request.status === 'rework' && step.key === 'completed');
+          const isActive = request.status !== 'completed' && (stepIndex === statusIndex || (request.status === 'rework' && step.key === 'completed'));
           const StepIcon = step.icon;
 
           return (

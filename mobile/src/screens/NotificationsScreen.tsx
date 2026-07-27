@@ -12,9 +12,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import notificationService, { Notification } from '../services/notification.service';
+import { contractService } from '../services/contract.service';
+import invoiceService from '../services/invoice.service';
+import maintenanceService from '../services/maintenance.service';
+import { useAuthStore } from '../store/authStore';
+import { palette, radius } from '../theme/palette';
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
+  const setActiveContract = useAuthStore((state) => state.setActiveContract);
   const [notifications, setNotifications] = useState<Notification[]>(() => notificationService.getCachedNotifications());
   const [loading, setLoading] = useState(() => notificationService.getCachedNotifications().length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,8 +54,55 @@ export default function NotificationsScreen() {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
-  const navigateByNotification = (notification: Notification) => {
+  const setActiveContractForRoom = async (roomId?: number | null) => {
+    if (!roomId) return undefined;
+    const contracts = await contractService.getMyContracts();
+    const matched = contracts.find((contract) => contract.roomId === roomId);
+    if (matched) {
+      await setActiveContract(matched.id);
+      return matched.id;
+    }
+    return undefined;
+  };
+
+  const getNotificationRelatedId = (notification: Notification) => {
+    if (notification.relatedId) return notification.relatedId;
+    const linkMatch = notification.linkUrl?.match(/(?:id|relatedId|requestId|invoiceId)=(\d+)/i);
+    if (linkMatch) return Number(linkMatch[1]);
+    const textMatch = `${notification.title} ${notification.content}`.match(/#(\d+)/);
+    return textMatch ? Number(textMatch[1]) : undefined;
+  };
+
+  const resolveNotificationContext = async (notification: Notification) => {
     const type = (notification.notificationType || '').toUpperCase();
+    const relatedId = getNotificationRelatedId(notification);
+    if (!relatedId) return {};
+
+    if (type === 'INVOICE' || type === 'PAYMENT') {
+      const invoice = await invoiceService.getById(relatedId);
+      if (invoice.contractId) {
+        await setActiveContract(invoice.contractId);
+        return { relatedId, contractId: invoice.contractId, roomId: invoice.roomId };
+      }
+      const contractId = await setActiveContractForRoom(invoice.roomId);
+      return { relatedId, contractId, roomId: invoice.roomId };
+    }
+
+    if (type === 'COMPLAINT' || type === 'MAINTENANCE') {
+      const request = await maintenanceService.getById(relatedId);
+      const contractId = await setActiveContractForRoom(request.roomId);
+      return { relatedId, contractId, roomId: request.roomId };
+    }
+
+    return { relatedId };
+  };
+
+  const navigateByNotification = (
+    notification: Notification,
+    context: { relatedId?: number; contractId?: number; roomId?: number } = {},
+  ) => {
+    const type = (notification.notificationType || '').toUpperCase();
+    const relatedId = context.relatedId ?? getNotificationRelatedId(notification);
 
     if (type === 'CONTRACT_CHANGE') {
       // @ts-ignore
@@ -57,25 +110,31 @@ export default function NotificationsScreen() {
       return;
     }
 
+    if (type === 'SERVICE_PRICE') {
+      // @ts-ignore
+      navigation.navigate('ServicePriceChangeDetail', { notification });
+      return;
+    }
+
     if (type === 'INVOICE' || type === 'PAYMENT') {
-      if (notification.relatedId) {
+      if (relatedId) {
         // @ts-ignore
-        navigation.navigate('BillDetail', { id: notification.relatedId });
+        navigation.navigate('BillDetail', { id: relatedId, contractId: context.contractId, roomId: context.roomId });
         return;
       }
       // @ts-ignore
-      navigation.navigate('Bills');
+      navigation.navigate('Bills', { contractId: context.contractId });
       return;
     }
 
     if (type === 'COMPLAINT' || type === 'MAINTENANCE') {
-      if (notification.relatedId) {
+      if (relatedId) {
         // @ts-ignore
-        navigation.navigate('IssueDetail', { id: notification.relatedId });
+        navigation.navigate('IssueDetail', { id: relatedId, contractId: context.contractId, roomId: context.roomId });
         return;
       }
       // @ts-ignore
-      navigation.navigate('Issues');
+      navigation.navigate('Issues', { contractId: context.contractId, roomId: context.roomId });
       return;
     }
 
@@ -87,7 +146,13 @@ export default function NotificationsScreen() {
     if (type !== 'CONTRACT_CHANGE') {
       await handleMarkAsRead(notification.id);
     }
-    navigateByNotification(notification);
+    let context: { relatedId?: number; contractId?: number; roomId?: number } = {};
+    try {
+      context = await resolveNotificationContext(notification);
+    } catch (error) {
+      console.warn('Không thể tự động chuyển hợp đồng theo thông báo:', error);
+    }
+    navigateByNotification(notification, context);
   };
 
   const handleMarkAllRead = async () => {
@@ -180,31 +245,40 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: palette.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.borderSoft,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: palette.text },
   markAllBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  markAllText: { fontSize: 13, color: '#3B82F6', fontWeight: '600' },
-  list: { paddingVertical: 8 },
+  markAllText: { fontSize: 13, color: palette.primary, fontWeight: '700' },
+  list: { padding: 14, paddingBottom: 28 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   item: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    backgroundColor: palette.surface,
+    paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 12,
+    borderWidth: 1,
+    borderColor: palette.borderSoft,
+    borderRadius: radius.lg,
+    marginBottom: 10,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 3,
   },
-  itemUnread: { backgroundColor: '#E8F0FB' },
+  itemUnread: { backgroundColor: '#F6FBFF', borderColor: '#A7E1FF' },
   iconContainer: {
     width: 44,
     height: 44,
@@ -215,12 +289,12 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 6 },
-  title: { fontSize: 14, fontWeight: '500', color: '#374151', flex: 1 },
-  titleUnread: { fontWeight: '700', color: '#1A1A2E' },
+  title: { fontSize: 14, fontWeight: '600', color: palette.text, flex: 1 },
+  titleUnread: { fontWeight: '800', color: palette.primaryDark },
   dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  body: { fontSize: 13, color: '#6B7280', lineHeight: 18, marginBottom: 6 },
-  time: { fontSize: 11, color: '#9CA3AF' },
-  separator: { height: 1, backgroundColor: '#F1F5F9', marginLeft: 72 },
+  body: { fontSize: 13, color: palette.textMuted, lineHeight: 18, marginBottom: 6 },
+  time: { fontSize: 11, color: palette.textMuted },
+  separator: { height: 0 },
   empty: { alignItems: 'center', paddingTop: 40, gap: 12 },
   emptyText: { fontSize: 15, color: '#94A3B8', fontWeight: '500' },
 });

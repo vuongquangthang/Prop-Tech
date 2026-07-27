@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
@@ -13,6 +13,7 @@ import ReportIssueScreen from '../screens/ReportIssueScreen';
 import ChatbotScreen from '../screens/ChatbotScreen';
 import RoomDetailScreen from '../screens/RoomDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import ServicePriceChangeDetailScreen from '../screens/ServicePriceChangeDetailScreen';
 import ContractChangeApprovalScreen from '../screens/ContractChangeApprovalScreen';
 import RoommatePostScreen from '../screens/RoommatePostScreen';
 import RoommateCreateScreen from '../screens/RoommateCreateScreen';
@@ -52,6 +53,7 @@ const MainStack = () => {
       <Stack.Screen name="Chatbot" component={ChatbotScreen} />
       <Stack.Screen name="RoomDetail" component={RoomDetailScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="ServicePriceChangeDetail" component={ServicePriceChangeDetailScreen} />
       <Stack.Screen name="ContractChangeApproval" component={ContractChangeApprovalScreen} />
       <Stack.Screen name="RoommatePost" component={RoommatePostScreen} />
       <Stack.Screen name="RoommateCreate" component={RoommateCreateScreen} />
@@ -73,18 +75,23 @@ const AdminStack = () => {
 };
 
 export const RootNavigator = () => {
-  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const loadUserFromStore = useAuthStore((state) => state.loadUser);
-
-  // Memoize loadUser to prevent unnecessary re-renders
-  const loadUser = useCallback(() => {
-    loadUserFromStore();
-  }, [loadUserFromStore]);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Load user from storage on app start
-    loadUser();
-  }, [loadUser]);
+    let isMounted = true;
+
+    loadUserFromStore().finally(() => {
+      if (isMounted) {
+        setIsInitializing(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadUserFromStore]);
 
   // SignalR connection management
   useEffect(() => {
@@ -129,7 +136,7 @@ export const RootNavigator = () => {
     };
   }, [isAuthenticated]);
 
-  if (isLoading) {
+  if (isInitializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.background }}>
         <ActivityIndicator size="large" color={palette.primary} />
@@ -137,18 +144,27 @@ export const RootNavigator = () => {
     );
   }
 
+  const mustChangePassword = Boolean(user?.mustChangePassword ?? (user as any)?.MustChangePassword);
+  const navigationKey = !isAuthenticated
+    ? 'guest'
+    : mustChangePassword
+      ? 'force-change-password'
+      : isAdminAppUser(user)
+        ? 'admin'
+        : 'resident';
+
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer key={navigationKey} theme={navigationTheme}>
       {isAuthenticated ? (
-        user?.mustChangePassword ? (
-          <AuthStack initialRouteName="ForceChangePassword" />
+        mustChangePassword ? (
+          <AuthStack key="force-change-password" initialRouteName="ForceChangePassword" />
         ) : isAdminAppUser(user) ? (
           <AdminStack />
         ) : (
           <MainStack />
         )
       ) : (
-        <AuthStack initialRouteName="Login" />
+        <AuthStack key="login" initialRouteName="Login" />
       )}
     </NavigationContainer>
   );

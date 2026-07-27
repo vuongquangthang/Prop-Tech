@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import apiService from '../../services/api.service';
 import { postService } from '../../services/post.service';
 import type { CreatePostDto, PostDto } from '../../types/dto';
+import { palette, radius } from '../../theme/palette';
 
 type RoomOption = {
   id: number;
@@ -228,7 +229,7 @@ export default function AdminPostsScreen() {
     <TouchableOpacity style={styles.card} activeOpacity={0.86} onPress={() => setSelectedPost(item)}>
       <View style={styles.cardHeader}>
         <View style={styles.roomBadge}>
-          <Ionicons name="megaphone-outline" size={20} color="#1A4B84" />
+          <Ionicons name="megaphone-outline" size={20} color={palette.primary} />
         </View>
         <View style={styles.cardTitleWrap}>
           <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
@@ -258,7 +259,7 @@ export default function AdminPostsScreen() {
           <Text style={styles.subtitle}>Tạo nhanh, theo dõi và khóa/mở bài đăng</Text>
         </View>
         <TouchableOpacity style={styles.addButton} onPress={openCreate}>
-          <Ionicons name="add" size={22} color="#ffffff" />
+          <Ionicons name="add" size={22} color={palette.surface} />
         </TouchableOpacity>
       </View>
 
@@ -278,7 +279,7 @@ export default function AdminPostsScreen() {
       </View>
 
       <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={18} color="#64748b" />
+        <Ionicons name="search-outline" size={18} color={palette.textMuted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -289,7 +290,7 @@ export default function AdminPostsScreen() {
 
       {loading && posts.length === 0 ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.loadingText}>Đang tải bài đăng...</Text>
         </View>
       ) : (
@@ -408,7 +409,7 @@ export default function AdminPostsScreen() {
                 style={styles.checkboxRow}
                 onPress={() => updateForm('floodProne', !form.floodProne)}
               >
-                <Ionicons name={form.floodProne ? 'checkbox' : 'square-outline'} size={22} color="#1A4B84" />
+                <Ionicons name={form.floodProne ? 'checkbox' : 'square-outline'} size={22} color={palette.primary} />
                 <Text style={styles.checkboxText}>Nằm trong khu vực dễ ngập lụt</Text>
               </TouchableOpacity>
 
@@ -427,7 +428,7 @@ export default function AdminPostsScreen() {
                 <Text style={styles.cancelText}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitButton} onPress={submitCreate} disabled={saving}>
-                {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitText}>Tạo bài</Text>}
+                {saving ? <ActivityIndicator color={palette.surface} /> : <Text style={styles.submitText}>Tạo bài</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -472,67 +473,67 @@ export default function AdminPostsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F9FAFB' },
+  safeArea: { flex: 1, backgroundColor: palette.background },
   header: { paddingHorizontal: 10, paddingTop: 5, paddingBottom: 5, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { color: '#0f172a', fontSize: 17, fontWeight: '800' },
-  subtitle: { color: '#64748b', fontSize: 10, marginTop: 2 },
-  addButton: { width: 32, height: 32, borderRadius: 11, backgroundColor: '#1A4B84', alignItems: 'center', justifyContent: 'center' },
+  title: { color: palette.text, fontSize: 18, fontWeight: '900' },
+  subtitle: { color: palette.textMuted, fontSize: 10, marginTop: 2 },
+  addButton: { width: 34, height: 34, borderRadius: radius.lg, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center' },
   statsRow: { flexDirection: 'row', paddingHorizontal: 10, gap: 5, marginBottom: 5 },
-  statCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: '#F3F4F6' },
-  statValue: { color: '#0f172a', fontSize: 13, fontWeight: '900' },
-  statLabel: { color: '#64748b', fontSize: 9, fontWeight: '700', marginTop: 1 },
-  searchBox: { marginHorizontal: 10, marginBottom: 6, height: 36, borderRadius: 11, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F3F4F6', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  searchInput: { flex: 1, color: '#0f172a', fontSize: 12 },
+  statCard: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: palette.borderSoft },
+  statValue: { color: palette.text, fontSize: 13, fontWeight: '900' },
+  statLabel: { color: palette.textMuted, fontSize: 9, fontWeight: '700', marginTop: 1 },
+  searchBox: { marginHorizontal: 12, marginBottom: 8, height: 38, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.borderSoft, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  searchInput: { flex: 1, color: palette.text, fontSize: 12 },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#64748b', marginTop: 12 },
+  loadingText: { color: palette.textMuted, marginTop: 12 },
   listContent: { padding: 10, paddingBottom: 84 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  card: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: palette.borderSoft, shadowColor: palette.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  roomBadge: { width: 30, height: 30, borderRadius: 10, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  roomBadge: { width: 32, height: 32, borderRadius: radius.md, backgroundColor: palette.primarySoft, alignItems: 'center', justifyContent: 'center' },
   cardTitleWrap: { flex: 1 },
-  cardTitle: { color: '#0f172a', fontSize: 12, fontWeight: '900' },
-  cardMeta: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  cardTitle: { color: palette.text, fontSize: 12, fontWeight: '900' },
+  cardMeta: { color: palette.textMuted, fontSize: 10, marginTop: 2 },
   lockButton: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  lockedButton: { backgroundColor: '#fff1f2' },
-  unlockedButton: { backgroundColor: '#ecfdf5' },
+  lockedButton: { backgroundColor: palette.dangerSoft },
+  unlockedButton: { backgroundColor: palette.successSoft },
   postFooter: { marginTop: 7, flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  price: { color: '#1A4B84', fontSize: 12, fontWeight: '900' },
-  metric: { color: '#64748b', fontSize: 10, fontWeight: '700' },
+  price: { color: palette.primary, fontSize: 12, fontWeight: '900' },
+  metric: { color: palette.textMuted, fontSize: 10, fontWeight: '700' },
   emptyBox: { alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { color: '#0f172a', fontSize: 14, fontWeight: '800', marginTop: 8 },
-  emptyText: { color: '#64748b', fontSize: 14, marginTop: 6 },
+  emptyTitle: { color: palette.text, fontSize: 14, fontWeight: '800', marginTop: 8 },
+  emptyText: { color: palette.textMuted, fontSize: 14, marginTop: 6 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.35)', justifyContent: 'flex-end' },
-  modalCard: { maxHeight: '90%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  detailCard: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  modalHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  modalTitle: { color: '#0f172a', fontSize: 16, fontWeight: '900' },
-  modalMeta: { color: '#64748b', fontSize: 13, marginTop: 4 },
+  modalCard: { maxHeight: '90%', backgroundColor: palette.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: 'hidden' },
+  detailCard: { backgroundColor: palette.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: 'hidden' },
+  modalHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: palette.borderSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  modalTitle: { color: palette.text, fontSize: 16, fontWeight: '900' },
+  modalMeta: { color: palette.textMuted, fontSize: 13, marginTop: 4 },
   modalBody: { padding: 12 },
   label: { color: '#334155', fontSize: 13, fontWeight: '900', textTransform: 'uppercase', marginTop: 14, marginBottom: 8 },
   roomChipRow: { gap: 8 },
-  roomChip: { height: 32, paddingHorizontal: 10, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F3F4F6', justifyContent: 'center' },
-  roomChipActive: { backgroundColor: '#1A4B84', borderColor: '#1A4B84' },
-  roomChipText: { color: '#475569', fontWeight: '800' },
-  roomChipTextActive: { color: '#ffffff' },
-  roomHint: { color: '#64748b', fontSize: 13, marginTop: 8 },
-  input: { height: 38, borderRadius: 11, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#f8fafc', paddingHorizontal: 9, color: '#0f172a', fontSize: 12 },
-  textarea: { minHeight: 68, borderRadius: 11, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#f8fafc', padding: 9, color: '#0f172a', fontSize: 12, textAlignVertical: 'top' },
-  segmented: { flexDirection: 'row', backgroundColor: '#e8eef7', borderRadius: 12, padding: 3, marginBottom: 6 },
+  roomChip: { height: 32, paddingHorizontal: 10, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.borderSoft, justifyContent: 'center' },
+  roomChipActive: { backgroundColor: palette.primary, borderColor: palette.primary },
+  roomChipText: { color: '#334155', fontWeight: '800' },
+  roomChipTextActive: { color: palette.surface },
+  roomHint: { color: palette.textMuted, fontSize: 13, marginTop: 8 },
+  input: { height: 38, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surfaceSoft, paddingHorizontal: 9, color: palette.text, fontSize: 12 },
+  textarea: { minHeight: 68, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surfaceSoft, padding: 9, color: palette.text, fontSize: 12, textAlignVertical: 'top' },
+  segmented: { flexDirection: 'row', backgroundColor: palette.surfaceSoft, borderRadius: radius.lg, padding: 3, marginBottom: 6 },
   segmentButton: { flex: 1, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  segmentActive: { backgroundColor: '#ffffff' },
-  segmentText: { color: '#64748b', fontWeight: '800' },
-  segmentTextActive: { color: '#1A4B84' },
+  segmentActive: { backgroundColor: palette.surface },
+  segmentText: { color: palette.textMuted, fontWeight: '800' },
+  segmentTextActive: { color: palette.primary },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   checkboxText: { color: '#334155', fontSize: 12, fontWeight: '700' },
-  actionBar: { padding: 11, borderTopWidth: 1, borderTopColor: '#F3F4F6', flexDirection: 'row', gap: 7 },
-  cancelButton: { flex: 1, height: 38, borderRadius: 11, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  actionBar: { padding: 11, borderTopWidth: 1, borderTopColor: palette.borderSoft, flexDirection: 'row', gap: 7 },
+  cancelButton: { flex: 1, height: 38, borderRadius: radius.lg, backgroundColor: palette.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
   cancelText: { color: '#334155', fontWeight: '900' },
-  submitButton: { flex: 1, height: 38, borderRadius: 11, backgroundColor: '#1A4B84', alignItems: 'center', justifyContent: 'center' },
-  unlockFullButton: { backgroundColor: '#16a34a' },
-  submitText: { color: '#ffffff', fontWeight: '900' },
+  submitButton: { flex: 1, height: 38, borderRadius: radius.lg, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center' },
+  unlockFullButton: { backgroundColor: palette.success },
+  submitText: { color: palette.surface, fontWeight: '900' },
   detailBody: { padding: 12, gap: 7 },
-  detailTitle: { color: '#0f172a', fontSize: 14, fontWeight: '900', lineHeight: 19 },
-  detailPrice: { color: '#1A4B84', fontSize: 17, fontWeight: '900' },
-  detailLine: { color: '#475569', fontSize: 14, lineHeight: 21 },
-  detailNote: { color: '#92400e', backgroundColor: '#fffbeb', borderRadius: 14, padding: 10, lineHeight: 20 },
+  detailTitle: { color: palette.text, fontSize: 14, fontWeight: '900', lineHeight: 19 },
+  detailPrice: { color: palette.primary, fontSize: 17, fontWeight: '900' },
+  detailLine: { color: '#334155', fontSize: 14, lineHeight: 21 },
+  detailNote: { color: '#92400e', backgroundColor: '#FEF3C7', borderRadius: radius.lg, padding: 10, lineHeight: 20 },
 });

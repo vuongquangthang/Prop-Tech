@@ -14,9 +14,9 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
-import { contractService } from '../services/contract.service';
+import { ContractDetail, contractService } from '../services/contract.service';
 import { postService } from '../services/post.service';
 import { MyRoom, RoomDetail, roomService } from '../services/room.service';
 import { servicesService, type ServiceInRoomDto } from '../services/services.service';
@@ -128,6 +128,36 @@ const formatDateInput = (value?: string | null): string => {
   return `${day}/${month}/${year}`;
 };
 
+const buildRoomFromContract = (contract: ContractDetail, detail: RoomDetail): MyRoom => {
+  const primary = contract.residents?.find((resident) =>
+    resident.residencyRole && (resident.residencyRole.includes('Người thuê') || resident.residencyRole.includes('Chủ'))
+  ) || contract.residents?.[0];
+
+  return {
+    roomId: detail.id,
+    roomCode: detail.roomCode || contract.roomNumber || '',
+    area: detail.area ?? null,
+    maxOccupants: detail.maxOccupants ?? null,
+    amenities: detail.amenities ?? [],
+    status: detail.status ?? contract.status ?? 'N/A',
+    buildingId: 0,
+    buildingName: detail.buildingName ?? '',
+    buildingAddress: '',
+    floorId: 0,
+    floorNumber: detail.floorNumber ?? 0,
+    contractId: contract.id,
+    contractStartDate: contract.startDate,
+    contractEndDate: contract.expectedEndDate ?? null,
+    rentPrice: contract.actualRentPrice,
+    deposit: contract.depositAmount ?? 0,
+    householdHeadName: primary?.fullName,
+    services: [],
+    electricityBasePrice: null,
+    electricityTiers: [],
+    waterPricePerCubicMeter: null,
+  };
+};
+
 const buildServiceRows = (room: MyRoom): RoomFormService[] =>
   room.services.map((service) => ({
     key: `svc-${service.serviceId}`,
@@ -146,6 +176,7 @@ const findServicePrice = (post: PostDto, service: RoomFormService): number => {
 
 export default function RoommateEditScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const user = useAuthStore((state) => state.user);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -177,16 +208,27 @@ export default function RoommateEditScreen() {
   const roomMeta = getRoomMeta(roomDetail);
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
+  const routeRoomId = Number(route.params?.roomId) || undefined;
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     setImages([]);
     try {
-      const [myPost, myRoom] = await Promise.all([
-        postService.getMyPost(),
-        roomService.getMyRoom(),
+      const contracts = await contractService.getMyContracts().catch(() => []);
+      const selectedContract = routeRoomId
+        ? contracts.find((contract) => contract.roomId === routeRoomId)
+        : activeContractId
+          ? contracts.find((contract) => contract.id === activeContractId)
+          : undefined;
+      const targetRoomId = selectedContract?.roomId ?? routeRoomId;
+      const [myPost, roomData] = await Promise.all([
+        postService.getMyPost(targetRoomId),
+        targetRoomId ? roomService.getRoomDetail(targetRoomId) : roomService.getMyRoom(),
       ]);
+      const myRoom = selectedContract && 'id' in roomData
+        ? buildRoomFromContract(selectedContract, roomData as RoomDetail)
+        : roomData as MyRoom;
       setPost(myPost);
       setRoom(myRoom);
 

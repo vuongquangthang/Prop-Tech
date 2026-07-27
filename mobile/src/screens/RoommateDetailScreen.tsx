@@ -12,8 +12,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { contractService } from '../services/contract.service';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { ContractDetail, contractService } from '../services/contract.service';
 import { useAuthStore } from '../store/authStore';
 import { postService } from '../services/post.service';
 import { MyRoom, RoomDetail, roomService } from '../services/room.service';
@@ -30,6 +30,36 @@ const formatDate = (value?: string | null) => {
 };
 
 const normalizeStatus = (value?: string | null) => (value || '').trim().toLowerCase();
+
+const buildRoomFromContract = (contract: ContractDetail, detail: RoomDetail): MyRoom => {
+  const primary = contract.residents?.find((resident) =>
+    resident.residencyRole && (resident.residencyRole.includes('Người thuê') || resident.residencyRole.includes('Chủ'))
+  ) || contract.residents?.[0];
+
+  return {
+    roomId: detail.id,
+    roomCode: detail.roomCode || contract.roomNumber || '',
+    area: detail.area ?? null,
+    maxOccupants: detail.maxOccupants ?? null,
+    amenities: detail.amenities ?? [],
+    status: detail.status ?? contract.status ?? 'N/A',
+    buildingId: 0,
+    buildingName: detail.buildingName ?? '',
+    buildingAddress: '',
+    floorId: 0,
+    floorNumber: detail.floorNumber ?? 0,
+    contractId: contract.id,
+    contractStartDate: contract.startDate,
+    contractEndDate: contract.expectedEndDate ?? null,
+    rentPrice: contract.actualRentPrice,
+    deposit: contract.depositAmount ?? 0,
+    householdHeadName: primary?.fullName,
+    services: [],
+    electricityBasePrice: null,
+    electricityTiers: [],
+    waterPricePerCubicMeter: null,
+  };
+};
 
 const getPostStatusMeta = (post: PostDto) => {
   const status = normalizeStatus(post.status);
@@ -64,6 +94,7 @@ const getPostStatusMeta = (post: PostDto) => {
 
 export default function RoommateDetailScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const heroScrollRef = useRef<ScrollView>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,12 +109,26 @@ export default function RoommateDetailScreen() {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
+  const routeRoomId = Number(route.params?.roomId) || undefined;
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [myPost, myRoom] = await Promise.all([postService.getMyPost(), roomService.getMyRoom()]);
+      const contracts = await contractService.getMyContracts().catch(() => []);
+      const selectedContract = routeRoomId
+        ? contracts.find((contract) => contract.roomId === routeRoomId)
+        : activeContractId
+          ? contracts.find((contract) => contract.id === activeContractId)
+          : undefined;
+      const targetRoomId = selectedContract?.roomId ?? routeRoomId;
+      const [myPost, roomData] = await Promise.all([
+        postService.getMyPost(targetRoomId),
+        targetRoomId ? roomService.getRoomDetail(targetRoomId) : roomService.getMyRoom(),
+      ]);
+      const myRoom = selectedContract && 'id' in roomData
+        ? buildRoomFromContract(selectedContract, roomData as RoomDetail)
+        : roomData as MyRoom;
       setPost(myPost);
       setRoom(myRoom);
       setCurrentImageIndex(0);

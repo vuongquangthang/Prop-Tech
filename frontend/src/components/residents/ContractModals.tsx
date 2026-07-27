@@ -210,6 +210,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [activePricingCatalog, setActivePricingCatalog] = useState<any[]>([]);
   const [tenantList, setTenantList] = useState<any[]>([]);
+  const [removedExistingResidentIds, setRemovedExistingResidentIds] = useState<number[]>([]);
   const [selectedPrimaryResidentKey, setSelectedPrimaryResidentKey] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [durationMonths, setDurationMonths] = useState('12');
@@ -281,13 +282,15 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           } catch (e) { console.error('Error parsing billing formula:', e); }
         }
         const residents = (detail as any)?.residents || (detail as any)?.Residents || (contract as any)?.residents || [];
-        const primaryResident = residents.find((resident: any) => isPrimaryResidentRole(resident.residencyRole)) ?? residents[0];
+        const primaryResident = residents.find((resident: any) => isPrimaryResidentRole(resident.residencyRole ?? resident.ResidencyRole)) ?? residents[0];
         const members = residents.filter((resident: any) => resident !== primaryResident).map((r: any) => ({
-          id: String(r.residentId || r.id || Date.now()), name: r.fullName || r.hoTen || '', relationship: r.residencyRole || 'Thành viên',
-          phone: r.phoneNumber || r.soDienThoai || '', idCard: r.idCardNumber || r.soCCCD || '', email: r.email || '',
+          id: String(r.residentId || r.ResidentId || r.id || r.Id || Date.now()),
+          residentId: Number(r.residentId || r.ResidentId || r.id || r.Id || 0) || undefined,
+          name: r.fullName || r.FullName || r.hoTen || '', relationship: r.residencyRole || r.ResidencyRole || 'Thành viên',
+          phone: r.phoneNumber || r.PhoneNumber || r.soDienThoai || '', idCard: r.idCardNumber || r.IdCardNumber || r.soCCCD || '', email: r.email || r.Email || '',
           fromDate: r.fromDate || r.FromDate || '', avatar: '👤'
         }));
-        setFamilyMembers(members); setTenantList(residents);
+        setFamilyMembers(members); setTenantList(residents); setRemovedExistingResidentIds([]);
         setSelectedPrimaryResidentKey(primaryResident ? `resident:${getResidentIdValue(primaryResident)}` : '');
         if (detailStartDate && detailEndDate) {
           const start = new Date(detailStartDate); const end = new Date(detailEndDate);
@@ -331,12 +334,6 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     return availablePricingCatalog.filter((s: any) => selected.has(Number(s.id ?? s.serviceId ?? 0)));
   }, [availablePricingCatalog, selectedServiceIds]);
 
-  const householdMemberCount = useMemo(() => 1 + familyMembers.length, [familyMembers.length]);
-  const quantityInputServices = useMemo(
-    () => selectedServices.filter(requiresManualQuantity),
-    [selectedServices],
-  );
-
   const getResidentIdValue = (resident: any) => String(resident?.residentId ?? resident?.ResidentId ?? resident?.id ?? resident?.Id ?? '');
   const getResidentDisplayName = (resident: any) => resident?.fullName ?? resident?.FullName ?? resident?.hoTen ?? resident?.name ?? 'Không rõ tên';
   const getResidentPhone = (resident: any) => resident?.phoneNumber ?? resident?.PhoneNumber ?? resident?.soDienThoai ?? resident?.phone ?? '';
@@ -351,7 +348,9 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     const options: Array<{ key: string; label: string; phone: string; source: 'resident' | 'member'; data: any }> = [];
     const usedKeys = new Set<string>();
 
-    if (originalPrimaryResident) {
+    const removedIds = new Set(removedExistingResidentIds);
+
+    if (originalPrimaryResident && !removedIds.has(Number(getResidentIdValue(originalPrimaryResident)))) {
       const key = `resident:${getResidentIdValue(originalPrimaryResident)}`;
       if (!usedKeys.has(key)) {
         usedKeys.add(key);
@@ -379,13 +378,43 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     });
 
     return options;
-  }, [originalPrimaryResident, familyMembers]);
+  }, [originalPrimaryResident, familyMembers, removedExistingResidentIds]);
 
   const selectedPrimaryResident = useMemo(() => {
     return primaryResidentOptions.find((option) => option.key === selectedPrimaryResidentKey)
       ?? primaryResidentOptions[0]
       ?? null;
   }, [primaryResidentOptions, selectedPrimaryResidentKey]);
+
+  const householdMemberCount = useMemo(() => {
+    const selectedKey = selectedPrimaryResident?.key || selectedPrimaryResidentKey;
+    let count = 1;
+
+    familyMembers.forEach((member) => {
+      if (`member:${member.id}` !== selectedKey) {
+        count += 1;
+      }
+    });
+
+    if (originalPrimaryResident) {
+      const originalPrimaryId = Number(getResidentIdValue(originalPrimaryResident));
+      const originalPrimaryKey = `resident:${originalPrimaryId}`;
+      if (
+        originalPrimaryId > 0
+        && selectedKey !== originalPrimaryKey
+        && !removedExistingResidentIds.includes(originalPrimaryId)
+      ) {
+        count += 1;
+      }
+    }
+
+    return count;
+  }, [familyMembers, originalPrimaryResident, removedExistingResidentIds, selectedPrimaryResident, selectedPrimaryResidentKey]);
+
+  const quantityInputServices = useMemo(
+    () => selectedServices.filter(requiresManualQuantity),
+    [selectedServices],
+  );
 
   useEffect(() => {
     if (primaryResidentOptions.length === 0) {
@@ -504,12 +533,76 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     toggleExclusiveMeterService(serviceId, availablePricingCatalog, setSelectedServiceIds);
   };
 
+  const displayedFamilyMembers = useMemo(() => {
+    const selectedKey = selectedPrimaryResident?.key || selectedPrimaryResidentKey;
+    const members = familyMembers
+      .filter((member) => `member:${member.id}` !== selectedKey)
+      .map((member) => ({ ...member, removableId: member.id }));
+
+    if (originalPrimaryResident) {
+      const originalPrimaryId = Number(getResidentIdValue(originalPrimaryResident));
+      const originalPrimaryKey = `resident:${originalPrimaryId}`;
+      const removedIds = new Set(removedExistingResidentIds);
+
+      if (
+        originalPrimaryId > 0
+        && selectedKey !== originalPrimaryKey
+        && !removedIds.has(originalPrimaryId)
+      ) {
+        members.unshift({
+          id: originalPrimaryKey,
+          removableId: originalPrimaryKey,
+          name: getResidentDisplayName(originalPrimaryResident),
+          relationship: 'Người ở cùng',
+          phone: getResidentPhone(originalPrimaryResident),
+          idCard: originalPrimaryResident?.idCardNumber || originalPrimaryResident?.IdCardNumber || originalPrimaryResident?.soCCCD || '',
+          email: originalPrimaryResident?.email || originalPrimaryResident?.Email || '',
+          fromDate: originalPrimaryResident?.fromDate || originalPrimaryResident?.FromDate || startDate,
+          avatar: '👤',
+        });
+      }
+    }
+
+    return members;
+  }, [familyMembers, originalPrimaryResident, removedExistingResidentIds, selectedPrimaryResident, selectedPrimaryResidentKey, startDate]);
+
+  const addMemberExcludedResidentIds = useMemo(() => {
+    const ids = new Set<number>();
+    const removedIds = new Set(removedExistingResidentIds);
+
+    tenantList.forEach((resident: any) => {
+      const residentId = Number(getResidentIdValue(resident));
+      if (residentId > 0 && !removedIds.has(residentId)) {
+        ids.add(residentId);
+      }
+    });
+
+    familyMembers.forEach((member) => {
+      if (member.residentId && member.residentId > 0) {
+        ids.add(member.residentId);
+      }
+    });
+
+    return Array.from(ids);
+  }, [familyMembers, removedExistingResidentIds, tenantList]);
+
   const handleRemoveMember = (id: string) => {
-    setFamilyMembers(familyMembers.filter(member => member.id !== id));
+    if (familyMembers.some((member) => member.id === id)) {
+      setFamilyMembers(familyMembers.filter(member => member.id !== id));
+      return;
+    }
+
+    if (id.startsWith('resident:')) {
+      const residentId = Number(id.replace('resident:', ''));
+      if (residentId > 0) {
+        setRemovedExistingResidentIds((current) => Array.from(new Set([...current, residentId])));
+      }
+      return;
+    }
   };
 
   const handleAddMember = (newMember: Omit<FamilyMember, 'id'>) => {
-    const member: FamilyMember = { ...newMember, id: Date.now().toString() };
+    const member: FamilyMember = { ...newMember, id: newMember.residentId ? `resident:${newMember.residentId}` : Date.now().toString() };
     setFamilyMembers([...familyMembers, member]); setShowAddMemberModal(false);
   };
 
@@ -521,12 +614,17 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
       const mainResident = originalPrimaryResident;
       const existingResidentIds = new Set(
         currentResidents
-          .map((r: any) => Number(r.residentId || r.id || 0))
+          .map((r: any) => Number(r.residentId || r.ResidentId || r.id || r.Id || 0))
           .filter((id: number) => id > 0)
       );
+      const removedIds = new Set(removedExistingResidentIds);
       const residentsPayload: any[] = [];
       const selectedPrimaryKey = selectedPrimaryResident?.key || (mainResident ? `resident:${getResidentIdValue(mainResident)}` : '');
       const ensureMemberResidentId = async (member: FamilyMember) => {
+        if (member.residentId && member.residentId > 0) {
+          return member.residentId;
+        }
+
         let residentId = Number(member.id);
         const isExistingResident = Number.isFinite(residentId) && residentId > 0 && existingResidentIds.has(residentId);
 
@@ -568,9 +666,15 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
         });
       }
 
-      if (mainResident && selectedPrimaryKey !== `resident:${getResidentIdValue(mainResident)}`) {
+      const mainResidentId = Number(mainResident?.residentId || mainResident?.ResidentId || mainResident?.id || mainResident?.Id || 0);
+      if (
+        mainResident
+        && selectedPrimaryKey !== `resident:${getResidentIdValue(mainResident)}`
+        && mainResidentId > 0
+        && !removedIds.has(mainResidentId)
+      ) {
         residentsPayload.push({
-          residentId: mainResident.residentId || mainResident.ResidentId || mainResident.id || mainResident.Id,
+          residentId: mainResidentId,
           residencyRole: 'Người ở cùng',
           fromDate: mainResident.fromDate || mainResident.FromDate || startDate,
           email: mainResident.email || mainResident.Email || undefined,
@@ -714,15 +818,15 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
               <button className="px-3 py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 flex items-center space-x-1" onClick={() => setShowAddMemberModal(true)}>
                 <Plus size={14} />Thêm</button>
             </div>
-            {familyMembers.length > 0 ? (
-              <div className="space-y-2">{familyMembers.map(member => (
+            {displayedFamilyMembers.length > 0 ? (
+              <div className="space-y-2">{displayedFamilyMembers.map(member => (
                 <div key={member.id} className="bg-white border border-gray-300 rounded p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <div><p className="text-sm text-gray-800 font-bold">{member.name}</p>
                         <p className="text-xs text-gray-600">{member.relationship}</p></div>
                     </div>
-                    <button className="p-1 hover:bg-gray-100 rounded" onClick={() => handleRemoveMember(member.id)}>
+                    <button className="p-1 hover:bg-gray-100 rounded" onClick={() => handleRemoveMember(member.removableId)}>
                       <X size={16} className="text-red-600" /></button>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -892,12 +996,16 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           <button onClick={handleSubmit} disabled={loading} className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2">
             {loading && <Loader2 size={16} className="animate-spin" />}
             <Check size={16} />
-            <span>Lưu thay đổi ({1 + familyMembers.length} người)</span>
+            <span>Lưu thay đổi ({1 + displayedFamilyMembers.length} người)</span>
           </button>
         </div>
       </div>
       {showAddMemberModal && createPortal(
-        <AddFamilyMemberModal onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMember} />,
+        <AddFamilyMemberModal
+          onClose={() => setShowAddMemberModal(false)}
+          onAdd={handleAddMember}
+          excludeResidentIds={addMemberExcludedResidentIds}
+        />,
         document.body,
       )}
       {showEditHistory && createPortal(
@@ -927,6 +1035,7 @@ interface ContractModalProps {
 
 interface FamilyMember {
   id: string;
+  residentId?: number;
   name: string;
   relationship: string;
   phone: string;
@@ -1637,7 +1746,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   };
 
   const handleAddMember = (newMember: Omit<FamilyMember, 'id'>) => {
-    const member: FamilyMember = { ...newMember, id: Date.now().toString() };
+    const member: FamilyMember = { ...newMember, id: newMember.residentId ? `resident:${newMember.residentId}` : Date.now().toString() };
     setFamilyMembers([...familyMembers, member]);
     setShowAddMemberModal(false);
   };
@@ -2316,7 +2425,20 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 }
 
 // Add Family Member Modal Component
-function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: (member: Omit<FamilyMember, 'id'>) => void }) {
+function AddFamilyMemberModal({
+  onClose,
+  onAdd,
+  excludeResidentIds = [],
+}: {
+  onClose: () => void,
+  onAdd: (member: Omit<FamilyMember, 'id'>) => void,
+  excludeResidentIds?: number[],
+}) {
+  const [mode, setMode] = useState<'existing' | 'new'>('existing');
+  const [residents, setResidents] = useState<any[]>([]);
+  const [residentSearch, setResidentSearch] = useState('');
+  const [selectedExistingResidentId, setSelectedExistingResidentId] = useState('');
+  const [loadingResidents, setLoadingResidents] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     relationship: 'Vợ/Chồng',
@@ -2326,6 +2448,58 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
     avatar: '👤'
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let mounted = true;
+    setLoadingResidents(true);
+    residentService.getAll()
+      .then((data: any) => {
+        if (!mounted) return;
+        setResidents(Array.isArray(data) ? data : data?.data ?? []);
+      })
+      .catch(() => {
+        if (mounted) setResidents([]);
+      })
+      .finally(() => {
+        if (mounted) setLoadingResidents(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const getResidentId = (resident: any) => Number(resident?.id ?? resident?.residentId ?? resident?.Id ?? resident?.ResidentId ?? 0);
+  const getResidentName = (resident: any) => resident?.fullName ?? resident?.FullName ?? resident?.hoTen ?? resident?.name ?? 'Không rõ tên';
+  const getResidentPhoneValue = (resident: any) => resident?.phoneNumber ?? resident?.PhoneNumber ?? resident?.soDienThoai ?? resident?.phone ?? '';
+  const getResidentIdCard = (resident: any) => resident?.idCardNumber ?? resident?.IdCardNumber ?? resident?.soCCCD ?? resident?.idCard ?? '';
+  const getResidentEmail = (resident: any) => resident?.email ?? resident?.Email ?? '';
+
+  const filteredExistingResidents = useMemo(() => {
+    const excluded = new Set(excludeResidentIds.map(Number));
+    const query = residentSearch.trim().toLowerCase();
+
+    return residents
+      .filter((resident: any) => {
+        const residentId = getResidentId(resident);
+        if (residentId <= 0 || excluded.has(residentId)) return false;
+        if (!query) return true;
+
+        const haystack = [
+          getResidentName(resident),
+          getResidentPhoneValue(resident),
+          getResidentIdCard(resident),
+          getResidentEmail(resident),
+        ].join(' ').toLowerCase();
+
+        return haystack.includes(query);
+      })
+      .slice(0, 50);
+  }, [excludeResidentIds, residentSearch, residents]);
+
+  const selectedExistingResident = useMemo(() => {
+    return residents.find((resident: any) => String(getResidentId(resident)) === selectedExistingResidentId) ?? null;
+  }, [residents, selectedExistingResidentId]);
 
   const clearFieldError = (field: string) => {
     setFieldErrors((current) => {
@@ -2370,6 +2544,25 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
   };
 
   const handleSubmit = () => {
+    if (mode === 'existing') {
+      if (!selectedExistingResident) {
+        setFieldErrors({ existingResident: 'Vui lòng chọn một cư dân có sẵn' });
+        return;
+      }
+
+      const residentId = getResidentId(selectedExistingResident);
+      onAdd({
+        residentId,
+        name: getResidentName(selectedExistingResident),
+        relationship: formData.relationship,
+        phone: getResidentPhoneValue(selectedExistingResident),
+        idCard: getResidentIdCard(selectedExistingResident),
+        email: getResidentEmail(selectedExistingResident),
+        avatar: formData.avatar,
+      });
+      return;
+    }
+
     const nextErrors: Record<string, string> = {};
     const name = formData.name.trim().replace(/\s+/g, ' ');
 
@@ -2423,6 +2616,29 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
         </div>
         
         <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 border border-gray-300">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('existing');
+                setFieldErrors({});
+              }}
+              className={`px-3 py-2 text-sm font-semibold ${mode === 'existing' ? 'bg-[var(--brand-primary)] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              Chọn cư dân có sẵn
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('new');
+                setSelectedExistingResidentId('');
+                setFieldErrors({});
+              }}
+              className={`px-3 py-2 text-sm font-semibold border-l border-gray-300 ${mode === 'new' ? 'bg-[var(--brand-primary)] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              Nhập cư dân mới
+            </button>
+          </div>
 
           <div>
             <label className="block text-sm text-gray-700 mb-2">Mối quan hệ với chủ hộ *</label>
@@ -2440,6 +2656,67 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
             </select>
           </div>
 
+          {mode === 'existing' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Tìm cư dân</label>
+                <input
+                  type="text"
+                  placeholder="Nhập tên, SĐT, CCCD hoặc email..."
+                  value={residentSearch}
+                  onChange={(event) => setResidentSearch(event.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                />
+              </div>
+
+              <div className="max-h-64 overflow-y-auto border border-gray-300 bg-white">
+                {loadingResidents ? (
+                  <div className="flex items-center justify-center py-8 text-sm text-gray-500">
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Đang tải cư dân...
+                  </div>
+                ) : filteredExistingResidents.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-gray-500">
+                    Không có cư dân phù hợp hoặc cư dân đã nằm trong hợp đồng.
+                  </div>
+                ) : (
+                  filteredExistingResidents.map((resident: any) => {
+                    const residentId = getResidentId(resident);
+                    const selected = selectedExistingResidentId === String(residentId);
+                    return (
+                      <button
+                        key={residentId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedExistingResidentId(String(residentId));
+                          clearFieldError('existingResident');
+                        }}
+                        className={`w-full border-b border-gray-200 px-4 py-3 text-left last:border-b-0 hover:bg-gray-50 ${selected ? 'bg-blue-50' : 'bg-white'}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{getResidentName(resident)}</p>
+                            <p className="mt-0.5 text-xs text-gray-600">
+                              {getResidentPhoneValue(resident) || 'Chưa có SĐT'}
+                              {getResidentIdCard(resident) ? ` · ${getResidentIdCard(resident)}` : ''}
+                            </p>
+                            {getResidentEmail(resident) && (
+                              <p className="mt-0.5 text-xs text-gray-500">{getResidentEmail(resident)}</p>
+                            )}
+                          </div>
+                          {selected && <Check size={18} className="shrink-0 text-blue-700" />}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {fieldErrors.existingResident && <p className="text-xs text-red-600">{fieldErrors.existingResident}</p>}
+            </div>
+          )}
+
+          {mode === 'new' && (
+            <>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-700 mb-2">Họ và tên *</label>
@@ -2492,6 +2769,8 @@ function AddFamilyMemberModal({ onClose, onAdd }: { onClose: () => void, onAdd: 
               {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
             </div>
           </div>
+            </>
+          )}
         </div>
         
         <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
@@ -2876,38 +3155,29 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                               const qtyText = item.quantityExpression === 'n' || !item.quantity 
                                 ? 'n' 
                                 : item.quantity;
-                              const linkedService = activeServices.find((service: any) =>
-                                Number(service.serviceId ?? service.id) === Number(item.serviceId),
-                              );
-                              const displayedUnitPrice = linkedService && isMeterService(item)
-                                ? getCurrentServicePrice(linkedService)
-                                : Number(item.unitPrice || 0);
-                              const unitPrice = fmtCurrency(displayedUnitPrice);
-                              const scheduledPriceLabel = linkedService && isMeterService(item)
-                                ? getScheduledServicePriceLabel(linkedService)
-                                : null;
+                              const normalizedItemType = String(item.itemType || '').toLowerCase();
+                              const formulaName = normalizedItemType === 'dien'
+                                ? 'Tiền điện'
+                                : normalizedItemType === 'nuoc'
+                                  ? 'Tiền nước'
+                                  : normalizedItemType === 'tienphong'
+                                    ? 'Tiền phòng'
+                                    : item.serviceName || item.itemType || 'Dịch vụ';
                               
                               return (
                                 <div key={idx} className="py-1">
                                   <div className="flex justify-between items-start">
                                     <span className="text-gray-700 flex-1">
-                                      {idx + 1}. {item.serviceName || item.itemType}
+                                      {idx + 1}. {formulaName}
                                     </span>
                                     <span className="text-gray-800 font-mono text-right">
-                                      {unitPrice} × {qtyText}
+                                      {formulaName} × {qtyText}
                                     </span>
                                   </div>
                                   {isMeterService(item) && (
-                                    <>
-                                      {scheduledPriceLabel && (
-                                        <p className="mt-0.5 text-xs text-amber-700">
-                                          Sắp áp dụng: {scheduledPriceLabel}
-                                        </p>
-                                      )}
-                                      <p className="mt-0.5 text-xs text-amber-700">
-                                        Giá sẽ tự động thay đổi theo giá thị trường.
-                                      </p>
-                                    </>
+                                    <p className="mt-0.5 text-xs text-amber-700">
+                                      Giá điện/nước sẽ tự động thay đổi theo giá thị trường tại thời điểm lập hóa đơn.
+                                    </p>
                                   )}
                                 </div>
                               );
@@ -2915,7 +3185,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                             <div className="border-t border-gray-300 pt-2 mt-2">
                               <div className="flex justify-between items-center">
                                 <span className="text-gray-800 font-bold">Tổng cộng</span>
-                                <span className="text-blue-700 font-bold">= Σ (Đơn giá × Số lượng)</span>
+                                <span className="text-blue-700 font-bold">= Σ (Khoản phí × Số lượng)</span>
                               </div>
                             </div>
                             <p className="text-xs text-gray-500 pt-2 border-t border-gray-300 mt-2">

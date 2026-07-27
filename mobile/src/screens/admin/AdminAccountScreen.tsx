@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { getRoleLabel } from '../../utils/roleUtils';
 import { resolveImageUrl } from '../../utils/image';
+import { palette, radius } from '../../theme/palette';
 
 type InfoItem = {
   label: string;
@@ -57,7 +58,7 @@ export default function AdminAccountScreen() {
               <View key={item.label}>
                 <View style={styles.infoRow}>
                   <View style={styles.infoIcon}>
-                    <Ionicons name={item.icon} size={16} color="#1A4B84" />
+                    <Ionicons name={item.icon} size={16} color={palette.primary} />
                   </View>
                   <View style={styles.infoTextWrap}>
                     <Text style={styles.infoLabel}>{item.label}</Text>
@@ -73,7 +74,7 @@ export default function AdminAccountScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Phạm vi app</Text>
           <View style={styles.noteCard}>
-            <Ionicons name="briefcase-outline" size={17} color="#1A4B84" />
+            <Ionicons name="briefcase-outline" size={17} color={palette.primary} />
             <Text style={styles.noteText}>
               App chỉ phục vụ tác vụ hiện trường. Cấu hình hệ thống, hợp đồng chi tiết và dữ liệu nền vẫn xử lý trên web.
             </Text>
@@ -81,7 +82,7 @@ export default function AdminAccountScreen() {
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={logout} activeOpacity={0.85}>
-          <Ionicons name="log-out-outline" size={17} color="#dc2626" />
+          <Ionicons name="log-out-outline" size={17} color={palette.danger} />
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -92,36 +93,36 @@ export default function AdminAccountScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   container: {
-    padding: 24,
+    padding: 18,
     paddingBottom: 86,
   },
   header: {
     marginBottom: 10,
   },
   title: {
-    color: '#0f172a',
-    fontSize: 18,
+    color: palette.text,
+    fontSize: 22,
     fontWeight: '900',
   },
   subtitle: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 11,
     lineHeight: 15,
     marginTop: 3,
   },
   profileCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radius.xl,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    shadowColor: '#000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: palette.surface,
     fontSize: 22,
     fontWeight: '700',
   },
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -157,13 +158,13 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 5,
     height: 22,
-    borderRadius: 11,
+    borderRadius: radius.md,
     paddingHorizontal: 8,
-    backgroundColor: '#E8F0FB',
+    backgroundColor: palette.primarySoft,
     justifyContent: 'center',
   },
   roleText: {
-    color: '#1E40AF',
+    color: palette.primaryDark,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -171,19 +172,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   sectionTitle: {
-    color: '#6B7280',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -198,8 +199,8 @@ const styles = StyleSheet.create({
   infoIcon: {
     width: 30,
     height: 30,
-    borderRadius: 10,
-    backgroundColor: '#E8F0FB',
+    borderRadius: radius.sm,
+    backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -207,33 +208,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 10,
     fontWeight: '700',
   },
   infoValue: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 12,
     fontWeight: '800',
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: palette.borderSoft,
     marginLeft: 50,
   },
   noteCard: {
-    borderRadius: 14,
+    borderRadius: radius.lg,
     padding: 10,
-    backgroundColor: '#eff6ff',
+    backgroundColor: palette.primarySoft,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: '#BAE6FD',
     flexDirection: 'row',
     gap: 8,
   },
   noteText: {
     flex: 1,
-    color: '#1e3a8a',
+    color: palette.primaryDark,
     fontSize: 10,
     lineHeight: 14,
     fontWeight: '600',
@@ -241,17 +242,17 @@ const styles = StyleSheet.create({
   logoutButton: {
     marginTop: 14,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: '#fff1f2',
+    borderRadius: radius.lg,
+    backgroundColor: palette.dangerSoft,
     borderWidth: 1,
-    borderColor: '#fecdd3',
+    borderColor: '#FECACA',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 7,
   },
   logoutText: {
-    color: '#dc2626',
+    color: palette.danger,
     fontSize: 12,
     fontWeight: '900',
   },

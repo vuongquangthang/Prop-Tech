@@ -20,6 +20,7 @@ import signalRService from '../services/signalr.service';
 import { contractService } from '../services/contract.service';
 import { useAuthStore } from '../store/authStore';
 import { canResidentManageFinancialActions } from '../utils/residentPermissions';
+import { palette, radius } from '../theme/palette';
 
 type RootStackParamList = {
   BillDetail: { id: number };
@@ -134,21 +135,21 @@ export default function BillDetailScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#4B5563" />
+          <Ionicons name="chevron-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chi tiết hóa đơn</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#1A4B84" />
+            <ActivityIndicator size="large" color={palette.primary} />
             <Text style={styles.loadingText}>Đang tải...</Text>
           </View>
         ) : error || !invoice ? (
           <View style={styles.centerContainer}>
-            <Ionicons name="alert-circle-outline" size={48} color="#DC2626" />
+            <Ionicons name="alert-circle-outline" size={48} color={palette.danger} />
             <Text style={styles.errorText}>{error || 'Không tìm thấy hóa đơn'}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={loadInvoice}>
               <Text style={styles.retryText}>Thử lại</Text>
@@ -156,27 +157,59 @@ export default function BillDetailScreen() {
           </View>
         ) : (
           <>
-            <Text style={styles.invoiceTitle}>
-              Hóa đơn {invoiceService.formatPeriod(invoice.month, invoice.year)}
-            </Text>
-            {(invoice.roomNumber || invoice.roomId) && (
-              <View style={styles.roomBadge}>
-                <Ionicons name="home-outline" size={15} color="#1A4B84" />
-                <Text style={styles.roomBadgeText}>
-                  Phòng {invoice.roomNumber || `#${invoice.roomId}`}
-                </Text>
+            <View style={styles.invoicePaper}>
+              <View style={styles.paperHeader}>
+                <View>
+                  <Text style={styles.paperKicker}>HÓA ĐƠN THANH TOÁN</Text>
+                  <Text style={styles.invoiceTitle}>
+                    Tháng {String(invoice.month).padStart(2, '0')}/{invoice.year}
+                  </Text>
+                </View>
+                <View style={[
+                  styles.statusChip,
+                  invoice.status === 'Đã thanh toán' ? styles.statusChipPaid : styles.statusChipPending,
+                ]}>
+                  <Text style={[
+                    styles.statusChipText,
+                    invoice.status === 'Đã thanh toán' ? styles.statusChipTextPaid : styles.statusChipTextPending,
+                  ]}>
+                    {invoice.status === 'Đã thanh toán' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+                  </Text>
+                </View>
               </View>
-            )}
-            <Text style={[styles.deadline, invoice.status === 'Đã thanh toán' && styles.paidStatus]}>
-              {invoice.status === 'Đã thanh toán'
-                ? `Đã thanh toán: ${invoice.paidDate ? new Date(invoice.paidDate).toLocaleDateString('vi-VN') : ''}`
-                : `Hạn thanh toán: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('vi-VN') : ''}`}
-            </Text>
 
-            <View style={styles.divider} />
+              <View style={styles.paperInfoGrid}>
+                <View style={styles.paperInfoCell}>
+                  <Text style={styles.paperInfoLabel}>Phòng</Text>
+                  <Text style={styles.paperInfoValue}>{invoice.roomNumber || `#${invoice.roomId}`}</Text>
+                </View>
+                <View style={styles.paperInfoCell}>
+                  <Text style={styles.paperInfoLabel}>
+                    {invoice.status === 'Đã thanh toán' ? 'Ngày thanh toán' : 'Hạn thanh toán'}
+                  </Text>
+                  <Text style={styles.paperInfoValue}>
+                    {invoice.status === 'Đã thanh toán'
+                      ? (invoice.paidDate ? new Date(invoice.paidDate).toLocaleDateString('vi-VN') : 'Đã ghi nhận')
+                      : (invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('vi-VN') : 'Chưa có')}
+                  </Text>
+                </View>
+              </View>
 
-            <Text style={styles.sectionTitle}>Chi tiết hóa đơn</Text>
+              <View style={styles.paperTotalPreview}>
+                <Text style={styles.paperTotalLabel}>Tổng cộng</Text>
+                <Text style={styles.paperTotalValue}>{invoiceService.formatCurrency(invoice.totalAmount)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Chi tiết khoản thu</Text>
+              <Text style={styles.sectionSubtitle}>Các khoản đã được chốt theo hóa đơn</Text>
+            </View>
             <View style={styles.detailsList}>
+              <View style={styles.invoiceTableHeader}>
+                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Khoản thu</Text>
+                <Text style={styles.tableHeaderText}>Thành tiền</Text>
+              </View>
               {invoice.lineItems && invoice.lineItems.length > 0 ? (
                 invoice.lineItems.map((item, index) => {
                   const unitFallback: Record<string, string> = {
@@ -192,19 +225,17 @@ export default function BillDetailScreen() {
                     invoiceService.getLineItemTypeLabel(item.itemType);
                   return (
                     <View key={index} style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>{label}</Text>
-                      <View style={styles.detailBottom}>
+                      <View style={styles.detailContent}>
+                        <Text style={styles.detailLabel}>{label}</Text>
                         {item.quantity != null && item.unitPrice != null ? (
                           <Text style={styles.detailMeta}>
                             {item.quantity} {displayUnit} × {invoiceService.formatCurrency(item.unitPrice)}
                           </Text>
-                        ) : (
-                          <View />
-                        )}
-                        <Text style={styles.detailValue}>
-                          {invoiceService.formatCurrency(item.subtotal)}
-                        </Text>
+                        ) : null}
                       </View>
+                      <Text style={styles.detailValue}>
+                        {invoiceService.formatCurrency(item.subtotal)}
+                      </Text>
                     </View>
                   );
                 })
@@ -213,13 +244,9 @@ export default function BillDetailScreen() {
               )}
             </View>
 
-            <View style={styles.totalDivider} />
-
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Tổng cộng</Text>
-              <Text style={styles.totalValue}>
-                {invoiceService.formatCurrency(invoice.totalAmount)}
-              </Text>
+              <Text style={styles.totalValue}>{invoiceService.formatCurrency(invoice.totalAmount)}</Text>
             </View>
 
         {/* Inline QR payment panel - shown after initiating payment */}
@@ -262,7 +289,7 @@ export default function BillDetailScreen() {
               <View style={styles.bankInfo}>
                 <View style={styles.bankRow}>
                   <Text style={styles.bankLabel}>Số tiền</Text>
-                  <Text style={[styles.bankValue, { color: '#1A4B84' }]}>
+                  <Text style={[styles.bankValue, { color: palette.primary }]}>
                     {invoiceService.formatCurrency(paymentInfo.amount)}
                   </Text>
                 </View>
@@ -308,14 +335,14 @@ export default function BillDetailScreen() {
                   style={styles.qrActionButton}
                   onPress={async () => { await loadInvoice(); }}
                 >
-                  <Ionicons name="refresh-outline" size={18} color="#374151" />
+                  <Ionicons name="refresh-outline" size={18} color={palette.text} />
                   <Text style={styles.qrActionText}>Kiểm tra</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.qrActionButton}
                   onPress={() => setPaymentInfo(null)}
                 >
-                  <Ionicons name="close-outline" size={18} color="#374151" />
+                  <Ionicons name="close-outline" size={18} color={palette.text} />
                   <Text style={styles.qrActionText}>Đóng</Text>
                 </TouchableOpacity>
               </View>
@@ -326,7 +353,7 @@ export default function BillDetailScreen() {
                   style={styles.openGatewayButton}
                   onPress={() => Linking.openURL(paymentService.getGatewayUrl((paymentInfo.checkoutUrl || paymentInfo.paymentUrl)!))}
                 >
-                  <Ionicons name="open-outline" size={16} color="#1A4B84" />
+                  <Ionicons name="open-outline" size={16} color={palette.primary} />
                   <Text style={styles.openGatewayText}>Mở trang thanh toán</Text>
                 </TouchableOpacity>
               ) : null}
@@ -336,7 +363,7 @@ export default function BillDetailScreen() {
             <View style={styles.actions}>
               {invoice.status === 'Đã thanh toán' ? (
                 <View style={styles.paidBadge}>
-                  <Ionicons name="checkmark-circle" size={24} color="#059669" />
+                  <Ionicons name="checkmark-circle" size={24} color={palette.success} />
                   <Text style={styles.paidBadgeText}>Đã thanh toán</Text>
                 </View>
               ) : !paymentInfo && canPayInvoice ? (
@@ -368,7 +395,7 @@ export default function BillDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -377,63 +404,164 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
+    backgroundColor: palette.surface,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: palette.text,
   },
   content: {
     flex: 1,
-    padding: 24,
   },
-  invoiceTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
+  contentInner: {
+    padding: 20,
+    paddingBottom: 34,
   },
-  roomBadge: {
-    alignSelf: 'flex-start',
+  invoicePaper: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 3,
+  },
+  paperHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 4,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  paperKicker: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: palette.primary,
+    letterSpacing: 0.8,
+  },
+  statusChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: '#E8F0FB',
+    borderRadius: radius.sm,
   },
-  roomBadgeText: {
+  statusChipPaid: {
+    backgroundColor: palette.successSoft,
+  },
+  statusChipPending: {
+    backgroundColor: palette.accentSoft,
+  },
+  statusChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  statusChipTextPaid: {
+    color: palette.success,
+  },
+  statusChipTextPending: {
+    color: palette.accent,
+  },
+  invoiceTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: palette.text,
+    marginTop: 2,
+  },
+  paperInfoGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: palette.borderSoft,
+  },
+  paperInfoCell: {
+    flex: 1,
+  },
+  paperInfoLabel: {
+    fontSize: 10,
+    color: palette.textMuted,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  paperInfoValue: {
+    fontSize: 13,
+    color: palette.text,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  paperTotalPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: palette.borderSoft,
+  },
+  paperTotalLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#1A4B84',
+    color: palette.textMuted,
+    fontWeight: '800',
   },
-  deadline: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 24,
+  paperTotalValue: {
+    fontSize: 18,
+    color: palette.primary,
+    fontWeight: '900',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginBottom: 24,
+  sectionHeader: {
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.text,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: palette.textMuted,
+    marginTop: 3,
   },
   detailsList: {
-    gap: 12,
-    marginBottom: 24,
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  invoiceTableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: palette.surfaceSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.borderSoft,
+  },
+  tableHeaderText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: palette.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   detailRow: {
-    flexDirection: 'column',
-    gap: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: palette.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.borderSoft,
+  },
+  detailContent: {
+    flex: 1,
   },
   detailBottom: {
     flexDirection: 'row',
@@ -442,20 +570,22 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
+    color: palette.text,
+    fontWeight: '700',
     flexShrink: 1,
+    marginBottom: 3,
   },
   detailMeta: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: palette.textMuted,
     flexShrink: 1,
   },
   detailValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: '800',
+    color: palette.primaryDark,
     textAlign: 'right',
+    minWidth: 104,
   },
   totalDivider: {
     height: 1,
@@ -465,33 +595,44 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 32,
+    alignItems: 'center',
+    backgroundColor: palette.primarySoft,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 22,
+    borderWidth: 1,
+    borderColor: '#A7E1FF',
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A4B84',
+    fontSize: 15,
+    fontWeight: '800',
+    color: palette.primaryDark,
   },
   totalValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A4B84',
+    fontSize: 18,
+    fontWeight: '900',
+    color: palette.primary,
   },
   qrSection: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderStyle: 'dashed',
-    borderRadius: 16,
+    borderColor: '#A7E1FF',
+    borderRadius: radius.xl,
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F7FCFF',
     marginBottom: 24,
     gap: 12,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 4,
   },
   qrTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: palette.text,
     textAlign: 'center',
   },
   bankHeader: {
@@ -500,10 +641,10 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: palette.borderSoft,
     width: '100%',
     justifyContent: 'center',
   },
@@ -514,7 +655,7 @@ const styles = StyleSheet.create({
   bankName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   qrCode: {
     marginVertical: 4,
@@ -522,12 +663,12 @@ const styles = StyleSheet.create({
   qrImage: {
     width: 200,
     height: 200,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   qrPlaceholder: {
     marginTop: 8,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: palette.textMuted,
   },
   bankInfo: {
     width: '100%',
@@ -539,7 +680,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   bankValueRow: {
     flexDirection: 'row',
@@ -547,12 +688,12 @@ const styles = StyleSheet.create({
   },
   bankLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   bankValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   actions: {
     flexDirection: 'row',
@@ -561,29 +702,34 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: '#1A4B84',
-    borderRadius: 12,
+    backgroundColor: palette.primary,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
+    shadowColor: palette.primaryDark,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    elevation: 5,
   },
   primaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   secondaryButton: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#1A4B84',
-    borderRadius: 12,
+    borderColor: palette.primary,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
   },
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A4B84',
+    color: palette.primary,
   },
   centerContainer: {
     flex: 1,
@@ -594,12 +740,12 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   errorText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#DC2626',
+    color: palette.danger,
     textAlign: 'center',
     paddingHorizontal: 24,
   },
@@ -607,8 +753,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#1A4B84',
-    borderRadius: 8,
+    backgroundColor: palette.primary,
+    borderRadius: radius.md,
   },
   retryText: {
     color: '#FFFFFF',
@@ -616,7 +762,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   paidStatus: {
-    color: '#059669',
+    color: palette.success,
     fontWeight: '600',
   },
   noItemsText: {
@@ -633,10 +779,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: palette.accentSoft,
     borderWidth: 1,
     borderColor: '#FDE68A',
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -652,14 +798,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#D1FAE5',
-    borderRadius: 12,
+    backgroundColor: palette.successSoft,
+    borderRadius: radius.md,
     paddingVertical: 14,
   },
   paidBadgeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#059669',
+    color: palette.success,
   },
   confirmPayButton: {
     flexDirection: 'row',
@@ -668,8 +814,8 @@ const styles = StyleSheet.create({
     gap: 8,
     width: '100%',
     marginTop: 20,
-    backgroundColor: '#059669',
-    borderRadius: 12,
+    backgroundColor: palette.success,
+    borderRadius: radius.md,
     paddingVertical: 14,
   },
   confirmPayText: {
@@ -685,7 +831,7 @@ const styles = StyleSheet.create({
   },
   cancelPayText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: palette.textMuted,
     fontWeight: '500',
   },
   statusPending: {
@@ -706,15 +852,15 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    backgroundColor: palette.surface,
+    borderRadius: radius.md,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: palette.border,
   },
   qrActionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: palette.text,
   },
   openGatewayButton: {
     flexDirection: 'row',
@@ -724,14 +870,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: '#E8F0FB',
-    borderRadius: 8,
+    backgroundColor: palette.primarySoft,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#1A4B84',
+    borderColor: palette.primary,
   },
   openGatewayText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A4B84',
+    color: palette.primary,
   },
 });

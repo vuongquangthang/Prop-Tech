@@ -18,6 +18,7 @@ import {
   RoomUtilityReading,
   utilityReadingService,
 } from '../../services/utility-reading.service';
+import { palette, radius } from '../../theme/palette';
 
 type RowEdit = {
   elec: string;
@@ -227,7 +228,7 @@ export default function AdminUtilityReadingsScreen() {
                   <Text style={[styles.dropdownItemText, value === option && styles.dropdownItemTextActive]}>
                     {option}
                   </Text>
-                  {value === option && <Ionicons name="checkmark" size={17} color="#1A4B84" />}
+                  {value === option && <Ionicons name="checkmark" size={17} color={palette.primary} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -315,10 +316,10 @@ export default function AdminUtilityReadingsScreen() {
         </View>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving || loading}>
           {saving ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+            <ActivityIndicator size="small" color={palette.surface} />
           ) : (
             <>
-              <Ionicons name="save-outline" size={18} color="#ffffff" />
+              <Ionicons name="save-outline" size={18} color={palette.surface} />
               <Text style={styles.saveButtonText}>Lưu</Text>
             </>
           )}
@@ -351,7 +352,7 @@ export default function AdminUtilityReadingsScreen() {
       </View>
 
       <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={18} color="#64748b" />
+        <Ionicons name="search-outline" size={18} color={palette.textMuted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -370,7 +371,7 @@ export default function AdminUtilityReadingsScreen() {
 
       {loading && rooms.length === 0 ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#1A4B84" />
+          <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.loadingText}>Đang tải danh sách phòng...</Text>
         </View>
       ) : (
@@ -397,7 +398,7 @@ export default function AdminUtilityReadingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   header: {
     paddingHorizontal: 10,
@@ -408,12 +409,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    color: '#0f172a',
-    fontSize: 17,
-    fontWeight: '800',
+    color: palette.text,
+    fontSize: 18,
+    fontWeight: '900',
   },
   subtitle: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 10,
     marginTop: 2,
   },
@@ -421,7 +422,7 @@ const styles = StyleSheet.create({
     minWidth: 62,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -429,33 +430,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: palette.surface,
     fontWeight: '800',
   },
   monthRow: {
     marginHorizontal: 10,
     marginBottom: 5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 12,
     padding: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
   },
   monthButton: {
     width: 28,
     height: 28,
     borderRadius: 9,
-    backgroundColor: '#f8fafc',
+    backgroundColor: palette.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthText: {
     minWidth: 120,
     textAlign: 'center',
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -467,20 +468,20 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 9,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
   },
   statValue: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '900',
   },
   statLabel: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 9,
     fontWeight: '700',
     marginTop: 2,
@@ -490,9 +491,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     height: 36,
     borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -500,7 +501,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 12,
   },
   filterBlock: {
@@ -516,7 +517,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   dropdownLabel: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 9,
     fontWeight: '800',
     marginBottom: 3,
@@ -524,9 +525,9 @@ const styles = StyleSheet.create({
   dropdownButton: {
     height: 36,
     borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -554,7 +555,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F3F4F6',
     overflow: 'hidden',
-    shadowColor: '#0f172a',
+    shadowColor: palette.shadow,
     shadowOpacity: 0.14,
     shadowRadius: 12,
     elevation: 8,
@@ -572,10 +573,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: palette.borderSoft,
   },
   dropdownItemActive: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: palette.primarySoft,
   },
   dropdownItemText: {
     flex: 1,
@@ -584,7 +585,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dropdownItemTextActive: {
-    color: '#1A4B84',
+    color: palette.primary,
   },
   loadingBox: {
     flex: 1,
@@ -592,7 +593,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    color: '#64748b',
+    color: palette.textMuted,
     marginTop: 12,
   },
   listContent: {
@@ -600,13 +601,13 @@ const styles = StyleSheet.create({
     paddingBottom: 84,
   },
   roomCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 14,
     padding: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
+    borderColor: palette.borderSoft,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -622,12 +623,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   roomCode: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '900',
   },
   roomMeta: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 10,
     marginTop: 3,
     lineHeight: 15,
@@ -639,10 +640,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statusDone: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: palette.successSoft,
   },
   statusPending: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#FEF3C7',
   },
   statusText: {
     fontSize: 10,
@@ -665,13 +666,13 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   meterLabel: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   meterOld: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 12,
     fontWeight: '900',
     marginTop: 6,
@@ -681,31 +682,31 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
     paddingHorizontal: 9,
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 12,
     fontWeight: '800',
   },
   inputError: {
-    borderColor: '#ef4444',
-    backgroundColor: '#fff1f2',
+    borderColor: palette.danger,
+    backgroundColor: palette.dangerSoft,
   },
   usageText: {
-    color: '#475569',
+    color: '#334155',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 8,
   },
   errorText: {
-    color: '#dc2626',
+    color: palette.danger,
   },
   warningBox: {
     marginTop: 12,
     borderRadius: 16,
     padding: 10,
-    backgroundColor: '#fffbeb',
+    backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#fde68a',
     flexDirection: 'row',
@@ -723,13 +724,13 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyTitle: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 17,
     fontWeight: '800',
     marginTop: 12,
   },
   emptyText: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 14,
     marginTop: 6,
   },

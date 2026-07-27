@@ -6,9 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 // Map routes to titles
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Bảng điều khiển',
-  '/building-management': 'Quản lý Hạ tầng - Cơ cấu Tòa nhà & Phòng',
-  '/service-pricing': 'Quản lý Hạ tầng - Danh mục Dịch vụ & Đơn giá',
-  '/asset-inventory': 'Quản lý Hạ tầng - Quản lý Kho tài sản',
+  '/building-management': 'Quản lý Hạ tầng',
+  '/service-pricing': 'Quản lý Hạ tầng',
+  '/asset-inventory': 'Quản lý Hạ tầng',
   '/resident-management': 'Cư dân & Hợp đồng - Danh sách Cư dân',
   '/contract-management': 'Cư dân & Hợp đồng - Quản lý Hợp đồng',
   '/settlement': 'Cư dân & Hợp đồng - Tất toán & Thanh lý',

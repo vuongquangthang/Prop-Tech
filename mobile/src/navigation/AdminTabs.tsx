@@ -1,6 +1,8 @@
 import React from 'react';
+import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { palette, radius } from '../theme/palette';
 import AdminHomeScreen from '../screens/admin/AdminHomeScreen';
 import AdminUtilityReadingsScreen from '../screens/admin/AdminUtilityReadingsScreen';
 import AdminAccountScreen from '../screens/admin/AdminAccountScreen';
@@ -43,18 +45,37 @@ export const AdminTabs = () => {
             iconName = 'ellipse-outline';
           }
 
-          return <Ionicons name={iconName} size={18} color={color} />;
+          return (
+            <View
+              style={{
+                width: 36,
+                height: 30,
+                borderRadius: radius.md,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: focused ? palette.primarySoft : 'transparent',
+              }}
+            >
+              <Ionicons name={iconName} size={18} color={color} />
+            </View>
+          );
         },
-        tabBarActiveTintColor: '#1A4B84',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: palette.primary,
+        tabBarInactiveTintColor: palette.textMuted,
         tabBarStyle: {
           height: 84,
           paddingBottom: 28,
           paddingTop: 8,
+          backgroundColor: palette.surface,
+          borderTopColor: palette.borderSoft,
+          shadowColor: palette.shadow,
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600',
+          fontWeight: '800',
         },
       })}
     >

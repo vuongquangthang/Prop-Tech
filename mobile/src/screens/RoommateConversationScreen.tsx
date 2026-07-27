@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { postMessageService } from '../services/post-message.service';
 import { PostConversationDetailDto, PostMessageDto } from '../types/dto';
+import { palette, radius } from '../theme/palette';
 
 const formatTime = (value: string) => {
   const date = new Date(value);
@@ -126,7 +127,7 @@ export default function RoommateConversationScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={24} color="#374151" />
+            <Ionicons name="chevron-back" size={24} color={palette.text} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle} numberOfLines={1}>
@@ -140,7 +141,7 @@ export default function RoommateConversationScreen() {
 
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#1A4B84" />
+            <ActivityIndicator size="large" color={palette.primary} />
           </View>
         ) : error && !detail ? (
           <View style={styles.errorWrap}>
@@ -181,7 +182,7 @@ export default function RoommateConversationScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Nhập tin nhắn..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={palette.textMuted}
                 value={content}
                 onChangeText={(text) => {
                   if (error) setError(null);
@@ -208,7 +209,7 @@ export default function RoommateConversationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -216,9 +217,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: palette.borderSoft,
   },
   backButton: {
     width: 36,
@@ -231,13 +232,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: palette.text,
   },
   headerSubtitle: {
     marginTop: 2,
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   centered: {
     flex: 1,
@@ -247,20 +248,20 @@ const styles = StyleSheet.create({
   errorWrap: {
     margin: 16,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: palette.dangerSoft,
     gap: 10,
   },
   errorText: {
     fontSize: 14,
-    color: '#B91C1C',
+    color: palette.danger,
   },
   retryButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1A4B84',
-    borderRadius: 8,
+    backgroundColor: palette.primary,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -273,13 +274,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#FEF2F2',
+    borderRadius: radius.sm,
+    backgroundColor: palette.dangerSoft,
     borderWidth: 1,
     borderColor: '#FECACA',
   },
   inlineErrorText: {
-    color: '#B91C1C',
+    color: palette.danger,
     fontSize: 13,
   },
   messageList: {
@@ -291,25 +292,25 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '82%',
-    borderRadius: 16,
+    borderRadius: radius.lg,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   myBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     borderBottomRightRadius: 6,
   },
   otherBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: palette.borderSoft,
     borderBottomLeftRadius: 6,
   },
   messageText: {
     fontSize: 14,
-    color: '#111827',
+    color: palette.text,
     lineHeight: 20,
   },
   myMessageText: {
@@ -318,11 +319,11 @@ const styles = StyleSheet.create({
   messageTime: {
     marginTop: 4,
     fontSize: 11,
-    color: '#6B7280',
+    color: palette.textMuted,
     textAlign: 'right',
   },
   myMessageTime: {
-    color: '#DBEAFE',
+    color: palette.primarySoft,
   },
   composer: {
     flexDirection: 'row',
@@ -331,22 +332,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: palette.borderSoft,
   },
   input: {
     flex: 1,
     minHeight: 44,
     maxHeight: 120,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceAlt,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
+    color: palette.text,
   },
   sendButton: {
     width: 44,
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
   },
   sendButtonDisabled: {
     opacity: 0.6,

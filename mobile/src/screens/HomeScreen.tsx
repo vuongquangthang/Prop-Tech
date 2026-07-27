@@ -18,6 +18,7 @@ import invoiceService, { Invoice } from '../services/invoice.service';
 import maintenanceService, { MaintenanceRequest } from '../services/maintenance.service';
 import { roomService, MyRoom } from '../services/room.service';
 import notificationService from '../services/notification.service';
+import { palette, radius } from '../theme/palette';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -132,6 +133,13 @@ export default function HomeScreen() {
     setIsRefreshing(false);
   };
 
+  const accountDisplayName =
+    user?.displayName ||
+    user?.fullName ||
+    user?.residentName ||
+    user?.phoneNumber ||
+    'Cư dân';
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -182,7 +190,10 @@ export default function HomeScreen() {
         {/* Main Content */}
         <View style={styles.contentContainer}>
           <Text style={styles.greeting}>
-            Chào {myRoom?.householdHeadName || user?.residentName || user?.phoneNumber || 'Cư dân'}
+            Chào {accountDisplayName}
+          </Text>
+          <Text style={styles.greetingSub}>
+            Quản lý phòng, hóa đơn và sự cố của bạn trong một không gian duy nhất.
           </Text>
 
           {/* Latest Notification Card */}
@@ -201,7 +212,7 @@ export default function HomeScreen() {
                       'notifications-outline'
                     }
                     size={20}
-                    color={'#1A4B84'}
+                    color={palette.primary}
                   />
                 </View>
                 <View style={styles.notifCardInfo}>
@@ -266,6 +277,7 @@ export default function HomeScreen() {
               // @ts-ignore - Navigation typing issue
               onPress={() => navigation.navigate('BillDetail' as never, { id: currentInvoice.id })}
             >
+              <View style={styles.billGlow} />
               <Text style={styles.billLabel}>HÓA ĐƠN HIỆN TẠI</Text>
               <Text style={styles.billMonth}>
                 {invoiceService.formatPeriod(currentInvoice.month, currentInvoice.year)}
@@ -294,7 +306,8 @@ export default function HomeScreen() {
                   navigation.navigate('BillDetail' as never, { id: currentInvoice.id });
                 }}
               >
-                <Text style={styles.payButtonText}>Thanh toán ngay {'>'}</Text>
+                <Text style={styles.payButtonText}>Thanh toán ngay</Text>
+                <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
               </TouchableOpacity>
 
               <View style={styles.billDividerThin} />
@@ -313,6 +326,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : (
             <View style={styles.billCard}>
+              <View style={styles.billGlow} />
               <Text style={styles.billLabel}>HÓA ĐƠN HIỆN TẠI</Text>
               <Text style={styles.noBillText}>Bạn chưa có hóa đơn nào cần thanh toán</Text>
               <TouchableOpacity
@@ -333,20 +347,22 @@ export default function HomeScreen() {
               style={styles.utilityCard}
               onPress={() => navigation.navigate('ReportIssue' as never)}
             >
-              <View style={styles.utilityIcon}>
-                <Ionicons name="construct" size={24} color="#1A4B84" />
+              <View style={[styles.utilityIcon, styles.utilityIconBlue]}>
+                <Ionicons name="construct" size={23} color={palette.primary} />
               </View>
               <Text style={styles.utilityText}>Báo cáo sự cố</Text>
+              <Text style={styles.utilityHint}>Gửi yêu cầu mới</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.utilityCard}
               onPress={() => navigation.navigate('Issues' as never)}
             >
-              <View style={styles.utilityIcon}>
-                <Ionicons name="list" size={24} color="#1A4B84" />
+              <View style={[styles.utilityIcon, styles.utilityIconGreen]}>
+                <Ionicons name="list" size={23} color={palette.secondary} />
               </View>
               <Text style={styles.utilityText}>Danh sách sự cố</Text>
+              <Text style={styles.utilityHint}>Theo dõi tiến độ</Text>
             </TouchableOpacity>
           </View>
 
@@ -354,10 +370,13 @@ export default function HomeScreen() {
             style={[styles.utilityCard, styles.utilityCardFull]}
             onPress={() => navigation.navigate('RoommatePost' as never)}
           >
-            <View style={styles.utilityIcon}>
-              <Ionicons name="people" size={24} color="#1A4B84" />
+            <View style={[styles.utilityIcon, styles.utilityIconWarm]}>
+              <Ionicons name="people" size={23} color={palette.accent} />
             </View>
-            <Text style={styles.utilityText}>Tìm bạn ở ghép</Text>
+            <View>
+              <Text style={styles.utilityText}>Tìm bạn ở ghép</Text>
+              <Text style={styles.utilityHint}>Đăng bài và trao đổi trực tiếp</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -376,13 +395,13 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   scrollView: {
     flex: 1,
   },
   heroContainer: {
-    height: 240,
+    height: 255,
     width: '100%',
     position: 'relative',
   },
@@ -396,7 +415,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'rgba(6, 25, 48, 0.52)',
   },
   buildingSelector: {
     position: 'absolute',
@@ -405,24 +424,24 @@ const styles = StyleSheet.create({
     right: 80,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderRadius: 25,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderRadius: radius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.55)',
     gap: 8,
   },
   buildingLabel: {
     fontSize: 12,
-    color: '#1A4B84',
+    color: palette.textMuted,
     fontWeight: '500',
   },
   buildingIcon: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -432,7 +451,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   buildingName: {
-    color: '#1A4B84',
+    color: palette.primaryDark,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -442,7 +461,7 @@ const styles = StyleSheet.create({
     right: 24,
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: radius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
@@ -453,7 +472,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
-    backgroundColor: '#DC2626',
+    backgroundColor: palette.danger,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -469,33 +488,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   contentContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    backgroundColor: palette.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     marginTop: -64,
-    paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingTop: 22,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
     minHeight: 500,
   },
   greeting: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 24,
+    fontWeight: '800',
+    color: palette.text,
+    marginBottom: 5,
+  },
+  greetingSub: {
+    fontSize: 13,
+    color: palette.textMuted,
+    lineHeight: 19,
     marginBottom: 16,
-  },  /* Notification card replacing roomCard */
+  },
+  /* Notification card replacing roomCard */
   notifCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: palette.borderSoft,
   },
   notifCardHeader: {
     flexDirection: 'row',
@@ -507,12 +533,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: palette.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   notifCardIconUnread: {
-    backgroundColor: '#E8F0FB',
+    backgroundColor: palette.primarySoft,
   },
   notifCardInfo: {
     flex: 1,
@@ -520,18 +546,18 @@ const styles = StyleSheet.create({
   notifCardLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: palette.textMuted,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   notifCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   notifCardBody: {
     fontSize: 13,
-    color: '#6B7280',
+    color: palette.textMuted,
     lineHeight: 19,
     marginBottom: 10,
   },
@@ -542,22 +568,22 @@ const styles = StyleSheet.create({
   },
   notifCardTime: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: palette.textMuted,
   },
   notifCardMore: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1A4B84',
+    color: palette.primary,
   },
   notifUnreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
   },
   notifCardEmpty: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: palette.textMuted,
     flex: 1,
   },
   roomCard: {},
@@ -571,10 +597,10 @@ const styles = StyleSheet.create({
   roomCardDetailText: {},  warningBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: palette.dangerSoft,
     borderWidth: 1,
     borderColor: '#FEE2E2',
-    borderRadius: 12,
+    borderRadius: radius.md,
     padding: 12,
     marginBottom: 24,
   },
@@ -585,16 +611,16 @@ const styles = StyleSheet.create({
   warningTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: palette.text,
     marginBottom: 2,
   },
   warningSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   warningBannerYellow: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FEF3C7',
+    backgroundColor: palette.accentSoft,
+    borderColor: '#FFE5A3',
   },
   warningTitleYellow: {
     color: '#92400E',
@@ -603,39 +629,50 @@ const styles = StyleSheet.create({
     color: '#78350F',
   },
   billCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    position: 'relative',
+    backgroundColor: palette.surface,
+    borderRadius: radius.xl,
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#DCEAF5',
+    shadowColor: palette.shadowStrong,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
+    elevation: 7,
+    overflow: 'hidden',
+  },
+  billGlow: {
+    position: 'absolute',
+    top: -70,
+    right: -70,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: palette.primarySoft,
   },
   billLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: palette.primary,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   billMonth: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
     marginBottom: 14,
   },
   billDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: palette.border,
     marginBottom: 14,
   },
   billDividerThin: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: palette.borderSoft,
     marginBottom: 12,
   },
   billAmountRow: {
@@ -646,31 +683,39 @@ const styles = StyleSheet.create({
   },
   billTotalLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   billDeadline: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
     marginBottom: 18,
   },
   billAmount: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1A4B84',
+    color: palette.primary,
   },
   noBillText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: palette.textMuted,
     textAlign: 'center',
     paddingVertical: 20,
     marginBottom: 12,
   },
   payButton: {
-    backgroundColor: '#1A4B84',
-    borderRadius: 14,
+    flexDirection: 'row',
+    backgroundColor: palette.primary,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     marginBottom: 14,
+    shadowColor: palette.primaryDark,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    elevation: 5,
   },
   payButtonText: {
     color: '#FFFFFF',
@@ -689,49 +734,59 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: palette.textMuted,
     marginLeft: 8,
   },
   sectionLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: '700',
+    color: palette.textMuted,
     letterSpacing: 0.5,
     marginBottom: 12,
   },
   utilitiesGrid: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   utilityCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    borderRadius: 16,
+    borderColor: palette.borderSoft,
+    borderRadius: radius.lg,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 4,
   },
   utilityCardFull: {
     marginTop: 12,
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
   },
   utilityIcon: {
     position: 'relative',
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E8F0FB',
+    backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+  },
+  utilityIconBlue: {
+    backgroundColor: palette.primarySoft,
+  },
+  utilityIconGreen: {
+    backgroundColor: palette.secondarySoft,
+  },
+  utilityIconWarm: {
+    backgroundColor: palette.accentSoft,
   },
   utilityBadge: {
     position: 'absolute',
@@ -752,9 +807,15 @@ const styles = StyleSheet.create({
   },
   utilityText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: palette.text,
     textAlign: 'center',
+  },
+  utilityHint: {
+    fontSize: 11,
+    color: palette.textMuted,
+    textAlign: 'center',
+    marginTop: 4,
   },
   floatingChatButton: {
     position: 'absolute',
@@ -763,10 +824,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: palette.primaryDark,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
@@ -40,20 +41,33 @@ export const MainTabs = () => {
             iconName = 'ellipse-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <View
+              style={{
+                width: focused ? 44 : 36,
+                height: 34,
+                borderRadius: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: focused ? palette.primarySoft : 'transparent',
+              }}
+            >
+              <Ionicons name={iconName} size={focused ? 22 : size} color={color} />
+            </View>
+          );
         },
         tabBarActiveTintColor: palette.primary,
         tabBarInactiveTintColor: '#94A3B8',
         tabBarStyle: {
-          height: 84,
+          height: 86,
           paddingBottom: 28,
-          paddingTop: 8,
+          paddingTop: 9,
           backgroundColor: palette.surface,
-          borderTopColor: palette.border,
+          borderTopColor: 'rgba(226, 232, 240, 0.85)',
           borderTopWidth: 1,
-          shadowColor: palette.shadow,
+          shadowColor: palette.shadowStrong,
           shadowOpacity: 1,
-          shadowRadius: 18,
+          shadowRadius: 24,
           shadowOffset: { width: 0, height: -6 },
           elevation: 18,
         },

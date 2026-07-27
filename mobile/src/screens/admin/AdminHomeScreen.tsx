@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { getRoleLabel } from '../../utils/roleUtils';
+import { palette, radius } from '../../theme/palette';
 
 type Props = {
   navigation: {
@@ -23,32 +24,32 @@ const quickActions = [
     subtitle: 'Tính nháp, duyệt gửi',
     icon: 'receipt-outline',
     screen: 'AdminInvoices',
-    accent: '#0f766e',
-    background: '#ecfdf5',
+    accent: palette.secondary,
+    background: palette.secondarySoft,
   },
   {
     title: 'Sự cố',
     subtitle: 'Xử lý, nghiệm thu',
     icon: 'construct-outline',
     screen: 'AdminMaintenance',
-    accent: '#b45309',
-    background: '#fffbeb',
+    accent: palette.warning,
+    background: '#FEF3C7',
   },
   {
     title: 'Bài đăng',
     subtitle: 'Tạo, khóa/mở bài',
     icon: 'megaphone-outline',
     screen: 'AdminPosts',
-    accent: '#7c3aed',
-    background: '#f5f3ff',
+    accent: palette.accent,
+    background: palette.accentSoft,
   },
   {
     title: 'Tài khoản',
     subtitle: 'Thông tin quản lý',
     icon: 'person-outline',
     screen: 'AdminProfile',
-    accent: '#2563eb',
-    background: '#eff6ff',
+    accent: palette.primary,
+    background: palette.primarySoft,
   },
 ] as const;
 
@@ -75,7 +76,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
         >
           <View style={styles.primaryTopRow}>
             <View style={styles.primaryIcon}>
-              <Ionicons name="speedometer-outline" size={20} color="#ffffff" />
+              <Ionicons name="speedometer-outline" size={20} color={palette.surface} />
             </View>
             <View style={styles.primaryBadge}>
               <Text style={styles.primaryBadgeText}>Ưu tiên</Text>
@@ -87,7 +88,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
           </View>
           <View style={styles.primaryFooter}>
             <Text style={styles.primaryActionText}>Mở danh sách phòng</Text>
-            <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+            <Ionicons name="arrow-forward" size={16} color={palette.surface} />
           </View>
         </TouchableOpacity>
 
@@ -118,7 +119,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.noticeCard}>
-          <Ionicons name="information-circle-outline" size={17} color="#1A4B84" />
+          <Ionicons name="information-circle-outline" size={17} color={palette.primary} />
           <Text style={styles.noticeText}>
             App chỉ giữ các tác vụ hiện trường. Các cấu hình chi tiết vẫn xử lý trên web quản lý.
           </Text>
@@ -131,10 +132,10 @@ export default function AdminHomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.background,
   },
   container: {
-    padding: 12,
+    padding: 16,
     paddingBottom: 86,
   },
   header: {
@@ -145,26 +146,26 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   eyebrow: {
-    color: '#1A4B84',
+    color: palette.primary,
     fontSize: 10,
     fontWeight: '800',
     marginBottom: 3,
   },
   title: {
-    color: '#0f172a',
-    fontSize: 18,
+    color: palette.text,
+    fontSize: 22,
     fontWeight: '900',
   },
   subtitle: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 11,
     marginTop: 2,
   },
   primaryCard: {
-    borderRadius: 18,
-    backgroundColor: '#1A4B84',
+    borderRadius: radius.xl,
+    backgroundColor: palette.primary,
     padding: 14,
-    shadowColor: '#1A4B84',
+    shadowColor: palette.primary,
     shadowOpacity: 0.18,
     shadowRadius: 14,
     elevation: 5,
@@ -178,20 +179,20 @@ const styles = StyleSheet.create({
   primaryIcon: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: radius.md,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryBadge: {
     height: 24,
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingHorizontal: 9,
     backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
   },
   primaryBadgeText: {
-    color: '#ffffff',
+    color: palette.surface,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -199,19 +200,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   primaryTitle: {
-    color: '#ffffff',
+    color: palette.surface,
     fontSize: 18,
     fontWeight: '900',
   },
   primaryText: {
-    color: '#dbeafe',
+    color: '#DDF4FF',
     fontSize: 12,
     lineHeight: 17,
     marginTop: 4,
   },
   primaryFooter: {
     height: 32,
-    borderRadius: 11,
+    borderRadius: radius.md,
     paddingHorizontal: 10,
     backgroundColor: 'rgba(255,255,255,0.14)',
     flexDirection: 'row',
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   primaryActionText: {
-    color: '#ffffff',
+    color: palette.surface,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -231,12 +232,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '900',
   },
   sectionMeta: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -247,12 +248,12 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     width: '48.8%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
+    borderColor: palette.borderSoft,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -261,35 +262,35 @@ const styles = StyleSheet.create({
   actionIcon: {
     width: 31,
     height: 31,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 9,
   },
   actionTitle: {
-    color: '#0f172a',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '900',
   },
   actionSubtitle: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontSize: 10,
     lineHeight: 14,
     marginTop: 3,
   },
   noticeCard: {
     marginTop: 10,
-    borderRadius: 13,
+    borderRadius: radius.lg,
     padding: 10,
-    backgroundColor: '#eff6ff',
+    backgroundColor: palette.primarySoft,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: '#BAE6FD',
     flexDirection: 'row',
     gap: 7,
   },
   noticeText: {
     flex: 1,
-    color: '#1e3a8a',
+    color: palette.primaryDark,
     fontSize: 10,
     lineHeight: 14,
     fontWeight: '600',

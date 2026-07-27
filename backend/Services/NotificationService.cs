@@ -18,7 +18,7 @@ public interface INotificationService
     Task BroadcastAsync(int senderUserId, string title, string content, string type);
     Task<List<NotificationResponseDto>> GetAllRecentAsync(int ownerUserId, int limit = 200);
     /// <summary>Tạo thông báo DB + push SignalR cho cư dân cụ thể</summary>
-    Task SendToUserAsync(int recipientUserId, string title, string content, string type);
+    Task SendToUserAsync(int recipientUserId, string title, string content, string type, int? relatedId = null, string? linkUrl = null);
     /// <summary>Tạo thông báo DB chỉ hiển thị trên trang quản lý (ScopeType=ADMIN)</summary>
     Task CreateAdminNotificationAsync(string title, string content, string type, int ownerUserId);
     /// <summary>Thông báo admin xóa bài: gửi cho cư dân đăng bài (USER) + chủ nhà/BQL quản lý (ADMIN scope)</summary>
@@ -135,7 +135,7 @@ public class NotificationService : INotificationService
         return items.Select(MapToDto).ToList();
     }
 
-    public async Task SendToUserAsync(int recipientUserId, string title, string content, string type)
+    public async Task SendToUserAsync(int recipientUserId, string title, string content, string type, int? relatedId = null, string? linkUrl = null)
     {
         var ownerUserId = await ResolveOwnerUserIdForUserAsync(recipientUserId);
 
@@ -147,6 +147,8 @@ public class NotificationService : INotificationService
             NotificationType = type,
             Title = title,
             Content = content,
+            RelatedId = relatedId,
+            LinkUrl = linkUrl,
             Priority = "NORMAL",
             IsRead = false,
             SentAt = DateTime.UtcNow,

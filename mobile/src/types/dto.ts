@@ -7,10 +7,15 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   accessToken: string;
+  AccessToken?: string;
   refreshToken: string;
+  RefreshToken?: string;
   tokenType: string;
+  TokenType?: string;
   expiresIn: number;
+  ExpiresIn?: number;
   user: UserDto;
+  User?: UserDto;
 }
 
 export interface RefreshTokenRequest {
@@ -27,7 +32,9 @@ export interface UserDto {
   role: string;
   residentId?: number;
   mustChangePassword?: boolean;
+  MustChangePassword?: boolean;
   isLocked?: boolean;
+  IsLocked?: boolean;
   email?: string;
   address?: string;
   avatarUrl?: string;

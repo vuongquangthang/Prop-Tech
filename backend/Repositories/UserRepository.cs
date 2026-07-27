@@ -10,27 +10,41 @@ public class UserRepository : Repository<User>, IUserRepository
     {
     }
 
+    private static string NormalizePhone(string value)
+    {
+        return value.Trim()
+            .Replace(" ", string.Empty)
+            .Replace("-", string.Empty)
+            .Replace(".", string.Empty);
+    }
+
     public async Task<User?> GetByPhoneAsync(string phone)
     {
+        var normalizedPhone = NormalizePhone(phone);
         return await _dbSet
             .Include(u => u.Resident)
-            .FirstOrDefaultAsync(u => u.PhoneNumber == phone);
+            .FirstOrDefaultAsync(u => u.PhoneNumber != null
+                && u.PhoneNumber.Replace(" ", string.Empty).Replace("-", string.Empty).Replace(".", string.Empty) == normalizedPhone);
     }
 
     public async Task<User?> GetByPhoneNumberAsync(string phoneNumber)
     {
+        var normalizedPhone = NormalizePhone(phoneNumber);
         return await _dbSet
             .Include(u => u.Resident)
-            .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber);
+            .FirstOrDefaultAsync(u => u.PhoneNumber != null
+                && u.PhoneNumber.Replace(" ", string.Empty).Replace("-", string.Empty).Replace(".", string.Empty) == normalizedPhone);
     }
 
     public async Task<User?> GetByPhoneOrEmailAsync(string identity)
     {
         var normalized = identity.Trim().ToLower();
+        var normalizedPhone = NormalizePhone(identity);
         return await _dbSet
             .Include(u => u.Resident)
             .FirstOrDefaultAsync(u =>
-                u.PhoneNumber == normalized ||
+                (u.PhoneNumber != null
+                    && u.PhoneNumber.Replace(" ", string.Empty).Replace("-", string.Empty).Replace(".", string.Empty) == normalizedPhone) ||
                 (u.Email != null && u.Email.ToLower() == normalized));
     }
 
@@ -50,7 +64,9 @@ public class UserRepository : Repository<User>, IUserRepository
 
     public async Task<bool> ExistsByPhoneAsync(string phone)
     {
-        return await _dbSet.AnyAsync(u => u.PhoneNumber == phone);
+        var normalizedPhone = NormalizePhone(phone);
+        return await _dbSet.AnyAsync(u => u.PhoneNumber != null
+            && u.PhoneNumber.Replace(" ", string.Empty).Replace("-", string.Empty).Replace(".", string.Empty) == normalizedPhone);
     }
 
     public override async Task<IEnumerable<User>> GetAllAsync()
@@ -70,8 +86,11 @@ public class UserRepository : Repository<User>, IUserRepository
 
     public async Task<User?> AuthenticateAsync(string phone)
     {
+        var normalizedPhone = NormalizePhone(phone);
         return await _dbSet
             .Include(u => u.Resident)
-            .FirstOrDefaultAsync(u => u.PhoneNumber == phone && !u.IsLocked);
+            .FirstOrDefaultAsync(u => u.PhoneNumber != null
+                && u.PhoneNumber.Replace(" ", string.Empty).Replace("-", string.Empty).Replace(".", string.Empty) == normalizedPhone
+                && !u.IsLocked);
     }
 }

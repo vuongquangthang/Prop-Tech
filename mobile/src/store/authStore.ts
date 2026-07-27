@@ -3,6 +3,38 @@ import { apiService } from '../services/api.service';
 import { LoginRequest, LoginResponse, UserDto } from '../types/dto';
 import { secureStorage } from '../utils/secureStorage';
 
+const normalizeUser = (rawUser: any): UserDto => {
+  if (!rawUser) {
+    throw new Error('Thiếu thông tin người dùng sau khi đăng nhập.');
+  }
+
+  return {
+    ...rawUser,
+    id: rawUser.id ?? rawUser.Id,
+    phoneNumber: rawUser.phoneNumber ?? rawUser.PhoneNumber,
+    role: rawUser.role ?? rawUser.Role,
+    residentId: rawUser.residentId ?? rawUser.ResidentId,
+    ownerUserId: rawUser.ownerUserId ?? rawUser.OwnerUserId,
+    fullName: rawUser.fullName ?? rawUser.FullName,
+    displayName: rawUser.displayName ?? rawUser.DisplayName,
+    residentName: rawUser.residentName ?? rawUser.ResidentName,
+    mustChangePassword: rawUser.mustChangePassword ?? rawUser.MustChangePassword ?? false,
+    isLocked: rawUser.isLocked ?? rawUser.IsLocked ?? false,
+    email: rawUser.email ?? rawUser.Email,
+    address: rawUser.address ?? rawUser.Address,
+    avatarUrl: rawUser.avatarUrl ?? rawUser.AvatarUrl,
+  };
+};
+
+const normalizeLoginResponse = (response: any): LoginResponse => ({
+  ...response,
+  accessToken: response.accessToken ?? response.AccessToken,
+  refreshToken: response.refreshToken ?? response.RefreshToken,
+  tokenType: response.tokenType ?? response.TokenType ?? 'Bearer',
+  expiresIn: response.expiresIn ?? response.ExpiresIn ?? 3600,
+  user: normalizeUser(response.user ?? response.User),
+});
+
 interface AuthState {
   user: UserDto | null;
   isAuthenticated: boolean;
@@ -11,7 +43,7 @@ interface AuthState {
   activeContractId: number | null;
   
   // Actions
-  login: (phoneNumber: string, password: string) => Promise<void>;
+  login: (phoneNumber: string, password: string) => Promise<UserDto>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   setActiveContract: (contractId: number | null) => Promise<void>;
@@ -34,24 +66,28 @@ export const useAuthStore = create<AuthState>((set) => ({
         password,
       };
 
-      const response = await apiService.post<LoginResponse>(
+      const rawResponse = await apiService.post<LoginResponse>(
         '/api/auth/login',
         loginRequest
       );
+      const response = normalizeLoginResponse(rawResponse);
 
       // Save tokens
       await apiService.saveTokens(response.accessToken, response.refreshToken);
       
       // Save user
       await apiService.saveUser(response.user);
+      await secureStorage.deleteItemAsync('active_contract_id');
 
       set({
         user: response.user,
         isAuthenticated: true,
         isLoading: false,
         error: null,
-        // default activeContractId stays null until user picks
+        activeContractId: null,
       });
+
+      return response.user;
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 
                           error.message || 
@@ -65,6 +101,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       
       throw error;
+    } finally {
+      const state = useAuthStore.getState();
+      if (!state.isAuthenticated && state.isLoading) {
+        set({ isLoading: false });
+      }
     }
   },
 
@@ -106,7 +147,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (accessToken && user) {
         let currentUser = user;
         try {
-          currentUser = await apiService.get<UserDto>('/api/auth/me');
+          currentUser = normalizeUser(await apiService.get<UserDto>('/api/auth/me'));
           await apiService.saveUser(currentUser);
         } catch (error) {
           console.warn('Could not refresh current user, using cached user', error);

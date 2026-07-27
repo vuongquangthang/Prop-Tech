@@ -35,15 +35,22 @@ class ContractService {
   }
 
   /**
-   * Lấy danh sách hợp đồng đang hoạt động gắn với cư dân hiện tại
+   * Lấy danh sách hợp đồng còn hiệu lực gắn với cư dân hiện tại
    */
   async getMyContracts(): Promise<ContractDetail[]> {
-    // Fetch active contracts from server then filter by current residentId
-    const allActive = await apiService.get<ContractDetail[]>('/api/HopDong/active');
     const state = useAuthStore.getState();
     const residentId = state.user?.residentId;
     if (!residentId) return [];
-    return allActive.filter((c) => (c as any).residents?.some((r: any) => r.residentId === residentId));
+
+    try {
+      return await apiService.get<ContractDetail[]>('/api/HopDong/my');
+    } catch (error) {
+      // Backward compatibility for backend versions before /api/HopDong/my.
+      const allActive = await apiService.get<ContractDetail[]>('/api/HopDong/active');
+      return allActive.filter((contract) =>
+        contract.residents?.some((resident) => resident.residentId === residentId)
+      );
+    }
   }
 }
 

@@ -19,7 +19,7 @@ import { roomService, MyRoom, ServiceInfo, ElectricityTier, RoomDetail } from '.
 import { contractService, ContractDetail } from '../services/contract.service';
 import { useAuthStore } from '../store/authStore';
 import { resolveImageUrl } from '../utils/image';
-import { palette } from '../theme/palette';
+import { palette, radius } from '../theme/palette';
 
 export default function RoomDetailScreen() {
   const navigation = useNavigation();
@@ -37,6 +37,20 @@ export default function RoomDetailScreen() {
   const displayRoomImages = (roomDetail?.imageUrls ?? [])
     .map((url) => resolveImageUrl(url))
     .filter((url) => Boolean(url) && !failedImages.has(url));
+  const normalizeDisplayName = (value?: string | null) =>
+    (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const assetNameSet = new Set(
+    (roomDetail?.assets ?? [])
+      .map((asset) => normalizeDisplayName(asset.assetName))
+      .filter(Boolean),
+  );
+  const displayAmenities = (roomDetail?.amenities?.length ? roomDetail.amenities : room?.amenities || [])
+    .map((amenity) => amenity?.trim())
+    .filter((amenity): amenity is string => Boolean(amenity))
+    .filter((amenity, index, source) =>
+      source.findIndex((item) => normalizeDisplayName(item) === normalizeDisplayName(amenity)) === index,
+    )
+    .filter((amenity) => !assetNameSet.has(normalizeDisplayName(amenity)));
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
 
@@ -106,7 +120,7 @@ export default function RoomDetailScreen() {
   };
 
   const getContractStatus = (): { status: string; label: string; color: string } => {
-    if (!contractDetail) return { status: 'unknown', label: 'Không xác định', color: '#6B7280' };
+    if (!contractDetail) return { status: 'unknown', label: 'Không xác định', color: palette.textMuted };
     
     const today = new Date();
     const startDate = new Date(contractDetail.startDate);
@@ -116,28 +130,28 @@ export default function RoomDetailScreen() {
 
     if (endDate && today > endDate) {
       const daysOver = Math.floor((today.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
-      return { status: 'expired', label: `Quá hạn ${daysOver} ngày`, color: '#DC2626' };
+      return { status: 'expired', label: `Quá hạn ${daysOver} ngày`, color: palette.danger };
     }
 
     if (endDate) {
       const daysLeft = Math.floor((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       if (daysLeft <= 0) {
-        return { status: 'expired', label: `Quá hạn ${Math.abs(daysLeft)} ngày`, color: '#DC2626' };
+        return { status: 'expired', label: `Quá hạn ${Math.abs(daysLeft)} ngày`, color: palette.danger };
       } else if (daysLeft <= 7) {
-        return { status: 'danger', label: `Còn ${daysLeft} ngày`, color: '#EAB308' };
+        return { status: 'danger', label: `Còn ${daysLeft} ngày`, color: palette.warning };
       } else if (daysLeft <= 30) {
-        return { status: 'warning', label: `Còn ${daysLeft} ngày`, color: '#F97316' };
+        return { status: 'warning', label: `Còn ${daysLeft} ngày`, color: palette.accent };
       }
     }
 
     if (today < startDate) {
-      return { status: 'upcoming', label: 'Sắp bắt đầu', color: '#3B82F6' };
+      return { status: 'upcoming', label: 'Sắp bắt đầu', color: palette.primary };
     }
 
-    return { status: 'active', label: 'Đang hoạt động', color: '#22C55E' };
+    return { status: 'active', label: 'Đang hoạt động', color: palette.success };
   };
 
-  const parseBillingFormula = (): Array<{ name: string; unitPrice: number; quantity: string }> => {
+  const parseBillingFormula = (): Array<{ name: string; itemType: string; quantity: string }> => {
     if (!contractDetail) return [];
     
     try {
@@ -154,13 +168,21 @@ export default function RoomDetailScreen() {
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
         .map((item: any) => ({
           name: item.serviceName || item.itemType || 'Dịch vụ',
-          unitPrice: item.unitPrice || 0,
+          itemType: item.itemType || '',
           quantity: item.quantityExpression === 'n' || !item.quantity ? 'n' : String(item.quantity),
         }));
     } catch (error) {
       console.error('Error parsing billing formula:', error);
       return [];
     }
+  };
+
+  const getContractFormulaDisplayName = (item: { name: string; itemType: string }) => {
+    const itemType = item.itemType.toLowerCase();
+    if (itemType === 'dien') return 'Tiền điện';
+    if (itemType === 'nuoc') return 'Tiền nước';
+    if (itemType === 'tienphong') return 'Tiền phòng';
+    return item.name;
   };
 
   const renderContractDetailContent = () => {
@@ -254,16 +276,12 @@ export default function RoomDetailScreen() {
           <View style={styles.contractSectionBlock}>
             <Text style={styles.contractSectionTitle}>III. Công thức tính hóa đơn hàng tháng</Text>
             {formulaItems.map((item, index) => {
-              const formulaText =
-                item.quantity === 'n'
-                  ? `${formatCurrency(item.unitPrice)} × n`
-                  : `${formatCurrency(item.unitPrice)} × ${item.quantity} = ${formatCurrency(
-                      item.unitPrice * parseInt(item.quantity, 10)
-                    )}`;
+              const formulaName = getContractFormulaDisplayName(item);
+              const formulaText = `${formulaName} × ${item.quantity}`;
 
               return (
                 <View key={index} style={styles.contractClauseRow}>
-                  <Text style={styles.contractClauseLabel}>{item.name}</Text>
+                  <Text style={styles.contractClauseLabel}>{formulaName}</Text>
                   <Text style={styles.contractClauseValue}>{formulaText}</Text>
                 </View>
               );
@@ -324,7 +342,7 @@ export default function RoomDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+            <Ionicons name="arrow-back" size={24} color={palette.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Thông tin phòng</Text>
           <View style={{ width: 24 }} />
@@ -341,7 +359,7 @@ export default function RoomDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+            <Ionicons name="arrow-back" size={24} color={palette.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Thông tin phòng</Text>
           <View style={{ width: 24 }} />
@@ -361,7 +379,7 @@ export default function RoomDetailScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          <Ionicons name="arrow-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông tin phòng</Text>
         <View style={{ width: 24 }} />
@@ -376,7 +394,7 @@ export default function RoomDetailScreen() {
         }
       >
         {/* Room Info Card */}
-        <View style={styles.sectionCard}>
+        <View style={styles.roomHeroCard}>
           <View style={styles.roomHeader}>
             <View style={styles.roomBadge}>
               <Ionicons name="home" size={24} color={palette.primary} />
@@ -421,14 +439,14 @@ export default function RoomDetailScreen() {
                 <TouchableOpacity onPress={() => setPreviewImageUrl(displayRoomImages[0])}>
                   <Image
                     source={{ uri: displayRoomImages[0] }}
-                    style={{ width: '100%', height: 200, borderRadius: 8 }}
+                    style={styles.roomPreviewImage}
                     onError={() => setFailedImages((current) => new Set(current).add(displayRoomImages[0]))}
                   />
                 </TouchableOpacity>
               ) : null}
               {roomDetail?.description ? (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={{ fontSize: 14, color: '#6B7280' }}>{roomDetail.description}</Text>
+                <View style={styles.roomDescriptionBox}>
+                  <Text style={styles.roomDescription}>{roomDetail.description}</Text>
                 </View>
               ) : null}
             </View>
@@ -504,16 +522,17 @@ export default function RoomDetailScreen() {
 
         </View>
         {/* Amenities & Assets (from detailed room) */}
-        {((roomDetail && roomDetail.amenities && roomDetail.amenities.length > 0) || (room.amenities && room.amenities.length > 0)) && (
+        {displayAmenities.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <Ionicons name="layers" size={20} color={palette.primary} />
               <Text style={styles.sectionTitle}>Tiện nghi</Text>
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
-              {(roomDetail?.amenities?.length ? roomDetail.amenities : room.amenities || []).map((a: string, i: number) => (
-                <View key={i} style={{ backgroundColor: palette.surfaceSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, marginRight: 8, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, color: palette.text }}>{a}</Text>
+            <View style={styles.amenityGrid}>
+              {displayAmenities.map((a: string, i: number) => (
+                <View key={i} style={styles.amenityChip}>
+                  <Ionicons name="checkmark-circle" size={13} color={palette.secondary} />
+                  <Text style={styles.amenityText}>{a}</Text>
                 </View>
               ))}
             </View>
@@ -598,7 +617,7 @@ export default function RoomDetailScreen() {
         {room.waterPricePerCubicMeter && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="water" size={20} color="#0891B2" />
+              <Ionicons name="water" size={20} color={palette.secondary} />
               <Text style={styles.sectionTitle}>Giá nước</Text>
             </View>
 
@@ -623,14 +642,14 @@ export default function RoomDetailScreen() {
             <View style={styles.contractModalHandle} />
             <View style={styles.contractModalHeader}>
               <View style={styles.contractModalTitleWrap}>
-                <Ionicons name="document-text" size={20} color="#1A4B84" />
+                <Ionicons name="document-text" size={20} color={palette.primary} />
                 <View>
                   <Text style={styles.contractModalTitle}>Hợp đồng thuê phòng</Text>
                   <Text style={styles.contractModalSubtitle}>Chi tiết điều khoản và thành viên cư trú</Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.contractModalClose} onPress={() => setShowContractDetail(false)}>
-                <Ionicons name="close" size={22} color="#374151" />
+                <Ionicons name="close" size={22} color={palette.text} />
               </TouchableOpacity>
             </View>
             <ScrollView
@@ -658,7 +677,7 @@ export default function RoomDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -666,17 +685,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: palette.borderSoft,
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: palette.text,
   },
   loadingContainer: {
     flex: 1,
@@ -691,16 +710,16 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: palette.textMuted,
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: '#1A4B84',
+    backgroundColor: palette.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   retryButtonText: {
     color: '#FFFFFF',
@@ -712,19 +731,35 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 30,
   },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+  roomHeroCard: {
+    position: 'relative',
+    backgroundColor: palette.surface,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#A7E1FF',
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: palette.shadowStrong,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 1,
+    shadowRadius: 28,
+    elevation: 7,
+    overflow: 'hidden',
+  },
+  sectionCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.borderSoft,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: palette.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 3,
   },
   roomHeader: {
     flexDirection: 'row',
@@ -732,13 +767,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: palette.borderSoft,
   },
   roomBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#E8F0FB',
+    width: 54,
+    height: 54,
+    borderRadius: 20,
+    backgroundColor: palette.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -747,43 +782,65 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   roomCode: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 26,
+    fontWeight: '900',
+    color: palette.text,
     marginBottom: 4,
   },
   roomStatus: {
     fontSize: 14,
-    color: '#10B981',
-    fontWeight: '500',
+    color: palette.secondary,
+    fontWeight: '800',
+  },
+  roomPreviewImage: {
+    width: '100%',
+    height: 168,
+    borderRadius: radius.lg,
+    marginTop: 4,
+  },
+  roomDescriptionBox: {
+    marginTop: 10,
+    backgroundColor: palette.surfaceAlt,
+    borderRadius: radius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: palette.borderSoft,
+  },
+  roomDescription: {
+    fontSize: 14,
+    color: palette.textMuted,
+    lineHeight: 20,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   infoLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   infoValue: {
     fontSize: 14,
-    color: '#1F2937',
-    fontWeight: '500',
+    color: palette.text,
+    fontWeight: '700',
+    textAlign: 'right',
+    flexShrink: 1,
+    marginLeft: 12,
   },
   priceValue: {
-    color: '#1A4B84',
-    fontWeight: '600',
+    color: palette.primary,
+    fontWeight: '900',
   },
   contractDetailButton: {
     marginTop: 14,
-    backgroundColor: '#EEF4FB',
+    backgroundColor: palette.primarySoft,
     borderWidth: 1,
-    borderColor: '#D0E0F3',
-    borderRadius: 10,
+    borderColor: '#A7E1FF',
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -792,15 +849,15 @@ const styles = StyleSheet.create({
   },
   contractDetailButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1A4B84',
+    fontWeight: '800',
+    color: palette.primary,
   },
   contractDetailBox: {
     marginTop: 12,
-    backgroundColor: '#F9FBFD',
+    backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    borderRadius: 10,
+    borderColor: palette.borderSoft,
+    borderRadius: radius.md,
     padding: 12,
   },
   contractModalOverlay: {
@@ -813,16 +870,16 @@ const styles = StyleSheet.create({
   },
   contractModalCard: {
     maxHeight: '84%',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: palette.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     overflow: 'hidden',
   },
   contractModalHandle: {
     width: 44,
     height: 5,
     borderRadius: 999,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: palette.border,
     alignSelf: 'center',
     marginTop: 10,
   },
@@ -833,7 +890,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: palette.borderSoft,
   },
   contractModalTitleWrap: {
     flexDirection: 'row',
@@ -843,18 +900,18 @@ const styles = StyleSheet.create({
   contractModalTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: palette.text,
   },
   contractModalSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
     marginTop: 2,
   },
   contractModalClose: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: palette.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -868,8 +925,8 @@ const styles = StyleSheet.create({
   contractDocumentHero: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F2F57',
-    borderRadius: 18,
+    backgroundColor: palette.primaryDark,
+    borderRadius: radius.lg,
     padding: 14,
     marginBottom: 14,
   },
@@ -915,17 +972,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   contractSectionBlock: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
+    borderColor: palette.borderSoft,
+    borderRadius: radius.lg,
     padding: 14,
     marginBottom: 12,
   },
   contractSectionTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1A4B84',
+    color: palette.primary,
     textTransform: 'uppercase',
     marginBottom: 10,
     letterSpacing: 0.3,
@@ -937,17 +994,17 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 9,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: palette.borderSoft,
   },
   contractClauseLabel: {
     flex: 0.9,
     fontSize: 13,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   contractClauseValue: {
     flex: 1.1,
     fontSize: 13,
-    color: '#111827',
+    color: palette.text,
     fontWeight: '600',
     textAlign: 'right',
   },
@@ -958,32 +1015,32 @@ const styles = StyleSheet.create({
   },
   contractFinanceCard: {
     flex: 1,
-    backgroundColor: '#EEF4FB',
-    borderRadius: 14,
+    backgroundColor: palette.primarySoft,
+    borderRadius: radius.md,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#D7E5F5',
+    borderColor: '#A7E1FF',
   },
   contractFinanceLabel: {
     fontSize: 12,
-    color: '#4B5563',
+    color: palette.textMuted,
     marginBottom: 5,
   },
   contractFinanceValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1A4B84',
+    color: palette.primary,
   },
   contractDocumentFooter: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
+    borderColor: palette.borderSoft,
+    borderRadius: radius.md,
     padding: 12,
   },
   contractDocumentFooterText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -993,7 +1050,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   contractResidentsSection: {
     marginTop: 12,
@@ -1001,26 +1058,26 @@ const styles = StyleSheet.create({
   contractResidentsTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: palette.text,
     marginBottom: 8,
   },
   residentItem: {
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   residentName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: palette.text,
   },
   residentMeta: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
     marginTop: 2,
   },
   contractErrorText: {
-    color: '#DC2626',
+    color: palette.danger,
     fontSize: 13,
   },
   sectionHeader: {
@@ -1029,13 +1086,35 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: palette.borderSoft,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: palette.text,
     marginLeft: 8,
+  },
+  amenityGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    gap: 8,
+  },
+  amenityChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: palette.secondarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: '#B9F4E8',
+  },
+  amenityText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.text,
   },
   serviceRow: {
     flexDirection: 'row',
@@ -1043,25 +1122,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   serviceInfo: {
     flex: 1,
   },
   serviceName: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: palette.text,
     marginBottom: 4,
   },
   serviceUnit: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
   },
   servicePrice: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1A4B84',
+    fontWeight: '800',
+    color: palette.primary,
     marginLeft: 12,
   },
   tierTable: {
@@ -1069,7 +1148,7 @@ const styles = StyleSheet.create({
   },
   tierHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: palette.surfaceSoft,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
@@ -1079,7 +1158,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: palette.textMuted,
     textAlign: 'center',
   },
   tierRow: {
@@ -1087,17 +1166,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: palette.borderSoft,
   },
   tierCell: {
     flex: 1,
     fontSize: 14,
-    color: '#1F2937',
+    color: palette.text,
     textAlign: 'center',
   },
   tierPrice: {
     fontWeight: '600',
-    color: '#F59E0B',
+    color: palette.accent,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -1115,17 +1194,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: palette.borderSoft,
   },
   sectionSubtitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
+    color: palette.text,
   },
   residentItemHead: {
-    backgroundColor: '#EEF4FB',
+    backgroundColor: palette.primarySoft,
     borderLeftWidth: 3,
-    borderLeftColor: '#1A4B84',
+    borderLeftColor: palette.primary,
     paddingLeft: 10,
   },
   residentHeader: {
@@ -1135,26 +1214,26 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   roleTag: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: palette.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#93C5FD',
+    borderColor: '#A7E1FF',
   },
   roleTagText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: palette.primaryDark,
   },
   residentMetaText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: palette.textMuted,
     marginTop: 2,
   },
   residentEmail: {
     fontSize: 12,
-    color: '#3B82F6',
+    color: palette.primary,
     marginTop: 4,
   },
   previewOverlay: {

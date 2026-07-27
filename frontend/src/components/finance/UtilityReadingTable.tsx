@@ -1,5 +1,5 @@
 import { Save, Calculator, Upload, Filter, CheckCircle, X, AlertTriangle } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { FilterSelect } from '../ui/FilterSelect';
@@ -41,6 +41,8 @@ export function UtilityReadingTable() {
   const [errors, setErrors] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [successMsg, setSuccessMsg] = useState('');
+  const [selectedBuilding, setSelectedBuilding] = useState('all');
+  const [selectedFloor, setSelectedFloor] = useState('all');
   const [calculateModal, setCalculateModal] = useState(false);
   const [calcResult, setCalcResult] = useState<{
     totalContracts: number;
@@ -160,7 +162,43 @@ export function UtilityReadingTable() {
     }
   };
 
-  const filledCount = rooms.filter(r => edits[r.roomId]?.newElec && edits[r.roomId]?.newWater).length;
+  const buildingOptions = useMemo(() => {
+    const buildings = new Set<string>();
+    rooms.forEach(room => {
+      const buildingName = (room.buildingName || '').trim();
+      if (buildingName) buildings.add(buildingName);
+    });
+    return Array.from(buildings).sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [rooms]);
+
+  const floorOptions = useMemo(() => {
+    const floors = new Set<string>();
+    rooms.forEach(room => {
+      const buildingName = (room.buildingName || '').trim();
+      if (selectedBuilding !== 'all' && buildingName !== selectedBuilding) return;
+      const floorName = (room.floorName || '').trim();
+      if (floorName) floors.add(floorName);
+    });
+    return Array.from(floors).sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+  }, [rooms, selectedBuilding]);
+
+  const filteredRooms = useMemo(() => {
+    return rooms.filter(room => {
+      const buildingName = (room.buildingName || '').trim();
+      const floorName = (room.floorName || '').trim();
+      const matchesBuilding = selectedBuilding === 'all' || buildingName === selectedBuilding;
+      const matchesFloor = selectedFloor === 'all' || floorName === selectedFloor;
+      return matchesBuilding && matchesFloor;
+    });
+  }, [rooms, selectedBuilding, selectedFloor]);
+
+  useEffect(() => {
+    if (selectedFloor !== 'all' && !floorOptions.includes(selectedFloor)) {
+      setSelectedFloor('all');
+    }
+  }, [floorOptions, selectedFloor]);
+
+  const filledCount = filteredRooms.filter(r => edits[r.roomId]?.newElec && edits[r.roomId]?.newWater).length;
 
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -190,8 +228,8 @@ export function UtilityReadingTable() {
         />
 
         {/* Filter Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
+        <div className="flex items-center justify-between" style={{ gap: 'var(--space-between)', flexWrap: 'wrap' }}>
+          <div className="flex items-center" style={{ gap: 'var(--space-between)', flexWrap: 'wrap' }}>
             <Filter size={20} style={{ color: 'var(--text-secondary)' }} />
 
             <FilterSelect
@@ -212,8 +250,35 @@ export function UtilityReadingTable() {
               {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
             </FilterSelect>
 
+            <FilterSelect
+              className="focus:outline-none"
+              style={{ minWidth: '180px', padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
+              value={selectedBuilding}
+              onChange={e => {
+                setSelectedBuilding(e.target.value);
+                setSelectedFloor('all');
+              }}
+            >
+              <option value="all">Tất cả tòa</option>
+              {buildingOptions.map(building => (
+                <option key={building} value={building}>{building}</option>
+              ))}
+            </FilterSelect>
+
+            <FilterSelect
+              className="focus:outline-none"
+              style={{ minWidth: '150px', padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
+              value={selectedFloor}
+              onChange={e => setSelectedFloor(e.target.value)}
+            >
+              <option value="all">Tất cả tầng</option>
+              {floorOptions.map(floor => (
+                <option key={floor} value={floor}>{`Tầng ${floor}`}</option>
+              ))}
+            </FilterSelect>
+
             <div style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)', marginLeft: '16px' }}>
-              Đã nhập: <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filledCount}/{rooms.length}</span> phòng
+              Đã nhập: <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filledCount}/{filteredRooms.length}</span> phòng
             </div>
           </div>
 
@@ -271,6 +336,8 @@ export function UtilityReadingTable() {
             <div className="p-8 text-center text-gray-500">Đang tải dữ liệu...</div>
           ) : rooms.length === 0 ? (
             <div className="p-8 text-center text-gray-500">Không có phòng nào đang có hợp đồng.</div>
+          ) : filteredRooms.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">Không có phòng phù hợp với bộ lọc tòa/tầng.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -287,7 +354,7 @@ export function UtilityReadingTable() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rooms.map(room => {
+                  {filteredRooms.map(room => {
                     const edit = edits[room.roomId] || { newElec: '', newWater: '' };
                     const elecAbnormal = isAbnormal(room, 'elec');
                     const waterAbnormal = isAbnormal(room, 'water');

@@ -13,7 +13,7 @@ const envBaseUrl =
   typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
 const defaultApiBaseUrl = Platform.OS === 'web'
   ? 'http://localhost:5052'
-  : 'http://192.168.1.76:5052';
+  : 'http://192.168.2.11:5052';
 
 const extractHost = (value: unknown) => {
   if (typeof value !== 'string' || !value.trim()) {
@@ -251,7 +251,10 @@ class ApiService {
 
   private async postLoginWithFallback<T>(url: string, data?: any, config?: any): Promise<T> {
     let lastNetworkError: any = null;
+    let lastAuthError: any = null;
     const savedBaseUrl = await secureStorage.getItemAsync(STORAGE_KEYS.API_BASE_URL);
+    const normalizedConfiguredUrl = this.normalizeBaseUrl(API_BASE_URL);
+    const normalizedSavedUrl = savedBaseUrl ? this.normalizeBaseUrl(savedBaseUrl) : undefined;
     const fallbackUrls = uniqueUrls([
       savedBaseUrl || undefined,
       API_BASE_URL,
@@ -269,13 +272,28 @@ class ApiService {
             'Content-Type': 'application/json',
             ...(config?.headers || {}),
           },
-          timeout: config?.timeout ?? 10000,
+          timeout: config?.timeout ?? 4000,
         });
 
         this.setApiBaseUrl(baseUrl);
+        await secureStorage.setItemAsync(STORAGE_KEYS.API_BASE_URL, baseUrl);
         return response.data;
       } catch (error: any) {
         if (error.response) {
+          if (error.response.status === 401) {
+            lastAuthError = error;
+            const normalizedAttemptUrl = this.normalizeBaseUrl(baseUrl);
+            const isStaleSavedUrl = Boolean(normalizedSavedUrl)
+              && normalizedAttemptUrl === normalizedSavedUrl
+              && normalizedSavedUrl !== normalizedConfiguredUrl;
+
+            if (isStaleSavedUrl) {
+              console.warn(`Đăng nhập chưa khớp tại API đã lưu, thử API cấu hình: ${baseUrl}`);
+              continue;
+            }
+
+            throw error;
+          }
           throw error;
         }
 
@@ -285,6 +303,10 @@ class ApiService {
     }
 
     const error = lastNetworkError || new Error('Không kết nối được đến máy chủ');
+    if (lastAuthError) {
+      (lastAuthError as any).attemptedUrls = attemptedUrls;
+      throw lastAuthError;
+    }
     (error as any).attemptedUrls = attemptedUrls;
     throw error;
   }
