@@ -73,7 +73,11 @@ const isDraft = (inv: Invoice) => inv.status === 'Draft' || inv.status === 'Nhá
 const isPending = (inv: Invoice) => inv.status === 'Issued' || inv.status === 'Chưa thanh toán' || inv.status === 'PartiallyPaid' || inv.status === 'Đã thanh toán một phần';
 const isPaid = (inv: Invoice) => inv.status === 'Paid' || inv.status === 'Đã thanh toán';
 
-export function InvoiceTable() {
+interface InvoiceTableProps {
+  embedded?: boolean;
+}
+
+export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
   const currentDate = new Date();
   const [activeTab, setActiveTab] = useState('draft');
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
@@ -279,11 +283,13 @@ export function InvoiceTable() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <PageHeader
-        eyebrow="Hóa đơn & Tài chính"
-        title="Quản lý hóa đơn"
-        description="Tính toán, xem xét và theo dõi toàn bộ hóa đơn theo từng trạng thái."
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="Hóa đơn & Tài chính"
+          title="Quản lý hóa đơn"
+          description="Tính toán, xem xét và theo dõi toàn bộ hóa đơn theo từng trạng thái."
+        />
+      )}
 
       {/* Messages */}
       {successMsg && (

@@ -30,7 +30,11 @@ interface RowEdit {
   newWater: string;
 }
 
-export function UtilityReadingTable() {
+interface UtilityReadingTableProps {
+  embedded?: boolean;
+}
+
+export function UtilityReadingTable({ embedded = false }: UtilityReadingTableProps = {}) {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [rooms, setRooms] = useState<RoomUtilityReading[]>([]);
@@ -104,11 +108,11 @@ export function UtilityReadingTable() {
     return usage >= 0 ? String(Math.round(usage)) : '-';
   };
 
-  const handleSaveBatch = async () => {
+  const saveReadingsBatch = async ({ showSuccess = true }: { showSuccess?: boolean } = {}) => {
     setSaving(true);
     setErrors([]);
     setWarnings([]);
-    setSuccessMsg('');
+    if (showSuccess) setSuccessMsg('');
     try {
       const payload = rooms
         .filter(r => edits[r.roomId]?.newElec || edits[r.roomId]?.newWater)
@@ -128,20 +132,34 @@ export function UtilityReadingTable() {
       const data = res.data;
       if (data.errors.length > 0) setErrors(data.errors);
       if (data.warnings?.length > 0) setWarnings(data.warnings);
-      setSuccessMsg(`✅ Đã lưu ${data.success} phòng thành công${data.failed > 0 ? `, ${data.failed} lỗi` : ''}.`);
+      if (showSuccess) {
+        setSuccessMsg(`✅ Đã lưu ${data.success} phòng thành công${data.failed > 0 ? `, ${data.failed} lỗi` : ''}.`);
+      }
       await loadReadings();
+      return data.failed === 0 && data.errors.length === 0;
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi lưu chỉ số.']);
+      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveBatch = async () => {
+    await saveReadingsBatch();
   };
 
   const handleCalculate = async () => {
     setCalculating(true);
     setErrors([]);
     setWarnings([]);
+    setSuccessMsg('');
     try {
+      if (isCurrentMonth) {
+        const saved = await saveReadingsBatch({ showSuccess: false });
+        if (!saved) return;
+      }
+
       const res = await api.post<{
         totalContracts: number;
         totalInvoices: number;
@@ -221,20 +239,26 @@ export function UtilityReadingTable() {
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-between)' }}>
-        <PageHeader
-          eyebrow="Hóa đơn & Tài chính"
-          title="Chốt chỉ số điện/nước"
-          description="Nhập chỉ số theo tháng và chỉ tính hóa đơn cho các phòng có dữ liệu hợp lệ."
-        />
+        {!embedded && (
+          <PageHeader
+            eyebrow="Hóa đơn & Tài chính"
+            title="Chốt chỉ số điện/nước"
+            description="Nhập chỉ số theo tháng và chỉ tính hóa đơn cho các phòng có dữ liệu hợp lệ."
+          />
+        )}
 
         {/* Filter Bar */}
-        <div className="flex items-center justify-between" style={{ gap: 'var(--space-between)', flexWrap: 'wrap' }}>
-          <div className="flex items-center" style={{ gap: 'var(--space-between)', flexWrap: 'wrap' }}>
-            <Filter size={20} style={{ color: 'var(--text-secondary)' }} />
+        <div
+          className="flex w-full items-center"
+          style={{ gap: '12px', overflowX: 'auto', whiteSpace: 'nowrap', justifyContent: 'space-between' }}
+        >
+          <div className="flex min-w-0 items-center" style={{ gap: '12px', flexWrap: 'nowrap' }}>
+            <Filter size={18} style={{ color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }} />
 
             <FilterSelect
-              className="focus:outline-none"
-              style={{ padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
+              wrapperClassName="w-[150px] min-w-[150px] max-w-[150px] flex-none"
+              className="w-full focus:outline-none"
+              style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
               value={selectedMonth}
               onChange={e => setSelectedMonth(Number(e.target.value))}
             >
@@ -242,8 +266,9 @@ export function UtilityReadingTable() {
             </FilterSelect>
 
             <FilterSelect
-              className="focus:outline-none"
-              style={{ padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
+              wrapperClassName="w-[112px] min-w-[112px] max-w-[112px] flex-none"
+              className="w-full focus:outline-none"
+              style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
               value={selectedYear}
               onChange={e => setSelectedYear(Number(e.target.value))}
             >
@@ -251,8 +276,9 @@ export function UtilityReadingTable() {
             </FilterSelect>
 
             <FilterSelect
-              className="focus:outline-none"
-              style={{ minWidth: '180px', padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
+              wrapperClassName="w-[170px] min-w-[170px] max-w-[170px] flex-none"
+              className="w-full focus:outline-none"
+              style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
               value={selectedBuilding}
               onChange={e => {
                 setSelectedBuilding(e.target.value);
@@ -266,8 +292,9 @@ export function UtilityReadingTable() {
             </FilterSelect>
 
             <FilterSelect
-              className="focus:outline-none"
-              style={{ minWidth: '150px', padding: '12px 16px', fontSize: 'var(--type-body)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)', height: 'var(--input-height)' }}
+              wrapperClassName="w-[150px] min-w-[150px] max-w-[150px] flex-none"
+              className="w-full focus:outline-none"
+              style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
               value={selectedFloor}
               onChange={e => setSelectedFloor(e.target.value)}
             >
@@ -277,30 +304,30 @@ export function UtilityReadingTable() {
               ))}
             </FilterSelect>
 
-            <div style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)', marginLeft: '16px' }}>
+            <div style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)', marginLeft: '12px', flexShrink: 0 }}>
               Đã nhập: <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filledCount}/{filteredRooms.length}</span> phòng
             </div>
           </div>
 
-          <div className="flex items-center" style={{ gap: 'var(--space-between)' }}>
+          <div className="ml-auto flex shrink-0 items-center justify-end" style={{ gap: '10px' }}>
             <button
               onClick={handleSaveBatch}
               disabled={saving || loading || !isCurrentMonth}
               className="flex items-center rounded transition-colors hover:bg-[var(--brand-surface)]"
-              style={{ padding: '16px 24px', backgroundColor: 'var(--surface-card)', border: '2px solid var(--brand-primary)', color: 'var(--brand-primary)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: 'var(--button-height)', gap: '8px', opacity: (saving || !isCurrentMonth) ? 0.6 : 1, cursor: !isCurrentMonth ? 'not-allowed' : 'pointer' }}
+              style={{ padding: '0 18px', backgroundColor: 'var(--surface-card)', border: '2px solid var(--brand-primary)', color: 'var(--brand-primary)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: '42px', gap: '8px', opacity: (saving || !isCurrentMonth) ? 0.6 : 1, cursor: !isCurrentMonth ? 'not-allowed' : 'pointer' }}
               title={!isCurrentMonth ? 'Chỉ có thể nhập chỉ số cho tháng hiện tại' : ''}
             >
-              <Save size={20} />
+              <Save size={18} />
               <span>{saving ? 'Đang lưu...' : 'Lưu chỉ số'}</span>
             </button>
             <button
               onClick={handleCalculate}
-              disabled={calculating || loading}
+              disabled={calculating || saving || loading}
               className="flex items-center rounded transition-colors"
-              style={{ padding: '16px 24px', backgroundColor: 'var(--brand-primary)', border: 'none', color: 'var(--text-on-color)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: 'var(--button-height)', gap: '8px', opacity: calculating ? 0.6 : 1 }}
+              style={{ padding: '0 18px', backgroundColor: 'var(--brand-primary)', border: 'none', color: 'var(--text-on-color)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: '42px', gap: '8px', opacity: (calculating || saving) ? 0.6 : 1 }}
             >
-              <Calculator size={20} />
-              <span>{calculating ? 'Đang tính...' : 'Tính hóa đơn nháp'}</span>
+              <Calculator size={18} />
+              <span>{saving ? 'Đang lưu...' : calculating ? 'Đang tính...' : 'Tính hóa đơn nháp'}</span>
             </button>
           </div>
         </div>
@@ -383,7 +410,7 @@ export function UtilityReadingTable() {
                               value={edit.newElec}
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
                               disabled={!isCurrentMonth}
-                              className="focus:outline-none"
+              className="w-[188px] shrink-0 focus:outline-none"
                               title={room.elecAnomalyNote || undefined}
                               style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: !isCurrentMonth ? 'var(--surface-bg)' : 'white', cursor: !isCurrentMonth ? 'not-allowed' : 'text' }}
                             />
@@ -514,7 +541,7 @@ export function UtilityReadingTable() {
                 </div>
               )}
 
-              <p className="text-xs text-gray-500">Vào trang <strong>Quản lý Hóa đơn</strong> để xem hóa đơn nháp và phê duyệt.</p>
+              <p className="text-xs text-gray-500">Mở phần <strong>Kiểm tra và gửi hóa đơn</strong> bên dưới để xem hóa đơn nháp và phê duyệt.</p>
             </div>
           </div>
         </div>

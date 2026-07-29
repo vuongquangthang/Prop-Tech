@@ -29,8 +29,7 @@ const menuItems = [
     icon: FileText, 
     label: 'Hóa đơn & Tài chính',
     subItems: [
-      { label: 'Chốt chỉ số Điện/Nước', path: '/utility-reading' },
-      { label: 'Quản lý Hóa đơn', path: '/invoice-management' },
+      { label: 'Xuất hóa đơn tháng', path: '/utility-reading' },
       { label: 'Lịch sử Giao dịch', path: '/transaction-history' },
       { label: 'Công nợ & Nhắc nợ', path: '/debt-management' },
     ]
@@ -38,9 +37,7 @@ const menuItems = [
   { 
     icon: Wrench, 
     label: 'Vận hành & Sự cố',
-    subItems: [
-      { label: 'Quản lý Yêu cầu sửa chữa', path: '/maintenance-request' },
-    ]
+    path: '/maintenance-request',
   },
   { 
     icon: Megaphone, 

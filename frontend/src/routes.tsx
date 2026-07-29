@@ -12,8 +12,7 @@ import { BuildingManagementPage } from "./pages/BuildingManagementPage";
 import { ResidentManagementPage } from "./pages/ResidentManagementPage";
 import { ContractManagementPage } from "./pages/ContractManagementPage";
 import { SettlementPage } from "./pages/SettlementPage";
-import { UtilityReadingPage } from "./pages/UtilityReadingPage";
-import { InvoiceManagementPage } from "./pages/InvoiceManagementPage";
+import { BillingWorkflowPage } from "./pages/BillingWorkflowPage";
 import { TransactionHistoryPage } from "./pages/TransactionHistoryPage";
 import { DebtManagementPage } from "./pages/DebtManagementPage";
 import { MaintenanceRequestPage } from "./pages/MaintenanceRequestPage";
@@ -102,11 +101,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "utility-reading",
-        element: <StaffRoute><UtilityReadingPage /></StaffRoute>,
+        element: <StaffRoute><BillingWorkflowPage /></StaffRoute>,
       },
       {
         path: "invoice-management",
-        element: <AccountantRoute><InvoiceManagementPage /></AccountantRoute>,
+        element: <Navigate to="/utility-reading" replace />,
       },
       {
         path: "transaction-history",

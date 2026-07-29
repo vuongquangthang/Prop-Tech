@@ -229,12 +229,30 @@ function IncidentTimeline({ request }: { request: any }) {
     new: 0,
     in_progress: 1,
     review: 2,
-    rework: 2,
+    rework: 3,
     completed: 3,
   }[request.status] ?? 0;
+  const currentStepKey = request.status === 'completed'
+    ? 'completed'
+    : request.status === 'rework'
+      ? 'rework'
+      : request.status;
+  const currentStatusLabel = statusConfig[request.status as keyof typeof statusConfig]?.label || 'Chưa xác định';
 
   const reportedAt = request.fullIncident?.reportedAt || request.time;
   const resolvedAt = request.fullIncident?.resolvedAt ? formatTimelineTime(request.fullIncident.resolvedAt) : '';
+  const getInProgressTime = () => {
+    if (request.status === 'new') return 'Chưa tới mốc này';
+    if (request.status === 'in_progress') return 'Đang xử lý';
+    return 'Đã qua bước này';
+  };
+  const getReviewTime = () => {
+    if (request.status === 'new' || request.status === 'in_progress') return 'Chưa tới mốc này';
+    if (request.status === 'review') return 'Đang chờ cư dân phản hồi';
+    if (request.status === 'rework') return 'Cư dân đã yêu cầu sửa lại';
+    if (request.status === 'completed') return 'Cư dân đã nghiệm thu';
+    return 'Chưa tới mốc này';
+  };
 
   const steps = [
     {
@@ -248,18 +266,18 @@ function IncidentTimeline({ request }: { request: any }) {
       key: 'in_progress',
       title: '2. Đang xử lý',
       description: 'Bộ phận vận hành đang kiểm tra và triển khai xử lý.',
-      time: request.status === 'new' ? 'Chưa tới mốc này' : 'Đang/đã được xử lý bởi bộ phận vận hành.',
+      time: getInProgressTime(),
       icon: Clock3,
     },
     {
       key: 'review',
       title: '3. Chờ nghiệm thu',
       description: 'Đã gửi kết quả cho cư dân để xác nhận hoàn tất hay yêu cầu làm lại.',
-      time: request.status === 'completed' ? 'Đã vượt qua bước này' : request.status === 'review' ? 'Đang chờ cư dân phản hồi' : 'Chưa tới mốc này',
+      time: getReviewTime(),
       icon: CheckCircle2,
     },
     {
-      key: 'completed',
+      key: request.status === 'rework' ? 'rework' : 'completed',
       title: request.status === 'rework' ? '4. Cư dân yêu cầu sửa lại' : '4. Hoàn thành',
       description: request.status === 'rework'
         ? 'Cư dân chưa hài lòng và yêu cầu xử lý lại sự cố.'
@@ -275,7 +293,10 @@ function IncidentTimeline({ request }: { request: any }) {
         <Clock3 size={18} />
         <div>
           <h3>Mốc quy trình xử lý</h3>
-          <p>Nhìn nhanh sự cố đang ở bước nào và đã đi qua những mốc nào</p>
+          <p className="dashboard-incident-current-line">
+            <span>Trạng thái hiện tại</span>
+            <span className="dashboard-incident-current-status">{currentStatusLabel}</span>
+          </p>
         </div>
       </div>
 
@@ -283,7 +304,7 @@ function IncidentTimeline({ request }: { request: any }) {
         {steps.map((step, index) => {
           const stepIndex = index;
           const isDone = request.status === 'completed' ? true : stepIndex < statusIndex;
-          const isActive = request.status !== 'completed' && (stepIndex === statusIndex || (request.status === 'rework' && step.key === 'completed'));
+          const isActive = request.status !== 'completed' && step.key === currentStepKey;
           const StepIcon = step.icon;
 
           return (
@@ -298,6 +319,7 @@ function IncidentTimeline({ request }: { request: any }) {
               <div className="dashboard-incident-timeline-content">
                 <div className="dashboard-incident-timeline-title-row">
                   <h4>{step.title}</h4>
+                  {isActive && <span className="dashboard-incident-current-badge">Hiện tại</span>}
                 </div>
                 <p>{step.description}</p>
                 <strong>{step.time}</strong>
