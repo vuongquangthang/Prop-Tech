@@ -10,7 +10,9 @@ namespace backend.Controllers;
 [ApiController]
 public class HealthController : ControllerBase
 {
+    // Chap nhan ca GET lan HEAD (UptimeRobot mac dinh dung HEAD -> tranh loi 405).
     [HttpGet("/api/health")]
+    [HttpHead("/api/health")]
     [AllowAnonymous]
     public IActionResult Health()
     {
