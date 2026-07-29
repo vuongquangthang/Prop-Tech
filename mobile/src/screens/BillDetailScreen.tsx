@@ -130,6 +130,23 @@ export default function BillDetailScreen() {
     }, [paymentInfo, loadInvoice])
   );
 
+  // Tự động kiểm tra trạng thái mỗi 5s khi đang hiện QR (dự phòng nếu SignalR rớt).
+  // Khi hóa đơn chuyển "Đã thanh toán", loadInvoice cập nhật -> QR tự ẩn.
+  useEffect(() => {
+    if (!paymentInfo) return;
+    const timer = setInterval(() => {
+      loadInvoice();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [paymentInfo, loadInvoice]);
+
+  // Khi hóa đơn đã thanh toán thì tự ẩn panel QR.
+  useEffect(() => {
+    if (invoice?.status === 'Đã thanh toán' && paymentInfo) {
+      setPaymentInfo(null);
+    }
+  }, [invoice?.status, paymentInfo]);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -302,34 +319,22 @@ export default function BillDetailScreen() {
                 ) : null}
               </View>
 
-              {/* Action buttons */}
-              <View style={styles.qrActions}>
-                <TouchableOpacity
-                  style={styles.qrActionButton}
-                  onPress={async () => { await loadInvoice(); }}
-                >
-                  <Ionicons name="refresh-outline" size={18} color="#374151" />
-                  <Text style={styles.qrActionText}>Kiểm tra</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.qrActionButton}
-                  onPress={() => setPaymentInfo(null)}
-                >
-                  <Ionicons name="close-outline" size={18} color="#374151" />
-                  <Text style={styles.qrActionText}>Đóng</Text>
-                </TouchableOpacity>
+              {/* Trạng thái chờ tự động xác nhận (không cần bấm gì) */}
+              <View style={styles.waitingBox}>
+                <ActivityIndicator size="small" color="#1A4B84" />
+                <Text style={styles.waitingText}>
+                  Sau khi chuyển khoản, hệ thống sẽ tự động xác nhận và cập nhật trạng thái. Vui lòng giữ màn hình này.
+                </Text>
               </View>
 
-              {/* Fallback: open PayOS in browser */}
-              {(paymentInfo.checkoutUrl || paymentInfo.paymentUrl) ? (
-                <TouchableOpacity
-                  style={styles.openGatewayButton}
-                  onPress={() => Linking.openURL((paymentInfo.checkoutUrl || paymentInfo.paymentUrl)!)}
-                >
-                  <Ionicons name="open-outline" size={16} color="#1A4B84" />
-                  <Text style={styles.openGatewayText}>Mở trang thanh toán</Text>
-                </TouchableOpacity>
-              ) : null}
+              {/* Chỉ còn nút Đóng (hủy hiển thị QR) */}
+              <TouchableOpacity
+                style={styles.qrActionButton}
+                onPress={() => setPaymentInfo(null)}
+              >
+                <Ionicons name="close-outline" size={18} color="#374151" />
+                <Text style={styles.qrActionText}>Đóng</Text>
+              </TouchableOpacity>
             </View>
           );
         })()}
@@ -691,6 +696,24 @@ const styles = StyleSheet.create({
   statusPending: {
     color: '#D97706',
     fontWeight: '600',
+  },
+  waitingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  waitingText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#1A4B84',
   },
   qrActions: {
     flexDirection: 'row',

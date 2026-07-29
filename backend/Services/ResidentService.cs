@@ -3,6 +3,9 @@ using backend.Data;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace backend.Services;
 
@@ -21,12 +24,17 @@ public class ResidentService : IResidentService
     private readonly IResidentRepository _residentRepository;
     private readonly IUserRepository _userRepository;
     private readonly ApplicationDbContext _context;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<ResidentService> _logger;
 
-    public ResidentService(IResidentRepository residentRepository, IUserRepository userRepository, ApplicationDbContext context)
+    public ResidentService(IResidentRepository residentRepository, IUserRepository userRepository,
+        ApplicationDbContext context, IEmailService emailService, ILogger<ResidentService> logger)
     {
         _residentRepository = residentRepository;
         _userRepository = userRepository;
         _context = context;
+        _emailService = emailService;
+        _logger = logger;
     }
 
     private IQueryable<Resident> ResidentsForOwner(int ownerUserId)
@@ -222,13 +230,13 @@ public class ResidentService : IResidentService
             return;
         }
 
-        // Create new user account
-        var defaultPassword = "123456";
+        // Create new user account - cu dan CO email -> mat khau random + gui mail.
+        var plainPassword = GenerateRandomPassword();
         var user = new User
         {
             PhoneNumber = phone,
             Email = email.Trim(),
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(plainPassword),
             Role = "CuDan",
             ResidentId = residentId,
             OwnerUserId = resident.OwnerUserId,
@@ -238,6 +246,49 @@ public class ResidentService : IResidentService
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
+
+        // Gui email thong tin dang nhap. Loi mail KHONG chan tao cu dan.
+        await SendAccountEmailAsync(email.Trim(), resident.FullName ?? phone, phone, plainPassword);
+    }
+
+    /// <summary>Sinh mat khau ngau nhien 10 ky tu (chu + so), tranh ky tu de nham lan.</summary>
+    private static string GenerateRandomPassword()
+    {
+        const string chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var bytes = RandomNumberGenerator.GetBytes(10);
+        var sb = new StringBuilder(10);
+        foreach (var b in bytes) sb.Append(chars[b % chars.Length]);
+        return sb.ToString();
+    }
+
+    /// <summary>Gui email tai khoan cho cu dan. Loi KHONG chan nghiep vu.</summary>
+    private async Task SendAccountEmailAsync(string email, string fullName, string phone, string plainPassword)
+    {
+        try
+        {
+            _logger.LogInformation("📧 Gui email tai khoan cu dan toi {Email} (SMTP configured={Cfg})", email, _emailService.IsConfigured);
+            var subject = "Tài khoản Prop-Tech của bạn";
+            var body = $@"
+                <div style='font-family:Arial,sans-serif;max-width:520px;margin:auto'>
+                  <h2 style='color:#1A4B84'>Prop-Tech</h2>
+                  <p>Xin chào <b>{System.Net.WebUtility.HtmlEncode(fullName)}</b>,</p>
+                  <p>Tài khoản cư dân của bạn đã được tạo. Thông tin đăng nhập:</p>
+                  <table style='border-collapse:collapse;margin:12px 0'>
+                    <tr><td style='padding:6px 12px;color:#666'>Số điện thoại</td>
+                        <td style='padding:6px 12px;font-weight:bold'>{System.Net.WebUtility.HtmlEncode(phone)}</td></tr>
+                    <tr><td style='padding:6px 12px;color:#666'>Mật khẩu</td>
+                        <td style='padding:6px 12px;font-weight:bold;font-size:18px;color:#0f2942'>{System.Net.WebUtility.HtmlEncode(plainPassword)}</td></tr>
+                  </table>
+                  <p style='color:#b45309'>Vì lý do bảo mật, vui lòng <b>đổi mật khẩu ngay lần đăng nhập đầu tiên</b>.</p>
+                  <p style='color:#888;font-size:13px'>Đây là email tự động, vui lòng không trả lời.</p>
+                </div>";
+            await _emailService.SendAsync(email, subject, body);
+            _logger.LogInformation("📧 ✅ Da gui xong email toi {Email}", email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "📧 ❌ Gui email tai khoan toi {Email} that bai", email);
+        }
     }
 
     public async Task DeleteAsync(int id, int ownerUserId)
