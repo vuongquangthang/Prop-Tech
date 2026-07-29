@@ -2,6 +2,7 @@ using System.Text.Json;
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,11 +21,19 @@ public class InternalChatbotKnowledgeController : ControllerBase
 
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IKnowledgeBaseService _knowledgeBaseService;
+    private readonly IChatbotIngestService _chatbotIngestService;
 
-    public InternalChatbotKnowledgeController(ApplicationDbContext context, IConfiguration configuration)
+    public InternalChatbotKnowledgeController(
+        ApplicationDbContext context,
+        IConfiguration configuration,
+        IKnowledgeBaseService knowledgeBaseService,
+        IChatbotIngestService chatbotIngestService)
     {
         _context = context;
         _configuration = configuration;
+        _knowledgeBaseService = knowledgeBaseService;
+        _chatbotIngestService = chatbotIngestService;
     }
 
     [HttpGet("knowledge-documents")]
@@ -66,6 +75,106 @@ public class InternalChatbotKnowledgeController : ControllerBase
         }
 
         return Ok(documents);
+    }
+
+    // ---- Tri thuc chung TroUyTin (SUPER_ADMIN): OwnerUserId = null, ap cho moi toa nha ----
+    // Admin TroUyTin goi cac endpoint nay qua X-Internal-Api-Key (khong dung JWT Prop-Tech).
+
+    /// <summary>
+    /// Danh sach tai lieu tri thuc chung (OwnerUserId = null).
+    /// </summary>
+    [HttpGet("knowledge-base")]
+    public async Task<ActionResult<List<KnowledgeBaseDto>>> ListCommonKnowledge()
+    {
+        if (!IsValidInternalKey())
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Invalid internal API key" });
+        }
+
+        var items = await _context.KnowledgeBases
+            .AsNoTracking()
+            .Where(item => item.OwnerUserId == null)
+            .OrderByDescending(item => item.UpdatedAt)
+            .Select(item => new KnowledgeBaseDto
+            {
+                Id = item.Id,
+                Title = item.Title,
+                Content = item.Content,
+                Category = item.Category,
+                Tags = item.Tags,
+                IsActive = item.IsActive,
+                UpdatedAt = item.UpdatedAt,
+                UpdatedBy = item.UpdatedBy,
+                OwnerUserId = item.OwnerUserId,
+            })
+            .ToListAsync();
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Upload file (PDF/DOCX/DOC/TXT) tao tri thuc chung TroUyTin, roi rebuild chatbot.
+    /// </summary>
+    [HttpPost("knowledge-base/upload-document")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<DocumentUploadResultDto>> UploadCommonDocument(
+        IFormFile file,
+        [FromForm] string category = "Chung",
+        [FromForm] bool autoActivate = true)
+    {
+        if (!IsValidInternalKey())
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Invalid internal API key" });
+        }
+
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "Không có file được tải lên" });
+
+        var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt" };
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest(new { message = "Chỉ chấp nhận file PDF, DOCX, DOC, TXT" });
+
+        if (file.Length > 10 * 1024 * 1024)
+            return BadRequest(new { message = "Kích thước file không được vượt quá 10MB" });
+
+        // userId = null, ownerUserId = null => tri thuc chung cua SUPER_ADMIN.
+        var result = await _knowledgeBaseService.UploadDocumentForOwnerAsync(
+            file, category, autoActivate, userId: null, ownerUserId: null);
+
+        if (result.TotalExtracted > 0)
+        {
+            var ingestResult = await _chatbotIngestService.RebuildAsync();
+            result.IngestTriggered = ingestResult.Triggered;
+            result.IngestSucceeded = ingestResult.Success;
+            result.IngestMessage = ingestResult.Message;
+            result.IngestDocuments = ingestResult.Documents;
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Xoa 1 muc tri thuc chung (chi cho phep xoa muc OwnerUserId = null), roi rebuild.
+    /// </summary>
+    [HttpDelete("knowledge-base/{id}")]
+    public async Task<IActionResult> DeleteCommonKnowledge(int id)
+    {
+        if (!IsValidInternalKey())
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Invalid internal API key" });
+        }
+
+        var entity = await _context.KnowledgeBases
+            .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == null);
+        if (entity == null)
+            return NotFound(new { message = "Không tìm thấy mục tri thức chung này" });
+
+        _context.KnowledgeBases.Remove(entity);
+        await _context.SaveChangesAsync();
+        await _chatbotIngestService.RebuildAsync();
+
+        return Ok(new { message = "Đã xóa mục tri thức" });
     }
 
     private void AddBuildingDocuments(
