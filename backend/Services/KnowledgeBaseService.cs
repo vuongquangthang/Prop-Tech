@@ -140,7 +140,7 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         {
             ".pdf" => ExtractTextFromPdf(memStream),
             ".docx" => ExtractTextFromDocx(memStream),
-            ".txt" or ".doc" => new StreamReader(memStream).ReadToEnd(),
+            ".txt" or ".doc" or ".md" => new StreamReader(memStream).ReadToEnd(),
             _ => throw new InvalidOperationException("Loại file không được hỗ trợ")
         };
 

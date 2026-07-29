@@ -197,10 +197,10 @@ public class KnowledgeBaseController : ControllerBase
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "Không có file được tải lên" });
 
-            var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt" };
+            var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt", ".md" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(extension))
-                return BadRequest(new { message = "Chỉ chấp nhận file PDF, DOCX, DOC, TXT" });
+                return BadRequest(new { message = "Chỉ chấp nhận file PDF, DOCX, DOC, TXT, MD" });
 
             if (file.Length > 10 * 1024 * 1024)
                 return BadRequest(new { message = "Kích thước file không được vượt quá 10MB" });
@@ -208,11 +208,17 @@ public class KnowledgeBaseController : ControllerBase
             var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, User.GetOwnerUserId());
             if (result.TotalExtracted > 0)
             {
-                var ingestResult = await _chatbotIngestService.RebuildAsync();
+                var ingestResult = await _chatbotIngestService.IngestDocumentAsync(
+                    file,
+                    User.GetOwnerUserId(),
+                    userId,
+                    category,
+                    HttpContext.RequestAborted);
                 result.IngestTriggered = ingestResult.Triggered;
                 result.IngestSucceeded = ingestResult.Success;
                 result.IngestMessage = ingestResult.Message;
                 result.IngestDocuments = ingestResult.Documents;
+                result.IngestChunks = ingestResult.Chunks;
             }
 
             return Ok(result);

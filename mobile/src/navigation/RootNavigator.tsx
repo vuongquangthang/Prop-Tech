@@ -11,6 +11,10 @@ import IssuesScreen from '../screens/IssuesScreen';
 import IssueDetailScreen from '../screens/IssueDetailScreen';
 import ReportIssueScreen from '../screens/ReportIssueScreen';
 import ChatbotScreen from '../screens/ChatbotScreen';
+import ConversationListScreen from '../screens/ConversationListScreen';
+import DocumentListScreen from '../screens/DocumentListScreen';
+import DocumentUploadScreen from '../screens/DocumentUploadScreen';
+import DocumentDetailScreen from '../screens/DocumentDetailScreen';
 import RoomDetailScreen from '../screens/RoomDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ContractChangeApprovalScreen from '../screens/ContractChangeApprovalScreen';
@@ -37,6 +41,10 @@ const MainStack = () => {
       <Stack.Screen name="IssueDetail" component={IssueDetailScreen} />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
       <Stack.Screen name="Chatbot" component={ChatbotScreen} />
+      <Stack.Screen name="ConversationList" component={ConversationListScreen} />
+      <Stack.Screen name="DocumentList" component={DocumentListScreen} />
+      <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
+      <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />
       <Stack.Screen name="RoomDetail" component={RoomDetailScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="ContractChangeApproval" component={ContractChangeApprovalScreen} />
@@ -55,6 +63,11 @@ const AdminStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AdminTabs" component={AdminTabs} />
+      <Stack.Screen name="Chatbot" component={ChatbotScreen} />
+      <Stack.Screen name="ConversationList" component={ConversationListScreen} />
+      <Stack.Screen name="DocumentList" component={DocumentListScreen} />
+      <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
+      <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />
     </Stack.Navigator>
   );
 };

@@ -53,5 +53,6 @@ public class DocumentUploadResultDto
     public bool IngestSucceeded { get; set; }
     public string? IngestMessage { get; set; }
     public int? IngestDocuments { get; set; }
+    public int? IngestChunks { get; set; }
     public List<KnowledgeBaseDto> Entries { get; set; } = new();
 }

@@ -435,8 +435,14 @@ export const knowledgeService = {
         ingestSucceeded: boolean;
         ingestMessage?: string;
         ingestDocuments?: number;
+        ingestChunks?: number;
         entries: KnowledgeBase[];
       }>(API_ENDPOINTS.KNOWLEDGE.UPLOAD_DOCUMENT, formData, {
+        // Upload còn chờ backend trích xuất tài liệu và ChatApp rebuild
+        // embedding/ChromaDB. Không dùng timeout mặc định 30 giây của API client.
+        // Dài hơn timeout 5 phút của backend để UI nhận được cả phản hồi timeout
+        // có cấu trúc từ server thay vì Axios tự ngắt kết nối trước.
+        timeout: 6 * 60 * 1000,
       });
       return response.data;
     } catch (error) {

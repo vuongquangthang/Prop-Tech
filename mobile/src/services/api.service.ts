@@ -9,8 +9,9 @@ declare const process: {
 };
 
 // Base URL - Change this to your actual backend URL
-const envBaseUrl =
-  typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
+const envBaseUrl = typeof process !== 'undefined'
+  ? process.env?.EXPO_PUBLIC_PROPTECH_API_BASE_URL || process.env?.EXPO_PUBLIC_API_BASE_URL
+  : undefined;
 const defaultApiBaseUrl = Platform.OS === 'web'
   ? 'http://localhost:5052'
   : 'http://192.168.2.11:5052';
@@ -37,7 +38,12 @@ const getExpoHostApiBaseUrl = () => {
   return host ? `http://${host}:5052` : undefined;
 };
 
-export let API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl.trim() : defaultApiBaseUrl;
+// Ưu tiên: .env > IP LAN mà Expo dev server đang chạy (tự phát hiện, luôn đúng
+// mạng hiện tại) > IP mặc định hard-code (chỉ dùng khi hai nguồn trên đều thiếu,
+// ví dụ build production không qua Metro).
+export let API_BASE_URL = envBaseUrl?.trim()
+  ? envBaseUrl.trim()
+  : getExpoHostApiBaseUrl() || defaultApiBaseUrl;
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
@@ -87,6 +93,9 @@ class ApiService {
     // Request interceptor - Attach JWT token
     this.api.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
+        if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+          delete config.headers['Content-Type'];
+        }
         const token = await this.getAccessToken();
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`;

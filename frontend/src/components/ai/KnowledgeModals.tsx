@@ -381,10 +381,10 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
   const fileInputRef = { current: null as HTMLInputElement | null };
 
   const handleFileSelect = (file: File) => {
-    const allowed = ['.pdf', '.docx', '.doc', '.txt'];
+    const allowed = ['.pdf', '.docx', '.doc', '.txt', '.md'];
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!allowed.includes(ext)) {
-      setErrorMsg('Chỉ chấp nhận file PDF, DOCX, DOC, TXT');
+      setErrorMsg('Chỉ chấp nhận file PDF, DOCX, DOC, TXT, MD');
       setUploadStep('error');
       return;
     }
@@ -430,7 +430,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
             <Upload size={20} className="text-gray-800" />
-            <h3 className="text-lg text-gray-800">Nhập file PDF/Doc/TXT</h3>
+            <h3 className="text-lg text-gray-800">Nhập file PDF/Doc/TXT/MD</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X size={20} className="text-gray-600" />
@@ -440,7 +440,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 space-y-4">
           <div className="bg-blue-50 border border-blue-300 rounded p-4">
             <p className="text-sm text-blue-800">
-              📄 <strong>Hỗ trợ:</strong> PDF, DOCX, DOC, TXT • <strong>Tối đa:</strong> 10MB • Tài liệu sẽ được trích xuất, lưu vào kho tri thức và tự đồng bộ ChromaDB cho AI.
+              📄 <strong>Hỗ trợ:</strong> PDF, DOCX, DOC, TXT, MD • <strong>Tối đa:</strong> 10MB • Tài liệu sẽ được trích xuất, lưu vào kho tri thức và tự đồng bộ ChromaDB cho AI.
             </p>
           </div>
 
@@ -458,7 +458,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 <input
                   ref={el => { fileInputRef.current = el; }}
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.doc,.docx,.txt,.md"
                   className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
                 />
@@ -472,7 +472,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                   <>
                     <Upload size={48} className="text-gray-400 mx-auto mb-3" />
                     <p className="text-sm text-gray-700 font-bold mb-1">Kéo thả file vào đây hoặc click để chọn</p>
-                    <p className="text-xs text-gray-500">Hỗ trợ: PDF, DOCX, DOC, TXT (tối đa 10MB)</p>
+                    <p className="text-xs text-gray-500">Hỗ trợ: PDF, DOCX, DOC, TXT, MD (tối đa 10MB)</p>
                   </>
                 )}
               </div>
@@ -524,7 +524,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 <p className="text-sm text-green-700">
                   Tài liệu <strong>"{selectedFile?.name}"</strong> đã được lưu vào database tri thức.
                   {uploadResult?.ingestSucceeded
-                    ? ` ChromaDB đã được cập nhật${uploadResult.ingestDocuments ? ` với ${uploadResult.ingestDocuments} đoạn dữ liệu` : ''}.`
+                    ? ` ChromaDB đã được cập nhật${uploadResult.ingestChunks ? ` với ${uploadResult.ingestChunks} đoạn vector` : ''}.`
                     : ' ChromaDB chưa cập nhật, vui lòng kiểm tra service Chatbot hoặc chạy ingest lại.'}
                 </p>
                 {!uploadResult?.ingestSucceeded && (

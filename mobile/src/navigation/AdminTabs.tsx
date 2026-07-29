@@ -7,6 +7,7 @@ import AdminAccountScreen from '../screens/admin/AdminAccountScreen';
 import AdminMaintenanceScreen from '../screens/admin/AdminMaintenanceScreen';
 import AdminInvoicesScreen from '../screens/admin/AdminInvoicesScreen';
 import AdminPostsScreen from '../screens/admin/AdminPostsScreen';
+import ChatbotScreen from '../screens/ChatbotScreen';
 
 export type AdminTabsParamList = {
   AdminHome: undefined;
@@ -15,6 +16,7 @@ export type AdminTabsParamList = {
   AdminMaintenance: undefined;
   AdminPosts: undefined;
   AdminProfile: undefined;
+  AdminChatbot: undefined;
 };
 
 const Tab = createBottomTabNavigator<AdminTabsParamList>();
@@ -39,6 +41,8 @@ export const AdminTabs = () => {
             iconName = focused ? 'megaphone' : 'megaphone-outline';
           } else if (route.name === 'AdminProfile') {
             iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'AdminChatbot') {
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else {
             iconName = 'ellipse-outline';
           }
@@ -82,6 +86,11 @@ export const AdminTabs = () => {
         name="AdminPosts"
         component={AdminPostsScreen}
         options={{ tabBarLabel: 'Bài đăng' }}
+      />
+      <Tab.Screen
+        name="AdminChatbot"
+        component={ChatbotScreen}
+        options={{ tabBarLabel: 'AI' }}
       />
       <Tab.Screen
         name="AdminProfile"
