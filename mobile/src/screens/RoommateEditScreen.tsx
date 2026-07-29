@@ -24,6 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { fileService } from '../services/file.service';
 import { useAuthStore } from '../store/authStore';
 import { resolveImageUrl } from '../utils/image';
+import { canResidentManageRoommatePosts } from '../utils/residentPermissions';
 import type { PostDto, PostServiceLineItemDto, UpdatePostDto } from '../types/dto';
 
 type PriceMap = Record<string, string>;
@@ -221,6 +222,9 @@ export default function RoommateEditScreen() {
         : activeContractId
           ? contracts.find((contract) => contract.id === activeContractId)
           : undefined;
+      if (selectedContract && !canResidentManageRoommatePosts(selectedContract, user?.residentId)) {
+        throw new Error('Chỉ chủ phòng/người thuê chính được chỉnh sửa bài đăng tìm người ở ghép.');
+      }
       const targetRoomId = selectedContract?.roomId ?? routeRoomId;
       const [myPost, roomData] = await Promise.all([
         postService.getMyPost(targetRoomId),
@@ -313,7 +317,7 @@ export default function RoommateEditScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeContractId]);
+  }, [activeContractId, routeRoomId, user?.residentId]);
 
   useFocusEffect(
     useCallback(() => {

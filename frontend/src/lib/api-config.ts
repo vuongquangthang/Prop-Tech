@@ -211,6 +211,7 @@ export const API_ENDPOINTS = {
     MARK_ALL_READ: '/api/Notifications/mark-all-read',
     UNREAD_COUNT: '/api/Notifications/unread-count',
     ADMIN_ALL: '/api/Notifications/admin/all',
+    ADMIN_RECIPIENTS: '/api/Notifications/admin/recipients',
     SEND: '/api/Notifications/send',
     BROADCAST: '/api/Notifications/broadcast',
   },

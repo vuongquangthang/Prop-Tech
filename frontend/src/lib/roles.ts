@@ -111,6 +111,7 @@ export const ROUTE_ACCESS = {
   '/settlement': [UserRole.ADMIN],
   '/utility-reading': [UserRole.ADMIN],
   '/maintenance-request': [UserRole.ADMIN],
+  '/resident-notifications': [UserRole.ADMIN, UserRole.MANAGER],
   '/post-management': [UserRole.ADMIN, UserRole.MANAGER],
   '/post-management/create': [UserRole.ADMIN, UserRole.MANAGER],
   '/messages': [UserRole.ADMIN, UserRole.MANAGER],

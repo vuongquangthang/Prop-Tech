@@ -28,6 +28,7 @@ import { UserRole } from "./lib/roles";
 import { PostManagementPage } from "./pages/PostManagementPage";
 import { CreatePostPage } from "./pages/CreatePostPage";
 import { MessagesPage } from "./pages/MessagesPage";
+import { ResidentNotificationsPage } from "./pages/ResidentNotificationsPage";
 
 export const router = createBrowserRouter([
   {
@@ -118,6 +119,14 @@ export const router = createBrowserRouter([
       {
         path: "maintenance-request",
         element: <StaffRoute><MaintenanceRequestPage /></StaffRoute>,
+      },
+      {
+        path: "resident-notifications",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER]}>
+            <ResidentNotificationsPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "post-management",

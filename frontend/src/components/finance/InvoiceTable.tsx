@@ -79,7 +79,7 @@ interface InvoiceTableProps {
 
 export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
   const currentDate = new Date();
-  const [activeTab, setActiveTab] = useState('draft');
+  const [activeTab, setActiveTab] = useState('pending');
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
@@ -129,6 +129,14 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
   useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'InvoiceUpdated'], loadInvoices);
 
   useEffect(() => {
+    const handleInvoiceUpdated = () => {
+      void loadInvoices();
+    };
+    window.addEventListener('billing-invoices-updated', handleInvoiceUpdated);
+    return () => window.removeEventListener('billing-invoices-updated', handleInvoiceUpdated);
+  }, [loadInvoices]);
+
+  useEffect(() => {
     const loadLocationFilters = async () => {
       try {
         const [buildingRows, floorRows, roomRows] = await Promise.all([
@@ -153,14 +161,12 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
     isPending(inv) && !!inv.dueDate && new Date(inv.dueDate) < currentDate;
 
   const tabs = [
-    { key: 'draft',   label: 'Nháp',           count: allInvoices.filter(isDraft).length },
     { key: 'pending', label: 'Chờ thanh toán',  count: allInvoices.filter(i => isPending(i) && !isOverdue(i)).length },
     { key: 'paid',    label: 'Đã thanh toán',   count: allInvoices.filter(isPaid).length },
     { key: 'overdue', label: 'Quá hạn',         count: allInvoices.filter(isOverdue).length },
   ];
 
   const tabFiltered = allInvoices.filter(inv => {
-    if (activeTab === 'draft')   return isDraft(inv);
     if (activeTab === 'pending') return isPending(inv) && !isOverdue(inv);
     if (activeTab === 'paid')    return isPaid(inv);
     if (activeTab === 'overdue') return isOverdue(inv);
@@ -411,18 +417,6 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
           Xóa lọc
         </button>
         <div style={{ flex: 1 }} />
-        {activeTab === 'draft' && (
-          <>
-            <button
-              onClick={() => { if (selectedIds.size === 0) { setSelectedIds(new Set(filteredInvoices.map(i => i.id))); setShowConfirm(true); } else setShowConfirm(true); }}
-              disabled={approving || filteredInvoices.length === 0}
-              style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', opacity: (approving || filteredInvoices.length === 0) ? 0.5 : 1 }}
-            >
-              <Send size={16} />
-              Phê duyệt &amp; Gửi hàng loạt
-            </button>
-          </>
-        )}
       </div>
 
       {/* old action bar placeholder — removed, now in toolbar */}
@@ -457,9 +451,6 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
             <div className="p-8 text-center">
               <FileText size={48} className="mx-auto text-gray-300 mb-3" />
               <p className="text-gray-500">Không có hóa đơn nào.</p>
-              {activeTab === 'draft' && (
-                <p className="text-sm text-gray-400 mt-1">Hãy chốt chỉ số điện/nước rồi tạo hóa đơn nháp từ trang Chốt chỉ số Điện/Nước.</p>
-              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

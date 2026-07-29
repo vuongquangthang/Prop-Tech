@@ -15,6 +15,26 @@ interface DebtData {
   dueDate: Date | null;
 }
 
+const getReminderLevelInfo = (daysLate: number) => {
+  if (daysLate >= 30) {
+    return { level: 4, label: 'Mức 4 - Khẩn cấp', range: 'Từ 30 ngày quá hạn', color: 'bg-red-100 text-red-800' };
+  }
+
+  if (daysLate >= 15) {
+    return { level: 3, label: 'Mức 3 - Cảnh báo', range: '15-29 ngày quá hạn', color: 'bg-orange-100 text-orange-800' };
+  }
+
+  if (daysLate >= 7) {
+    return { level: 2, label: 'Mức 2 - Nhắc lại', range: '7-14 ngày quá hạn', color: 'bg-yellow-100 text-yellow-800' };
+  }
+
+  if (daysLate > 0) {
+    return { level: 1, label: 'Mức 1 - Nhắc nhẹ', range: '1-6 ngày quá hạn', color: 'bg-blue-100 text-blue-800' };
+  }
+
+  return { level: 0, label: 'Chưa quá hạn', range: '0 ngày quá hạn', color: 'bg-gray-100 text-gray-700' };
+};
+
 const getRowColor = (daysLate: number) => {
   if (daysLate >= 30) return 'bg-red-50';
   if (daysLate >= 15) return 'bg-orange-50';
@@ -31,10 +51,7 @@ const calculateDaysLate = (dueDate: Date | null): number => {
 };
 
 const calculateReminderLevel = (daysLate: number): number => {
-  if (daysLate >= 30) return 3;
-  if (daysLate >= 15) return 2;
-  if (daysLate >= 7) return 1;
-  return 1;
+  return getReminderLevelInfo(daysLate).level;
 };
 
 export function DebtTable() {
@@ -189,33 +206,46 @@ export function DebtTable() {
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
                   <th className="px-6 py-3 text-right text-sm text-gray-600">Số tiền nợ (VNĐ)</th>
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Số ngày trễ</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">Mức nhắc nợ</th>
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((debt) => (
-                  <tr key={debt.invoiceId} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysLate)}`}>
-                    <td className="px-6 py-4 text-sm text-gray-800">{debt.room}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{debt.tenant}</td>
-                    <td className="px-6 py-4 text-sm text-red-600 text-right">{debt.amount.toLocaleString('vi-VN')}</td>
-                    <td className="px-6 py-4 text-sm text-gray-800 text-center">{debt.daysLate}</td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button className="p-2 hover:bg-gray-100 rounded" title="Xem lịch sử nhắc nợ" onClick={() => openViewDebtModal(debt)}>
-                          <Eye size={16} className="text-gray-600" />
-                        </button>
-                        <button className="p-2 hover:bg-gray-100 rounded" title="Gửi nhắc nợ" onClick={() => openSendReminderModal(debt)}>
-                          <Send size={16} className="text-gray-600" />
-                        </button>
-                        {debt.daysLate >= 30 && (
-                          <button className="p-2 hover:bg-gray-100 rounded" title="Chặn truy cập App" onClick={() => openBlockAccountModal(debt)}>
-                            <Ban size={16} className="text-red-600" />
+                {filteredData.map((debt) => {
+                  const reminderLevelInfo = getReminderLevelInfo(debt.daysLate);
+
+                  return (
+                    <tr key={debt.invoiceId} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysLate)}`}>
+                      <td className="px-6 py-4 text-sm text-gray-800">{debt.room}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{debt.tenant}</td>
+                      <td className="px-6 py-4 text-sm text-red-600 text-right">{debt.amount.toLocaleString('vi-VN')}</td>
+                      <td className="px-6 py-4 text-sm text-gray-800 text-center">{debt.daysLate} ngày</td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="inline-flex flex-col items-center gap-1">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-[15px] ${reminderLevelInfo.color}`}>
+                            {reminderLevelInfo.label}
+                          </span>
+                          <span className="text-xs text-gray-500">{reminderLevelInfo.range}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button className="p-2 hover:bg-gray-100 rounded" title="Xem lịch sử nhắc nợ" onClick={() => openViewDebtModal(debt)}>
+                            <Eye size={16} className="text-gray-600" />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button className="p-2 hover:bg-gray-100 rounded" title="Gửi nhắc nợ" onClick={() => openSendReminderModal(debt)}>
+                            <Send size={16} className="text-gray-600" />
+                          </button>
+                          {debt.daysLate >= 30 && (
+                            <button className="p-2 hover:bg-gray-100 rounded" title="Chặn truy cập App" onClick={() => openBlockAccountModal(debt)}>
+                              <Ban size={16} className="text-red-600" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

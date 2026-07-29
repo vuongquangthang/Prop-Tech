@@ -99,6 +99,15 @@ export interface Notification {
   senderPhone?: string;
 }
 
+export interface NotificationRecipient {
+  userId: number;
+  residentId?: number;
+  displayName: string;
+  phoneNumber?: string;
+  roomCode?: string;
+  buildingName?: string;
+}
+
 export interface MaintenanceRequest {
   id: number;
   roomId: number;
@@ -288,9 +297,23 @@ export const notificationService = {
     }
   },
 
+  getRecipients: async () => {
+    try {
+      const response = await api.get<NotificationRecipient[]>(API_ENDPOINTS.NOTIFICATIONS.ADMIN_RECIPIENTS);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
   send: async (dto: { recipientId: number; title: string; content: string; notificationType?: string }) => {
     try {
-      await api.post(API_ENDPOINTS.NOTIFICATIONS.SEND, dto);
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.SEND, {
+        recipientId: dto.recipientId,
+        title: dto.title,
+        content: dto.content,
+        type: dto.notificationType || 'ANNOUNCEMENT',
+      });
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -298,7 +321,11 @@ export const notificationService = {
 
   broadcast: async (dto: { title: string; content: string; notificationType?: string }) => {
     try {
-      await api.post(API_ENDPOINTS.NOTIFICATIONS.BROADCAST, dto);
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.BROADCAST, {
+        title: dto.title,
+        content: dto.content,
+        notificationType: dto.notificationType || 'ANNOUNCEMENT',
+      });
     } catch (error) {
       throw new Error(handleApiError(error));
     }

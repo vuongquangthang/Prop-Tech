@@ -1,4 +1,4 @@
-import { Bell, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
+import { Bell, User, LogOut, Menu, X, ChevronDown, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -7,6 +7,7 @@ import { NotificationPanel } from './NotificationPanel';
 import { notificationService } from '../services/feature.service';
 import { notificationHub } from '../lib/signalr-service';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { ResidentNotificationComposer } from '../pages/ResidentNotificationsPage';
 
 interface TopbarProps {
   title?: string;
@@ -17,6 +18,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showResidentNotificationModal, setShowResidentNotificationModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -150,6 +152,64 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
       )
     : null;
 
+  const residentNotificationModal = showResidentNotificationModal
+    ? createPortal(
+        <div
+          className="admin-content-modal-overlay"
+          onClick={() => setShowResidentNotificationModal(false)}
+        >
+          <div
+            className="admin-content-modal-panel"
+            style={{ width: 'min(100%, 980px)', maxHeight: '90vh', overflowY: 'auto' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resident-notification-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="admin-content-modal-header flex items-center justify-between border-b border-gray-300 px-6 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Thông báo cư dân</p>
+                <h3 id="resident-notification-title" className="text-lg font-semibold text-gray-900">
+                  Gửi thông báo chủ động
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="rounded p-1 hover:bg-gray-100"
+                onClick={() => setShowResidentNotificationModal(false)}
+                aria-label="Đóng"
+              >
+                <X size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <ResidentNotificationComposer compact formId="resident-notification-modal-form" hideSubmitButton />
+            </div>
+
+            <div className="admin-content-modal-footer sticky bottom-0 flex items-center justify-end gap-3 border-t border-gray-300 bg-white px-6 py-4">
+              <button
+                type="button"
+                className="app-button-secondary"
+                onClick={() => setShowResidentNotificationModal(false)}
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                form="resident-notification-modal-form"
+                className="app-button-primary inline-flex items-center gap-2"
+              >
+                <Megaphone size={16} />
+                Gửi thông báo
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
     <header
       className="admin-topbar app-navbar fixed left-0 right-0 top-0 z-[60] flex h-16 flex-shrink-0 items-center justify-between px-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
@@ -180,6 +240,20 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
 
       <div className="flex flex-shrink-0 items-center" style={{ gap: '8px' }}>
         <ThemeSwitcher />
+        <button
+          type="button"
+          className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]"
+          style={{ padding: '10px' }}
+          title="Gửi thông báo cư dân"
+          aria-label="Gửi thông báo cư dân"
+          onClick={() => {
+            setShowNotifications(false);
+            setShowUserMenu(false);
+            setShowResidentNotificationModal(true);
+          }}
+        >
+          <Megaphone size={18} style={{ color: 'var(--text-primary)' }} />
+        </button>
         <button
           type="button"
           className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]"
@@ -277,6 +351,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
       )}
 
       {logoutConfirmModal}
+      {residentNotificationModal}
     </header>
   );
 }

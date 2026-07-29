@@ -18,6 +18,7 @@ import { useAuthStore } from '../store/authStore';
 import { postService } from '../services/post.service';
 import { roomService } from '../services/room.service';
 import { PostDto } from '../types/dto';
+import { canResidentManageRoommatePosts } from '../utils/residentPermissions';
 
 export default function RoommatePostScreen() {
   const navigation = useNavigation<any>();
@@ -107,6 +108,7 @@ export default function RoommatePostScreen() {
   };
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
+  const currentResidentId = useAuthStore((s) => s.user?.residentId);
 
   const formatContractLabel = (contract?: ContractDetail) =>
     contract?.roomNumber ? `Phòng ${contract.roomNumber}` : contract?.contractCode || `HĐ #${contract?.id}`;
@@ -212,6 +214,7 @@ export default function RoommatePostScreen() {
   const selectedContract = contracts.find((contract) => contract.id === selectedContractId);
   const selectedContractLabel = selectedContract ? formatContractLabel(selectedContract) : 'Chọn phòng';
   const selectedRoomId = selectedContract?.roomId ?? post?.roomId;
+  const canManageSelectedPost = canResidentManageRoommatePosts(selectedContract, currentResidentId);
 
   const handleSelectContract = (contract: ContractDetail) => {
     setSelectedContractId(contract.id);
@@ -319,15 +322,17 @@ export default function RoommatePostScreen() {
                     <Text style={styles.actionButtonText}>Xem bài đăng</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => navigation.navigate('RoommateEdit', { roomId: selectedRoomId })}
-                  >
-                    <Ionicons name="create-outline" size={16} color="#374151" />
-                    <Text style={styles.actionButtonText}>Sửa bài đăng</Text>
-                  </TouchableOpacity>
+                  {canManageSelectedPost && (
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => navigation.navigate('RoommateEdit', { roomId: selectedRoomId })}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#374151" />
+                      <Text style={styles.actionButtonText}>Sửa bài đăng</Text>
+                    </TouchableOpacity>
+                  )}
 
-                  {!isPendingReview ? (
+                  {canManageSelectedPost && !isPendingReview ? (
                     <TouchableOpacity style={styles.actionButton} onPress={() => setShowStatusDialog(true)}>
                       <Ionicons
                         name={post.isLocked ? 'lock-open-outline' : 'lock-closed-outline'}
@@ -346,14 +351,16 @@ export default function RoommatePostScreen() {
                     <Text style={styles.actionButtonText}>Lịch sử</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.deleteButton, deleting && styles.deleteButtonDisabled]}
-                    onPress={confirmDelete}
-                    disabled={deleting}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                    <Text style={styles.deleteButtonText}>{deleting ? 'Đang ẩn...' : 'Ẩn bài'}</Text>
-                  </TouchableOpacity>
+                  {canManageSelectedPost && (
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+                      onPress={confirmDelete}
+                      disabled={deleting}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                      <Text style={styles.deleteButtonText}>{deleting ? 'Đang ẩn...' : 'Ẩn bài'}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             </View>
@@ -366,13 +373,22 @@ export default function RoommatePostScreen() {
             <Text style={styles.emptyTitle}>Bạn chưa có bài đăng nào</Text>
             <Text style={styles.emptySub}>Tạo bài đăng để tìm người ở ghép</Text>
 
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => navigation.navigate('RoommateCreate', { contractId: selectedContractId, roomId: selectedRoomId })}
-            >
-              <Ionicons name="add" size={16} color="#FFFFFF" />
-              <Text style={styles.createButtonText}>Tạo bài đăng</Text>
-            </TouchableOpacity>
+            {canManageSelectedPost ? (
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={() => navigation.navigate('RoommateCreate', { contractId: selectedContractId, roomId: selectedRoomId })}
+              >
+                <Ionicons name="add" size={16} color="#FFFFFF" />
+                <Text style={styles.createButtonText}>Tạo bài đăng</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.permissionNotice}>
+                <Ionicons name="lock-closed-outline" size={16} color="#92400E" />
+                <Text style={styles.permissionNoticeText}>
+                  Chỉ chủ phòng/người thuê chính được tạo và chỉnh sửa bài đăng tìm người ở ghép.
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -781,6 +797,24 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  permissionNotice: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  permissionNoticeText: {
+    flex: 1,
+    color: '#92400E',
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '600',
   },
   dialogOverlay: {

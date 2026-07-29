@@ -17,6 +17,7 @@ const routeTitles: Record<string, string> = {
   '/transaction-history': 'Hóa đơn & Tài chính - Lịch sử Giao dịch',
   '/debt-management': 'Hóa đơn & Tài chính - Công nợ & Nhắc nợ',
   '/maintenance-request': 'Vận hành & Sự cố - Quản lý Yêu cầu sửa chữa',
+  '/resident-notifications': 'Thông báo cư dân - Gửi thông báo chủ động',
   '/post-management': 'Đăng bài tìm phòng - Quản lý bài đăng',
   '/post-management/create': 'Đăng bài tìm phòng - Tạo bài đăng',
   '/messages': 'Đăng bài tìm phòng - Tin nhắn',

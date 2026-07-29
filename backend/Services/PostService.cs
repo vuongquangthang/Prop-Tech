@@ -155,6 +155,8 @@ public class PostService : IPostService
                 {
                     throw new InvalidOperationException("Bạn không có quyền đăng bài cho phòng này");
                 }
+
+                await EnsureResidentPrimaryForRoomAsync(createdByUserId.Value, room.Id);
             }
             else if (effectiveOwnerUserId > 0 && room.Floor.Building.OwnerUserId != effectiveOwnerUserId)
             {
@@ -428,6 +430,10 @@ public class PostService : IPostService
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
         }
+        if (IsResidentOwnedPost(post, changedByUserId))
+        {
+            await EnsureResidentPrimaryForRoomAsync(changedByUserId!.Value, post.RoomId);
+        }
 
         if (IsResidentOwnedPost(post, changedByUserId) && StringEquals(post.Status, PendingReviewPostStatus))
         {
@@ -475,6 +481,10 @@ public class PostService : IPostService
         if (post == null)
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
+        }
+        if (IsResidentOwnedPost(post, changedByUserId))
+        {
+            await EnsureResidentPrimaryForRoomAsync(changedByUserId!.Value, post.RoomId);
         }
 
         var changes = new List<PostHistoryChangeDto>();
@@ -697,6 +707,10 @@ public class PostService : IPostService
         {
             throw new InvalidOperationException("Bài đăng không tồn tại");
         }
+        if (isResidentOwnedPost)
+        {
+            await EnsureResidentPrimaryForRoomAsync(ownerUserId, post.RoomId);
+        }
 
         var duplicatePosts = await _context.BaiDangTimPhongs
             .Where(item => item.RoomId == post.RoomId && item.CreatedByUserId == post.CreatedByUserId)
@@ -784,6 +798,48 @@ public class PostService : IPostService
         => userId.HasValue
             && post.CreatedByUserId == userId.Value
             && IsResident(post.CreatedByUser);
+
+    private async Task EnsureResidentPrimaryForRoomAsync(int userId, int roomId)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == userId);
+
+        if (user == null || !IsResident(user))
+        {
+            return;
+        }
+
+        if (!user.ResidentId.HasValue)
+        {
+            throw new InvalidOperationException("Tài khoản cư dân chưa được gắn với hồ sơ cư dân");
+        }
+
+        var today = DateTime.UtcNow.Date;
+        var canManagePost = await _context.ChiTietOs
+            .AsNoTracking()
+            .AnyAsync(item =>
+                item.HopDong.RoomId == roomId
+                && item.ResidentId == user.ResidentId.Value
+                && item.FromDate.Date <= today
+                && (!item.ToDate.HasValue || item.ToDate.Value.Date >= today)
+                && IsPrimaryResidentRole(item.ResidencyRole));
+
+        if (!canManagePost)
+        {
+            throw new InvalidOperationException("Chỉ chủ phòng/người thuê chính được đăng và chỉnh sửa bài đăng tìm người ở ghép.");
+        }
+    }
+
+    private static bool IsPrimaryResidentRole(string? role)
+    {
+        var normalized = NormalizeText(role);
+        return normalized.Contains("nguoi thue chinh")
+            || normalized.Contains("chu ho")
+            || normalized.Contains("chu phong")
+            || normalized.Contains("primary")
+            || normalized.Contains("owner");
+    }
 
     private static PostDto MapToDto(BaiDangTimPhong post)
     {

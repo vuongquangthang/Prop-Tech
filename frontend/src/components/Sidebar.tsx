@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, FileText, Wrench, Bot, BarChart3, ChevronDown, ChevronLeft, ChevronRight, UserCog, Home, Megaphone } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CircleDollarSign, Wrench, Bot, BarChart3, ChevronDown, ChevronLeft, ChevronRight, UserCog, Home, Newspaper } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 
@@ -26,7 +26,7 @@ const menuItems = [
     ]
   },
   { 
-    icon: FileText, 
+    icon: CircleDollarSign, 
     label: 'Hóa đơn & Tài chính',
     subItems: [
       { label: 'Xuất hóa đơn tháng', path: '/utility-reading' },
@@ -39,8 +39,8 @@ const menuItems = [
     label: 'Vận hành & Sự cố',
     path: '/maintenance-request',
   },
-  { 
-    icon: Megaphone, 
+  {
+    icon: Newspaper,
     label: 'Đăng bài tìm phòng',
     subItems: [
       { label: 'Quản lý bài đăng', path: '/post-management' },

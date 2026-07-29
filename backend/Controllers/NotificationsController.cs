@@ -73,12 +73,21 @@ public class NotificationsController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>GET /api/Notifications/admin/recipients — resident app accounts in owner scope</summary>
+    [HttpGet("admin/recipients")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<IActionResult> GetResidentRecipients()
+    {
+        var items = await _service.GetResidentRecipientsAsync(User.GetOwnerUserId());
+        return Ok(items);
+    }
+
     /// <summary>POST /api/Notifications/send — send to a single user</summary>
     [HttpPost("send")]
     [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> Send([FromBody] CreateNotificationDto dto)
     {
-        var result = await _service.CreateNotificationAsync(GetUserId(), dto);
+        var result = await _service.CreateNotificationAsync(GetUserId(), dto, User.GetOwnerUserId());
         return Ok(result);
     }
 

@@ -22,7 +22,8 @@ const formatCurrency = (value: number) => {
 
 const getRowColor = (daysOverdue: number) => {
   if (daysOverdue >= 30) return 'bg-red-50';
-  if (daysOverdue >= 5) return 'bg-orange-50';
+  if (daysOverdue >= 15) return 'bg-orange-50';
+  if (daysOverdue >= 7) return 'bg-yellow-50';
   return 'bg-yellow-50';
 };
 
@@ -35,9 +36,31 @@ const getDaysOverdue = (dueDate: string): number => {
 };
 
 const categorizeDebt = (daysOverdue: number): string => {
-  if (daysOverdue < 5) return 'under5';
-  if (daysOverdue <= 15) return 'mid';
-  return 'hard';
+  if (daysOverdue <= 0) return 'current';
+  if (daysOverdue >= 30) return 'level4';
+  if (daysOverdue >= 15) return 'level3';
+  if (daysOverdue >= 7) return 'level2';
+  return 'level1';
+};
+
+const getReminderLevelInfo = (daysOverdue: number) => {
+  if (daysOverdue <= 0) {
+    return { label: 'Chưa quá hạn', range: '0 ngày quá hạn', color: 'bg-gray-100 text-gray-700' };
+  }
+
+  if (daysOverdue >= 30) {
+    return { label: 'Mức 4 - Khẩn cấp', range: 'Từ 30 ngày quá hạn', color: 'bg-red-100 text-red-800' };
+  }
+
+  if (daysOverdue >= 15) {
+    return { label: 'Mức 3 - Cảnh báo', range: '15-29 ngày quá hạn', color: 'bg-orange-100 text-orange-800' };
+  }
+
+  if (daysOverdue >= 7) {
+    return { label: 'Mức 2 - Nhắc lại', range: '7-14 ngày quá hạn', color: 'bg-yellow-100 text-yellow-800' };
+  }
+
+  return { label: 'Mức 1 - Nhắc nhẹ', range: '1-6 ngày quá hạn', color: 'bg-blue-100 text-blue-800' };
 };
 
 export function DebtReportContent() {
@@ -96,22 +119,34 @@ export function DebtReportContent() {
   });
 
   const categoryStats = {
-    under5: { 
-      label: 'Nợ dưới 5 ngày', 
-      count: filteredData.filter(d => d.category === 'under5').length, 
-      total: filteredData.filter(d => d.category === 'under5').reduce((sum, d) => sum + d.amount, 0), 
+    current: { 
+      label: 'Chưa quá hạn', 
+      count: filteredData.filter(d => d.category === 'current').length, 
+      total: filteredData.filter(d => d.category === 'current').reduce((sum, d) => sum + d.amount, 0), 
+      color: 'bg-gray-50 border-gray-300' 
+    },
+    level1: { 
+      label: 'Mức 1: 1-6 ngày', 
+      count: filteredData.filter(d => d.category === 'level1').length, 
+      total: filteredData.filter(d => d.category === 'level1').reduce((sum, d) => sum + d.amount, 0), 
+      color: 'bg-blue-50 border-blue-300' 
+    },
+    level2: { 
+      label: 'Mức 2: 7-14 ngày', 
+      count: filteredData.filter(d => d.category === 'level2').length, 
+      total: filteredData.filter(d => d.category === 'level2').reduce((sum, d) => sum + d.amount, 0), 
       color: 'bg-yellow-50 border-yellow-300' 
     },
-    mid: { 
-      label: 'Nợ 5-15 ngày', 
-      count: filteredData.filter(d => d.category === 'mid').length, 
-      total: filteredData.filter(d => d.category === 'mid').reduce((sum, d) => sum + d.amount, 0), 
+    level3: { 
+      label: 'Mức 3: 15-29 ngày', 
+      count: filteredData.filter(d => d.category === 'level3').length, 
+      total: filteredData.filter(d => d.category === 'level3').reduce((sum, d) => sum + d.amount, 0), 
       color: 'bg-orange-50 border-orange-300' 
     },
-    hard: { 
-      label: 'Nợ khó đòi (>30 ngày)', 
-      count: filteredData.filter(d => d.category === 'hard').length, 
-      total: filteredData.filter(d => d.category === 'hard').reduce((sum, d) => sum + d.amount, 0), 
+    level4: { 
+      label: 'Mức 4: từ 30 ngày', 
+      count: filteredData.filter(d => d.category === 'level4').length, 
+      total: filteredData.filter(d => d.category === 'level4').reduce((sum, d) => sum + d.amount, 0), 
       color: 'bg-red-50 border-red-300' 
     },
   };
@@ -185,9 +220,11 @@ export function DebtReportContent() {
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
             <option value="all">Tất cả mức độ</option>
-            <option value="under5">Dưới 5 ngày</option>
-            <option value="mid">5-15 ngày</option>
-            <option value="hard">Trên 30 ngày</option>
+            <option value="current">Chưa quá hạn: 0 ngày</option>
+            <option value="level1">Mức 1: 1-6 ngày</option>
+            <option value="level2">Mức 2: 7-14 ngày</option>
+            <option value="level3">Mức 3: 15-29 ngày</option>
+            <option value="level4">Mức 4: từ 30 ngày</option>
           </FilterSelect>
           
           <FilterSelect
@@ -217,26 +254,36 @@ export function DebtReportContent() {
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
           <p className="text-gray-600 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Tổng công nợ</p>
           <p className="text-red-600" style={{ fontSize: 'var(--type-section-title)', fontWeight: 700 }}>{formatCurrency(totalDebt)}</p>
           <p className="text-gray-600 mt-1" style={{ fontSize: 'var(--type-caption)' }}>VNĐ</p>
         </div>
-        <div className={`border-2 rounded p-4 ${categoryStats.under5.color}`}>
-          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.under5.label}</p>
-          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.under5.count} phòng</p>
-          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.under5.total)} VNĐ</p>
+        <div className={`border-2 rounded p-4 ${categoryStats.current.color}`}>
+          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.current.label}</p>
+          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.current.count} phòng</p>
+          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.current.total)} VNĐ</p>
         </div>
-        <div className={`border-2 rounded p-4 ${categoryStats.mid.color}`}>
-          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.mid.label}</p>
-          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.mid.count} phòng</p>
-          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.mid.total)} VNĐ</p>
+        <div className={`border-2 rounded p-4 ${categoryStats.level1.color}`}>
+          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.level1.label}</p>
+          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.level1.count} phòng</p>
+          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.level1.total)} VNĐ</p>
         </div>
-        <div className={`border-2 rounded p-4 ${categoryStats.hard.color}`}>
-          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.hard.label}</p>
-          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.hard.count} phòng</p>
-          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.hard.total)} VNĐ</p>
+        <div className={`border-2 rounded p-4 ${categoryStats.level2.color}`}>
+          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.level2.label}</p>
+          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.level2.count} phòng</p>
+          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.level2.total)} VNĐ</p>
+        </div>
+        <div className={`border-2 rounded p-4 ${categoryStats.level3.color}`}>
+          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.level3.label}</p>
+          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.level3.count} phòng</p>
+          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.level3.total)} VNĐ</p>
+        </div>
+        <div className={`border-2 rounded p-4 ${categoryStats.level4.color}`}>
+          <p className="text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>{categoryStats.level4.label}</p>
+          <p className="text-gray-900" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>{categoryStats.level4.count} phòng</p>
+          <p className="text-gray-700 mt-1" style={{ fontSize: 'var(--type-caption)' }}>{formatCurrency(categoryStats.level4.total)} VNĐ</p>
         </div>
       </div>
       
@@ -254,29 +301,42 @@ export function DebtReportContent() {
                 <th className="px-6 py-3 text-left text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Chủ hộ</th>
                 <th className="px-6 py-3 text-right text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Số tiền nợ (VNĐ)</th>
                 <th className="px-6 py-3 text-center text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Số ngày quá hạn</th>
+                <th className="px-6 py-3 text-center text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Mức nhắc nợ</th>
                 <th className="px-6 py-3 text-center text-gray-600" style={{ fontSize: 'var(--type-caption)' }}>Số lần nhắc</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((debt, index) => (
-                <tr key={index} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysOverdue)}`}>
-                  <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{debt.room}</td>
-                  <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{debt.tenant}</td>
-                  <td className="px-6 py-4 text-red-600 text-right" style={{ fontSize: 'var(--type-body)' }}>{formatCurrency(debt.amount)}</td>
-                  <td className="px-6 py-4 text-gray-800 text-center" style={{ fontSize: 'var(--type-body)' }}>{debt.daysOverdue}</td>
-                  <td className="px-6 py-4 text-gray-700 text-center" style={{ fontSize: 'var(--type-body)' }}>{debt.reminderCount} lần</td>
-                </tr>
-              ))}
+              {filteredData.map((debt, index) => {
+                const reminderLevelInfo = getReminderLevelInfo(debt.daysOverdue);
+
+                return (
+                  <tr key={index} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysOverdue)}`}>
+                    <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{debt.room}</td>
+                    <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{debt.tenant}</td>
+                    <td className="px-6 py-4 text-red-600 text-right" style={{ fontSize: 'var(--type-body)' }}>{formatCurrency(debt.amount)}</td>
+                    <td className="px-6 py-4 text-gray-800 text-center" style={{ fontSize: 'var(--type-body)' }}>{debt.daysOverdue} ngày</td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="inline-flex flex-col items-center gap-1">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-[15px] ${reminderLevelInfo.color}`}>
+                          {reminderLevelInfo.label}
+                        </span>
+                        <span className="text-xs text-gray-500">{reminderLevelInfo.range}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-700 text-center" style={{ fontSize: 'var(--type-body)' }}>{debt.reminderCount} lần</td>
+                  </tr>
+                );
+              })}
               {filteredData.length > 0 && (
                 <tr className="bg-gray-50 border-t-2 border-gray-300">
                   <td colSpan={2} className="px-6 py-4 text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 700 }}>Tổng cộng</td>
                   <td className="px-6 py-4 text-red-700 text-right" style={{ fontSize: 'var(--type-body)', fontWeight: 700 }}>{formatCurrency(totalDebt)}</td>
-                  <td colSpan={2}></td>
+                  <td colSpan={3}></td>
                 </tr>
               )}
               {filteredData.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500" style={{ fontSize: 'var(--type-body)' }}>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500" style={{ fontSize: 'var(--type-body)' }}>
                     Không có dữ liệu phù hợp với bộ lọc
                   </td>
                 </tr>
@@ -287,10 +347,10 @@ export function DebtReportContent() {
       </div>
       
       {/* Info Box */}
-      {categoryStats.hard.count > 0 && (
+      {categoryStats.level4.count > 0 && (
         <div className="bg-red-50 border border-red-300 rounded p-4">
           <p className="text-red-800" style={{ fontSize: 'var(--type-caption)' }}>
-            <strong>⚠️ Cảnh báo:</strong> Có {categoryStats.hard.count} phòng nợ quá 30 ngày (Màu nền đỏ) với tổng giá trị {formatCurrency(categoryStats.hard.total)} VNĐ. Cần có biện pháp xử lý nghiêm khắc hoặc khởi kiện theo hợp đồng.
+            <strong>⚠️ Cảnh báo:</strong> Có {categoryStats.level4.count} phòng ở Mức 4 - từ 30 ngày quá hạn với tổng giá trị {formatCurrency(categoryStats.level4.total)} VNĐ. Cần ưu tiên xử lý.
           </p>
         </div>
       )}

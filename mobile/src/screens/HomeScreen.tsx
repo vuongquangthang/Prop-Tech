@@ -19,6 +19,7 @@ import maintenanceService, { MaintenanceRequest } from '../services/maintenance.
 import { roomService, MyRoom } from '../services/room.service';
 import notificationService from '../services/notification.service';
 import { palette, radius } from '../theme/palette';
+import { canResidentManageFinancialActions } from '../utils/residentPermissions';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -29,6 +30,7 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [latestUnreadNotification, setLatestUnreadNotification] = useState<import('../services/notification.service').Notification | null>(null);
+  const [canPayCurrentInvoice, setCanPayCurrentInvoice] = useState(false);
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
 
@@ -100,9 +102,17 @@ export default function HomeScreen() {
           if (a.year !== b.year) return b.year - a.year;
           return b.month - a.month;
         });
-        setCurrentInvoice(sorted[0]);
+        const nextInvoice = sorted[0];
+        setCurrentInvoice(nextInvoice);
+        try {
+          const invoiceContract = await contractService.getById(nextInvoice.contractId);
+          setCanPayCurrentInvoice(canResidentManageFinancialActions(invoiceContract, user?.residentId));
+        } catch {
+          setCanPayCurrentInvoice(false);
+        }
       } else {
         setCurrentInvoice(null);
+        setCanPayCurrentInvoice(false);
       }
 
       // Load maintenance request count
@@ -298,17 +308,19 @@ export default function HomeScreen() {
                   : 'Chưa có'}
               </Text>
 
-              <TouchableOpacity 
-                style={styles.payButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  // @ts-ignore - Navigation typing issue
-                  navigation.navigate('BillDetail' as never, { id: currentInvoice.id });
-                }}
-              >
-                <Text style={styles.payButtonText}>Thanh toán ngay</Text>
-                <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
-              </TouchableOpacity>
+              {canPayCurrentInvoice && (
+                <TouchableOpacity 
+                  style={styles.payButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    // @ts-ignore - Navigation typing issue
+                    navigation.navigate('BillDetail' as never, { id: currentInvoice.id });
+                  }}
+                >
+                  <Text style={styles.payButtonText}>Thanh toán ngay</Text>
+                  <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
 
               <View style={styles.billDividerThin} />
 

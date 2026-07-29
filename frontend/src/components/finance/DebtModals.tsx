@@ -10,6 +10,36 @@ interface DebtModalProps {
   onClose: () => void;
 }
 
+const getReminderLevelInfo = (daysLateValue: unknown) => {
+  const daysLate = Number(daysLateValue ?? 0);
+
+  if (daysLate >= 30) {
+    return { level: 4, label: 'Mức 4 - Khẩn cấp', range: 'Từ 30 ngày quá hạn', tone: 'red' };
+  }
+
+  if (daysLate >= 15) {
+    return { level: 3, label: 'Mức 3 - Cảnh báo', range: '15-29 ngày quá hạn', tone: 'orange' };
+  }
+
+  if (daysLate >= 7) {
+    return { level: 2, label: 'Mức 2 - Nhắc lại', range: '7-14 ngày quá hạn', tone: 'yellow' };
+  }
+
+  if (daysLate > 0) {
+    return { level: 1, label: 'Mức 1 - Nhắc nhẹ', range: '1-6 ngày quá hạn', tone: 'blue' };
+  }
+
+  return { level: 0, label: 'Chưa quá hạn', range: '0 ngày quá hạn', tone: 'gray' };
+};
+
+const getReminderLevelBadgeClass = (tone: string) => {
+  if (tone === 'red') return 'bg-red-100 text-red-800 border-red-300';
+  if (tone === 'orange') return 'bg-orange-100 text-orange-800 border-orange-300';
+  if (tone === 'yellow') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+  if (tone === 'blue') return 'bg-blue-100 text-blue-800 border-blue-300';
+  return 'bg-gray-100 text-gray-700 border-gray-300';
+};
+
 export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
   const [invoice, setInvoice] = useState<any>(null);
   const [reminders, setReminders] = useState<any[]>([]);
@@ -83,6 +113,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
   const totalAmount = Number(invoice?.totalAmount ?? debt?.amount ?? 0);
   const paidAmount = Number(invoice?.paidAmount ?? 0);
   const remainingAmount = Number(invoice?.remainingAmount ?? (totalAmount - paidAmount));
+  const reminderLevelInfo = getReminderLevelInfo(debt?.daysLate);
 
   const formatCurrency = (value: number) =>
     value.toLocaleString('vi-VN') + ' VNĐ';
@@ -141,6 +172,12 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
                     <div className="flex justify-between"><span className="text-red-700">Đã thanh toán:</span><span className="text-red-900 font-bold">{formatCurrency(paidAmount)}</span></div>
                     <div className="flex justify-between border-t border-red-300 pt-2"><span className="text-red-800 font-bold">Còn nợ:</span><span className="text-red-900 font-bold text-lg">{formatCurrency(remainingAmount)}</span></div>
                     <div className="flex justify-between"><span className="text-red-700">Số ngày trễ:</span><span className="text-red-900 font-bold">{debt?.daysLate || 0} ngày</span></div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-red-700">Mức nhắc nợ:</span>
+                      <span className="text-right text-red-900 font-bold">
+                        {reminderLevelInfo.label} ({reminderLevelInfo.range})
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -858,11 +895,13 @@ export function SendReminderModal({ debt, onClose }: DebtModalProps) {
       : 'chưa xác định';
     const remainAmount = Number(invoice?.remainingAmount ?? debt?.amount ?? 0);
     const daysLate = Number(debt?.daysLate ?? 0);
+    const reminderLevelInfo = getReminderLevelInfo(daysLate);
 
     return {
       gentle: `Xin chào ${tenantName},
 
 Hóa đơn kỳ ${period} của quý cư dân đã quá hạn ${daysLate} ngày.
+Mức độ nhắc nợ: ${reminderLevelInfo.label} (${reminderLevelInfo.range}).
 Số tiền còn nợ: ${formatCurrency(remainAmount)}.
 Hạn thanh toán: ${dueDateText}.
 
@@ -874,6 +913,7 @@ Trân trọng,\nBan quản lý`,
 Kính gửi ${tenantName},
 
 Hóa đơn kỳ ${period} đã quá hạn ${daysLate} ngày.
+Mức độ nhắc nợ: ${reminderLevelInfo.label} (${reminderLevelInfo.range}).
 Số tiền còn nợ: ${formatCurrency(remainAmount)}.
 
 Nếu tiếp tục chậm thanh toán, Ban quản lý sẽ áp dụng biện pháp xử lý theo quy định hợp đồng.
@@ -891,6 +931,7 @@ Trân trọng,\nBan quản lý`,
   const defaultTemplateKey = debt?.daysLate >= 30 ? 'strict' : 'gentle';
   const [selectedTemplate, setSelectedTemplate] = useState<'gentle' | 'strict' | 'custom'>(defaultTemplateKey);
   const [messageContent, setMessageContent] = useState('');
+  const reminderLevelInfo = getReminderLevelInfo(debt?.daysLate);
 
   useEffect(() => {
     let disposed = false;
@@ -1049,7 +1090,7 @@ Trân trọng,\nBan quản lý`,
 
           <div className="bg-orange-50 border border-orange-300 rounded p-4">
             <p className="text-sm text-orange-800">
-              Bạn đang gửi nhắc nợ <strong>lần {debt?.reminderLevel + 1}</strong> cho phòng <strong>{debt?.room}</strong>
+              Bạn đang gửi nhắc nợ <strong>{reminderLevelInfo.label}</strong> cho phòng <strong>{debt?.room}</strong> — {reminderLevelInfo.range}.
             </p>
           </div>
 
@@ -1067,6 +1108,10 @@ Trân trọng,\nBan quản lý`,
               <div className="flex justify-between">
                 <span className="text-gray-600">Số ngày trễ:</span>
                 <span className="text-red-700 font-bold">{debt?.daysLate} ngày</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-600">Mức nhắc nợ:</span>
+                <span className="text-orange-700 font-bold text-right">{reminderLevelInfo.label} ({reminderLevelInfo.range})</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Đã nhắc:</span>
@@ -1182,8 +1227,14 @@ export function BlockAccountModal({ debt, onClose }: DebtModalProps) {
                 <span className="text-red-700 font-bold">{debt?.amount} VNĐ</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">S��� ngày trễ:</span>
+                <span className="text-gray-600">Số ngày trễ:</span>
                 <span className="text-red-700 font-bold">{debt?.daysLate} ngày</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-600">Mức nhắc nợ:</span>
+                <span className="text-orange-700 font-bold text-right">
+                  {getReminderLevelInfo(debt?.daysLate).label} ({getReminderLevelInfo(debt?.daysLate).range})
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Đã nhắc:</span>
@@ -1283,9 +1334,9 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
   const [selectedDebts, setSelectedDebts] = useState<string[]>(debts?.map(d => d.room) || []);
 
   const templates = {
-    auto: 'Tự động chọn mẫu phù hợp với từng phòng (dựa vào số ngày nợ)',
-    gentle: 'Mẫu nhắc nhẹ nhàng - Cho tất cả các phòng',
-    strict: 'Mẫu cảnh báo nghiêm khắc - Cho tất cả các phòng',
+    auto: 'Tự động chọn mẫu theo mức nợ: Mức 1 (1-6 ngày), Mức 2 (7-14 ngày), Mức 3 (15-29 ngày), Mức 4 (từ 30 ngày)',
+    gentle: 'Mẫu nhắc nhẹ nhàng - phù hợp Mức 1-2 (1-14 ngày quá hạn)',
+    strict: 'Mẫu cảnh báo nghiêm khắc - phù hợp Mức 3-4 (từ 15 ngày quá hạn)',
   };
 
   const handleToggleDebt = (room: string) => {
@@ -1458,43 +1509,42 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
             </div>
             
             <div className="max-h-64 overflow-y-auto">
-              {debts?.map((debt, index) => (
-                <label 
-                  key={index}
-                  className={`flex items-center justify-between p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 ${
-                    selectedDebts.includes(debt.room) ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <input 
-                      type="checkbox"
-                      checked={selectedDebts.includes(debt.room)}
-                      onChange={() => handleToggleDebt(debt.room)}
-                      className="w-4 h-4"
-                    />
-                    <div>
-                      <p className="text-sm text-gray-800 font-bold">{debt.room} - {debt.tenant}</p>
-                      <p className="text-xs text-gray-600">
-                        Nợ: <strong className="text-red-700">{debt.amount} VNĐ</strong> • 
-                        Trễ: <strong>{debt.daysLate} ngày</strong> • 
-                        Đã nhắc: <strong>{debt.reminderLevel} lần</strong>
-                      </p>
+              {debts?.map((debt, index) => {
+                const reminderLevelInfo = getReminderLevelInfo(debt.daysLate);
+                const badgeClass = getReminderLevelBadgeClass(reminderLevelInfo.tone);
+
+                return (
+                  <label 
+                    key={index}
+                    className={`flex items-center justify-between p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 ${
+                      selectedDebts.includes(debt.room) ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input 
+                        type="checkbox"
+                        checked={selectedDebts.includes(debt.room)}
+                        onChange={() => handleToggleDebt(debt.room)}
+                        className="w-4 h-4"
+                      />
+                      <div>
+                        <p className="text-sm text-gray-800 font-bold">{debt.room} - {debt.tenant}</p>
+                        <p className="text-xs text-gray-600">
+                          Nợ: <strong className="text-red-700">{debt.amount} VNĐ</strong> • 
+                          Trễ: <strong>{debt.daysLate} ngày</strong> • 
+                          Đã nhắc: <strong>{debt.reminderLevel} lần</strong>
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {debt.daysLate >= 30 && (
-                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded border border-red-300">
-                        Khẩn cấp
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-xs px-2 py-1 rounded-[15px] border font-semibold ${badgeClass}`}>
+                        {reminderLevelInfo.label}
                       </span>
-                    )}
-                    {debt.daysLate >= 15 && debt.daysLate < 30 && (
-                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded border border-orange-300">
-                        Cảnh báo
-                      </span>
-                    )}
-                  </div>
-                </label>
-              ))}
+                      <span className="text-xs text-gray-500">{reminderLevelInfo.range}</span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

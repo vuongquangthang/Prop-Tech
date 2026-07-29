@@ -14,9 +14,10 @@ public interface INotificationService
     Task<int> GetUnreadCountAsync(int userId, int ownerUserId);
     Task MarkAsReadAsync(int id, int userId, int ownerUserId, bool canManageAdmin = false);
     Task MarkAllAsReadAsync(int userId, int ownerUserId, bool includeAdmin = false);
-    Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto);
+    Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto, int? ownerUserId = null);
     Task BroadcastAsync(int senderUserId, string title, string content, string type);
     Task<List<NotificationResponseDto>> GetAllRecentAsync(int ownerUserId, int limit = 200);
+    Task<List<NotificationRecipientDto>> GetResidentRecipientsAsync(int ownerUserId);
     /// <summary>Tạo thông báo DB + push SignalR cho cư dân cụ thể</summary>
     Task SendToUserAsync(int recipientUserId, string title, string content, string type, int? relatedId = null, string? linkUrl = null);
     /// <summary>Tạo thông báo DB chỉ hiển thị trên trang quản lý (ScopeType=ADMIN)</summary>
@@ -72,16 +73,20 @@ public class NotificationService : INotificationService
         await _repo.MarkAllAsReadAsync(userId, ownerUserId, includeAdmin);
     }
 
-    public async Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto)
+    public async Task<NotificationResponseDto> CreateNotificationAsync(int senderUserId, CreateNotificationDto dto, int? ownerUserId = null)
     {
-        var ownerUserId = await ResolveOwnerUserIdForUserAsync((int)dto.RecipientId)
+        var recipientOwnerUserId = await ResolveOwnerUserIdForUserAsync((int)dto.RecipientId)
             ?? await ResolveOwnerUserIdForUserAsync(senderUserId);
+        if (ownerUserId.HasValue && recipientOwnerUserId != ownerUserId.Value)
+        {
+            throw new InvalidOperationException("Người nhận không thuộc phạm vi quản lý");
+        }
 
         var notification = new Notification
         {
             UserId = senderUserId,
             RecipientId = (int?)dto.RecipientId,
-            OwnerUserId = ownerUserId,
+            OwnerUserId = recipientOwnerUserId,
             ScopeType = "USER",
             NotificationType = dto.Type,
             Title = dto.Title,
@@ -133,6 +138,48 @@ public class NotificationService : INotificationService
     {
         var items = await _repo.GetAllRecentAsync(ownerUserId, limit);
         return items.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<NotificationRecipientDto>> GetResidentRecipientsAsync(int ownerUserId)
+    {
+        var now = DateTime.UtcNow;
+        var users = await _context.Users
+            .AsNoTracking()
+            .Include(user => user.Resident)
+                .ThenInclude(resident => resident!.ChiTietOs)
+                    .ThenInclude(residency => residency.HopDong)
+                        .ThenInclude(contract => contract.Room)
+                            .ThenInclude(room => room.Floor)
+                                .ThenInclude(floor => floor.Building)
+            .Where(user =>
+                user.Role == "CuDan"
+                && !user.IsLocked
+                && user.ResidentId.HasValue
+                && user.Resident != null
+                && (user.OwnerUserId == ownerUserId
+                    || user.Resident.ChiTietOs.Any(residency =>
+                        residency.HopDong.Room.Floor.Building.OwnerUserId == ownerUserId)))
+            .OrderBy(user => user.Resident!.FullName)
+            .ThenBy(user => user.PhoneNumber)
+            .ToListAsync();
+
+        return users.Select(user =>
+        {
+            var activeResidency = user.Resident!.ChiTietOs
+                .Where(residency => residency.FromDate <= now && (residency.ToDate == null || residency.ToDate > now))
+                .OrderByDescending(residency => residency.FromDate)
+                .FirstOrDefault();
+
+            return new NotificationRecipientDto
+            {
+                UserId = user.Id,
+                ResidentId = user.ResidentId,
+                DisplayName = user.DisplayName ?? user.Resident.FullName,
+                PhoneNumber = user.PhoneNumber,
+                RoomCode = activeResidency?.HopDong?.Room?.RoomCode,
+                BuildingName = activeResidency?.HopDong?.Room?.Floor?.Building?.BuildingName
+            };
+        }).ToList();
     }
 
     public async Task SendToUserAsync(int recipientUserId, string title, string content, string type, int? relatedId = null, string? linkUrl = null)

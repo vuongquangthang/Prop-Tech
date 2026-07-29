@@ -29,3 +29,5 @@ export const canResidentManageFinancialActions = (
   const resident = contract.residents?.find(item => item.residentId === residentId);
   return isPrimaryResidentRole(resident?.residencyRole);
 };
+
+export const canResidentManageRoommatePosts = canResidentManageFinancialActions;

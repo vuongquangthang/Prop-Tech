@@ -25,6 +25,7 @@ import { fileService } from '../services/file.service';
 import { useAuthStore } from '../store/authStore';
 import type { CreatePostDto, PostServiceLineItemDto } from '../types/dto';
 import { palette } from '../theme/palette';
+import { canResidentManageRoommatePosts } from '../utils/residentPermissions';
 
 type PriceMap = Record<string, string>;
 
@@ -300,6 +301,9 @@ export default function RoommateCreateScreen() {
       if (!contract) {
         throw new Error('Không tìm thấy hợp đồng còn hiệu lực');
       }
+      if (!canResidentManageRoommatePosts(contract, user?.residentId)) {
+        throw new Error('Chỉ chủ phòng/người thuê chính được tạo bài đăng tìm người ở ghép.');
+      }
 
       setSelectedPostContractId(contract.id);
       await hydrateContractRoom(contract, false);
@@ -308,7 +312,7 @@ export default function RoommateCreateScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeContractId, hydrateContractRoom, routeContractId, routeRoomId, selectedPostContractId]);
+  }, [activeContractId, hydrateContractRoom, routeContractId, routeRoomId, selectedPostContractId, user?.residentId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -318,6 +322,10 @@ export default function RoommateCreateScreen() {
 
   const handleSelectContract = async (contract: ContractDetail) => {
     if (contract.id === selectedPostContractId || saving) return;
+    if (!canResidentManageRoommatePosts(contract, user?.residentId)) {
+      Alert.alert('Không có quyền', 'Chỉ chủ phòng/người thuê chính được tạo bài đăng tìm người ở ghép.');
+      return;
+    }
     try {
       setLoading(true);
       setError(null);

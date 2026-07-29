@@ -1,9 +1,10 @@
-import { Save, Calculator, Upload, Filter, CheckCircle, X, AlertTriangle } from 'lucide-react';
+import { Save, Calculator, Filter, CheckCircle, X, AlertTriangle, Eye, Send } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { FilterSelect } from '../ui/FilterSelect';
 import { PageHeader } from '../ui/product-system';
+import { InvoiceDetailModal } from './InvoiceDetailModal';
 
 interface RoomUtilityReading {
   roomId: number;
@@ -30,6 +31,18 @@ interface RowEdit {
   newWater: string;
 }
 
+interface CalculatedInvoiceSummary {
+  id: number;
+  invoiceNumber?: string;
+  roomId?: number;
+  roomCode?: string;
+  roomNumber?: string;
+  totalAmount: number;
+  status?: string;
+  month?: number;
+  year?: number;
+}
+
 interface UtilityReadingTableProps {
   embedded?: boolean;
 }
@@ -48,6 +61,11 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
   const [selectedBuilding, setSelectedBuilding] = useState('all');
   const [selectedFloor, setSelectedFloor] = useState('all');
   const [calculateModal, setCalculateModal] = useState(false);
+  const [calculatedInvoices, setCalculatedInvoices] = useState<CalculatedInvoiceSummary[]>([]);
+  const [lockedCalculatedRoomIds, setLockedCalculatedRoomIds] = useState<Set<number>>(new Set());
+  const [modalInvoiceId, setModalInvoiceId] = useState<number | null>(null);
+  const [sendingInvoices, setSendingInvoices] = useState(false);
+  const [sendResult, setSendResult] = useState('');
   const [calcResult, setCalcResult] = useState<{
     totalContracts: number;
     totalInvoices: number;
@@ -82,6 +100,13 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
   }, [selectedYear, selectedMonth]);
 
   useEffect(() => { loadReadings(); }, [loadReadings]);
+
+  useEffect(() => {
+    setLockedCalculatedRoomIds(new Set());
+    setCalculatedInvoices([]);
+    setCalcResult(null);
+    setSendResult('');
+  }, [selectedMonth, selectedYear]);
 
   const handleInputChange = (roomId: number, field: 'newElec' | 'newWater', value: string) => {
     const integerOnly = value.replace(/[^0-9]/g, '');
@@ -149,6 +174,24 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     await saveReadingsBatch();
   };
 
+  const getEnteredRoomIds = () => rooms
+    .filter(r => edits[r.roomId]?.newElec && edits[r.roomId]?.newWater)
+    .map(r => r.roomId);
+
+  const loadCalculatedInvoices = async (roomIds: number[]) => {
+    if (roomIds.length === 0) return [];
+    const res = await api.get<CalculatedInvoiceSummary[]>(API_ENDPOINTS.INVOICES.BASE);
+    return (res.data || [])
+      .filter(inv => Number(inv.month) === selectedMonth && Number(inv.year) === selectedYear)
+      .filter(inv => roomIds.includes(Number(inv.roomId)))
+      .filter(inv => inv.status === 'Draft' || inv.status === 'Nháp')
+      .map((inv: any) => ({
+        ...inv,
+        roomCode: inv.roomCode || inv.roomNumber || inv.soPhong || '',
+        roomNumber: inv.roomNumber || inv.roomCode || inv.soPhong || '',
+      }));
+  };
+
   const handleCalculate = async () => {
     setCalculating(true);
     setErrors([]);
@@ -160,6 +203,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
         if (!saved) return;
       }
 
+      const enteredRoomIds = getEnteredRoomIds();
       const res = await api.post<{
         totalContracts: number;
         totalInvoices: number;
@@ -172,11 +216,36 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
         API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth)
       );
       setCalcResult(res.data);
+      setLockedCalculatedRoomIds(new Set(enteredRoomIds));
+      setCalculatedInvoices(await loadCalculatedInvoices(enteredRoomIds));
+      setSendResult('');
       setCalculateModal(true);
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi tính toán hóa đơn.']);
     } finally {
       setCalculating(false);
+    }
+  };
+
+  const handleSendCalculatedInvoices = async () => {
+    const invoiceIds = calculatedInvoices.map(inv => inv.id);
+    if (invoiceIds.length === 0) return;
+    setSendingInvoices(true);
+    setSendResult('');
+    setErrors([]);
+    try {
+      const res = await api.post<{ success: number; failed: number; errors: string[] }>(
+        API_ENDPOINTS.INVOICES.APPROVE_BATCH,
+        { invoiceIds }
+      );
+      if (res.data.errors?.length > 0) setErrors(res.data.errors);
+      setSendResult(`Đã gửi ${res.data.success} hóa đơn cho cư dân${res.data.failed > 0 ? `, ${res.data.failed} lỗi` : ''}.`);
+      setCalculatedInvoices([]);
+      window.dispatchEvent(new CustomEvent('billing-invoices-updated'));
+    } catch (err: any) {
+      setErrors([err.response?.data?.message || 'Lỗi khi gửi hóa đơn.']);
+    } finally {
+      setSendingInvoices(false);
     }
   };
 
@@ -327,7 +396,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
               style={{ padding: '0 18px', backgroundColor: 'var(--brand-primary)', border: 'none', color: 'var(--text-on-color)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: '42px', gap: '8px', opacity: (calculating || saving) ? 0.6 : 1 }}
             >
               <Calculator size={18} />
-              <span>{saving ? 'Đang lưu...' : calculating ? 'Đang tính...' : 'Tính hóa đơn nháp'}</span>
+              <span>{saving ? 'Đang lưu...' : calculating ? 'Đang tính...' : 'Tính hóa đơn'}</span>
             </button>
           </div>
         </div>
@@ -387,9 +456,18 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                     const waterAbnormal = isAbnormal(room, 'water');
                     const elecUsage = calcUsage(room, 'elec');
                     const waterUsage = calcUsage(room, 'water');
+                    const rowLocked = lockedCalculatedRoomIds.has(room.roomId);
 
                     return (
-                      <tr key={room.roomId} style={{ borderBottom: '1px solid var(--surface-border)' }} className="hover:bg-[var(--surface-bg)] transition-colors">
+                      <tr
+                        key={room.roomId}
+                        style={{
+                          borderBottom: '1px solid var(--surface-border)',
+                          opacity: rowLocked ? 0.55 : 1,
+                          backgroundColor: rowLocked ? 'var(--surface-bg)' : undefined,
+                        }}
+                        className="hover:bg-[var(--surface-bg)] transition-colors"
+                      >
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{room.roomCode}</span>
                           {room.buildingName && <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>{room.floorName ? `Tầng ${room.floorName} - ` : ''}{room.buildingName}</div>}
@@ -409,10 +487,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               placeholder="Nhập..."
                               value={edit.newElec}
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
-                              disabled={!isCurrentMonth}
-              className="w-[188px] shrink-0 focus:outline-none"
-                              title={room.elecAnomalyNote || undefined}
-                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: !isCurrentMonth ? 'var(--surface-bg)' : 'white', cursor: !isCurrentMonth ? 'not-allowed' : 'text' }}
+                              disabled={!isCurrentMonth || rowLocked}
+                              className="focus:outline-none"
+                              title={rowLocked ? 'Phòng đã được tính hóa đơn, không thể sửa chỉ số.' : room.elecAnomalyNote || undefined}
+                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (!isCurrentMonth || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (!isCurrentMonth || rowLocked) ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
                         </td>
@@ -436,10 +514,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               placeholder="Nhập..."
                               value={edit.newWater}
                               onChange={e => handleInputChange(room.roomId, 'newWater', e.target.value)}
-                              disabled={!isCurrentMonth}
+                              disabled={!isCurrentMonth || rowLocked}
                               className="focus:outline-none"
-                              title={room.waterAnomalyNote || undefined}
-                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: !isCurrentMonth ? 'var(--surface-bg)' : 'white', cursor: !isCurrentMonth ? 'not-allowed' : 'text' }}
+                              title={rowLocked ? 'Phòng đã được tính hóa đơn, không thể sửa chỉ số.' : room.waterAnomalyNote || undefined}
+                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (!isCurrentMonth || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (!isCurrentMonth || rowLocked) ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
                         </td>
@@ -462,11 +540,11 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
       {/* Calculate Result Modal */}
       {calculateModal && calcResult && (
         <div className="admin-content-modal-overlay">
-          <div className="bg-white rounded-lg w-[520px] max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg w-[760px] max-h-[90vh] overflow-y-auto">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Calculator size={20} className="text-gray-800" />
-                <h3 className="text-base font-semibold text-gray-800">Kết quả tính toán hóa đơn</h3>
+                <h3 className="text-base font-semibold text-gray-800">Tạo thành công {calcResult.totalInvoices} hóa đơn</h3>
               </div>
               <button onClick={() => setCalculateModal(false)}><X size={20} /></button>
             </div>
@@ -494,6 +572,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                   <div>
                     <p className="font-semibold text-green-800 text-sm">Tạo hóa đơn thành công!</p>
                     <p className="text-sm text-green-700 mt-1">Tổng tiền: <strong>{calcResult.totalAmount.toLocaleString('vi-VN')} đ</strong></p>
+                    <p className="text-xs text-green-700 mt-1">Các phòng đã nhập chỉ số đã được khóa để tránh sửa sau khi tính hóa đơn.</p>
                   </div>
                 </div>
               ) : (
@@ -509,6 +588,54 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                           : 'Kiểm tra chi tiết bên dưới.'}
                     </p>
                   </div>
+                </div>
+              )}
+
+              {calculatedInvoices.length > 0 && (
+                <div className="border border-gray-200 rounded overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Mã phòng</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Số tiền</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Xem chi tiết</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calculatedInvoices.map(invoice => (
+                        <tr key={invoice.id} className="border-t border-gray-200">
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                            {invoice.roomCode || invoice.roomNumber || `#${invoice.roomId}`}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">
+                            {(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setModalInvoiceId(invoice.id)}
+                              className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              <Eye size={14} />
+                              Xem
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {calcResult.totalInvoices > 0 && calculatedInvoices.length === 0 && !sendResult && (
+                <div className="bg-yellow-50 border border-yellow-300 rounded p-3 text-sm text-yellow-800">
+                  Hóa đơn đã được tính nhưng không tìm thấy hóa đơn nháp để gửi. Vui lòng kiểm tra danh sách hóa đơn.
+                </div>
+              )}
+
+              {sendResult && (
+                <div className="bg-green-50 border border-green-300 rounded p-3 text-sm font-semibold text-green-800">
+                  {sendResult}
                 </div>
               )}
 
@@ -540,11 +667,35 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                   </div>
                 </div>
               )}
-
-              <p className="text-xs text-gray-500">Mở phần <strong>Kiểm tra và gửi hóa đơn</strong> bên dưới để xem hóa đơn nháp và phê duyệt.</p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCalculateModal(false)}
+                  className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendCalculatedInvoices}
+                  disabled={sendingInvoices || calculatedInvoices.length === 0}
+                  className="inline-flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  <Send size={16} />
+                  {sendingInvoices ? 'Đang gửi...' : 'Gửi hóa đơn'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+      {modalInvoiceId && (
+        <InvoiceDetailModal
+          invoiceId={modalInvoiceId}
+          isDraft
+          onClose={() => setModalInvoiceId(null)}
+        />
       )}
     </>
   );

@@ -60,3 +60,13 @@ public class BroadcastNotificationDto
     public long? FloorId { get; set; }
     public long? RoomId { get; set; }
 }
+
+public class NotificationRecipientDto
+{
+    public int UserId { get; set; }
+    public int? ResidentId { get; set; }
+    public string DisplayName { get; set; } = null!;
+    public string? PhoneNumber { get; set; }
+    public string? RoomCode { get; set; }
+    public string? BuildingName { get; set; }
+}

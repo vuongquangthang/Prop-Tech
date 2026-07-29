@@ -19,6 +19,7 @@ import { postService } from '../services/post.service';
 import { MyRoom, RoomDetail, roomService } from '../services/room.service';
 import type { PostDto } from '../types/dto';
 import { resolveImageUrl } from '../utils/image';
+import { canResidentManageRoommatePosts } from '../utils/residentPermissions';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.max(0, Math.round(value || 0)));
 
@@ -107,8 +108,10 @@ export default function RoommateDetailScreen() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [canManagePost, setCanManagePost] = useState(false);
 
   const activeContractId = useAuthStore((s) => s.activeContractId);
+  const currentResidentId = useAuthStore((s) => s.user?.residentId);
   const routeRoomId = Number(route.params?.roomId) || undefined;
 
   const loadData = useCallback(async () => {
@@ -122,6 +125,7 @@ export default function RoommateDetailScreen() {
           ? contracts.find((contract) => contract.id === activeContractId)
           : undefined;
       const targetRoomId = selectedContract?.roomId ?? routeRoomId;
+      setCanManagePost(canResidentManageRoommatePosts(selectedContract, currentResidentId));
       const [myPost, roomData] = await Promise.all([
         postService.getMyPost(targetRoomId),
         targetRoomId ? roomService.getRoomDetail(targetRoomId) : roomService.getMyRoom(),
@@ -153,7 +157,7 @@ export default function RoommateDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeContractId]);
+  }, [activeContractId, currentResidentId, routeRoomId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -426,9 +430,11 @@ export default function RoommateDetailScreen() {
           <Ionicons name="chatbubble-ellipses-outline" size={16} color="#374151" />
           <Text style={styles.outlineText}>Tin nhắn ({post?.messages ?? 0})</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('RoommateEdit')}>
-          <Text style={styles.primaryText}>Chỉnh sửa</Text>
-        </TouchableOpacity>
+        {canManagePost && (
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('RoommateEdit', { roomId: room?.roomId })}>
+            <Text style={styles.primaryText}>Chỉnh sửa</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <Modal visible={previewVisible} transparent animationType="fade" onRequestClose={() => setPreviewVisible(false)}>
