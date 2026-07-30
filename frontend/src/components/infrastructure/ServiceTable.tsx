@@ -1,5 +1,5 @@
 import { Plus, Edit2, Trash2, X, AlertTriangle, History, DollarSign, Loader2, FileX, Filter } from 'lucide-react';
-import { useMemo, useState, useEffect, type Dispatch, type SetStateAction } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { buildingService, serviceService, ServicePriceHistory } from '../../services/api.service';
 import { formatDisplayDate, formatLocalDateInput, toLocalIsoString } from '../../lib/date-utils';
 import { PageHeader } from '../ui/product-system';
@@ -81,9 +81,10 @@ const normalizeServiceType = (raw: string | undefined, serviceName?: string): Se
 interface ServiceTableProps {
   embedded?: boolean;
   contextBuildingId?: number | null;
+  inlineForms?: boolean;
 }
 
-export function ServiceTable({ embedded = false, contextBuildingId = null }: ServiceTableProps = {}) {
+export function ServiceTable({ embedded = false, contextBuildingId = null, inlineForms = false }: ServiceTableProps = {}) {
   const [services, setServices] = useState<ServiceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +104,6 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
   const [addUnit, setAddUnit] = useState('');
   const [addPrice, setAddPrice] = useState('');
   const [addEffectiveDate, setAddEffectiveDate] = useState(() => formatLocalDateInput());
-  const [addScopeMode, setAddScopeMode] = useState<'common' | 'private'>('common');
   const [addBuildingIds, setAddBuildingIds] = useState<number[]>([]);
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -122,7 +122,6 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
   const [editName, setEditName] = useState('');
   const [editServiceType, setEditServiceType] = useState<ServiceTypeValue>('Theo tháng');
   const [editUnit, setEditUnit] = useState('');
-  const [editScopeMode, setEditScopeMode] = useState<'common' | 'private'>('common');
   const [editBuildingIds, setEditBuildingIds] = useState<number[]>([]);
 
   // Price history state
@@ -151,9 +150,6 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
   const addPriceVnd = addPrice ? Math.round(Number(addPrice) * priceMultiplier) : 0;
   const updatePriceMultiplier = updatePriceScale === 'million' ? 1_000_000 : updatePriceScale === 'thousand' ? 1_000 : 1;
   const updatePriceVnd = updateNewPrice ? Math.round(Number(updateNewPrice) * updatePriceMultiplier) : 0;
-  const allBuildingIds = buildings.map((building) => building.id);
-  const selectedAddAllBuildings = allBuildingIds.length > 0 && addBuildingIds.length === allBuildingIds.length;
-  const selectedEditAllBuildings = allBuildingIds.length > 0 && editBuildingIds.length === allBuildingIds.length;
 
   const serviceGroups = useMemo<ServiceGroup[]>(() => {
     const grouped = new Map<string, ServiceData[]>();
@@ -201,10 +197,10 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
       .sort((first, second) => {
         const firstIsCommon = first.buildingIds.length === 0;
         const secondIsCommon = second.buildingIds.length === 0;
-        if (firstIsCommon !== secondIsCommon) return firstIsCommon ? -1 : 1;
+        if (firstIsCommon !== secondIsCommon) return firstIsCommon ? 1 : -1;
 
-        const firstBuilding = firstIsCommon ? 'Áp dụng chung' : (first.buildingNames[0] || `Tòa #${first.buildingIds[0]}`);
-        const secondBuilding = secondIsCommon ? 'Áp dụng chung' : (second.buildingNames[0] || `Tòa #${second.buildingIds[0]}`);
+        const firstBuilding = firstIsCommon ? 'Chưa gắn tòa' : (first.buildingNames[0] || `Tòa #${first.buildingIds[0]}`);
+        const secondBuilding = secondIsCommon ? 'Chưa gắn tòa' : (second.buildingNames[0] || `Tòa #${second.buildingIds[0]}`);
         const buildingCompare = firstBuilding.localeCompare(secondBuilding, 'vi');
         if (buildingCompare !== 0) return buildingCompare;
 
@@ -214,7 +210,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
 
   const getServiceBuildingDisplay = (service: ServiceGroup) => {
     if (service.buildingIds.length === 0) {
-      return 'Áp dụng chung';
+      return 'Chưa gắn tòa';
     }
 
     if (service.buildingIds.length > 1) {
@@ -246,7 +242,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
       const matchesType = serviceTypeFilter === 'all' || service.type === serviceTypeFilter;
       const matchesContextBuilding =
         typeof contextBuildingId === 'number'
-          ? service.buildingIds.length === 0 || service.buildingIds.includes(contextBuildingId)
+          ? service.buildingIds.includes(contextBuildingId)
           : true;
       const matchesManualBuilding =
         typeof contextBuildingId === 'number'
@@ -260,21 +256,10 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
   }, [contextBuildingId, serviceGroups, serviceSearch, serviceTypeFilter, serviceBuildingFilter]);
 
   const getBuildingLabel = (building: BuildingOption) => building.buildingName || building.name || `Tòa #${building.id}`;
-
-  const toggleBuildingId = (
-    buildingId: number,
-    selectedIds: number[],
-    setSelectedIds: Dispatch<SetStateAction<number[]>>,
-  ) => {
-    setSelectedIds(
-      selectedIds.includes(buildingId)
-        ? selectedIds.filter((id) => id !== buildingId)
-        : [...selectedIds, buildingId],
-    );
-  };
-
-  const setAllBuildings = (setSelectedIds: Dispatch<SetStateAction<number[]>>) => {
-    setSelectedIds(allBuildingIds);
+  const getContextBuildingLabel = () => {
+    if (typeof contextBuildingId !== 'number') return '';
+    const building = buildings.find((item) => item.id === contextBuildingId);
+    return building ? getBuildingLabel(building) : `Tòa #${contextBuildingId}`;
   };
 
   const handlePriceChange = (value: string) => {
@@ -349,7 +334,6 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
     setEditServiceType(SERVICE_TYPES.includes(normalizedType) ? normalizedType : 'Theo tháng');
     setEditUnit(service.unit || SERVICE_TYPE_DEFAULT_UNITS['Theo tháng']);
     const scopedBuildingIds = service.buildingIds?.length ? service.buildingIds : service.buildingId ? [service.buildingId] : [];
-    setEditScopeMode(scopedBuildingIds.length > 0 ? 'private' : 'common');
     setEditBuildingIds(scopedBuildingIds);
     setUpdateNewPrice(service.configuredPrice ? String(Number(service.configuredPrice) / 1_000) : '');
     setUpdateEffectiveDate(service.effectiveDate ? formatLocalDateInput(new Date(service.effectiveDate)) : formatLocalDateInput());
@@ -380,8 +364,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
 
   const openAddModal = () => {
     setAddName(''); setAddUnit(''); setAddPrice(''); setAddError(null); setAddEffectiveDate(formatLocalDateInput());
-    setAddScopeMode('common');
-    setAddBuildingIds([]);
+    setAddBuildingIds(typeof contextBuildingId === 'number' ? [contextBuildingId] : []);
     setPriceScale('thousand'); setPriceError('');
     setServiceType('Theo tháng');
     setAddUnit(SERVICE_TYPE_DEFAULT_UNITS['Theo tháng']);
@@ -389,8 +372,9 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
   };
 
   const handleAddSubmit = async () => {
-    if (addScopeMode === 'private' && addBuildingIds.length === 0) {
-      setAddError('Vui lòng chọn ít nhất 1 tòa nhà trước khi thêm dịch vụ');
+    const targetBuildingIds = typeof contextBuildingId === 'number' ? [contextBuildingId] : addBuildingIds;
+    if (targetBuildingIds.length === 0) {
+      setAddError('Vui lòng chọn tòa nhà áp dụng trước khi thêm dịch vụ');
       return;
     }
     if (!addName.trim() || !addUnit || !addPrice) {
@@ -410,7 +394,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
         unit: addUnit.trim() || undefined,
         commonUnitPrice: addPriceVnd,
         effectiveDate: toLocalIsoString(addEffectiveDate),
-        buildingIds: addScopeMode === 'common' ? [] : addBuildingIds,
+        buildingIds: targetBuildingIds,
       } as any);
       await fetchServices();
       setShowAddModal(false);
@@ -428,8 +412,9 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
   };
 
   const handleUpdatePriceSubmit = () => {
-    if (editScopeMode === 'private' && editBuildingIds.length === 0) {
-      setUpdateError('Vui lòng chọn ít nhất 1 tòa nhà');
+    const targetBuildingIds = typeof contextBuildingId === 'number' ? [contextBuildingId] : editBuildingIds;
+    if (targetBuildingIds.length === 0) {
+      setUpdateError('Vui lòng chọn tòa nhà áp dụng');
       return;
     }
     if (!editName.trim() || !editUnit) {
@@ -463,7 +448,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
         commonUnitPrice: updatePriceVnd,
         effectiveDate: toLocalIsoString(updateEffectiveDate),
         reason: updateReason.trim() || undefined,
-        buildingIds: editScopeMode === 'common' ? [] : editBuildingIds,
+        buildingIds: typeof contextBuildingId === 'number' ? [contextBuildingId] : editBuildingIds,
       };
       await serviceService.update(selectedService.id, basePayload as any);
       await fetchServices();
@@ -598,8 +583,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
               className="w-full"
               style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
             >
-              <option value="all">Tất cả phạm vi</option>
-              <option value="common">Áp dụng chung</option>
+              <option value="all">Tất cả tòa nhà</option>
               {buildings.map((building) => (
                 <option key={building.id} value={String(building.id)}>{getBuildingLabel(building)}</option>
               ))}
@@ -726,9 +710,9 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
 
       {/* Add Service Modal */}
       {showAddModal && (
-        <div className="admin-content-modal-overlay">
-          <div className="admin-content-modal-panel admin-content-modal-panel--narrow">
-            <div className="admin-content-modal-header flex items-center justify-between px-6 py-4">
+        <div className={inlineForms ? "border border-[var(--brand-border)] bg-white shadow-sm" : "admin-content-modal-overlay"}>
+          <div className={inlineForms ? "w-full bg-white" : "admin-content-modal-panel admin-content-modal-panel--narrow"}>
+            <div className={`admin-content-modal-header flex items-center justify-between px-6 py-4 ${inlineForms ? 'bg-[var(--brand-surface)]' : ''}`}>
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                   <DollarSign size={21} />
@@ -746,60 +730,37 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
             <div className="space-y-5 overflow-y-auto px-6 py-5">
               {/* Service Name */}
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">Phạm vi áp dụng *</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setAddScopeMode('common')}
-                      className={`service-scope-toggle px-3 py-2 text-left text-sm ${addScopeMode === 'common' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                    >
-                      Áp dụng chung
-                      <span className="mt-1 block text-xs text-gray-500">Tất cả tòa nhà hiện tại và tòa thêm sau.</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddScopeMode('private')}
-                      className={`service-scope-toggle px-3 py-2 text-left text-sm ${addScopeMode === 'private' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                    >
-                      Áp dụng riêng
-                      <span className="mt-1 block text-xs text-gray-500">Chọn một hoặc nhiều tòa cụ thể.</span>
-                    </button>
-                  </div>
-                </div>
-
-                {addScopeMode === 'private' && (
-                <div>
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <label className="block text-sm text-gray-700">Tòa nhà áp dụng *</label>
-                    <button
-                      type="button"
-                      onClick={() => setAllBuildings(setAddBuildingIds)}
-                      disabled={selectedAddAllBuildings || buildings.length === 0}
-                      className="text-xs font-semibold text-blue-700 hover:text-blue-800 disabled:text-gray-400"
-                    >
-                      Chọn tất cả
-                    </button>
                   </div>
-                  <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
-                    {buildings.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
-                    ) : (
-                      buildings.map((building) => (
-                        <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            checked={addBuildingIds.includes(building.id)}
-                            onChange={() => toggleBuildingId(building.id, addBuildingIds, setAddBuildingIds)}
-                            className="h-4 w-4"
-                          />
-                          <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Đã chọn {addBuildingIds.length}/{buildings.length} tòa nhà.</p>
+                  {typeof contextBuildingId === 'number' ? (
+                    <div className="border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900">
+                      {getContextBuildingLabel()}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
+                        {buildings.length === 0 ? (
+                          <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
+                        ) : (
+                          buildings.map((building) => (
+                            <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
+                              <input
+                                type="radio"
+                                name="add-service-building"
+                                checked={addBuildingIds.includes(building.id)}
+                                onChange={() => setAddBuildingIds([building.id])}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Mỗi dịch vụ được thiết lập theo một tòa nhà.</p>
+                    </>
+                  )}
                 </div>
-                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700 mb-2">Tên dịch vụ *</label>
@@ -898,9 +859,9 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
 
       {/* Edit Service Modal */}
       {showUpdatePriceModal && selectedService && (
-        <div className="admin-content-modal-overlay">
-          <div className="admin-content-modal-panel admin-content-modal-panel--narrow">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+        <div className={inlineForms ? "border border-[var(--brand-border)] bg-white shadow-sm" : "admin-content-modal-overlay"}>
+          <div className={inlineForms ? "w-full bg-white" : "admin-content-modal-panel admin-content-modal-panel--narrow"}>
+            <div className={`border-b border-gray-300 px-6 py-4 flex items-center justify-between ${inlineForms ? 'bg-[var(--brand-surface)]' : ''}`}>
               <div className="flex items-center space-x-2">
                 <DollarSign size={20} className="text-gray-800" />
                 <h3 className="text-lg text-gray-800">Sửa dịch vụ - {selectedService.name}</h3>
@@ -917,8 +878,8 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <p className="text-blue-700">Tên dịch vụ:</p>
                   <p className="text-blue-900 font-bold">{selectedService.name || '—'}</p>
-                  <p className="text-blue-700">Phạm vi áp dụng:</p>
-                  <p className="text-blue-900">{selectedService.buildingName || 'Tất cả tòa nhà'}</p>
+                  <p className="text-blue-700">Tòa nhà áp dụng:</p>
+                  <p className="text-blue-900">{getServiceBuildingDisplay(selectedService) || 'Chưa gắn tòa'}</p>
                   <p className="text-blue-700">Loại dịch vụ:</p>
                   <p className="text-blue-900">{selectedService.type || '—'}</p>
                   <p className="text-blue-700">Đơn vị tính:</p>
@@ -947,60 +908,37 @@ export function ServiceTable({ embedded = false, contextBuildingId = null }: Ser
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">Phạm vi áp dụng *</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setEditScopeMode('common')}
-                      className={`service-scope-toggle px-3 py-2 text-left text-sm ${editScopeMode === 'common' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                    >
-                      Áp dụng chung
-                      <span className="mt-1 block text-xs text-gray-500">Tất cả tòa nhà hiện tại và tòa thêm sau.</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditScopeMode('private')}
-                      className={`service-scope-toggle px-3 py-2 text-left text-sm ${editScopeMode === 'private' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                    >
-                      Áp dụng riêng
-                      <span className="mt-1 block text-xs text-gray-500">Chọn một hoặc nhiều tòa cụ thể.</span>
-                    </button>
-                  </div>
-                </div>
-
-                {editScopeMode === 'private' && (
-                <div>
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <label className="block text-sm text-gray-700">Tòa nhà áp dụng *</label>
-                    <button
-                      type="button"
-                      onClick={() => setAllBuildings(setEditBuildingIds)}
-                      disabled={selectedEditAllBuildings || buildings.length === 0}
-                      className="text-xs font-semibold text-blue-700 hover:text-blue-800 disabled:text-gray-400"
-                    >
-                      Chọn tất cả
-                    </button>
                   </div>
-                  <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
-                    {buildings.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
-                    ) : (
-                      buildings.map((building) => (
-                        <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            checked={editBuildingIds.includes(building.id)}
-                            onChange={() => toggleBuildingId(building.id, editBuildingIds, setEditBuildingIds)}
-                            className="h-4 w-4"
-                          />
-                          <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Đã chọn {editBuildingIds.length}/{buildings.length} tòa nhà.</p>
+                  {typeof contextBuildingId === 'number' ? (
+                    <div className="border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900">
+                      {getContextBuildingLabel()}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
+                        {buildings.length === 0 ? (
+                          <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
+                        ) : (
+                          buildings.map((building) => (
+                            <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
+                              <input
+                                type="radio"
+                                name="edit-service-building"
+                                checked={editBuildingIds.includes(building.id)}
+                                onChange={() => setEditBuildingIds([building.id])}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Mỗi dịch vụ được thiết lập theo một tòa nhà.</p>
+                    </>
+                  )}
                 </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

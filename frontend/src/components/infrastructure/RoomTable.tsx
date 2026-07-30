@@ -151,10 +151,10 @@ const getAvailableServicesForBuilding = (services: Service[], buildingId?: numbe
   const activeServices = services.filter((service) => service.isActive !== false);
 
   if (!buildingId) {
-    return activeServices.filter(isCommonService);
+    return [];
   }
 
-  return activeServices.filter((service) => appliesToBuilding(service, buildingId));
+  return activeServices.filter((service) => isPrivateServiceForBuilding(service, buildingId));
 };
 
 const getAutoSelectedServiceIds = (services: Service[], buildingId?: number | null) => {
@@ -219,9 +219,10 @@ interface RoomTableProps {
   addRoomRequest?: { id: number; floorId: number } | null;
   structureRefreshKey?: number;
   onRoomsChange?: () => void;
+  inlineForms?: boolean;
 }
 
-export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest, structureRefreshKey = 0, onRoomsChange }: RoomTableProps = {}) {
+export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest, structureRefreshKey = 0, onRoomsChange, inlineForms = false }: RoomTableProps = {}) {
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -978,9 +979,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       )}
 
       {showAddModal && (
-        <div className="admin-content-modal-overlay">
-          <div className="admin-content-modal-panel">
-            <div className="admin-content-modal-header flex items-center justify-between border-b border-gray-300 px-5 py-3">
+        <div className={inlineForms ? "border border-[var(--brand-border)] bg-white shadow-sm" : "admin-content-modal-overlay"}>
+          <div className={inlineForms ? "w-full bg-white" : "admin-content-modal-panel"}>
+            <div className={`admin-content-modal-header flex items-center justify-between border-b border-gray-300 px-5 py-3 ${inlineForms ? 'bg-[var(--brand-surface)]' : ''}`}>
               <div className="flex items-center space-x-2">
                 <Home size={20} className="text-gray-800" />
                 <h3 className="text-lg text-gray-800">Thêm Phòng mới</h3>
@@ -1520,9 +1521,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       )}
 
       {showEditModal && selectedRoom && (
-        <div className="admin-content-modal-overlay">
-          <div className="bg-white rounded-lg w-full max-w-[900px] max-h-[90vh] overflow-y-auto">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div className={inlineForms ? "border border-[var(--brand-border)] bg-white shadow-sm" : "admin-content-modal-overlay"}>
+          <div className={inlineForms ? "w-full bg-white" : "bg-white rounded-lg w-full max-w-[900px] max-h-[90vh] overflow-y-auto"}>
+            <div className={`border-b border-gray-300 px-6 py-4 flex items-center justify-between ${inlineForms ? 'bg-[var(--brand-surface)]' : 'sticky top-0 bg-white z-10'}`}>
               <h3 className="text-lg text-gray-800">Chỉnh sửa Phòng - {selectedRoom.code}</h3>
               <button onClick={() => setShowEditModal(false)} className="p-1 hover:bg-gray-100 rounded"><X size={20} className="text-gray-600" /></button>
             </div>

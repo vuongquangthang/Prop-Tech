@@ -33,7 +33,11 @@ interface BuildingSidebarProps {
     buildingId: number | null;
     floorId: number | null;
     label: string;
+    building?: BuildingData | null;
+    floor?: FloorData | null;
   }) => void;
+  onRequestAddBuilding?: () => void;
+  onRequestAddFloor?: (building: BuildingData) => void;
   onRequestAddRoom?: (floorId: number) => void;
   onStructureChange?: () => void;
   structureRefreshKey?: number;
@@ -45,6 +49,8 @@ export function BuildingSidebar({
   selectedBuilding,
   onSelectBuilding,
   onContextChange,
+  onRequestAddBuilding,
+  onRequestAddFloor,
   onRequestAddRoom,
   onStructureChange,
   structureRefreshKey = 0
@@ -154,6 +160,10 @@ export function BuildingSidebar({
   };
 
   const handleAddClick = () => {
+    if (onRequestAddBuilding) {
+      onRequestAddBuilding();
+      return;
+    }
     setShowAddModal(true);
     setAddType('building');
     setLockedAddBuildingId(null);
@@ -284,6 +294,21 @@ export function BuildingSidebar({
     setFloorNumber('');
 
     if (detailTarget.type === 'building') {
+      if (onRequestAddFloor) {
+        onSelectBuilding(detailTarget.building.id);
+        onSelectFloor(null);
+        onContextChange?.({
+          type: 'building',
+          buildingId: detailTarget.building.id,
+          floorId: null,
+          label: detailTarget.building.buildingName,
+          building: detailTarget.building,
+          floor: null,
+        });
+        onRequestAddFloor(detailTarget.building);
+        setDetailTarget(null);
+        return;
+      }
       setShowAddModal(true);
       setAddType('floor');
       setSelectedBuildingId(detailTarget.building.id);
@@ -416,7 +441,7 @@ export function BuildingSidebar({
           }}
         >
           <Plus size={20} />
-          <span>Thêm Tòa nhà/Tầng</span>
+          <span>Thêm tòa nhà</span>
         </button>
       </div>
       
@@ -450,7 +475,7 @@ export function BuildingSidebar({
               onClick={() => {
                 onSelectFloor(null);
                 onSelectBuilding(null);
-                onContextChange?.({ type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng' });
+                onContextChange?.({ type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng', building: null, floor: null });
               }}
               className="w-full text-left rounded transition-colors"
               style={{
@@ -487,8 +512,10 @@ export function BuildingSidebar({
                               buildingId: building.id,
                               floorId: null,
                               label: building.buildingName,
+                              building,
+                              floor: null,
                             }
-                          : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng' },
+                          : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng', building: null, floor: null },
                       );
                     }}
                     className="flex min-w-0 items-center justify-between rounded transition-colors"
@@ -549,8 +576,10 @@ export function BuildingSidebar({
                                       buildingId: building.id,
                                       floorId: floor.id,
                                       label: `Tầng ${floor.floorNumber} • ${building.buildingName}`,
+                                      building,
+                                      floor,
                                     }
-                                  : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng' },
+                                  : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng', building: null, floor: null },
                               );
                             }}
                             className="min-w-0 text-left rounded transition-colors"
@@ -947,7 +976,7 @@ export function BuildingSidebar({
               </div>
 
               <div className="flex items-center gap-3">
-                {detailEditMode && (
+                {detailEditMode && !onRequestAddBuilding && (
                   <button
                     onClick={() => {
                       setDetailEditMode(false);
@@ -969,14 +998,16 @@ export function BuildingSidebar({
                     </span>
                   </button>
                 )}
-                <button
-                  onClick={detailEditMode ? handleDetailUpdate : () => setDetailEditMode(true)}
-                  disabled={detailLoading}
-                  className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:opacity-50"
-                >
-                  {detailLoading ? <Loader2 size={14} className="animate-spin" /> : <Edit2 size={16} />}
-                  <span>{detailEditMode ? 'Lưu thay đổi' : 'Sửa'}</span>
-                </button>
+                {!onRequestAddBuilding && (
+                  <button
+                    onClick={detailEditMode ? handleDetailUpdate : () => setDetailEditMode(true)}
+                    disabled={detailLoading}
+                    className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    {detailLoading ? <Loader2 size={14} className="animate-spin" /> : <Edit2 size={16} />}
+                    <span>{detailEditMode ? 'Lưu thay đổi' : 'Sửa'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

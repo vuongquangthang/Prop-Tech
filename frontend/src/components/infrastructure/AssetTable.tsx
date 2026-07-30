@@ -62,9 +62,10 @@ interface RoomAssignment {
 interface AssetTableProps {
   embedded?: boolean;
   contextBuildingId?: number | null;
+  inlineForms?: boolean;
 }
 
-export function AssetTable({ embedded = false, contextBuildingId = null }: AssetTableProps = {}) {
+export function AssetTable({ embedded = false, contextBuildingId = null, inlineForms = false }: AssetTableProps = {}) {
   const [assets, setAssets] = useState<TaiSanDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -520,9 +521,9 @@ export function AssetTable({ embedded = false, contextBuildingId = null }: Asset
       
       {/* Add Asset Modal */}
       {showAddModal && (
-        <div className="admin-content-modal-overlay">
-          <div className="bg-white rounded-lg w-[500px]">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+        <div className={inlineForms ? "border border-[var(--brand-border)] bg-white shadow-sm" : "admin-content-modal-overlay"}>
+          <div className={inlineForms ? "w-full bg-white" : "bg-white rounded-lg w-[500px]"}>
+            <div className={`border-b border-gray-300 px-6 py-4 flex items-center justify-between ${inlineForms ? 'bg-[var(--brand-surface)]' : ''}`}>
               <div className="flex items-center space-x-2">
                 <Package size={20} className="text-gray-800" />
                 <h3 className="text-lg text-gray-800">Thêm tài sản vào kho</h3>
@@ -642,9 +643,9 @@ export function AssetTable({ embedded = false, contextBuildingId = null }: Asset
 
       {/* Edit Asset Modal */}
       {showEditModal && selectedAsset && (
-        <div className="admin-content-modal-overlay">
-          <div className="bg-white rounded-lg w-[500px]">
-            <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+        <div className={inlineForms ? "border border-[var(--brand-border)] bg-white shadow-sm" : "admin-content-modal-overlay"}>
+          <div className={inlineForms ? "w-full bg-white" : "bg-white rounded-lg w-[500px]"}>
+            <div className={`border-b border-gray-300 px-6 py-4 flex items-center justify-between ${inlineForms ? 'bg-[var(--brand-surface)]' : ''}`}>
               <div className="flex items-center space-x-2">
                 <Edit2 size={20} className="text-gray-800" />
                 <h3 className="text-lg text-gray-800">Chỉnh sửa tài sản</h3>
