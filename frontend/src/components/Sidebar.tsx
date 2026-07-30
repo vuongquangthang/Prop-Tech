@@ -58,10 +58,7 @@ const menuItems = [
   { 
     icon: BarChart3, 
     label: 'Báo cáo & Thống kê',
-    subItems: [
-      { label: 'Báo cáo Doanh thu', path: '/revenue-report' },
-      { label: 'Báo cáo Lấp đầy', path: '/occupancy-report' },
-    ]
+    path: '/occupancy-report',
   },
   { 
     icon: UserCog, 
