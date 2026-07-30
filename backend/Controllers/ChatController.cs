@@ -134,6 +134,69 @@ public class ChatController : ControllerBase
     }
 
     /// <summary>
+    /// [Admin/QuanLy] Lấy danh sách hội thoại (phân trang), mỗi cư dân 1 hội thoại
+    /// </summary>
+    [HttpGet("admin/conversations")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<ChatConversationPageDto>> GetConversationsPage(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            var result = await _chatService.GetConversationsPageAsync(User.GetOwnerUserId(), page, pageSize);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// [Admin/QuanLy] Xem chi tiết toàn bộ tin nhắn của 1 hội thoại
+    /// </summary>
+    [HttpGet("admin/conversation/{userId:int}")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<ChatConversationDto>> GetConversationDetail(int userId)
+    {
+        try
+        {
+            var result = await _chatService.GetConversationDetailAsync(User.GetOwnerUserId(), userId);
+            if (result == null)
+            {
+                return NotFound(new { message = "Không tìm thấy hội thoại" });
+            }
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// [Admin/QuanLy] Xóa toàn bộ lịch sử chat của một cư dân
+    /// </summary>
+    [HttpDelete("admin/conversation/{userId:int}")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<IActionResult> DeleteConversation(int userId)
+    {
+        try
+        {
+            var deletedCount = await _chatService.DeleteConversationAsync(User.GetOwnerUserId(), userId);
+            if (deletedCount == 0)
+            {
+                return NotFound(new { message = "Không tìm thấy hội thoại để xóa" });
+            }
+            return Ok(new { message = "Đã xóa hội thoại", deletedCount });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Gửi tin nhắn đến chatbot
     /// </summary>
     [HttpPost("send")]

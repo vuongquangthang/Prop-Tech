@@ -64,3 +64,23 @@ public class ResolveUnansweredChatDto
     public string? Category { get; set; }
     public bool ActivateImmediately { get; set; } = true;
 }
+
+/// <summary>
+/// Tom tat 1 hoi thoai (1 dong) cho man hinh danh sach lich su chat cua admin.
+/// </summary>
+public class ChatConversationSummaryDto
+{
+    public int UserId { get; set; }
+    public string? UserPhone { get; set; }
+    public string LastMessage { get; set; } = string.Empty;
+    public DateTime LastUpdated { get; set; }
+    public int MessageCount { get; set; }
+}
+
+public class ChatConversationPageDto
+{
+    public List<ChatConversationSummaryDto> Items { get; set; } = new();
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int Total { get; set; }
+}

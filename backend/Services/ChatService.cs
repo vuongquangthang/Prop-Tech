@@ -17,6 +17,9 @@ public interface IChatService
     Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId, int ownerUserId);
     Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto);
     Task<ChatConversationDto> GetConversationAsync(int userId);
+    Task<int> DeleteConversationAsync(int ownerUserId, int userId);
+    Task<ChatConversationPageDto> GetConversationsPageAsync(int ownerUserId, int page, int pageSize);
+    Task<ChatConversationDto?> GetConversationDetailAsync(int ownerUserId, int userId);
 }
 
 internal sealed class ChatResponseResult
@@ -186,6 +189,65 @@ public class ChatService : IChatService
         var result = MapToDto(created!);
         result.Rooms = await LoadRoomNavigationAsync(response.RoomIds);
         return result;
+    }
+
+    public async Task<int> DeleteConversationAsync(int ownerUserId, int userId)
+    {
+        return await _chatRepository.DeleteConversationAsync(userId, ownerUserId);
+    }
+
+    public async Task<ChatConversationPageDto> GetConversationsPageAsync(int ownerUserId, int page, int pageSize)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var total = await _chatRepository.CountConversationsAsync(ownerUserId);
+        var userIds = await _chatRepository.GetConversationUserIdsPageAsync(ownerUserId, page, pageSize);
+
+        var items = new List<ChatConversationSummaryDto>();
+        foreach (var userId in userIds)
+        {
+            var messages = await _chatRepository.GetByUserIdAsync(userId, ownerUserId);
+            if (messages.Count == 0)
+            {
+                continue;
+            }
+
+            var last = messages[^1];
+            items.Add(new ChatConversationSummaryDto
+            {
+                UserId = userId,
+                UserPhone = last.User?.PhoneNumber,
+                LastMessage = last.MessageText,
+                LastUpdated = last.CreatedAt,
+                MessageCount = messages.Count
+            });
+        }
+
+        return new ChatConversationPageDto
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            Total = total
+        };
+    }
+
+    public async Task<ChatConversationDto?> GetConversationDetailAsync(int ownerUserId, int userId)
+    {
+        var messages = await _chatRepository.GetByUserIdAsync(userId, ownerUserId);
+        if (messages.Count == 0)
+        {
+            return null;
+        }
+
+        return new ChatConversationDto
+        {
+            UserId = userId,
+            UserPhone = messages[^1].User?.PhoneNumber,
+            Messages = messages.Select(MapToDto).ToList(),
+            LastMessageAt = messages[^1].CreatedAt
+        };
     }
 
     public async Task<ChatConversationDto> GetConversationAsync(int userId)
