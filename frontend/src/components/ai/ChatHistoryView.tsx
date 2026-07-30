@@ -1,422 +1,284 @@
-import { ThumbsUp, ThumbsDown, MessageSquare, Plus, X, Check } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
-import { chatService, ChatMessage, UnansweredChatItem } from '../../services/feature.service';
-import { PageHeader, SegmentedTabs, StatusBadge, EmptyState } from '../ui/product-system';
+import { Eye, Trash2, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  chatService,
+  ChatConversationSummary,
+  ChatConversationDetail,
+} from '../../services/feature.service';
+import { PageHeader, EmptyState } from '../ui/product-system';
+import { Button } from '../ui/button';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '../ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '../ui/alert-dialog';
 
-interface ChatSession {
-  id: string;
-  userId: number;
-  resident: string;
-  phone: string;
-  time: string;
-  satisfied: boolean;
-  unresolvedCount: number;
-  lastMessage: string;
-  messages: Array<{ sender: 'user' | 'ai'; text: string; time: string; isKnowledgeGap?: boolean }>;
-}
+const PAGE_SIZE = 10;
 
-const buildSessions = (messages: ChatMessage[], unansweredItems: UnansweredChatItem[]): ChatSession[] => {
-  const byUser = new Map<number, ChatMessage[]>();
-  const unresolvedCountByUser = new Map<number, number>();
-
-  unansweredItems.forEach(item => {
-    unresolvedCountByUser.set(item.userId, (unresolvedCountByUser.get(item.userId) || 0) + 1);
-  });
-
-  for (const m of messages) {
-    const key = m.userId;
-    if (!byUser.has(key)) byUser.set(key, []);
-    byUser.get(key)!.push(m);
-  }
-
-  return Array.from(byUser.entries()).map(([userId, msgs]) => {
-    const sorted = [...msgs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    const last = sorted[sorted.length - 1];
-    const lastDate = new Date(last.createdAt);
-    const time = `${String(lastDate.getDate()).padStart(2, '0')}/${String(lastDate.getMonth() + 1).padStart(2, '0')}/${lastDate.getFullYear()} ${String(lastDate.getHours()).padStart(2, '0')}:${String(lastDate.getMinutes()).padStart(2, '0')}`;
-    const phone = last.userPhone || String(userId);
-
-    const chatMessages = sorted.map(m => {
-      const d = new Date(m.createdAt);
-      return {
-        sender: (m.messageRole === 'user' ? 'user' : 'ai') as 'user' | 'ai',
-        text: m.messageText,
-        isKnowledgeGap: m.isKnowledgeGap,
-        time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-      };
-    });
-    const unresolvedCount = unresolvedCountByUser.get(userId) || 0;
-
-    return {
-      id: String(userId),
-      userId,
-      resident: `Cư dân ${phone}`,
-      phone,
-      time,
-      satisfied: unresolvedCount === 0,
-      unresolvedCount,
-      lastMessage: last.messageText,
-      messages: chatMessages,
-    };
-  });
-};
-
-function ResolveKnowledgeModal({
-  item,
-  onClose,
-  onSaved,
-}: {
-  item: UnansweredChatItem;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [answerText, setAnswerText] = useState('');
-  const [category, setCategory] = useState('Khác');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!answerText.trim()) return;
-    setSaving(true);
-    try {
-      await chatService.resolveUnanswered(item.assistantMessageId, {
-        answerText: answerText.trim(),
-        category,
-        activateImmediately: true,
-      });
-      onSaved();
-      onClose();
-    } catch (_) {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="admin-content-modal-overlay">
-      <div className="bg-white rounded-lg w-[760px] max-h-[90vh] overflow-y-auto">
-        <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
-          <h3 className="text-lg text-gray-800">Bổ sung tri thức từ hội thoại</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-            <X size={20} className="text-gray-600" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="bg-yellow-50 border border-yellow-300 rounded p-4">
-            <p className="text-sm text-yellow-800 font-bold mb-1">Câu AI chưa đủ dữ liệu:</p>
-            <p className="text-sm text-gray-800">{item.question}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-700 mb-2 font-bold">Danh mục</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500"
-            >
-              <option value="Nội quy">Nội quy</option>
-              <option value="Thủ tục hành chính">Thủ tục hành chính</option>
-              <option value="Giá dịch vụ">Giá dịch vụ</option>
-              <option value="Tài chính">Tài chính</option>
-              <option value="Kỹ thuật">Kỹ thuật</option>
-              <option value="Khác">Khác</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-700 mb-2 font-bold">Câu trả lời chuẩn</label>
-            <textarea
-              rows={7}
-              value={answerText}
-              onChange={(e) => setAnswerText(e.target.value)}
-              placeholder="Nhập câu trả lời để hệ thống tự thêm vào kho tri thức..."
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-            />
-          </div>
-        </div>
-
-        <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3 sticky bottom-0 bg-white">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !answerText.trim()}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2 disabled:opacity-50"
-          >
-            <Check size={16} />
-            <span>{saving ? 'Đang lưu...' : 'Lưu vào tri thức'}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function formatDateTime(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 export function ChatHistoryView() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [unansweredItems, setUnansweredItems] = useState<UnansweredChatItem[]>([]);
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-  const [selectedChat, setSelectedChat] = useState<string>('');
-  const [filter, setFilter] = useState<'all' | 'satisfied' | 'unsatisfied'>('all');
-  const [selectedUnanswered, setSelectedUnanswered] = useState<UnansweredChatItem | null>(null);
+  const [conversations, setConversations] = useState<ChatConversationSummary[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
+  const [detail, setDetail] = useState<ChatConversationDetail | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const [pendingDelete, setPendingDelete] = useState<ChatConversationSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const loadPage = useCallback(async (targetPage: number) => {
+    setLoading(true);
     try {
-      const [allMessages, unanswered] = await Promise.all([
-        chatService.getAllHistory(1000),
-        chatService.getUnanswered(200),
-      ]);
-
-      setMessages(allMessages);
-      setUnansweredItems(unanswered);
-      const sessions = buildSessions(allMessages, unanswered);
-      setChatSessions(sessions);
-      if (!selectedChat && sessions.length > 0) {
-        setSelectedChat(sessions[0].id);
-      }
+      const result = await chatService.getConversationsPage(targetPage, PAGE_SIZE);
+      setConversations(result.items);
+      setTotal(result.total);
+      setPage(result.page);
     } catch (_) {
-      setMessages([]);
-      setUnansweredItems([]);
-      setChatSessions([]);
+      setConversations([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPage(1);
+  }, [loadPage]);
+
+  const handleViewDetail = async (conv: ChatConversationSummary) => {
+    setDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const result = await chatService.getConversationDetail(conv.userId);
+      setDetail(result);
+    } catch (_) {
+      setDetail(null);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const selectedSession = useMemo(
-    () => chatSessions.find(s => s.id === selectedChat),
-    [chatSessions, selectedChat]
-  );
-
-  const selectedUnansweredList = useMemo(
-    () => unansweredItems.filter(item => String(item.userId) === selectedChat),
-    [unansweredItems, selectedChat]
-  );
-  
-  const filteredSessions = chatSessions.filter(session => {
-    if (filter === 'satisfied') return session.satisfied;
-    if (filter === 'unsatisfied') return !session.satisfied;
-    return true;
-  });
-  
-  const sessionMessages = selectedSession?.messages || [];
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      await chatService.deleteConversation(pendingDelete.userId);
+      setPendingDelete(null);
+      const isLastRowOnPage = conversations.length === 1 && page > 1;
+      await loadPage(isLastRowOnPage ? page - 1 : page);
+    } catch (_) {
+      // Bo qua loi, giu nguyen danh sach de nguoi dung thu lai.
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
       <PageHeader
         eyebrow="Trợ lý ảo AI"
         title="Lịch sử hội thoại"
-        description="Rà soát hội thoại AI, các câu chưa đủ dữ liệu và bổ sung nhanh vào kho tri thức."
+        description="Danh sách các cuộc hội thoại giữa cư dân và chatbot AI."
       />
 
-      {/* Vùng 2 cột: chiều cao cố định theo màn hình, mỗi cột cuộn độc lập.
-          Dùng inline style cho layout/màu vì Tailwind của dự án được build tĩnh
-          (không hỗ trợ arbitrary values / min-h-0 / grid-cols-[..]). */}
-      <div
-        className="product-card overflow-hidden"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '360px 1fr',
-          height: 'calc(100dvh - var(--admin-topbar-height) - 210px)',
-          minHeight: '460px',
-        }}
-      >
-        {/* Chat List - Left Panel */}
-        <div
-          className="flex flex-col"
-          style={{ minHeight: 0, borderRight: '1px solid var(--border)', background: 'var(--card)' }}
-        >
-          <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h3 className="text-sm mb-3" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Danh sách hội thoại</h3>
-            <SegmentedTabs
-              activeKey={filter}
-              onChange={(key) => setFilter(key as 'all' | 'satisfied' | 'unsatisfied')}
-              items={[
-                { key: 'all', label: 'Tất cả', count: chatSessions.length },
-                { key: 'satisfied', label: 'Hài lòng', count: chatSessions.filter(s => s.satisfied).length },
-                { key: 'unsatisfied', label: 'Chưa ổn', count: chatSessions.filter(s => !s.satisfied).length },
-              ]}
-            />
+      <div className="product-card overflow-hidden">
+        {loading ? (
+          <div className="p-10 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Đang tải...
           </div>
-
-          {/* Session List — cuộn độc lập */}
-          <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
-            {filteredSessions.length > 0 ? (
-              filteredSessions.map((session) => {
-                const isActive = selectedChat === session.id;
-                return (
-                  <button
-                    type="button"
-                    key={session.id}
-                    onClick={() => setSelectedChat(session.id)}
-                    className="relative w-full text-left p-4"
-                    style={{
-                      paddingLeft: 28,
-                      borderBottom: '1px solid var(--border)',
-                      background: isActive ? 'var(--primary-soft)' : 'transparent',
-                      transition: 'background 0.15s ease',
-                    }}
-                  >
-                    <span
-                      className="absolute"
-                      style={{ left: 0, top: 0, bottom: 0, width: 4, background: isActive ? 'var(--primary)' : 'transparent' }}
-                    />
-                    <div className="flex items-start justify-between mb-2 gap-2">
-                      <div className="flex-1" style={{ minWidth: 0 }}>
-                        <p className="text-sm truncate" style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{session.resident}</p>
-                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{session.phone}</p>
-                      </div>
-                      {session.satisfied ? (
-                        <ThumbsUp size={16} style={{ flexShrink: 0, color: 'var(--success)' }} />
-                      ) : (
-                        <ThumbsDown size={16} style={{ flexShrink: 0, color: 'var(--error)' }} />
-                      )}
-                    </div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>{session.time}</p>
-                    {session.unresolvedCount > 0 && (
-                      <div className="mb-1">
-                        <StatusBadge tone="danger">Cần bổ sung {session.unresolvedCount} câu</StatusBadge>
-                      </div>
-                    )}
-                    <p className="text-xs truncate italic" style={{ color: 'var(--text-secondary)' }}>"{session.lastMessage}"</p>
-                  </button>
-                );
-              })
-            ) : (
-              <EmptyState
-                icon={<MessageSquare size={44} />}
-                title={chatSessions.length === 0 ? 'Chưa có lịch sử hội thoại' : 'Không có hội thoại phù hợp'}
-                description="Các cuộc hội thoại với chatbot AI sẽ được hiển thị ở đây."
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Chat Content - Right Panel */}
-        <div className="flex flex-col" style={{ minHeight: 0, background: 'var(--surface-subtle)' }}>
-          {selectedChat ? (
-            <>
-              {/* Chat Header — cố định */}
-              <div
-                className="px-6 py-4 flex items-center justify-between gap-3"
-                style={{ flexShrink: 0, background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <p className="text-sm truncate" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedSession?.resident}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{selectedSession?.time}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    if (selectedUnansweredList.length > 0) {
-                      setSelectedUnanswered(selectedUnansweredList[0]);
-                    }
-                  }}
-                  disabled={selectedUnansweredList.length === 0}
-                  className="px-3 py-2 text-xs rounded flex items-center gap-2"
-                  style={{
-                    flexShrink: 0,
-                    background: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text-primary)',
-                    opacity: selectedUnansweredList.length === 0 ? 0.4 : 1,
-                  }}
-                >
-                  <Plus size={14} />
-                  <span>Thêm vào KB ({selectedUnansweredList.length})</span>
-                </button>
-              </div>
-
-              {/* Chat Messages — cuộn độc lập */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ minHeight: 0 }}>
-                {sessionMessages.map((message, index) => (
-                  <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-md ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
-                      {message.sender === 'ai' && (
-                        <div className="flex items-center space-x-2 mb-1">
-                          <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
-                            style={{ background: 'var(--primary)', fontSize: 10, fontWeight: 600 }}
-                          >AI</div>
-                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Trả lời bởi AI</span>
-                        </div>
-                      )}
-                      <div
-                        className="px-4 py-3 rounded-lg"
-                        style={
-                          message.sender === 'user'
-                            ? { background: 'var(--primary)', color: '#fff' }
-                            : { background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
-                        }
-                      >
-                        <p className="text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.text}</p>
-                        {message.sender === 'ai' && message.isKnowledgeGap && (
-                          <p className="text-xs mt-2" style={{ color: 'var(--error)' }}>AI chưa đủ dữ liệu cho câu này</p>
-                        )}
-                      </div>
-                      <p className="text-xs mt-1 px-1" style={{ color: 'var(--text-secondary)' }}>{message.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {selectedUnansweredList.length > 0 && (
-                <div className="px-6 pb-4" style={{ flexShrink: 0 }}>
-                  <div
-                    className="rounded-lg p-3 space-y-2 overflow-y-auto"
-                    style={{ background: 'var(--error-soft)', border: '1px solid var(--error)', maxHeight: 176 }}
-                  >
-                    <p className="text-sm" style={{ fontWeight: 600, color: 'var(--error-foreground)' }}>Các câu cần bổ sung tri thức</p>
-                    {selectedUnansweredList.map((item) => (
-                      <div key={item.assistantMessageId} className="rounded p-3" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-                        <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>{item.question}</p>
-                        <button
-                          onClick={() => setSelectedUnanswered(item)}
-                          className="px-3 py-1.5 text-xs rounded text-white"
-                          style={{ background: 'var(--error)' }}
+        ) : conversations.length === 0 ? (
+          <EmptyState
+            icon={<MessageSquare size={44} />}
+            title="Chưa có lịch sử hội thoại"
+            description="Các cuộc hội thoại với chatbot AI sẽ được hiển thị ở đây."
+          />
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cư dân</TableHead>
+                  <TableHead>Tin nhắn gần nhất</TableHead>
+                  <TableHead>Cập nhật lần cuối</TableHead>
+                  <TableHead className="text-center">Số tin nhắn</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {conversations.map((conv) => (
+                  <TableRow key={conv.userId}>
+                    <TableCell className="font-medium">{conv.userPhone || conv.userId}</TableCell>
+                    <TableCell className="max-w-md truncate italic" style={{ color: 'var(--text-secondary)' }}>
+                      "{conv.lastMessage}"
+                    </TableCell>
+                    <TableCell style={{ color: 'var(--text-secondary)' }}>
+                      {formatDateTime(conv.lastUpdated)}
+                    </TableCell>
+                    <TableCell className="text-center">{conv.messageCount}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1 h-8 px-2 text-xs"
+                          onClick={() => handleViewDetail(conv)}
                         >
-                          Trả lời và thêm vào KB
-                        </button>
+                          <Eye size={14} />
+                          Xem chi tiết
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1 h-8 px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => setPendingDelete(conv)}
+                        >
+                          <Trash2 size={14} />
+                          Xóa
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
 
-              {/* Satisfaction Footer — cố định */}
-              <div className="px-6 py-3" style={{ flexShrink: 0, background: 'var(--card)', borderTop: '1px solid var(--border)' }}>
-                {selectedSession?.satisfied ? (
-                  <div className="flex items-center space-x-2" style={{ color: 'var(--success-foreground)' }}>
-                    <ThumbsUp size={16} />
-                    <span className="text-sm">Cư dân hài lòng với câu trả lời</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2" style={{ color: 'var(--error-foreground)' }}>
-                    <ThumbsDown size={16} />
-                    <span className="text-sm">Cư dân không hài lòng - Cần bổ sung tri thức</span>
-                  </div>
-                )}
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ borderTop: '1px solid var(--border)' }}
+            >
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                {total} cuộc hội thoại
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={page <= 1}
+                  onClick={() => loadPage(page - 1)}
+                  className="gap-1 h-8 px-2 text-xs"
+                >
+                  <ChevronLeft size={14} />
+                  Trước
+                </Button>
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  Trang {page}/{totalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={page >= totalPages}
+                  onClick={() => loadPage(page + 1)}
+                  className="gap-1 h-8 px-2 text-xs"
+                >
+                  Sau
+                  <ChevronRight size={14} />
+                </Button>
               </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Chọn một cuộc hội thoại để xem chi tiết</p>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
-      {selectedUnanswered && (
-        <ResolveKnowledgeModal
-          item={selectedUnanswered}
-          onClose={() => setSelectedUnanswered(null)}
-          onSaved={loadData}
-        />
-      )}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="flex max-h-[85vh] w-[calc(100%-2rem)] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Chi tiết hội thoại</DialogTitle>
+            <DialogDescription>
+              {detail?.userPhone ? `Cư dân ${detail.userPhone}` : 'Đang tải...'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 space-y-4 overflow-y-auto p-1">
+            {detailLoading ? (
+              <p className="text-sm text-center py-8" style={{ color: 'var(--text-secondary)' }}>
+                Đang tải...
+              </p>
+            ) : !detail || detail.messages.length === 0 ? (
+              <p className="text-sm text-center py-8" style={{ color: 'var(--text-secondary)' }}>
+                Không có tin nhắn.
+              </p>
+            ) : (
+              detail.messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.messageRole === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className="max-w-[80%]">
+                    <div
+                      className="px-4 py-2.5 rounded-lg text-sm"
+                      style={
+                        message.messageRole === 'user'
+                          ? { background: 'var(--primary)', color: '#fff' }
+                          : { background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
+                      }
+                    >
+                      <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.messageText}</p>
+                    </div>
+                    <p className="text-xs mt-1 px-1" style={{ color: 'var(--text-secondary)' }}>
+                      {formatDateTime(message.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa hội thoại?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Toàn bộ tin nhắn của cư dân {pendingDelete?.userPhone || pendingDelete?.userId} sẽ bị xóa vĩnh viễn và
+              không thể khôi phục.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmDelete();
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {deleting ? 'Đang xóa...' : 'Xóa hội thoại'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -193,6 +193,9 @@ export const API_ENDPOINTS = {
     ADMIN_ALL: '/api/Chat/admin/all',
     ADMIN_UNANSWERED: '/api/Chat/admin/unanswered',
     RESOLVE_UNANSWERED: (assistantMessageId: number) => `/api/Chat/admin/unanswered/${assistantMessageId}/resolve`,
+    ADMIN_CONVERSATIONS_PAGE: '/api/Chat/admin/conversations',
+    CONVERSATION_DETAIL: (userId: number) => `/api/Chat/admin/conversation/${userId}`,
+    DELETE_CONVERSATION: (userId: number) => `/api/Chat/admin/conversation/${userId}`,
   },
   
   // Debt Reminders

@@ -86,6 +86,28 @@ export interface UnansweredChatItem {
   isResolved: boolean;
 }
 
+export interface ChatConversationSummary {
+  userId: number;
+  userPhone?: string;
+  lastMessage: string;
+  lastUpdated: string;
+  messageCount: number;
+}
+
+export interface ChatConversationPage {
+  items: ChatConversationSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface ChatConversationDetail {
+  userId: number;
+  userPhone?: string;
+  messages: ChatMessage[];
+  lastMessageAt?: string;
+}
+
 export interface Notification {
   id: number;
   ownerUserId?: number;
@@ -217,6 +239,37 @@ export const chatService = {
         API_ENDPOINTS.CHAT.RESOLVE_UNANSWERED(assistantMessageId),
         payload
       );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getConversationsPage: async (page: number = 1, pageSize: number = 20) => {
+    try {
+      const response = await api.get<ChatConversationPage>(
+        `${API_ENDPOINTS.CHAT.ADMIN_CONVERSATIONS_PAGE}?page=${page}&pageSize=${pageSize}`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getConversationDetail: async (userId: number) => {
+    try {
+      const response = await api.get<ChatConversationDetail>(
+        API_ENDPOINTS.CHAT.CONVERSATION_DETAIL(userId)
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  deleteConversation: async (userId: number) => {
+    try {
+      const response = await api.delete(API_ENDPOINTS.CHAT.DELETE_CONVERSATION(userId));
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
