@@ -65,6 +65,8 @@ public class PublicRoomDto
     public int HygieneScore { get; set; }
     public int LivingRooms { get; set; }
     public int Bedrooms { get; set; }
+    public int Kitchens { get; set; }
+    public int Bathrooms { get; set; }
     public bool FloodRisk { get; set; }
     public List<string> Amenities { get; set; } = new();
     public List<string> HostRequirements { get; set; } = new();
