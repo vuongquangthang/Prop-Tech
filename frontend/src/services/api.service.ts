@@ -26,6 +26,8 @@ export interface Floor {
   buildingId: number;
   buildingName?: string;
   buildingAddress?: string;
+  buildingLatitude?: number | null;
+  buildingLongitude?: number | null;
   address?: string;
   floorNumber: number;
   totalRooms?: number;
@@ -37,6 +39,8 @@ export interface Room {
   buildingId?: number;
   buildingName?: string;
   buildingAddress?: string;
+  buildingLatitude?: number | null;
+  buildingLongitude?: number | null;
   floorNumber?: number;
   roomCode: string;
   address?: string | null;

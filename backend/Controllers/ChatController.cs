@@ -137,6 +137,7 @@ public class ChatController : ControllerBase
     /// Gửi tin nhắn đến chatbot
     /// </summary>
     [HttpPost("send")]
+    [ProducesResponseType(typeof(ChatMessageDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<ChatMessageDto>> SendMessage([FromBody] SendChatMessageDto dto)
     {
         try

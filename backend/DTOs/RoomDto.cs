@@ -10,6 +10,9 @@ public class RoomDto
     public int BuildingId { get; set; }
     public string BuildingName { get; set; } = null!;
     public string BuildingAddress { get; set; } = "";
+    // Tọa độ tòa nhà — phòng lấy tòa nhà làm mốc để hiển thị bản đồ (không cho sửa riêng).
+    public double? BuildingLatitude { get; set; }
+    public double? BuildingLongitude { get; set; }
     public int FloorNumber { get; set; }
     public string RoomCode { get; set; } = null!;
     public string? Address { get; set; }

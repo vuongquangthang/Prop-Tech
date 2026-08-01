@@ -72,6 +72,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       );
       const response = normalizeLoginResponse(rawResponse);
 
+      // App mobile chỉ dành cho cư dân (Resident) và chủ nhà (Admin).
+      // Các role khác không được đăng nhập vào app.
+      const allowedRoles = ['Admin', 'Resident'];
+      if (!allowedRoles.includes(response.user.role)) {
+        throw new Error('Tài khoản này không có quyền sử dụng ứng dụng.');
+      }
+
       // Save tokens
       await apiService.saveTokens(response.accessToken, response.refreshToken);
       

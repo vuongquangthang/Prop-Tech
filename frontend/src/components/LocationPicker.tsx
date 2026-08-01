@@ -39,11 +39,13 @@ type Props = {
   // Goi y tu dia chi nhap o form (de bam "tim tren ban do")
   addressQuery?: string;
   onChange: (lat: number, lng: number, location?: ResolvedLocation) => void;
+  // Chi xem: khong cho keo/click/tim/nhap toa do. Dung khi phong lay vi tri theo toa nha.
+  readOnly?: boolean;
 };
 
 const DEFAULT_CENTER: [number, number] = [21.0278, 105.8342]; // Ha Noi
 
-export function LocationPicker({ lat, lng, addressQuery, onChange }: Props) {
+export function LocationPicker({ lat, lng, addressQuery, onChange, readOnly = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -91,15 +93,17 @@ export function LocationPicker({ lat, lng, addressQuery, onChange }: Props) {
 
     // Marker co dinh: KEO MAP chi de xem (Leaflet khong bat 'click' khi pan), CLICK moi dat ghim.
     // Marker co the keo de tinh chinh. Sau khi dat, zoom/pan xem duong KHONG lam doi vi tri da chon.
-    const marker = L.marker(start, { draggable: true, icon: PIN_ICON }).addTo(map);
-    marker.on('dragend', () => {
-      const p = marker.getLatLng();
-      applyManualPoint({ lat: p.lat, lng: p.lng }, true);
-    });
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      marker.setLatLng(e.latlng);
-      applyManualPoint({ lat: e.latlng.lat, lng: e.latlng.lng }, true);
-    });
+    const marker = L.marker(start, { draggable: !readOnly, icon: PIN_ICON }).addTo(map);
+    if (!readOnly) {
+      marker.on('dragend', () => {
+        const p = marker.getLatLng();
+        applyManualPoint({ lat: p.lat, lng: p.lng }, true);
+      });
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        marker.setLatLng(e.latlng);
+        applyManualPoint({ lat: e.latlng.lat, lng: e.latlng.lng }, true);
+      });
+    }
 
     mapRef.current = map;
     markerRef.current = marker;
@@ -265,37 +269,39 @@ export function LocationPicker({ lat, lng, addressQuery, onChange }: Props) {
 
   return (
     <div className="space-y-3">
-      {!hasGoongApiKey() && (
+      {!readOnly && !hasGoongApiKey() && (
         <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
           Chưa cấu hình VITE_GOONG_API_KEY, phần tìm địa chỉ bằng Goong sẽ không hoạt động. Vẫn có thể chọn ghim/toạ độ thủ công.
         </p>
       )}
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              void runSearch(query || addressQuery || '');
-            }
-          }}
-          placeholder="Tìm địa chỉ bằng Goong..."
-          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-        />
-        <button
-          type="button"
-          onClick={() => void runSearch(query || addressQuery || '')}
-          disabled={searching}
-          className="px-3 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 whitespace-nowrap"
-        >
-          {searching ? 'Đang tìm...' : 'Tìm'}
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void runSearch(query || addressQuery || '');
+              }
+            }}
+            placeholder="Tìm địa chỉ bằng Goong..."
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+          />
+          <button
+            type="button"
+            onClick={() => void runSearch(query || addressQuery || '')}
+            disabled={searching}
+            className="px-3 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 whitespace-nowrap"
+          >
+            {searching ? 'Đang tìm...' : 'Tìm'}
+          </button>
+        </div>
+      )}
 
-      {suggestions.length > 0 && (
+      {!readOnly && suggestions.length > 0 && (
         <div className="rounded border border-gray-200 bg-white shadow-sm">
           {suggestions.map((s, i) => (
             <button
@@ -311,53 +317,59 @@ export function LocationPicker({ lat, lng, addressQuery, onChange }: Props) {
       )}
 
       <div ref={containerRef} className="h-64 w-full overflow-hidden rounded border border-gray-300" />
-      <p className="text-xs text-gray-500">Kéo bản đồ để xem, bấm vào vị trí để đặt ghim. Có thể kéo ghim để tinh chỉnh; phóng to/thu nhỏ không làm đổi vị trí đã chọn.</p>
+      {readOnly ? (
+        <p className="text-xs text-gray-500">Vị trí lấy theo toà nhà. Muốn đổi, hãy cập nhật toạ độ ở phần quản lý toà nhà.</p>
+      ) : (
+        <p className="text-xs text-gray-500">Kéo bản đồ để xem, bấm vào vị trí để đặt ghim. Có thể kéo ghim để tinh chỉnh; phóng to/thu nhỏ không làm đổi vị trí đã chọn.</p>
+      )}
 
-      <div className="rounded border border-gray-200 bg-gray-50 p-3 space-y-2">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className="text-xs text-gray-600">
-            Vĩ độ
-            <input
-              type="number"
-              step="any"
-              value={manualLat}
-              onChange={(e) => setManualLat(e.target.value)}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-              placeholder="VD: 21.0278"
-            />
-          </label>
-          <label className="text-xs text-gray-600">
-            Kinh độ
-            <input
-              type="number"
-              step="any"
-              value={manualLng}
-              onChange={(e) => setManualLng(e.target.value)}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-              placeholder="VD: 105.8342"
-            />
-          </label>
+      {!readOnly && (
+        <div className="rounded border border-gray-200 bg-gray-50 p-3 space-y-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="text-xs text-gray-600">
+              Vĩ độ
+              <input
+                type="number"
+                step="any"
+                value={manualLat}
+                onChange={(e) => setManualLat(e.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                placeholder="VD: 21.0278"
+              />
+            </label>
+            <label className="text-xs text-gray-600">
+              Kinh độ
+              <input
+                type="number"
+                step="any"
+                value={manualLng}
+                onChange={(e) => setManualLng(e.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                placeholder="VD: 105.8342"
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void applyManualInputs()}
+              className="rounded bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-100"
+            >
+              Áp dụng toạ độ thủ công
+            </button>
+            <button
+              type="button"
+              onClick={() => void scanAround()}
+              disabled={scanning}
+              className="rounded bg-gray-800 px-3 py-2 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+            >
+              {scanning ? 'Đang quét...' : 'Quét địa chỉ quanh 5m'}
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void applyManualInputs()}
-            className="rounded bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-100"
-          >
-            Áp dụng toạ độ thủ công
-          </button>
-          <button
-            type="button"
-            onClick={() => void scanAround()}
-            disabled={scanning}
-            className="rounded bg-gray-800 px-3 py-2 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-          >
-            {scanning ? 'Đang quét...' : 'Quét địa chỉ quanh 5m'}
-          </button>
-        </div>
-      </div>
+      )}
 
-      {nearbySuggestions.length > 0 && (
+      {!readOnly && nearbySuggestions.length > 0 && (
         <div className="rounded border border-blue-100 bg-blue-50">
           {nearbySuggestions.map((item, i) => (
             <button
@@ -375,10 +387,12 @@ export function LocationPicker({ lat, lng, addressQuery, onChange }: Props) {
         </div>
       )}
 
-      {message && <p className="text-xs text-gray-600">{message}</p>}
-      <p className="text-xs text-gray-500">
-        Nếu địa chỉ/tên toà nhà/mã đất không tìm được, hãy click/kéo ghim hoặc nhập toạ độ thủ công, quét 5m quanh ghim rồi chọn địa chỉ gần nhất để lưu.
-      </p>
+      {!readOnly && message && <p className="text-xs text-gray-600">{message}</p>}
+      {!readOnly && (
+        <p className="text-xs text-gray-500">
+          Nếu địa chỉ/tên toà nhà/mã đất không tìm được, hãy click/kéo ghim hoặc nhập toạ độ thủ công, quét 5m quanh ghim rồi chọn địa chỉ gần nhất để lưu.
+        </p>
+      )}
     </div>
   );
 }

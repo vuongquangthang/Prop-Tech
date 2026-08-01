@@ -18,6 +18,9 @@ public interface IKnowledgeBaseService
     Task<KnowledgeBaseDto> UpdateAsync(int id, UpdateKnowledgeBaseDto dto, int userId, int ownerUserId);
     Task DeleteAsync(int id, int ownerUserId);
     Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId);
+    // Upload cho tri thuc chung (SUPER_ADMIN TroUyTin): ownerUserId = null => KB ap cho moi toa nha.
+    // Dung cho luong internal (X-Internal-Api-Key), khong gan owner cu the.
+    Task<DocumentUploadResultDto> UploadDocumentForOwnerAsync(IFormFile file, string category, bool autoActivate, int? userId, int? ownerUserId);
 }
 
 public class KnowledgeBaseService : IKnowledgeBaseService
@@ -127,7 +130,10 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         await _repository.SaveChangesAsync();
     }
 
-    public async Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId)
+    public Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId)
+        => UploadDocumentForOwnerAsync(file, category, autoActivate, userId, ownerUserId);
+
+    public async Task<DocumentUploadResultDto> UploadDocumentForOwnerAsync(IFormFile file, string category, bool autoActivate, int? userId, int? ownerUserId)
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         string rawText;

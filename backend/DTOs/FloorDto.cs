@@ -9,6 +9,9 @@ public class FloorDto
     public int BuildingId { get; set; }
     public string BuildingName { get; set; } = null!;
     public string BuildingAddress { get; set; } = "";
+    // Tọa độ tòa nhà — phòng thêm mới lấy vị trí theo tòa nhà (không cho chọn riêng).
+    public double? BuildingLatitude { get; set; }
+    public double? BuildingLongitude { get; set; }
     public int FloorNumber { get; set; }
     public int TotalRooms { get; set; }
 }

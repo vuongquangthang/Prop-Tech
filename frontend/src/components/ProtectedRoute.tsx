@@ -67,10 +67,10 @@ export function AdminRoute({ children }: { children: ReactNode }) {
   );
 }
 
-// Wrapper for post listing/message routes used by owners and managers
+// Wrapper for post listing/message routes — chỉ Admin (chủ nhà) trên web Prop-Tech.
 export function PostOwnerRoute({ children }: { children: ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
       {children}
     </ProtectedRoute>
   );
