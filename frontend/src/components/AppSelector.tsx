@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router';
-import { Building2, Home } from 'lucide-react';
+import { Building2 } from 'lucide-react';
+import LivoLogo from './LivoLogo';
 
 export function AppSelector() {
   const navigate = useNavigate();
@@ -15,17 +16,7 @@ export function AppSelector() {
       <div className="text-center space-y-10 max-w-4xl w-full">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '12px' }}>
           <div className="flex items-center space-x-3 mb-3">
-            <div
-              className="flex items-center justify-center shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
-              style={{
-                width: '48px',
-                height: '48px',
-                backgroundColor: 'var(--brand-primary)',
-                borderRadius: '12px',
-              }}
-            >
-              <Home size={28} style={{ color: 'white', strokeWidth: 2 }} />
-            </div>
+            <LivoLogo size={48} />
 
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               LIVO Hub
