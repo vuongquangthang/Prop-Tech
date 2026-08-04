@@ -7,7 +7,6 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
-  Home,
   LineChart,
   MessageSquareText,
   Play,
@@ -23,6 +22,7 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
+import LivoLogo from '../components/LivoLogo';
 import { ComponentType, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
@@ -1957,7 +1957,7 @@ export function LandingPage() {
       <header className="lp-nav">
         <nav className="lp-nav-inner">
           <button className="lp-logo" onClick={() => scrollToSection('#hero')}>
-            <i><Building2 size={23} /></i>
+            <LivoLogo size={44} />
             LIVO Hub
           </button>
 
@@ -2281,7 +2281,7 @@ export function LandingPage() {
         <div className="lp-footer-inner">
           <div>
             <button className="lp-logo" onClick={() => scrollToSection('#hero')}>
-              <i><Home size={22} /></i>
+              <LivoLogo size={44} />
               LIVO Hub
             </button>
             <p style={{ marginTop: 16, maxWidth: 460 }}>
