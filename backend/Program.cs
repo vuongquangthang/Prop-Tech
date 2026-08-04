@@ -152,6 +152,7 @@ else
 }
 
 builder.Services.AddScoped<backend.Services.IEmailService, backend.Services.EmailService>();
+builder.Services.AddScoped<backend.Services.IPasswordResetOtpService, backend.Services.PasswordResetOtpService>();
 builder.Services.AddScoped<backend.Repositories.IPaymentAccountRepository, backend.Repositories.PaymentAccountRepository>();
 builder.Services.AddScoped<backend.Services.IPaymentAccountService, backend.Services.PaymentAccountService>();
 builder.Services.AddScoped<backend.Repositories.IUserRepository, backend.Repositories.UserRepository>();

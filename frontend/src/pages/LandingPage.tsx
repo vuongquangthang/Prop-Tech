@@ -87,7 +87,7 @@ function SectionTitle({ eyebrow, title, description }: { eyebrow: string; title:
 
 function DashboardMockup({
   imageSrc = '/web.png',
-  imageAlt = 'Dashboard quản lý tòa nhà SmartHome Hub với KPI cư dân, phòng thuê, doanh thu và công nợ',
+  imageAlt = 'Dashboard quản lý tòa nhà LIVO Hub với KPI cư dân, phòng thuê, doanh thu và công nợ',
 }: {
   imageSrc?: string;
   imageAlt?: string;
@@ -98,7 +98,7 @@ function DashboardMockup({
         <i />
         <i />
         <i />
-        <span>SmartHome Hub · Web Dashboard</span>
+        <span>LIVO Hub · Web Dashboard</span>
       </div>
       <div className="lp-product-image-wrap">
         <img
@@ -115,7 +115,7 @@ function DashboardMockup({
 
 function PhoneMockup({
   imageSrc = '/app.png',
-  imageAlt = 'Ứng dụng cư dân Smart Home hiển thị hóa đơn, thanh toán và tiện ích báo cáo sự cố',
+  imageAlt = 'Ứng dụng cư dân LIVO Hub hiển thị hóa đơn, thanh toán và tiện ích báo cáo sự cố',
 }: {
   imageSrc?: string;
   imageAlt?: string;
@@ -1958,7 +1958,7 @@ export function LandingPage() {
         <nav className="lp-nav-inner">
           <button className="lp-logo" onClick={() => scrollToSection('#hero')}>
             <i><Building2 size={23} /></i>
-            PropTech Suite
+            LIVO Hub
           </button>
 
           <div className="lp-menu">
@@ -1987,7 +1987,7 @@ export function LandingPage() {
               </div>
               <h1>Vận hành chung cư hiện đại trên một nền tảng duy nhất.</h1>
               <p>
-                PropTech Suite giúp ban quản lý số hóa cư dân, hợp đồng, hóa đơn, thanh toán,
+                LIVO Hub giúp ban quản lý số hóa cư dân, hợp đồng, hóa đơn, thanh toán,
                 bảo trì và truyền thông nội bộ — đồng bộ giữa web dashboard và app cư dân.
               </p>
               <div className="lp-hero-actions">
@@ -2018,7 +2018,7 @@ export function LandingPage() {
             <SectionTitle
               eyebrow="Problems We Solve"
               title="Những điểm nghẽn vận hành khiến ban quản lý mất thời gian mỗi ngày."
-              description="PropTech Suite tập trung vào luồng vận hành: ai làm gì, trạng thái nào, số liệu nào cần hành động."
+              description="LIVO Hub tập trung vào luồng vận hành: ai làm gì, trạng thái nào, số liệu nào cần hành động."
             />
             <div className="lp-card-grid">
               {problems.map(([Icon, title, description]) => (
@@ -2182,7 +2182,7 @@ export function LandingPage() {
           <div className="lp-container lp-roi">
             <div className="lp-roi-copy lp-reveal">
               <h2>ROI đến từ việc giảm thao tác lặp và tăng tính minh bạch.</h2>
-              <p>PropTech Suite giúp đội vận hành giảm lỗi dữ liệu, giảm thời gian phản hồi và tăng tỷ lệ thanh toán đúng hạn.</p>
+              <p>LIVO Hub giúp đội vận hành giảm lỗi dữ liệu, giảm thời gian phản hồi và tăng tỷ lệ thanh toán đúng hạn.</p>
             </div>
             <div className="lp-roi-grid">
               {[
@@ -2282,7 +2282,7 @@ export function LandingPage() {
           <div>
             <button className="lp-logo" onClick={() => scrollToSection('#hero')}>
               <i><Home size={22} /></i>
-              PropTech Suite
+              LIVO Hub
             </button>
             <p style={{ marginTop: 16, maxWidth: 460 }}>
               Nền tảng quản lý tòa nhà, căn hộ và cộng đồng cư dân dành cho đội vận hành tại Việt Nam.
@@ -2305,7 +2305,7 @@ export function LandingPage() {
             </ul>
           </div>
         </div>
-        <div className="lp-copyright">© 2026 PropTech Suite. All rights reserved.</div>
+        <div className="lp-copyright">© 2026 LIVO Hub. All rights reserved.</div>
       </footer>
     </div>
   );

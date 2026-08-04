@@ -55,3 +55,11 @@ public class ForgotPasswordRequestDto
     public string PhoneNumberOrEmail { get; set; } = null!;
 }
 
+/// <summary>Đặt lại mật khẩu bằng OTP gửi qua email.</summary>
+public class ResetPasswordWithOtpDto
+{
+    public string Email { get; set; } = null!;
+    public string Otp { get; set; } = null!;
+    public string NewPassword { get; set; } = null!;
+}
+

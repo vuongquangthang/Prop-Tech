@@ -28,7 +28,7 @@ export function AppSelector() {
             </div>
 
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              SmartHome Hub
+              LIVO Hub
             </h1>
           </div>
         </div>

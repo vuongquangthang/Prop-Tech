@@ -492,7 +492,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 <p className="text-lg text-gray-800 font-bold">Đang trích xuất, lưu và đồng bộ tri thức...</p>
                 <p className="text-sm text-gray-600 mt-2">"{selectedFile?.name}"</p>
                 <p className="text-xs text-gray-500 mt-2 px-4">
-                  Hệ thống đang lưu dữ liệu vào Prop-Tech và cập nhật ChromaDB cho Chatbot RAG.
+                  Hệ thống đang lưu dữ liệu vào LIVO Hub và cập nhật ChromaDB cho Chatbot RAG.
                 </p>
               </div>
             </div>

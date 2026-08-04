@@ -1,4 +1,5 @@
-import { LayoutDashboard, Building2, Users, CircleDollarSign, Wrench, Bot, BarChart3, ChevronDown, ChevronLeft, ChevronRight, UserCog, Home, Newspaper } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CircleDollarSign, Wrench, Bot, BarChart3, ChevronDown, ChevronLeft, ChevronRight, UserCog, Newspaper } from 'lucide-react';
+import LivoLogo from './LivoLogo';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 
@@ -210,22 +211,11 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
           title={isCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
         >
           <div className="flex min-w-0 items-center" style={{ gap: '12px' }}>
-            {/* Icon Box */}
-            <div 
-              className="flex shrink-0 items-center justify-center"
-              style={{ 
-                width: '40px', 
-                height: '40px', 
-                background: 'linear-gradient(135deg, var(--primary), var(--info))',
-                borderRadius: '12px',
-                boxShadow: '0 12px 26px rgba(30, 78, 140, 0.22)'
-              }}
-            >
-              <Home size={28} style={{ color: 'white', strokeWidth: 2 }} />
-            </div>
+            {/* Logo LIVO Hub */}
+            <LivoLogo size={40} />
             {/* Text */}
             <span className="sidebar-logo-text truncate" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              SmartHome Hub
+              LIVO Hub
             </span>
           </div>
           <span className="sidebar-logo-text flex shrink-0 items-center justify-center rounded-lg" style={{ width: '32px', height: '32px', color: 'var(--text-secondary)' }}>
