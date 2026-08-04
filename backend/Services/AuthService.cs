@@ -11,6 +11,10 @@ public interface IAuthService
     Task<LoginResponseDto> RegisterAsync(RegisterRequestDto request);
     Task<LoginResponseDto> RefreshTokenAsync(string refreshToken);
     Task<UserDto> RequestPasswordResetAsync(ForgotPasswordRequestDto request);
+    /// <summary>Quen mat khau qua OTP email: tim user, gui OTP neu co email. Tra ve email da che.</summary>
+    Task<string> RequestPasswordResetOtpAsync(ForgotPasswordRequestDto request);
+    /// <summary>Verify OTP + dat mat khau moi.</summary>
+    Task ResetPasswordWithOtpAsync(ResetPasswordWithOtpDto request);
     Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request);
     Task<UserDto?> GetUserByIdAsync(int userId);
     Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileDto dto);
@@ -21,15 +25,18 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IResidentRepository _residentRepository;
     private readonly IJwtService _jwtService;
+    private readonly IPasswordResetOtpService _otpService;
 
     public AuthService(
         IUserRepository userRepository,
         IResidentRepository residentRepository,
-        IJwtService jwtService)
+        IJwtService jwtService,
+        IPasswordResetOtpService otpService)
     {
         _userRepository = userRepository;
         _residentRepository = residentRepository;
         _jwtService = jwtService;
+        _otpService = otpService;
     }
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request)
@@ -180,6 +187,74 @@ public class AuthService : IAuthService
         }
 
         return await MapToUserDto(user);
+    }
+
+    public async Task<string> RequestPasswordResetOtpAsync(ForgotPasswordRequestDto request)
+    {
+        var identity = request.PhoneNumberOrEmail?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(identity))
+        {
+            throw new InvalidOperationException("Vui lòng nhập số điện thoại hoặc email");
+        }
+
+        var user = await _userRepository.GetByPhoneOrEmailAsync(identity);
+        if (user == null)
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản phù hợp");
+        }
+
+        if (user.IsLocked)
+        {
+            throw new InvalidOperationException("Tài khoản đang bị khóa. Vui lòng liên hệ quản trị viên");
+        }
+
+        if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            throw new InvalidOperationException(
+                "Tài khoản chưa có email. Vui lòng liên hệ quản trị viên để đặt lại mật khẩu.");
+        }
+
+        await _otpService.IssueAsync(user.Email);
+        return MaskEmail(user.Email);
+    }
+
+    public async Task ResetPasswordWithOtpAsync(ResetPasswordWithOtpDto request)
+    {
+        var email = request.Email?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new InvalidOperationException("Thiếu email");
+        }
+        if (string.IsNullOrWhiteSpace(request.Otp))
+        {
+            throw new InvalidOperationException("Vui lòng nhập mã OTP");
+        }
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+        {
+            throw new InvalidOperationException("Mật khẩu mới phải có ít nhất 6 ký tự");
+        }
+
+        var user = await _userRepository.GetByPhoneOrEmailAsync(email);
+        if (user == null || string.IsNullOrWhiteSpace(user.Email))
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản phù hợp");
+        }
+
+        // Verify OTP (nem loi neu sai/het han/qua so lan).
+        await _otpService.VerifyAsync(user.Email, request.Otp);
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.MustChangePassword = false;
+        _userRepository.Update(user);
+        await _userRepository.SaveChangesAsync();
+    }
+
+    /// <summary>Che email: abc@gmail.com -> a***@gmail.com (khong lo email day du).</summary>
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 1) return email;
+        return $"{email[0]}***{email[at..]}";
     }
 
     public async Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request)

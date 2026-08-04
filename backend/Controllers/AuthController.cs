@@ -96,29 +96,49 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var user = await _authService.RequestPasswordResetAsync(request);
+            // Gui OTP dat lai mat khau ve email cua tai khoan (neu co email).
+            var maskedEmail = await _authService.RequestPasswordResetOtpAsync(request);
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
             var ua = Request.Headers["User-Agent"].FirstOrDefault();
-            await _auditLogService.LogAsync(user.Id, "PASSWORD_RESET_REQUEST", "User", user.Id, $"Yêu cầu đặt lại mật khẩu: {request.PhoneNumberOrEmail}", ip, ua);
+            await _auditLogService.LogAsync(null, "PASSWORD_RESET_REQUEST", "User", null, $"Yêu cầu đặt lại mật khẩu: {request.PhoneNumberOrEmail}", ip, ua);
             return Ok(new
             {
-                message = "Tài khoản tồn tại. Vui lòng liên hệ quản trị viên hoặc ban quản lý để được cấp lại mật khẩu.",
-                user = new
-                {
-                    user.Id,
-                    user.PhoneNumber,
-                    user.FullName,
-                    user.Role
-                }
+                message = $"Mã OTP đã được gửi tới email {maskedEmail}. Vui lòng kiểm tra hộp thư.",
+                email = maskedEmail
             });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "Đã xảy ra lỗi khi gửi yêu cầu đặt lại mật khẩu", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Đặt lại mật khẩu bằng OTP đã gửi qua email
+    /// </summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordWithOtpDto request)
+    {
+        try
+        {
+            await _authService.ResetPasswordWithOtpAsync(request);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var ua = Request.Headers["User-Agent"].FirstOrDefault();
+            await _auditLogService.LogAsync(null, "PASSWORD_RESET", "User", null, $"Đặt lại mật khẩu qua OTP: {request.Email}", ip, ua);
+            return Ok(new { message = "Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi đặt lại mật khẩu", error = ex.Message });
         }
     }
 

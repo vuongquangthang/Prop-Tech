@@ -28,7 +28,7 @@ export function KnowledgeBaseTable() {
       <PageHeader
         eyebrow="Trợ lý ảo AI"
         title="Kho tri thức"
-        description="Quản lý tri thức trong Prop-Tech/Supabase. Khi tải tài liệu, hệ thống tự đồng bộ ChromaDB cho Chatbot RAG."
+        description="Quản lý tri thức trong LIVO Hub/Supabase. Khi tải tài liệu, hệ thống tự đồng bộ ChromaDB cho Chatbot RAG."
         actions={
           <button
             onClick={() => setUploadModal(true)}

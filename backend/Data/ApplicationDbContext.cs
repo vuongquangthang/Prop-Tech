@@ -63,6 +63,9 @@ public class ApplicationDbContext : DbContext
     // Nhắc nợ
     public DbSet<NhatKyNhacNo> NhatKyNhacNos { get; set; } = null!;
 
+    // OTP đặt lại mật khẩu (web chủ nhà)
+    public DbSet<PasswordResetOtp> PasswordResetOtps { get; set; } = null!;
+
     // Optional: Keep for logging
     public DbSet<Notification> Notifications { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;

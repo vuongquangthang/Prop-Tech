@@ -67,7 +67,7 @@ export function AdminRoute({ children }: { children: ReactNode }) {
   );
 }
 
-// Wrapper for post listing/message routes — chỉ Admin (chủ nhà) trên web Prop-Tech.
+// Wrapper for post listing/message routes — chỉ Admin (chủ nhà) trên web LIVO Hub.
 export function PostOwnerRoute({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>

@@ -3,10 +3,12 @@ import {
   api,
   clearAuthSession,
   getStoredAuthToken,
+  getStoredRefreshToken,
   getStoredUser,
   handleApiError,
   LoginRequest,
   LoginResponse,
+  refreshAccessToken,
   saveAuthSession,
   updateStoredUser,
 } from '../lib/api-client';
@@ -71,6 +73,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     loadUser();
+  }, []);
+
+  // Phiên tính theo HOẠT ĐỘNG (idle), không cố định từ lúc đăng nhập:
+  // - Ghi nhận thời điểm user thao tác gần nhất (click/nhập/di chuột/scroll).
+  // - Định kỳ, nếu user CÒN hoạt động gần đây -> chủ động refresh token (gia hạn phiên).
+  //   Đang dùng -> token luôn mới -> không bị logout giữa chừng.
+  // - Không thao tác đủ lâu -> ngừng refresh -> phiên hết hạn tự nhiên (đúng nghĩa idle).
+  useEffect(() => {
+    // Ngưỡng "còn hoạt động": nếu thao tác trong vòng thời gian này thì mới gia hạn.
+    const ACTIVE_WINDOW_MS = 55 * 60 * 1000;   // 55 phút
+    // Chu kỳ kiểm tra + refresh (< 60' để refresh trước khi access token 60' hết hạn).
+    const REFRESH_INTERVAL_MS = 50 * 60 * 1000; // 50 phút
+
+    let lastActivity = Date.now();
+    const markActivity = () => { lastActivity = Date.now(); };
+
+    const events: Array<keyof WindowEventMap> = [
+      'click', 'keydown', 'mousemove', 'scroll', 'touchstart', 'visibilitychange',
+    ];
+    events.forEach((e) => window.addEventListener(e, markActivity, { passive: true }));
+
+    const timer = window.setInterval(async () => {
+      // Chỉ gia hạn khi đã đăng nhập và user còn hoạt động gần đây.
+      if (!getStoredRefreshToken()) return;
+      if (Date.now() - lastActivity > ACTIVE_WINDOW_MS) return;
+      await refreshAccessToken();
+    }, REFRESH_INTERVAL_MS);
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, markActivity));
+      window.clearInterval(timer);
+    };
   }, []);
 
   const login = async (phoneNumber: string, password: string, remember = false) => {

@@ -64,7 +64,7 @@ export default function ChatbotScreen() {
     {
       id: '1',
       type: 'bot',
-      text: 'Chào bạn! Tôi là trợ lý AI của SmartHome. Tôi có thể giúp bạn giải thích hóa đơn, tra cứu nội quy hoặc hướng dẫn thanh toán.',
+      text: 'Chào bạn! Tôi là trợ lý AI của LIVO Home. Tôi có thể giúp bạn giải thích hóa đơn, tra cứu nội quy hoặc hướng dẫn thanh toán.',
     },
   ]);
 

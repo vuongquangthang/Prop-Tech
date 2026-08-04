@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
     REGISTER: '/api/Auth/register',
     REFRESH: '/api/Auth/refresh-token',
     FORGOT_PASSWORD: '/api/Auth/forgot-password',
+    RESET_PASSWORD: '/api/Auth/reset-password',
     CHANGE_PASSWORD: '/api/Auth/change-password',
     LOGOUT: '/api/Auth/logout',
     ME: '/api/Auth/me',

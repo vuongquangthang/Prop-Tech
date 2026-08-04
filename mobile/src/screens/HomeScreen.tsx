@@ -174,9 +174,9 @@ export default function HomeScreen() {
               <Ionicons name="business-outline" size={16} color="#FFFFFF" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.buildingLabel}>Smart Home</Text>
+              <Text style={styles.buildingLabel}>LIVO Home</Text>
               <Text style={styles.buildingName} numberOfLines={1}>
-                {myRoom ? `${myRoom.roomCode} · ${myRoom.buildingName}` : 'SmartHome KĐT'}
+                {myRoom ? `${myRoom.roomCode} · ${myRoom.buildingName}` : 'LIVO Home KĐT'}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.8)" />

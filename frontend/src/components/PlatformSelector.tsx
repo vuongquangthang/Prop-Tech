@@ -20,7 +20,7 @@ export function PlatformSelector() {
             <Home size={42} color="#FFF" />
           </div>
           <h1 style={{ fontSize: 'var(--type-page-title)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
-            SmartHome Hub
+            LIVO Hub
           </h1>
           <p style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)' }}>
             Hệ thống Quản lý Chung cư

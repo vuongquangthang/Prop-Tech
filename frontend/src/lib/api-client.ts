@@ -114,6 +114,36 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Refresh token dùng chung (single-flight): nhiều request cùng 401 chỉ gọi refresh
+// MỘT lần, tránh race condition xoay refresh token 2 lần -> token cũ bị vô hiệu ->
+// logout oan khi đang dùng. Trả về accessToken mới hoặc null nếu refresh thất bại.
+let refreshPromise: Promise<string | null> | null = null;
+
+export const refreshAccessToken = (): Promise<string | null> => {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = getStoredRefreshToken();
+    if (!refreshToken) return null;
+    try {
+      const response = await axios.post<LoginResponse>(
+        `${API_CONFIG.BASE_URL}/api/Auth/refresh-token`,
+        { refreshToken }
+      );
+      const { accessToken, refreshToken: newRefreshToken } = response.data;
+      updateStoredAuthToken(accessToken, newRefreshToken);
+      return accessToken;
+    } catch {
+      return null;
+    } finally {
+      // Cho phép lần refresh kế tiếp (sau khi promise hiện tại settle).
+      setTimeout(() => { refreshPromise = null; }, 0);
+    }
+  })();
+
+  return refreshPromise;
+};
+
 // Response interceptor - handle errors and token refresh
 apiClient.interceptors.response.use(
   (response) => {
@@ -122,33 +152,21 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    // If 401 and not already retried, try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // If 401 and not already retried, try to refresh token (single-flight).
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      try {
-        const refreshToken = getStoredRefreshToken();
-        if (refreshToken) {
-          const response = await axios.post<LoginResponse>(
-            `${API_CONFIG.BASE_URL}/api/Auth/refresh-token`,
-            { refreshToken }
-          );
-
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
-          updateStoredAuthToken(accessToken, newRefreshToken);
-
-          // Retry original request with new token
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          }
-          return apiClient(originalRequest);
+      const newAccessToken = await refreshAccessToken();
+      if (newAccessToken) {
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
-      } catch (refreshError) {
-        // Refresh failed, logout user
-        clearAuthSession();
-        window.location.href = '/';
-        return Promise.reject(refreshError);
+        return apiClient(originalRequest);
       }
+
+      // Refresh thất bại -> hết phiên thật -> logout.
+      clearAuthSession();
+      window.location.href = '/';
     }
 
     return Promise.reject(error);
