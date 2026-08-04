@@ -1,3 +1,5 @@
+using backend.Validation;
+
 namespace backend.DTOs;
 
 /// <summary>
@@ -49,10 +51,16 @@ public class RoomDto
 public class CreateRoomDto
 {
     public int FloorId { get; set; }
+    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Vui lòng nhập mã phòng")]
+    [System.ComponentModel.DataAnnotations.StringLength(100)]
+    [NoHtml]
     public string RoomCode { get; set; } = null!;
+    [System.ComponentModel.DataAnnotations.StringLength(500)]
+    [NoHtml]
     public string? Address { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+    [NoHtml]
     public string? NormalizedAddress { get; set; }
     public string? GoongPlaceId { get; set; }
     public string? LocationSource { get; set; }
@@ -61,6 +69,8 @@ public class CreateRoomDto
     public decimal? Area { get; set; }
     public int? MaxOccupants { get; set; }
     public decimal? DefaultRentPrice { get; set; }
+    [System.ComponentModel.DataAnnotations.StringLength(2000)]
+    [NoHtml]
     public string? Description { get; set; }
     public string Status { get; set; } = "Trống";
     public string RoomType { get; set; } = "single";

@@ -28,8 +28,12 @@ public class ServiceDto
 /// </summary>
 public class CreateServiceDto
 {
+    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Vui lòng nhập tên dịch vụ")]
+    [System.ComponentModel.DataAnnotations.StringLength(255)]
+    [backend.Validation.NoHtml]
     public string Name { get; set; } = null!;
     public string ServiceType { get; set; } = null!; // Điện | Nước | Cần nhập số lượng | Theo tháng
+    [backend.Validation.NoHtml]
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
     public DateTime? EffectiveDate { get; set; }
@@ -42,8 +46,11 @@ public class CreateServiceDto
 /// </summary>
 public class UpdateServiceDto
 {
+    [System.ComponentModel.DataAnnotations.StringLength(255)]
+    [backend.Validation.NoHtml]
     public string? Name { get; set; }
     public string? ServiceType { get; set; }
+    [backend.Validation.NoHtml]
     public string? Unit { get; set; }
     public decimal? CommonUnitPrice { get; set; }
     public bool? IsActive { get; set; }

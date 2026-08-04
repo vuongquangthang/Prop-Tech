@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router';
-import { Monitor, Home } from 'lucide-react';
+import { Monitor } from 'lucide-react';
+import LivoLogo from './LivoLogo';
 
 export function PlatformSelector() {
   const navigate = useNavigate();
@@ -13,11 +14,8 @@ export function PlatformSelector() {
     >
       <div className="max-w-4xl w-full">
         <div className="text-center mb-10 sm:mb-12">
-          <div
-            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 rounded-[12px] flex items-center justify-center shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            <Home size={42} color="#FFF" />
+          <div className="mx-auto mb-6 flex w-20 h-20 sm:w-24 sm:h-24 items-center justify-center">
+            <LivoLogo size={96} />
           </div>
           <h1 style={{ fontSize: 'var(--type-page-title)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
             LIVO Hub
