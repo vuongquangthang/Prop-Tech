@@ -596,7 +596,7 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
 
       {/* Confirm batch approve dialog */}
       {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.18)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+        <div className="admin-content-modal-overlay">
           <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-modal)', width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.16)', border: '1px solid var(--surface-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <CheckCircle size={24} style={{ color: 'var(--success)' }} />
@@ -617,7 +617,7 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
       )}
 
       {deleteInvoice && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.18)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+        <div className="admin-content-modal-overlay">
           <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-modal)', width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.16)', border: '1px solid var(--surface-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <Trash2 size={24} style={{ color: '#dc2626' }} />

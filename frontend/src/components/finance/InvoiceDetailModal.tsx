@@ -239,10 +239,10 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '16px' }}
+      className="admin-content-modal-overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ backgroundColor: '#f8fafc', borderRadius: '18px', width: '100%', maxWidth: '1080px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 80px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: '#f8fafc', borderRadius: '18px', width: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 80px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
