@@ -60,15 +60,23 @@ Console.WriteLine(DescribeDatabaseConnection(databaseProvider, databaseConnectio
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
+    // Truy van co nhieu Include collection duoc tach thanh nhieu cau SQL,
+    // tranh nhan ban du lieu (cartesian explosion) khi join nhieu bang con
     if (databaseProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
     {
-        options.UseSqlServer(databaseConnection);
+        options.UseSqlServer(
+            databaseConnection,
+            sqlServer => sqlServer.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
         return;
     }
 
     options.UseNpgsql(
         WithPostgresSearchPath(databaseConnection, databaseSchema),
-        npgsql => npgsql.EnableRetryOnFailure());
+        npgsql =>
+        {
+            npgsql.EnableRetryOnFailure();
+            npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        });
 });
 
 // Configure JWT Authentication
