@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getStoredAuthToken } from '../../lib/api-client';
 import { authService } from '../../services/api.service';
-import { PageHeader } from '../ui/product-system';
 import { PaymentAccountForm } from './PaymentAccountForm';
 
 export function MyProfileForm() {
@@ -181,22 +180,6 @@ export function MyProfileForm() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Quản lý tài khoản"
-        title="Hồ sơ cá nhân"
-        description="Cập nhật thông tin hiển thị, ảnh đại diện và thiết lập bảo mật của tài khoản."
-        actions={
-          <button
-            onClick={handleSaveChanges}
-            className="px-6 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 flex items-center space-x-2"
-            style={{ fontSize: 'var(--type-caption)', height: 'var(--button-height)', borderRadius: 'var(--radius-button)' }}
-          >
-            <Save size={16} />
-            <span>Lưu thay đổi</span>
-          </button>
-        }
-      />
-
       {/* Profile Form */}
       <div className="bg-white border-2 border-gray-300 rounded p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
@@ -311,7 +294,7 @@ export function MyProfileForm() {
 
             <div>
               <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Địa chỉ</label>
-              <textarea 
+              <textarea
                 rows={2}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
@@ -319,6 +302,18 @@ export function MyProfileForm() {
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 style={{ fontSize: 'var(--type-caption)' }}
               />
+            </div>
+
+            {/* Nút lưu nằm cuối khối thông tin cá nhân, căn phải */}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={handleSaveChanges}
+                className="flex items-center gap-2 rounded bg-[var(--primary)] px-6 py-2 text-white transition-colors hover:opacity-90"
+                style={{ fontSize: 'var(--type-caption)', height: 'var(--button-height)', borderRadius: 'var(--radius-button)' }}
+              >
+                <Save size={16} />
+                <span>Lưu thay đổi</span>
+              </button>
             </div>
           </div>
         </div>

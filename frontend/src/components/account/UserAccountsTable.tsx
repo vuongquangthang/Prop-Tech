@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeader } from '../ui/product-system';
 import { formatDisplayDateTime } from '../../lib/date-utils';
 
 interface UserData {
@@ -237,20 +236,6 @@ export function UserAccountsTable() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Quản lý tài khoản"
-        title="Danh sách tài khoản"
-        description="Quản lý tài khoản ban quản lý và cư dân, trạng thái đăng nhập và quyền truy cập."
-        actions={
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-black font-medium"
-            style={{ fontSize: 'var(--type-caption)' }}
-          >
-            + Thêm tài khoản
-          </button>
-        }
-      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
@@ -318,8 +303,15 @@ export function UserAccountsTable() {
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách tài khoản - {filteredUsers.length} tài khoản</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-gray-300 px-6 py-4">
+          <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách tài khoản - {filteredUsers.length} tài khoản</h2>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="shrink-0 rounded bg-[var(--primary)] px-4 py-2 font-medium text-white transition-colors hover:opacity-90"
+            style={{ fontSize: 'var(--type-caption)' }}
+          >
+            + Thêm tài khoản
+          </button>
         </div>
         
         <div className="overflow-x-auto">

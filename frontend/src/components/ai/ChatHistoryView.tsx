@@ -1,7 +1,7 @@
 import { ThumbsUp, ThumbsDown, MessageSquare, Plus, X, Check } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { chatService, ChatMessage, UnansweredChatItem } from '../../services/feature.service';
-import { PageHeader, SegmentedTabs, StatusBadge, EmptyState } from '../ui/product-system';
+import { SegmentedTabs, StatusBadge, EmptyState } from '../ui/product-system';
 
 interface ChatSession {
   id: string;
@@ -208,11 +208,6 @@ export function ChatHistoryView() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Trợ lý ảo AI"
-        title="Lịch sử hội thoại"
-        description="Rà soát hội thoại AI, các câu chưa đủ dữ liệu và bổ sung nhanh vào kho tri thức."
-      />
 
       {/* Vùng 2 cột: chiều cao cố định theo màn hình, mỗi cột cuộn độc lập.
           Dùng inline style cho layout/màu vì Tailwind của dự án được build tĩnh

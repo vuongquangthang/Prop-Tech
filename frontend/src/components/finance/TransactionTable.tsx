@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
 import { paymentService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
-import { PageHeader } from '../ui/product-system';
 import { DateTextInput } from '../ui/DateTextInput';
 
 interface TransactionData {
@@ -190,12 +189,6 @@ export function TransactionTable() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Hóa đơn & Tài chính"
-        title="Lịch sử giao dịch"
-        description="Theo dõi giao dịch thanh toán, trạng thái khớp hóa đơn và phương thức thanh toán."
-      />
-
       {/* Filter Bar */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">

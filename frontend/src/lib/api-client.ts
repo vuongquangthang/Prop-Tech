@@ -36,6 +36,14 @@ type AuthStorageMode = 'local' | 'session';
 
 const getAuthStorage = (mode?: AuthStorageMode): Storage => {
   if (mode) return mode === 'local' ? localStorage : sessionStorage;
+
+  // Không có mode chỉ định -> ghi vào ĐÚNG storage đang giữ token hiện tại.
+  // Dò trực tiếp thay vì chỉ tin authStorageMode: nếu key mode bị mất/lệch mà token
+  // nằm ở sessionStorage, ghi vào localStorage sẽ làm getStoredAuthToken() (ưu tiên
+  // sessionStorage) đọc token CŨ -> 401 liên tục -> logout oan.
+  if (sessionStorage.getItem('token')) return sessionStorage;
+  if (localStorage.getItem('token')) return localStorage;
+
   return localStorage.getItem(AUTH_STORAGE_MODE_KEY) === 'session' ? sessionStorage : localStorage;
 };
 

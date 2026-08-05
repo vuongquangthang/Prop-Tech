@@ -2,7 +2,6 @@ import { Filter, Monitor, Smartphone } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { auditLogService, AuditLog } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
-import { PageHeader } from '../ui/product-system';
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date-utils';
 import { DateTextInput } from '../ui/DateTextInput';
 
@@ -131,12 +130,6 @@ export function AuditLogsTable() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Quản lý tài khoản"
-        title="Nhật ký hoạt động"
-        description="Theo dõi đăng nhập, thay đổi dữ liệu và các thao tác quan trọng trong hệ thống."
-      />
-
       {/* Summary Cards - Only showing 2 cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
@@ -224,7 +217,7 @@ export function AuditLogsTable() {
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Nhật ký hoạt động - {filteredLogs.length} bản ghi</h2>
+          <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Nhật ký hoạt động - {filteredLogs.length} bản ghi</h2>
         </div>
         
         <div className="overflow-x-auto">

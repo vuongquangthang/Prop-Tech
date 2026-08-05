@@ -2,7 +2,6 @@ import { Upload, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { UploadFileModal } from './KnowledgeModals';
 import { knowledgeService, KnowledgeBase } from '../../services/feature.service';
-import { PageHeader } from '../ui/product-system';
 
 export function KnowledgeBaseTable() {
   const [knowledgeData, setKnowledgeData] = useState<KnowledgeBase[]>([]);
@@ -25,20 +24,6 @@ export function KnowledgeBaseTable() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Trợ lý ảo AI"
-        title="Kho tri thức"
-        description="Quản lý tri thức trong LIVO Hub/Supabase. Khi tải tài liệu, hệ thống tự đồng bộ ChromaDB cho Chatbot RAG."
-        actions={
-          <button
-            onClick={() => setUploadModal(true)}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center gap-2"
-          >
-            <Upload size={16} />
-            <span>Tải tài liệu vào kho tri thức</span>
-          </button>
-        }
-      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
@@ -59,11 +44,18 @@ export function KnowledgeBaseTable() {
       </div>
 
       <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800 flex items-center gap-2">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-300 px-6 py-4">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--primary)]">
             <FileText size={18} />
             <span>Dữ liệu tri thức gần đây</span>
           </h2>
+          <button
+            onClick={() => setUploadModal(true)}
+            className="flex shrink-0 items-center gap-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-white transition-colors hover:opacity-90"
+          >
+            <Upload size={16} />
+            <span>Tải tài liệu vào kho tri thức</span>
+          </button>
         </div>
 
         <div className="overflow-x-auto">

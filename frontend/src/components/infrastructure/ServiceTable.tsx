@@ -533,7 +533,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg text-gray-800">Danh mục dịch vụ & Đơn giá - {filteredServiceGroups.length}/{serviceGroups.length} dịch vụ</h2>
+            <h2 className="text-lg font-semibold text-[var(--primary)]">Danh mục dịch vụ & Đơn giá - {filteredServiceGroups.length}/{serviceGroups.length} dịch vụ</h2>
             {embedded && (
               <button
                 onClick={openAddModal}
@@ -574,18 +574,6 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
               <option value="all">Tất cả loại</option>
               {SERVICE_TYPES.map((type) => (
                 <option key={type} value={type}>{type}</option>
-              ))}
-            </FilterSelect>
-            <FilterSelect
-              value={serviceBuildingFilter}
-              onChange={(event) => setServiceBuildingFilter(event.target.value)}
-              wrapperClassName="w-[220px] min-w-[220px] max-w-[220px] flex-none"
-              className="w-full"
-              style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
-            >
-              <option value="all">Tất cả tòa nhà</option>
-              {buildings.map((building) => (
-                <option key={building.id} value={String(building.id)}>{getBuildingLabel(building)}</option>
               ))}
             </FilterSelect>
             <button

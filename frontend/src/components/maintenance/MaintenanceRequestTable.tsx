@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useData } from '../../contexts/DataContext';
 import { fileService } from '../../services/feature.service';
-import { DataCard, DataTable, EmptyState, PageHeader, SegmentedTabs, Toolbar } from '../ui/product-system';
+import { DataCard, DataTable, EmptyState, SegmentedTabs, Toolbar } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 import { ImageViewer } from '../ui/ImageViewer';
 import './MaintenanceDetailModal.css';
@@ -511,12 +511,6 @@ export function MaintenanceRequestTable() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        eyebrow="Vận hành"
-        title="Quản lý yêu cầu sửa chữa"
-        description="Điều phối trạng thái, theo dõi SLA và gửi kết quả xử lý cho cư dân."
-      />
-
       <Toolbar>
         <SegmentedTabs items={tabs} activeKey={activeTab} onChange={setActiveTab} />
         <div className="flex items-center gap-3">

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal, ExtendContractModal } from './ContractModals';
 import { contractService, tatToanService } from '../../services/api.service';
 import { formatDisplayDate } from '../../lib/date-utils';
-import { DataCard, DataTable, EmptyState, LoadingState, PageHeader, StatusBadge } from '../ui/product-system';
+import { DataCard, DataTable, EmptyState, LoadingState, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 
 interface ContractData {
@@ -217,12 +217,6 @@ export function ContractList() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        eyebrow="Hợp đồng"
-        title="Quản lý hợp đồng"
-        description="Theo dõi hợp đồng đang hiệu lực, sắp hết hạn và các nghiệp vụ in/sửa hợp đồng."
-      />
-
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap items-center gap-4">
           <Filter size={16} className="text-gray-500" />
