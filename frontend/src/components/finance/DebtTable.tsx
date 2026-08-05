@@ -176,7 +176,7 @@ export function DebtTable() {
           <h2 className="text-lg font-semibold text-[var(--primary)]">Danh sách công nợ - {filteredData.length} phòng</h2>
           <button
             onClick={() => setIsBatchSendReminderModalOpen(true)}
-            className="flex shrink-0 items-center space-x-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-[var(--primary-foreground)] transition-colors hover:opacity-90"
+            className="app-button-primary shrink-0"
           >
             <Send size={16} />
             <span>Gửi nhắc nợ hàng loạt</span>
