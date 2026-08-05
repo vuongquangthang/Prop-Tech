@@ -65,7 +65,7 @@ export function AmenityManager() {
     <div className="space-y-6">
       {/* Action Bar */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg text-gray-800">
+        <h2 className="text-lg text-[var(--primary)]">
           Danh sách tiện nghi ({amenities.length} tiện nghi)
         </h2>
         

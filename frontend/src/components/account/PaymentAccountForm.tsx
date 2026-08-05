@@ -85,7 +85,7 @@ export function PaymentAccountForm() {
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="mb-5 flex items-center gap-2">
         <Landmark className="h-5 w-5 text-blue-600" />
-        <h2 className="text-lg font-semibold text-gray-900">Tài khoản nhận tiền</h2>
+        <h2 className="text-lg font-semibold text-[var(--primary)]">Tài khoản nhận tiền</h2>
       </div>
       <p className="mb-5 text-sm text-gray-500">
         Cư dân thanh toán hóa đơn sẽ chuyển khoản trực tiếp vào tài khoản này. Vui lòng nhập

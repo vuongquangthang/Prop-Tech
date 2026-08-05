@@ -236,7 +236,7 @@ export function PostManagementPage() {
               <h2 className="text-lg font-semibold text-[var(--primary)]">Danh sách bài đăng</h2>
               <button
                 onClick={() => navigate('/post-management/create')}
-                className="inline-flex shrink-0 items-center gap-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-white transition-colors hover:opacity-90"
+                className="inline-flex shrink-0 items-center gap-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-[var(--primary-foreground)] transition-colors hover:opacity-90"
               >
                 <Plus size={16} />
                 Tạo bài đăng

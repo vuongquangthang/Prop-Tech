@@ -290,7 +290,7 @@ export function DebtReportContent() {
       {/* Debt Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách công nợ - {filteredData.length} phòng</h2>
+          <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách công nợ - {filteredData.length} phòng</h2>
         </div>
         
         <div className="overflow-x-auto">

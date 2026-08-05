@@ -307,7 +307,7 @@ export function UserAccountsTable() {
           <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách tài khoản - {filteredUsers.length} tài khoản</h2>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="shrink-0 rounded bg-[var(--primary)] px-4 py-2 font-medium text-white transition-colors hover:opacity-90"
+            className="shrink-0 rounded bg-[var(--primary)] px-4 py-2 font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90"
             style={{ fontSize: 'var(--type-caption)' }}
           >
             + Thêm tài khoản

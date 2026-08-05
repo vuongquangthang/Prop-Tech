@@ -51,7 +51,7 @@ export function KnowledgeBaseTable() {
           </h2>
           <button
             onClick={() => setUploadModal(true)}
-            className="flex shrink-0 items-center gap-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-white transition-colors hover:opacity-90"
+            className="flex shrink-0 items-center gap-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-[var(--primary-foreground)] transition-colors hover:opacity-90"
           >
             <Upload size={16} />
             <span>Tải tài liệu vào kho tri thức</span>

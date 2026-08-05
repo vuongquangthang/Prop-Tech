@@ -259,7 +259,7 @@ export function TransactionTable() {
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Lịch sử giao dịch - {filteredTransactions.length} giao dịch</h2>
+          <h2 className="text-lg text-[var(--primary)]">Lịch sử giao dịch - {filteredTransactions.length} giao dịch</h2>
         </div>
         
         {filteredTransactions.length === 0 ? (
