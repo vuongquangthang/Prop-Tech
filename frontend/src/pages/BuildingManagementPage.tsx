@@ -345,7 +345,7 @@ export function BuildingManagementPage() {
   const hasLocation = typeof selectedBuilding?.latitude === 'number' && typeof selectedBuilding?.longitude === 'number';
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-page)]" style={{ padding: 'var(--space-layout)' }}>
+    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-page)]" style={{ paddingTop: '20px', paddingRight: 'var(--space-layout)', paddingBottom: '32px', paddingLeft: 'var(--space-layout)' }}>
       <div
         className="grid min-h-0 flex-1 overflow-hidden"
         style={{ gridTemplateColumns: '300px minmax(0, 1fr)', gap: 'var(--space-layout)' }}

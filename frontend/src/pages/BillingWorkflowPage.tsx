@@ -20,7 +20,7 @@ export function BillingWorkflowPage() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-page)]" style={{ padding: 'var(--space-layout)', gap: '14px' }}>
+    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-page)]" style={{ paddingTop: '20px', paddingRight: 'var(--space-layout)', paddingBottom: '32px', paddingLeft: 'var(--space-layout)', gap: '14px' }}>
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <div className="space-y-4">
           <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">

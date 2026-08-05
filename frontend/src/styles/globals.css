@@ -2048,7 +2048,8 @@
 
   .app-section {
     box-sizing: border-box;
-    padding: 0 clamp(1.25rem, 2vw, 2rem) 0;
+    /* Khoang cach voi topbar sau khi bo PageHeader */
+    padding: 20px clamp(1.25rem, 2vw, 2rem) 32px;
   }
 
   .app-page-shell {
@@ -2411,11 +2412,11 @@ select {
 
 @media (max-width: 767px) {
   .app-section {
-    padding: 0 12px 0;
+    padding: 16px 12px 24px;
   }
 
   .product-page-header {
-    padding-top: 12px;
+    padding-top: 0;
   }
 
   .app-page-shell {
