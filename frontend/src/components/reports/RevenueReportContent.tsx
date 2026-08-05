@@ -343,7 +343,7 @@ export function RevenueReportContent() {
       {viewMode === 'table' ? (
         <div className="bg-white border-2 border-gray-300 rounded">
           <div className="border-b border-gray-300 px-6 py-4">
-            <h2 className="text-lg text-gray-800">Chi tiết doanh thu theo kỳ</h2>
+            <h2 className="text-lg text-[var(--primary)]">Chi tiết doanh thu theo kỳ</h2>
           </div>
           
           <div className="overflow-x-auto">
@@ -388,7 +388,7 @@ export function RevenueReportContent() {
       ) : (
         <div className="bg-white border-2 border-gray-300 rounded p-6">
           <div className="mb-4">
-            <h2 className="text-lg text-gray-800">Biểu đồ doanh thu theo kỳ</h2>
+            <h2 className="text-lg text-[var(--primary)]">Biểu đồ doanh thu theo kỳ</h2>
             <p className="text-sm text-gray-600">Đơn vị: Triệu VNĐ</p>
           </div>
           

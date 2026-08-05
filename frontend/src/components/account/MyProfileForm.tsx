@@ -184,7 +184,7 @@ export function MyProfileForm() {
       <div className="bg-white border-2 border-gray-300 rounded p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin cá nhân</h2>
+            <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin cá nhân</h2>
             <p className="mt-1 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Cập nhật ảnh đại diện và thông tin hiển thị của tài khoản.</p>
           </div>
         </div>
@@ -308,7 +308,7 @@ export function MyProfileForm() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={handleSaveChanges}
-                className="flex items-center gap-2 rounded bg-[var(--primary)] px-6 py-2 text-white transition-colors hover:opacity-90"
+                className="flex items-center gap-2 rounded bg-[var(--primary)] px-6 py-2 text-[var(--primary-foreground)] transition-colors hover:opacity-90"
                 style={{ fontSize: 'var(--type-caption)', height: 'var(--button-height)', borderRadius: 'var(--radius-button)' }}
               >
                 <Save size={16} />
@@ -323,7 +323,7 @@ export function MyProfileForm() {
       <div className="bg-white border-2 border-gray-300 rounded p-8">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-gray-800" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin bảo mật</h2>
+            <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin bảo mật</h2>
             <p className="mt-2 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>
               Mật khẩu được ẩn vì lý do bảo mật. Bạn nên đổi mật khẩu định kỳ để bảo vệ tài khoản.
             </p>
