@@ -2,7 +2,7 @@ import { Search, Edit2, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loade
 import { useState, useEffect } from 'react';
 import { EditResidentModal } from './ResidentTableModals';
 import { residentService } from '../../services/api.service';
-import { DataCard, DataTable, EmptyState, LoadingState, PageHeader, StatusBadge } from '../ui/product-system';
+import { DataCard, DataTable, EmptyState, LoadingState, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 
 interface ResidentData {
@@ -98,12 +98,6 @@ export function ResidentTable() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        eyebrow="Cư dân"
-        title="Quản lý cư dân"
-        description="Theo dõi hồ sơ, phòng đang ở và trạng thái tài khoản cư dân trong cùng một danh sách."
-      />
-
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap items-center gap-4">
           <Filter size={16} className="text-gray-500" />

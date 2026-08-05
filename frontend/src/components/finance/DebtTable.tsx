@@ -2,7 +2,6 @@ import { Send, Ban, Eye, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ViewDebtModal, SendReminderModal, BlockAccountModal, BatchSendReminderModal } from './DebtModals';
 import { invoiceService } from '../../services/api.service';
-import { PageHeader } from '../ui/product-system';
 
 interface DebtData {
   invoiceId: number;
@@ -152,21 +151,6 @@ export function DebtTable() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Hóa đơn & Tài chính"
-        title="Công nợ & nhắc nợ"
-        description="Theo dõi các hóa đơn chưa thanh toán, mức độ quá hạn và thao tác nhắc nợ."
-        actions={
-          <button
-            onClick={() => setIsBatchSendReminderModalOpen(true)}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2"
-          >
-            <Send size={16} />
-            <span>Gửi nhắc nợ hàng loạt</span>
-          </button>
-        }
-      />
-
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white border-2 border-gray-300 rounded p-4">
@@ -188,8 +172,15 @@ export function DebtTable() {
       
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
-        <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg text-gray-800">Danh sách công nợ - {filteredData.length} phòng</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-gray-300 px-6 py-4">
+          <h2 className="text-lg font-semibold text-[var(--primary)]">Danh sách công nợ - {filteredData.length} phòng</h2>
+          <button
+            onClick={() => setIsBatchSendReminderModalOpen(true)}
+            className="flex shrink-0 items-center space-x-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-white transition-colors hover:opacity-90"
+          >
+            <Send size={16} />
+            <span>Gửi nhắc nợ hàng loạt</span>
+          </button>
         </div>
         
         {filteredData.length === 0 ? (

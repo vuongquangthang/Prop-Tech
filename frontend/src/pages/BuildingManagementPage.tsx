@@ -5,7 +5,7 @@ import { ServiceTable } from '../components/infrastructure/ServiceTable';
 import { AssetTable } from '../components/infrastructure/AssetTable';
 import { LocationPicker } from '../components/LocationPicker';
 import { buildingService, floorService } from '../services/api.service';
-import { AlertTriangle, Box, Building2, ChevronDown, ChevronRight, Edit2, Home, Layers3, Loader2, MapPin, Maximize2, Minimize2, Plus, PlugZap, X } from 'lucide-react';
+import { AlertTriangle, Box, Building2, ChevronDown, ChevronRight, Edit2, Home, Layers3, Loader2, MapPin, Plus, PlugZap, X } from 'lucide-react';
 
 type InfrastructureStep = 'services' | 'assets' | 'rooms';
 type WorkspaceFormMode = 'add-building' | 'edit-building' | 'add-floor' | 'edit-floor' | null;
@@ -53,10 +53,11 @@ export function BuildingManagementPage() {
     building: null,
     floor: null,
   });
+  // Mặc định ĐÓNG tất cả mục, chỉ mở khi người dùng bấm vào.
   const [openSteps, setOpenSteps] = useState<Record<InfrastructureStep, boolean>>({
-    services: true,
-    assets: true,
-    rooms: true,
+    services: false,
+    assets: false,
+    rooms: false,
   });
   const [workspaceFormMode, setWorkspaceFormMode] = useState<WorkspaceFormMode>(null);
   const [formBuildingName, setFormBuildingName] = useState('');
@@ -82,13 +83,6 @@ export function BuildingManagementPage() {
     }));
   };
 
-  const openAllSteps = () => {
-    setOpenSteps({ services: true, assets: true, rooms: true });
-  };
-
-  const closeAllSteps = () => {
-    setOpenSteps({ services: false, assets: false, rooms: false });
-  };
 
   const resetWorkspaceForm = () => {
     setWorkspaceFormMode(null);
@@ -393,7 +387,7 @@ export function BuildingManagementPage() {
                         {contextTypeLabel}
                       </span>
                     </div>
-                    <h2 className="truncate text-xl font-semibold leading-tight text-[var(--text-primary)]">{contextTitle}</h2>
+                    <h2 className="truncate text-xl font-semibold leading-tight text-[var(--primary)]">{contextTitle}</h2>
                     <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{contextSubtitle}</p>
                   </div>
 
@@ -434,26 +428,6 @@ export function BuildingManagementPage() {
                     )}
                   </div>
 
-                  <div className="flex shrink-0 justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={openAllSteps}
-                      aria-label="Mở tất cả"
-                      title="Mở tất cả"
-                      className="inline-flex h-9 w-9 items-center justify-center border border-[var(--surface-border)] bg-white text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-                    >
-                      <Maximize2 size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={closeAllSteps}
-                      aria-label="Thu gọn"
-                      title="Thu gọn"
-                      className="inline-flex h-9 w-9 items-center justify-center border border-[var(--surface-border)] bg-white text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-                    >
-                      <Minimize2 size={15} />
-                    </button>
-                  </div>
                 </div>
               </section>
             ) : (
@@ -601,7 +575,7 @@ export function BuildingManagementPage() {
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--surface-card)] text-[var(--brand-primary)]">
                         <Icon size={17} />
                       </span>
-                      <span className="truncate text-base font-semibold text-[var(--text-primary)]">{section.title}</span>
+                      <span className="truncate text-base font-semibold text-[var(--primary)]">{section.title}</span>
                     </span>
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
                       {isOpen ? <ChevronDown size={17} /> : <ChevronRight size={17} />}

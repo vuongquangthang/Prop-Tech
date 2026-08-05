@@ -30,7 +30,6 @@ import { formatMoneyVnd } from '../lib/postValidation';
 import { postService, type PostEditHistoryDto } from '../services/postService';
 import { buildPropTechPartnerUserId, loadRoomConversations } from '../services/roomConversationService';
 import { ImageViewer } from '../components/ui/ImageViewer';
-import { PageHeader } from '../components/ui/product-system';
 
 const roomStatusConfig = {
   'Trống': { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
@@ -212,18 +211,6 @@ export function PostManagementPage() {
 
   return (
     <div className="space-y-6">
-        <PageHeader
-          eyebrow="Đăng bài tìm phòng"
-          title="Quản lý bài đăng"
-          description="Theo dõi bài đăng, trạng thái phòng và tin nhắn từ người quan tâm."
-          actions={
-            <button onClick={() => navigate('/post-management/create')} className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-white">
-              <Plus size={16} />
-              Tạo bài đăng
-            </button>
-          }
-        />
-
         <div className="flex items-end gap-8 border-b border-gray-300">
             <button
               className="-mb-px border-b-2 px-2 pb-3 text-sm font-semibold"
@@ -246,7 +233,14 @@ export function PostManagementPage() {
         ) : (
           <div className="overflow-hidden rounded-[12px] border-2 border-gray-300 bg-white">
             <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
-              <h2 className="text-lg font-semibold">Danh sách bài đăng</h2>
+              <h2 className="text-lg font-semibold text-[var(--primary)]">Danh sách bài đăng</h2>
+              <button
+                onClick={() => navigate('/post-management/create')}
+                className="inline-flex shrink-0 items-center gap-2 rounded bg-[var(--primary)] px-4 py-2 text-sm text-white transition-colors hover:opacity-90"
+              >
+                <Plus size={16} />
+                Tạo bài đăng
+              </button>
             </div>
 
             <div className="overflow-x-auto">

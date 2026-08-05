@@ -449,7 +449,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg text-gray-800">
+            <h2 className="text-lg font-semibold text-[var(--primary)]">
               Danh sách tài sản - {filteredAssetGroups.length}/{assetGroups.length} loại tài sản
             </h2>
             {embedded && (

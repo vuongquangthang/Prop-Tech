@@ -603,6 +603,42 @@ export function BuildingSidebar({
                         </div>
                       ))
                     )}
+
+                    {/* Nút thêm tầng ngay dưới tầng cuối cùng - thêm nhanh, đỡ phải vào form */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onRequestAddFloor) {
+                          onSelectBuilding(building.id);
+                          onSelectFloor(null);
+                          onContextChange?.({
+                            type: 'building',
+                            buildingId: building.id,
+                            floorId: null,
+                            label: building.buildingName,
+                            building,
+                            floor: null,
+                          });
+                          onRequestAddFloor(building);
+                        } else {
+                          setShowAddModal(true);
+                          setAddType('floor');
+                          setSelectedBuildingId(building.id);
+                          setLockedAddBuildingId(building.id);
+                        }
+                      }}
+                      className="flex items-center gap-2 rounded text-left transition-colors hover:bg-[var(--brand-surface)]"
+                      style={{
+                        padding: '8px 12px 8px 16px',
+                        fontSize: 'var(--type-body)',
+                        color: 'var(--brand-primary)',
+                        fontWeight: 500,
+                      }}
+                      title={`Thêm tầng cho ${building.buildingName}`}
+                    >
+                      <Plus size={15} />
+                      Thêm tầng
+                    </button>
                   </div>
                 )}
               </div>
@@ -618,7 +654,7 @@ export function BuildingSidebar({
             {/* Header co dinh: khong troi khi body cuon */}
             <div className="shrink-0 border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">
-                {lockedAddBuildingId ? 'Thêm tầng mới' : 'Thêm Tòa nhà/Tầng mới'}
+                {addType === 'floor' ? 'Thêm tầng mới' : 'Thêm tòa nhà mới'}
               </h3>
               <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <X size={20} className="text-gray-600" />
@@ -626,40 +662,8 @@ export function BuildingSidebar({
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {/* Type Selection */}
-              {!lockedAddBuildingId && (
-                <div>
-                  <label className="block text-sm text-gray-700 mb-2">Loại *</label>
-                  <div className="flex space-x-2">
-                    <button 
-                      type="button"
-                      onClick={() => setAddType('building')}
-                      className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
-                      style={{
-                        backgroundColor: addType === 'building' ? 'var(--brand-primary)' : '#ffffff',
-                        borderColor: addType === 'building' ? 'var(--brand-primary)' : '#d1d5db',
-                        borderRadius: 0,
-                        color: addType === 'building' ? '#ffffff' : '#374151',
-                      }}
-                    >
-                      Tòa nhà
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setAddType('floor')}
-                      className="building-type-toggle flex-1 px-4 py-2 text-sm border transition-colors"
-                      style={{
-                        backgroundColor: addType === 'floor' ? 'var(--brand-primary)' : '#ffffff',
-                        borderColor: addType === 'floor' ? 'var(--brand-primary)' : '#d1d5db',
-                        borderRadius: 0,
-                        color: addType === 'floor' ? '#ffffff' : '#374151',
-                      }}
-                    >
-                      Tầng
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Bỏ tab chọn Loại: thêm tầng đã có nút riêng ngay dưới mỗi tòa nhà,
+                  nên modal này chỉ dùng theo addType được set sẵn khi mở. */}
 
               {addType === 'building' ? (
                 <>
@@ -851,7 +855,7 @@ export function BuildingSidebar({
                     </div>
                     <div>
                       <label className="mb-2 block text-sm text-gray-700">
-                        Vá»‹ trÃ­ trÃªn báº£n Ä‘á»“ {editLatitude && editLongitude ? '(Ä‘Ã£ chá»n)' : '(tuá»³ chá»n)'}
+                        Vị trí trên bản đồ {editLatitude && editLongitude ? '(đã chọn)' : '(tuỳ chọn)'}
                       </label>
                       <LocationPicker
                         lat={editLatitude}
@@ -867,16 +871,16 @@ export function BuildingSidebar({
                       />
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm text-gray-700">Số tầng *</label>
+                      <label className="mb-2 block text-sm text-gray-700">Số tầng</label>
                       <input
                         type="number"
-                        min="1"
                         value={editBuildingFloors}
-                        onChange={(event) => setEditBuildingFloors(event.target.value)}
-                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                        readOnly
+                        disabled
+                        className="w-full cursor-not-allowed rounded border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600 focus:outline-none"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Nếu tăng số tầng, hệ thống sẽ tự tạo thêm tầng còn thiếu.
+                        Không sửa được ở đây. Dùng nút thêm tầng ở danh sách bên trái để thêm tầng mới.
                       </p>
                     </div>
                   </div>

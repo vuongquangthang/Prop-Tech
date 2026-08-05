@@ -2,6 +2,7 @@ import { LayoutDashboard, Building2, Users, CircleDollarSign, Wrench, Bot, BarCh
 import LivoLogo from './LivoLogo';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
+import { useSidebarBadges } from '../hooks/useSidebarBadges';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -76,6 +77,16 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { newIncidents, unreadConversations } = useSidebarBadges();
+
+  // So luong hien tick do theo tung menu (0 = khong hien)
+  const badgeCountFor = (label: string) => {
+    if (label === 'Vận hành & Sự cố') return newIncidents;
+    if (label === 'Tin nhắn') return unreadConversations;
+    // Menu cha cua "Tin nhan": van bao khi dang thu gon submenu
+    if (label === 'Đăng bài tìm phòng') return unreadConversations;
+    return 0;
+  };
 
   // Auto-expand parent menu if we're on a sub-route
   useEffect(() => {
@@ -247,6 +258,13 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
                 <div className="flex items-center" style={{ gap: '10px' }}>
                   <item.icon size={18} className="shrink-0" />
                   <span className="sidebar-item-label">{item.label}</span>
+                  {badgeCountFor(item.label) > 0 && (
+                    <span
+                      className="shrink-0 rounded-full bg-red-500"
+                      style={{ width: '8px', height: '8px' }}
+                      title={`${badgeCountFor(item.label)} mục mới`}
+                    />
+                  )}
                 </div>
                 {item.subItems && (
                   <ChevronDown 
@@ -269,8 +287,9 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
                         navigate(subItem.path);
                         onClose?.();
                       }}
-                      className="sidebar-submenu-button w-full transition-colors"
+                      className="sidebar-submenu-button flex w-full items-center transition-colors"
                       style={{
+                        gap: '8px',
                         padding: '10px 12px',
                         borderRadius: '10px',
                         border: 'none',
@@ -281,7 +300,14 @@ export function Sidebar({ isOpen = false, isCollapsed = false, onClose, onToggle
                         textAlign: 'left'
                       }}
                     >
-                      {subItem.label}
+                      <span>{subItem.label}</span>
+                      {badgeCountFor(subItem.label) > 0 && (
+                        <span
+                          className="shrink-0 rounded-full bg-red-500"
+                          style={{ width: '8px', height: '8px' }}
+                          title={`${badgeCountFor(subItem.label)} tin nhắn mới`}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

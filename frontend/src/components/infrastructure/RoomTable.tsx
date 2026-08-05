@@ -911,7 +911,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     <div className="bg-white border-2 border-gray-300 rounded">
       <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h2 className="text-lg text-gray-800">
+          <h2 className="text-lg font-semibold text-[var(--primary)]">
             {selectedFloorId
               ? (() => { const f = floors.find(fl => fl.id === selectedFloorId); return f ? `Tầng ${f.floorNumber}${f.buildingName ? ` - ${f.buildingName}` : ''} - ` : ''; })()
               : selectedBuildingId

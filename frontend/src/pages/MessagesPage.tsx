@@ -3,7 +3,6 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '../components/ui/utils';
-import { PageHeader } from '../components/ui/product-system';
 import { useAuth } from '../contexts/AuthContext';
 import {
   buildPropTechPartnerUserId,
@@ -262,12 +261,6 @@ export function MessagesPage() {
 
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
-      <PageHeader
-        eyebrow="Đăng bài tìm phòng"
-        title="Tin nhắn bài đăng"
-        description="Theo dõi và phản hồi hội thoại từ người quan tâm tới các bài đăng."
-      />
-
       <div className="flex shrink-0 items-end gap-8 border-b border-gray-300">
         <button
           type="button"
