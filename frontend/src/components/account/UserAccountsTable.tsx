@@ -1,4 +1,4 @@
-import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, Phone, UserRound, Shield, KeyRound } from 'lucide-react';
+import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, Phone, Plus, UserRound, Shield, KeyRound } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { userService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
@@ -307,10 +307,10 @@ export function UserAccountsTable() {
           <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách tài khoản - {filteredUsers.length} tài khoản</h2>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="shrink-0 rounded bg-[var(--primary)] px-4 py-2 font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90"
-            style={{ fontSize: 'var(--type-caption)' }}
+            className="app-button-primary shrink-0"
           >
-            + Thêm tài khoản
+            <Plus size={16} />
+            <span>Thêm tài khoản</span>
           </button>
         </div>
         

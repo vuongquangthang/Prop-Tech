@@ -308,8 +308,7 @@ export function MyProfileForm() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={handleSaveChanges}
-                className="flex items-center gap-2 rounded bg-[var(--primary)] px-6 py-2 text-[var(--primary-foreground)] transition-colors hover:opacity-90"
-                style={{ fontSize: 'var(--type-caption)', height: 'var(--button-height)', borderRadius: 'var(--radius-button)' }}
+                className="app-button-primary"
               >
                 <Save size={16} />
                 <span>Lưu thay đổi</span>
