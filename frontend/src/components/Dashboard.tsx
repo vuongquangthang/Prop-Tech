@@ -4,15 +4,13 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Bell,
-  Building2,
   ChevronRight,
   Clock3,
   CreditCard,
   Home,
+  MessageSquare,
   MessageSquareWarning,
   ReceiptText,
-  TrendingDown,
-  TrendingUp,
   UsersRound,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -29,6 +27,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useUnreadConversations } from '../hooks/useUnreadConversations';
 import { useSignalRRefresh } from '../lib/useSignalRRefresh';
 import {
   contractService,
@@ -275,6 +274,7 @@ function DashboardSkeleton() {
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const unreadConversations = useUnreadConversations();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceRequest[]>([]);
@@ -327,8 +327,6 @@ export function Dashboard() {
   useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'InvoiceUpdated', 'NewMaintenanceRequest', 'MaintenanceRequestUpdated'], loadDashboard);
 
   const roomStats = stats?.roomStats;
-  const residentStats = stats?.residentStats;
-  const revenueStats = stats?.revenueStats;
   const debtStats = stats?.debtStats;
   const maintenanceStats = stats?.maintenanceStats;
 
@@ -339,59 +337,50 @@ export function Dashboard() {
   }).length;
   const totalRooms = Math.max(Number(roomStats?.totalRooms ?? 0), listedTotalRooms);
   const occupiedRooms = Math.max(Number(roomStats?.occupiedRooms ?? 0), listedOccupiedRooms);
-  const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
-  const totalResidents = Math.max(Number(residentStats?.totalResidents ?? 0), residents.length);
-  const monthlyRevenueValue = revenueStats?.currentMonthRevenue ?? 0;
-  const lastMonthRevenueValue = revenueStats?.lastMonthRevenue ?? 0;
   const outstandingDebt = debtStats?.totalOutstanding ?? invoices.reduce((sum, invoice) => {
     const remaining = getInvoiceRemainingAmount(invoice);
     return sum + Math.max(0, remaining);
   }, 0);
 
+  // Phong trong = tong phong tru phong da thue (uu tien so lieu backend tra ve)
+  const availableRooms = Number(roomStats?.availableRooms ?? Math.max(0, totalRooms - occupiedRooms));
+
+  // Hoa don qua han = qua ngay den han va van con du no
+  const overdueInvoices = debtStats?.overdueInvoicesCount ?? invoices.filter((invoice) => {
+    const dueDate = parseDate(invoice.dueDate ?? invoice.hanThanhToan);
+    if (!dueDate) return false;
+    return dueDate.getTime() < Date.now() && getInvoiceRemainingAmount(invoice) > 0;
+  }).length;
+
+  const newIncidents = maintenanceStats?.pendingRequests ?? maintenance.filter((item) => isNewMaintenance(item.status)).length;
+
   const kpis = [
     {
-      label: 'Tổng cư dân',
-      value: totalResidents.toLocaleString('vi-VN'),
-      sub: `${residentStats?.newResidentsThisMonth ?? 0} cư dân mới tháng này`,
-      trend: '+8.4%',
-      positive: true,
-      icon: UsersRound,
-      path: '/resident-management',
-    },
-    {
-      label: 'Phòng đã thuê',
-      value: occupiedRooms.toLocaleString('vi-VN'),
+      label: 'Phòng trống',
+      value: availableRooms.toLocaleString('vi-VN'),
       sub: `${totalRooms || 0} tổng số phòng`,
-      trend: '+3 phòng',
-      positive: true,
       icon: Home,
       path: '/building-management',
     },
     {
-      label: 'Tỷ lệ lấp đầy',
-      value: `${occupancyRate.toFixed(1)}%`,
-      sub: 'So với mục tiêu vận hành 95%',
-      trend: occupancyRate >= 90 ? '+2.1%' : '-1.8%',
-      positive: occupancyRate >= 90,
-      icon: Building2,
-      path: '/occupancy-report',
+      label: 'Tin nhắn mới',
+      value: unreadConversations.toLocaleString('vi-VN'),
+      sub: 'Hội thoại chưa đọc',
+      icon: MessageSquare,
+      path: '/messages',
     },
     {
-      label: 'Đã thu tháng này',
-      value: `${millionCurrency(monthlyRevenueValue)} đ`,
-      sub: `Đã thu tháng trước ${millionCurrency(lastMonthRevenueValue)} đ`,
-      trend: `${(revenueStats?.growthRate ?? 0) >= 0 ? '+' : ''}${(revenueStats?.growthRate ?? 0).toFixed(1)}%`,
-      positive: (revenueStats?.growthRate ?? 0) >= 0,
+      label: 'Sự cố mới',
+      value: newIncidents.toLocaleString('vi-VN'),
+      sub: 'Yêu cầu đang chờ xử lý',
+      icon: MessageSquareWarning,
+      path: '/maintenance-request?status=new',
+    },
+    {
+      label: 'Hóa đơn quá hạn',
+      value: overdueInvoices.toLocaleString('vi-VN'),
+      sub: `Công nợ ${millionCurrency(outstandingDebt)} đ`,
       icon: ReceiptText,
-      path: '/revenue-report',
-    },
-    {
-      label: 'Công nợ còn lại',
-      value: `${millionCurrency(outstandingDebt)} đ`,
-      sub: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn cần xử lý`,
-      trend: '-5.6%',
-      positive: true,
-      icon: CreditCard,
       path: '/debt-management',
     },
   ];
@@ -457,7 +446,6 @@ export function Dashboard() {
       .sort((a, b) => b.rawValue - a.rawValue);
   }, [invoices, rooms]);
 
-  const newTickets = maintenanceStats?.pendingRequests ?? maintenance.filter((item) => isNewMaintenance(item.status)).length;
   const processingTickets = maintenanceStats?.inProgressRequests ?? maintenance.filter((item) => isProcessingMaintenance(item.status)).length;
   const completedTickets = maintenanceStats?.completedRequests ?? maintenance.filter((item) => isCompletedMaintenance(item.status)).length;
   const overdueTickets = maintenance.filter((item) => {
@@ -470,7 +458,7 @@ export function Dashboard() {
   const kanban = [
     {
       title: 'Mới',
-      count: newTickets,
+      count: newIncidents,
       items: maintenance.filter((item) => isNewMaintenance(item.status)).slice(0, 3),
       accent: 'var(--chart-2)',
     },
@@ -571,13 +559,13 @@ export function Dashboard() {
     <div className="dashboard-shell">
       <style>{dashboardStyles}</style>
 
-      <section className="dashboard-hero">
-        <div>
-          {dashboardDemoEnabled && <span className="dashboard-demo-badge">Dữ liệu demo</span>}
-          <h1>Bảng điều khiển vận hành</h1>
-          <p>Theo dõi sức khỏe tòa nhà, dòng tiền, bảo trì và hoạt động cư dân trong một giao diện tập trung.</p>
-        </div>
-      </section>
+      {dashboardDemoEnabled && (
+        <section className="dashboard-hero">
+          <div>
+            <span className="dashboard-demo-badge">Dữ liệu demo</span>
+          </div>
+        </section>
+      )}
 
       <section className="dashboard-kpis">
         {kpis.map((kpi) => {
@@ -603,10 +591,6 @@ export function Dashboard() {
               <strong>{kpi.value}</strong>
               <div className="dashboard-kpi-bottom">
                 <small>{kpi.sub}</small>
-                <em className={kpi.positive ? 'positive' : 'negative'}>
-                  {kpi.positive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                  {kpi.trend}
-                </em>
               </div>
             </article>
           );
@@ -700,7 +684,7 @@ export function Dashboard() {
         <div className="ticket-summary">
           <div role="link" tabIndex={0} onClick={() => navigate('/maintenance-request?status=new')} onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') navigate('/maintenance-request?status=new');
-          }}><b>{newTickets}</b><span>Yêu cầu mới</span></div>
+          }}><b>{newIncidents}</b><span>Yêu cầu mới</span></div>
           <div role="link" tabIndex={0} onClick={() => navigate('/maintenance-request?status=in_progress')} onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') navigate('/maintenance-request?status=in_progress');
           }}><b>{processingTickets}</b><span>Đang xử lý</span></div>
@@ -1219,7 +1203,7 @@ const dashboardStyles = `
 
   .dashboard-kpis {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
   }
 
@@ -1739,7 +1723,7 @@ const dashboardStyles = `
 
   @media (max-width: 1280px) {
     .dashboard-kpis {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .analytics-grid,
