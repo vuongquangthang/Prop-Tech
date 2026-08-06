@@ -61,7 +61,10 @@ class SignalRService {
             return 30000;
           },
         })
-        .configureLogging(SignalR.LogLevel.Information)
+        // Mat ket noi la binh thuong (doi mang, app vao nen, Render ngu day)
+        // va da co withAutomaticReconnect lo. De muc Error thi thu vien goi
+        // console.error khien LogBox bao do gia. Chi log tu Critical tro len.
+        .configureLogging(SignalR.LogLevel.Critical)
         .build();
 
       // Register event handlers
