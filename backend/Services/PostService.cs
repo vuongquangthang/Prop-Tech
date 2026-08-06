@@ -816,14 +816,20 @@ public class PostService : IPostService
         }
 
         var today = DateTime.UtcNow.Date;
-        var canManagePost = await _context.ChiTietOs
+
+        // Loc tren DB phan dich duoc sang SQL, roi doi chieu vai tro trong bo nho.
+        // IsPrimaryResidentRole bo dau tieng Viet nen EF khong dich sang SQL duoc.
+        var residencyRoles = await _context.ChiTietOs
             .AsNoTracking()
-            .AnyAsync(item =>
+            .Where(item =>
                 item.HopDong.RoomId == roomId
                 && item.ResidentId == user.ResidentId.Value
                 && item.FromDate.Date <= today
-                && (!item.ToDate.HasValue || item.ToDate.Value.Date >= today)
-                && IsPrimaryResidentRole(item.ResidencyRole));
+                && (!item.ToDate.HasValue || item.ToDate.Value.Date >= today))
+            .Select(item => item.ResidencyRole)
+            .ToListAsync();
+
+        var canManagePost = residencyRoles.Any(IsPrimaryResidentRole);
 
         if (!canManagePost)
         {
