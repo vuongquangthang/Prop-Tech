@@ -104,7 +104,10 @@ export function MessagesPage() {
     try {
       const { conversations: nextConversations, partnerIds } = await loadConversationList();
       setConversations(nextConversations);
-      setConversationPartnerIds(partnerIds);
+      // Chi thay danh sach khi thuc su doi, tranh dung/mo lai socket vo ich
+      setConversationPartnerIds((current) =>
+        current.join('|') === partnerIds.join('|') ? current : partnerIds
+      );
 
       if (roomParam) {
         const matchedConversation = nextConversations.find((conversation) => matchesRoomParam(conversation, roomParam));
@@ -127,6 +130,32 @@ export function MessagesPage() {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, partnerUserId]);
+
+  // Bai dang tao sau khi trang da mo se sinh partner moi; quet lai dinh ky
+  // de socket kip lang nghe hoi thoai cua bai do.
+  useEffect(() => {
+    if (!canSeeManagedConversations) return;
+
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const posts = await postService.getPosts().catch(() => []);
+        const ids = new Set<string>();
+        if (partnerUserId) ids.add(partnerUserId);
+        posts.forEach((post) => {
+          if (post.createdByUserId && !isResidentPost(post)) {
+            ids.add(buildPropTechPartnerUserId(post.createdByUserId));
+          }
+        });
+
+        const nextIds = [...ids];
+        setConversationPartnerIds((current) =>
+          current.join('|') === nextIds.join('|') ? current : nextIds
+        );
+      })();
+    }, 60000);
+
+    return () => window.clearInterval(timer);
+  }, [canSeeManagedConversations, partnerUserId]);
 
   useEffect(() => {
     if (conversationPartnerIds.length === 0) {
