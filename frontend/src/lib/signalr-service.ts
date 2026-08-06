@@ -21,7 +21,10 @@ export class SignalRService {
           return 30000;
         },
       })
-      .configureLogging(signalR.LogLevel.Information)
+      // Mat ket noi la binh thuong (doi tab, mang chap chon, Render ngu day)
+      // va da co withAutomaticReconnect lo. Chi log tu Critical tro len de
+      // thu vien khong goi console.error gay bao dong gia.
+      .configureLogging(signalR.LogLevel.Critical)
       .build();
 
     // Connection lifecycle events
