@@ -13,7 +13,7 @@ const envBaseUrl =
   typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
 const defaultApiBaseUrl = Platform.OS === 'web'
   ? 'http://localhost:5052'
-  : 'http://192.168.1.76:5052';
+  : 'http://192.168.100.152:5052';
 
 const extractHost = (value: unknown) => {
   if (typeof value !== 'string' || !value.trim()) {
