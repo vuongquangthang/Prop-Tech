@@ -35,13 +35,32 @@ export default function ContractPicker() {
   const setActive = useAuthStore((s) => s.setActiveContract);
 
   useEffect(() => {
+    let mounted = true;
     setLoading(true);
     contractService
       .getMyContracts()
-      .then((res) => setContracts(res || []))
-      .catch(() => setContracts([]))
-      .finally(() => setLoading(false));
-  }, []);
+      .then(async (res) => {
+        if (!mounted) return;
+        const items = res || [];
+        setContracts(items);
+
+        const hasActiveContract = activeContractId != null
+          && items.some((contract) => contract.id === activeContractId);
+        if (!hasActiveContract && items[0]?.id) {
+          await setActive(items[0].id);
+        }
+      })
+      .catch(() => {
+        if (mounted) setContracts([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeContractId, setActive]);
 
   const current = contracts.find((c) => c.id === activeContractId) || contracts[0];
   const currentStatus = contractStatus(current);

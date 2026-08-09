@@ -24,10 +24,16 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>(() => notificationService.getCachedNotifications());
   const [loading, setLoading] = useState(() => notificationService.getCachedNotifications().length === 0);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadNotifications = async () => {
-    const data = await notificationService.getMyNotifications();
-    setNotifications(data);
+    try {
+      setError(null);
+      const data = await notificationService.getMyNotifications();
+      setNotifications(data);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Không tải được thông báo. Vui lòng thử lại.');
+    }
   };
 
   useFocusEffect(
@@ -73,20 +79,54 @@ export default function NotificationsScreen() {
     return textMatch ? Number(textMatch[1]) : undefined;
   };
 
+  const resolveLegacyInvoice = async (notification: Notification) => {
+    const text = `${notification.title} ${notification.content}`;
+    const periodMatch = text.match(/(?:tháng\s*)?(\d{1,2})\/(\d{4})/i);
+    if (!periodMatch) return undefined;
+
+    const month = Number(periodMatch[1]);
+    const year = Number(periodMatch[2]);
+    const amountMatch = notification.content.match(/Tổng tiền:\s*([\d.,\s]+)\s*đ/i);
+    const amount = amountMatch ? Number(amountMatch[1].replace(/\D/g, '')) : undefined;
+    const invoices = await invoiceService.getAll();
+    let candidates = invoices.filter((invoice) => invoice.month === month && invoice.year === year);
+
+    if (amount && candidates.some((invoice) => invoice.totalAmount === amount)) {
+      candidates = candidates.filter((invoice) => invoice.totalAmount === amount);
+    }
+    if (candidates.length === 1) return candidates[0];
+
+    const notificationTime = new Date(notification.createdAt).getTime();
+    const candidatesWithApprovalTime = candidates
+      .filter((invoice) => invoice.approvedAt)
+      .map((invoice) => ({
+        invoice,
+        distance: Math.abs(new Date(invoice.approvedAt as string).getTime() - notificationTime),
+      }))
+      .sort((left, right) => left.distance - right.distance);
+
+    return candidatesWithApprovalTime[0]?.distance <= 10 * 60 * 1000
+      ? candidatesWithApprovalTime[0].invoice
+      : undefined;
+  };
+
   const resolveNotificationContext = async (notification: Notification) => {
     const type = (notification.notificationType || '').toUpperCase();
     const relatedId = getNotificationRelatedId(notification);
-    if (!relatedId) return {};
-
     if (type === 'INVOICE' || type === 'PAYMENT') {
-      const invoice = await invoiceService.getById(relatedId);
+      const invoice = relatedId
+        ? await invoiceService.getById(relatedId)
+        : await resolveLegacyInvoice(notification);
+      if (!invoice) return {};
       if (invoice.contractId) {
         await setActiveContract(invoice.contractId);
-        return { relatedId, contractId: invoice.contractId, roomId: invoice.roomId };
+        return { relatedId: invoice.id, contractId: invoice.contractId, roomId: invoice.roomId };
       }
       const contractId = await setActiveContractForRoom(invoice.roomId);
-      return { relatedId, contractId, roomId: invoice.roomId };
+      return { relatedId: invoice.id, contractId, roomId: invoice.roomId };
     }
+
+    if (!relatedId) return {};
 
     if (type === 'COMPLAINT' || type === 'MAINTENANCE') {
       const request = await maintenanceService.getById(relatedId);
@@ -233,8 +273,17 @@ export default function NotificationsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="notifications-off-outline" size={64} color="#CBD5E1" />
-              <Text style={styles.emptyText}>Không có thông báo nào</Text>
+              <Ionicons
+                name={error ? 'cloud-offline-outline' : 'notifications-off-outline'}
+                size={64}
+                color="#CBD5E1"
+              />
+              <Text style={styles.emptyText}>{error || 'Không có thông báo nào'}</Text>
+              {error && (
+                <TouchableOpacity style={styles.retryButton} onPress={loadNotifications}>
+                  <Text style={styles.retryText}>Thử lại</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -297,4 +346,13 @@ const styles = StyleSheet.create({
   separator: { height: 0 },
   empty: { alignItems: 'center', paddingTop: 40, gap: 12 },
   emptyText: { fontSize: 15, color: '#94A3B8', fontWeight: '500' },
+  retryButton: {
+    height: 34,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryText: { color: palette.surface, fontSize: 13, fontWeight: '800' },
 });

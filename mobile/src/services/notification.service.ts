@@ -13,6 +13,35 @@ export interface Notification {
   senderPhone?: string;
 }
 
+const normalizeNotification = (raw: any): Notification => {
+  const relatedValue = raw?.relatedId
+    ?? raw?.RelatedId
+    ?? raw?.invoiceId
+    ?? raw?.InvoiceId
+    ?? raw?.relatedEntityId
+    ?? raw?.RelatedEntityId;
+  const relatedId = Number(relatedValue);
+
+  return {
+    ...raw,
+    id: Number(raw?.id ?? raw?.Id),
+    title: raw?.title ?? raw?.Title ?? '',
+    content: raw?.content ?? raw?.Content ?? raw?.message ?? raw?.Message ?? '',
+    notificationType: String(
+      raw?.notificationType
+      ?? raw?.NotificationType
+      ?? raw?.type
+      ?? raw?.Type
+      ?? 'SYSTEM',
+    ).toUpperCase() as Notification['notificationType'],
+    relatedId: Number.isFinite(relatedId) && relatedId > 0 ? relatedId : undefined,
+    linkUrl: raw?.linkUrl ?? raw?.LinkUrl,
+    isRead: Boolean(raw?.isRead ?? raw?.IsRead ?? false),
+    createdAt: raw?.createdAt ?? raw?.CreatedAt ?? new Date().toISOString(),
+    senderPhone: raw?.senderPhone ?? raw?.SenderPhone,
+  };
+};
+
 class NotificationService {
   private baseUrl = '/api/Notifications';
   private cachedNotifications: Notification[] = [];
@@ -29,11 +58,11 @@ class NotificationService {
       const response = await apiService.get<Notification[]>(
         `${this.baseUrl}/my-notifications`
       );
-      this.cachedNotifications = response || [];
+      this.cachedNotifications = (response || []).map(normalizeNotification);
       return this.cachedNotifications;
     } catch (error) {
       console.warn('Unable to fetch notifications:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -45,7 +74,7 @@ class NotificationService {
       const response = await apiService.get<Notification[]>(
         `${this.baseUrl}/my-notifications?unreadOnly=true`
       );
-      const unreadNotifications = response || [];
+      const unreadNotifications = (response || []).map(normalizeNotification);
       if (this.cachedNotifications.length > 0) {
         const unreadIds = new Set(unreadNotifications.map((item) => item.id));
         this.cachedNotifications = this.cachedNotifications.map((item) => ({
@@ -55,7 +84,8 @@ class NotificationService {
       }
       return unreadNotifications;
     } catch (error) {
-      return [];
+      console.warn('Unable to fetch unread notifications:', error);
+      throw error;
     }
   }
 

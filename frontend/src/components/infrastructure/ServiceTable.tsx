@@ -576,18 +576,20 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                 <option key={type} value={type}>{type}</option>
               ))}
             </FilterSelect>
-            <FilterSelect
-              value={serviceBuildingFilter}
-              onChange={(event) => setServiceBuildingFilter(event.target.value)}
-              wrapperClassName="w-[220px] min-w-[220px] max-w-[220px] flex-none"
-              className="w-full"
-              style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
-            >
-              <option value="all">Tất cả tòa nhà</option>
-              {buildings.map((building) => (
-                <option key={building.id} value={String(building.id)}>{getBuildingLabel(building)}</option>
-              ))}
-            </FilterSelect>
+            {!embedded && (
+              <FilterSelect
+                value={serviceBuildingFilter}
+                onChange={(event) => setServiceBuildingFilter(event.target.value)}
+                wrapperClassName="w-[220px] min-w-[220px] max-w-[220px] flex-none"
+                className="w-full"
+                style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
+              >
+                <option value="all">Tất cả tòa nhà</option>
+                {buildings.map((building) => (
+                  <option key={building.id} value={String(building.id)}>{getBuildingLabel(building)}</option>
+                ))}
+              </FilterSelect>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -595,9 +597,9 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                 setServiceTypeFilter('all');
                 setServiceBuildingFilter('all');
               }}
-              disabled={!serviceSearch && serviceTypeFilter === 'all' && serviceBuildingFilter === 'all'}
+              disabled={!serviceSearch && serviceTypeFilter === 'all' && (embedded || serviceBuildingFilter === 'all')}
               className="w-[78px] min-w-[78px] max-w-[78px] flex-none px-3 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:pointer-events-none"
-              style={{ visibility: (serviceSearch || serviceTypeFilter !== 'all' || serviceBuildingFilter !== 'all') ? 'visible' : 'hidden' }}
+              style={{ visibility: (serviceSearch || serviceTypeFilter !== 'all' || (!embedded && serviceBuildingFilter !== 'all')) ? 'visible' : 'hidden' }}
             >
               Xóa lọc
             </button>

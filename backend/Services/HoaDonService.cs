@@ -597,7 +597,9 @@ public class HoaDonService : IHoaDonService
                     user.Id,
                     $"Hóa đơn tháng {invoice.Month}/{invoice.Year}",
                     $"Hóa đơn tháng {invoice.Month}/{invoice.Year} đã được phát hành. Tổng tiền: {invoice.TotalAmount:N0}đ. Vui lòng thanh toán trước hạn.",
-                    "INVOICE");
+                    "INVOICE",
+                    invoice.Id,
+                    $"invoice://detail?invoiceId={invoice.Id}");
             }
         }
         catch (Exception ex)

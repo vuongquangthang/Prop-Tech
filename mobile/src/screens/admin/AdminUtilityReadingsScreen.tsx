@@ -129,7 +129,7 @@ export default function AdminUtilityReadingsScreen() {
 
   const validateRows = () => {
     const errors: string[] = [];
-    const payload = filteredRooms.reduce<RecordUtilityReading[]>((acc, room) => {
+    const payload = rooms.reduce<RecordUtilityReading[]>((acc, room) => {
         const edit = edits[room.roomId];
         const hasElec = !!edit?.elec;
         const hasWater = !!edit?.water;
