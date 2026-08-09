@@ -1,3 +1,9 @@
+---
+noteId: "e79b7450940811f1b68ce98536b44eef"
+tags: []
+
+---
+
 # Kế hoạch tích hợp thanh toán SePay cho Prop-Tech
 
 > Mục tiêu: Sửa lỗi "cư dân ấn Thanh toán thì báo lỗi" và chuyển cổng thanh toán

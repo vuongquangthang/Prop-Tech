@@ -1,3 +1,9 @@
+---
+noteId: "e79ea8a0940811f1b68ce98536b44eef"
+tags: []
+
+---
+
 # Hướng dẫn Setup SePay cho Prop-Tech (trước khi code thanh toán)
 
 > Làm theo file này để lấy key + tạo tài khoản mẫu. Sau khi có đủ, báo lại để bắt đầu

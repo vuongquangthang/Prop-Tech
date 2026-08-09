@@ -1,3 +1,9 @@
+---
+noteId: "e79fba10940811f1b68ce98536b44eef"
+tags: []
+
+---
+
 # Demo SePay webhook thật qua ngrok (5 bước)
 
 > Mục tiêu: cư dân chuyển tiền thật → SePay webhook → hóa đơn tự "Đã thanh toán".

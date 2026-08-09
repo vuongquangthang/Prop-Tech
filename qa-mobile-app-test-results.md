@@ -1,3 +1,9 @@
+---
+noteId: "fcc98330940811f1b68ce98536b44eef"
+tags: []
+
+---
+
 # Báo cáo kiểm thử app mobile cư dân & quản lý
 
 Ngày kiểm thử: 07/08/2026  

@@ -1,3 +1,9 @@
+---
+noteId: "e79b7451940811f1b68ce98536b44eef"
+tags: []
+
+---
+
 # Phân tích & đề xuất: Kho tri thức chủ nhà ↔ Chatbot RAG
 
 > Cập nhật theo đúng ý định gốc: **khi chủ nhà tải file lên, chatbot phải tự chạy
