@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BuildingSidebar } from '../components/infrastructure/BuildingSidebar';
 import { RoomTable } from '../components/infrastructure/RoomTable';
 import { ServiceTable } from '../components/infrastructure/ServiceTable';
 import { AssetTable } from '../components/infrastructure/AssetTable';
 import { LocationPicker } from '../components/LocationPicker';
 import { buildingService, floorService } from '../services/api.service';
-import { AlertTriangle, Box, Building2, ChevronDown, ChevronRight, Edit2, Home, Layers3, Loader2, MapPin, Plus, PlugZap, X } from 'lucide-react';
+import { AlertTriangle, Box, Building2, ChevronDown, ChevronRight, Home, Layers3, Loader2, MapPin, PlugZap, X } from 'lucide-react';
 
 type InfrastructureStep = 'services' | 'assets' | 'rooms';
 type WorkspaceFormMode = 'add-building' | 'edit-building' | 'add-floor' | 'edit-floor' | null;
@@ -60,19 +60,104 @@ export function BuildingManagementPage() {
     rooms: false,
   });
   const [workspaceFormMode, setWorkspaceFormMode] = useState<WorkspaceFormMode>(null);
+  const [knownBuildings, setKnownBuildings] = useState<Array<{ id: number; buildingName: string }>>([]);
   const [formBuildingName, setFormBuildingName] = useState('');
+  const [formBuildingNameError, setFormBuildingNameError] = useState('');
   const [formBuildingAddress, setFormBuildingAddress] = useState('');
   const [formBuildingFloors, setFormBuildingFloors] = useState('');
   const [formLatitude, setFormLatitude] = useState<number | null>(null);
   const [formLongitude, setFormLongitude] = useState<number | null>(null);
   const [formFloorNumber, setFormFloorNumber] = useState('');
+  const [formFloorNumberError, setFormFloorNumberError] = useState('');
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchKnownBuildings = async () => {
+      try {
+        const buildings = await buildingService.getAll();
+        if (cancelled) return;
+        setKnownBuildings((buildings || []).map((building: any) => ({
+          id: building.id || building.toaNhaId || 0,
+          buildingName: building.buildingName || building.tenToaNha || '',
+        })));
+      } catch {
+        if (!cancelled) setKnownBuildings([]);
+      }
+    };
+
+    fetchKnownBuildings();
+    return () => {
+      cancelled = true;
+    };
+  }, [structureRefreshKey]);
+
+  const normalizeBuildingName = (value: string) => value.trim().toLocaleLowerCase('vi');
+
+  const getDuplicateBuildingNameMessage = (value: string, excludeBuildingId?: number) => {
+    const normalizedName = normalizeBuildingName(value);
+    if (!normalizedName) return '';
+
+    const duplicated = knownBuildings.some((building) =>
+      building.id !== excludeBuildingId
+      && normalizeBuildingName(building.buildingName) === normalizedName
+    );
+
+    return duplicated ? 'Tên tòa nhà đã tồn tại' : '';
+  };
+
+  const getCurrentEditBuildingId = () =>
+    workspaceFormMode === 'edit-building' ? infrastructureContext.building?.id : undefined;
+
+  const handleWorkspaceBuildingNameChange = (value: string) => {
+    setFormBuildingName(value);
+    setFormBuildingNameError(getDuplicateBuildingNameMessage(value, getCurrentEditBuildingId()));
+  };
+
+  const getDuplicateFloorNumberMessage = (value: string, excludeFloorId?: number) => {
+    const nextFloorNumber = parseInt(value, 10);
+    const building = infrastructureContext.building;
+    if (!building || !Number.isFinite(nextFloorNumber)) return '';
+
+    const duplicated = building.floors.some((floor) =>
+      floor.id !== excludeFloorId && floor.floorNumber === nextFloorNumber
+    );
+
+    if (duplicated) {
+      return `Tầng ${nextFloorNumber} đã tồn tại trong tòa nhà này`;
+    }
+
+    if (workspaceFormMode === 'add-floor') {
+      const maxFloorNumber = Math.max(0, ...building.floors.map((floor) => floor.floorNumber));
+      const expectedFloorNumber = maxFloorNumber + 1;
+      if (nextFloorNumber !== expectedFloorNumber) {
+        return `Vui lòng thêm tầng ${expectedFloorNumber} trước khi thêm tầng ${nextFloorNumber}`;
+      }
+    }
+
+    return '';
+  };
+
+  const getCurrentEditFloorId = () =>
+    workspaceFormMode === 'edit-floor' ? infrastructureContext.floor?.id : undefined;
+
+  const handleWorkspaceFloorNumberChange = (value: string) => {
+    const numericValue = value.replace(/\D/g, '');
+    setFormFloorNumber(numericValue);
+    setFormFloorNumberError(getDuplicateFloorNumberMessage(numericValue, getCurrentEditFloorId()));
+  };
+
   const handleRequestAddRoom = (floorId: number) => {
     setSelectedFloorId(floorId);
     setSelectedBuildingId(null);
+    setWorkspaceFormMode(null);
+    setOpenSteps((current) => ({
+      ...current,
+      rooms: true,
+    }));
     setAddRoomRequest({ id: Date.now(), floorId });
   };
 
@@ -87,11 +172,13 @@ export function BuildingManagementPage() {
   const resetWorkspaceForm = () => {
     setWorkspaceFormMode(null);
     setFormBuildingName('');
+    setFormBuildingNameError('');
     setFormBuildingAddress('');
     setFormBuildingFloors('');
     setFormLatitude(null);
     setFormLongitude(null);
     setFormFloorNumber('');
+    setFormFloorNumberError('');
     setFormError(null);
   };
 
@@ -105,6 +192,7 @@ export function BuildingManagementPage() {
     if (!building) return;
     setWorkspaceFormMode('edit-building');
     setFormBuildingName(building.buildingName || '');
+    setFormBuildingNameError('');
     setFormBuildingAddress(building.address || '');
     setFormBuildingFloors(String(building.totalFloors || building.floors.length || 1));
     setFormLatitude(building.latitude ?? null);
@@ -115,9 +203,13 @@ export function BuildingManagementPage() {
 
   const openAddFloorForm = () => {
     if (!infrastructureContext.buildingId) return;
-    const nextFloorNumber = (infrastructureContext.building?.floors.length ?? 0) + 1;
+    const building = infrastructureContext.building;
+    const nextFloorNumber = (building?.floors.length ?? 0) + 1;
+    const duplicated = building?.floors.some((floor) => floor.floorNumber === nextFloorNumber);
     setWorkspaceFormMode('add-floor');
     setFormFloorNumber(String(nextFloorNumber));
+    setFormBuildingNameError('');
+    setFormFloorNumberError(duplicated ? `Tầng ${nextFloorNumber} đã tồn tại trong tòa nhà này` : '');
     setFormError(null);
   };
 
@@ -134,6 +226,8 @@ export function BuildingManagementPage() {
     });
     setWorkspaceFormMode('add-floor');
     setFormFloorNumber(String((building.floors.length || 0) + 1));
+    setFormBuildingNameError('');
+    setFormFloorNumberError('');
     setFormError(null);
   };
 
@@ -142,6 +236,8 @@ export function BuildingManagementPage() {
     if (!floor) return;
     setWorkspaceFormMode('edit-floor');
     setFormFloorNumber(String(floor.floorNumber || ''));
+    setFormBuildingNameError('');
+    setFormFloorNumberError('');
     setFormError(null);
   };
 
@@ -163,6 +259,12 @@ export function BuildingManagementPage() {
     setFormSaving(true);
     try {
       if (workspaceFormMode === 'add-building') {
+        const duplicateMessage = getDuplicateBuildingNameMessage(formBuildingName);
+        if (duplicateMessage) {
+          setFormBuildingNameError(duplicateMessage);
+          setFormError(duplicateMessage);
+          return;
+        }
         if (!formBuildingName.trim() || !formBuildingFloors || !formBuildingAddress.trim()) {
           setFormError('Vui lòng nhập tên tòa nhà, số tầng và địa chỉ');
           return;
@@ -211,23 +313,32 @@ export function BuildingManagementPage() {
 
       if (workspaceFormMode === 'edit-building') {
         const building = infrastructureContext.building;
-        if (!building || !formBuildingName.trim() || !formBuildingFloors || !formBuildingAddress.trim()) {
-          setFormError('Vui lòng nhập đủ tên tòa, số tầng và địa chỉ');
+        const duplicateMessage = getDuplicateBuildingNameMessage(formBuildingName, building?.id);
+        if (duplicateMessage) {
+          setFormBuildingNameError(duplicateMessage);
+          setFormError(duplicateMessage);
           return;
         }
-        const numberOfFloors = parseInt(formBuildingFloors, 10);
+        if (!building || !formBuildingName.trim() || !formBuildingAddress.trim()) {
+          setFormError('Vui lòng nhập đủ tên tòa và địa chỉ');
+          return;
+        }
         await buildingService.update(building.id, {
           buildingName: formBuildingName.trim(),
           address: formBuildingAddress.trim(),
-          numberOfFloors,
           latitude: formLatitude ?? undefined,
           longitude: formLongitude ?? undefined,
         } as any);
-        await ensureFloorsForBuilding(building.id, numberOfFloors);
       }
 
       if (workspaceFormMode === 'add-floor') {
         const buildingId = infrastructureContext.buildingId;
+        const duplicateMessage = getDuplicateFloorNumberMessage(formFloorNumber);
+        if (duplicateMessage) {
+          setFormFloorNumberError(duplicateMessage);
+          setFormError(duplicateMessage);
+          return;
+        }
         if (!buildingId || !formFloorNumber) {
           setFormError('Vui lòng chọn tòa nhà và nhập số tầng');
           return;
@@ -242,6 +353,12 @@ export function BuildingManagementPage() {
 
       if (workspaceFormMode === 'edit-floor') {
         const floor = infrastructureContext.floor;
+        const duplicateMessage = getDuplicateFloorNumberMessage(formFloorNumber, floor?.id);
+        if (duplicateMessage) {
+          setFormFloorNumberError(duplicateMessage);
+          setFormError(duplicateMessage);
+          return;
+        }
         if (!floor || !formFloorNumber) {
           setFormError('Vui lòng nhập số tầng');
           return;
@@ -321,8 +438,8 @@ export function BuildingManagementPage() {
     : [
         { label: 'Ngữ cảnh', value: 'Toàn bộ hạ tầng' },
         { label: 'Phòng', value: 'Tất cả phòng' },
-        { label: 'Dịch vụ', value: 'Áp dụng chung và riêng' },
-        { label: 'Tài sản', value: 'Toàn hệ thống' },
+        { label: 'Dịch vụ', value: 'Thiết lập theo từng tòa' },
+        { label: 'Tài sản', value: 'Thiết lập theo từng tòa' },
       ];
   const contextTitle = selectedFloor
     ? `Tầng ${selectedFloor.floorNumber} • ${selectedBuilding?.buildingName || selectedFloor.buildingName || '—'}`
@@ -473,10 +590,18 @@ export function BuildingManagementPage() {
                           <label className="mb-2 block text-sm font-medium text-[var(--text-primary)]">Tên tòa nhà *</label>
                           <input
                             value={formBuildingName}
-                            onChange={(event) => setFormBuildingName(event.target.value)}
-                            className="w-full border border-[var(--surface-border)] bg-[var(--surface-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)]"
+                            onChange={(event) => handleWorkspaceBuildingNameChange(event.target.value)}
+                            onBlur={() => setFormBuildingNameError(getDuplicateBuildingNameMessage(formBuildingName, getCurrentEditBuildingId()))}
+                            className={`w-full border bg-[var(--surface-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none ${
+                              formBuildingNameError
+                                ? 'border-red-400 focus:border-red-500'
+                                : 'border-[var(--surface-border)] focus:border-[var(--brand-primary)]'
+                            }`}
                             placeholder="VD: QMS Tower"
                           />
+                          {formBuildingNameError && (
+                            <p className="mt-1 text-xs font-medium text-red-600">{formBuildingNameError}</p>
+                          )}
                         </div>
                         <div>
                           <label className="mb-2 block text-sm font-medium text-[var(--text-primary)]">Số tầng *</label>
@@ -484,9 +609,15 @@ export function BuildingManagementPage() {
                             value={formBuildingFloors}
                             onChange={(event) => setFormBuildingFloors(event.target.value.replace(/\D/g, ''))}
                             inputMode="numeric"
-                            className="w-full border border-[var(--surface-border)] bg-[var(--surface-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)]"
+                            disabled={workspaceFormMode === 'edit-building'}
+                            className="w-full border border-[var(--surface-border)] bg-[var(--surface-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--text-secondary)]"
                             placeholder="VD: 5"
                           />
+                          {workspaceFormMode === 'edit-building' && (
+                            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                              Số tầng được cập nhật qua thao tác thêm/xóa tầng.
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div>
@@ -522,11 +653,19 @@ export function BuildingManagementPage() {
                         <label className="mb-2 block text-sm font-medium text-[var(--text-primary)]">Số tầng *</label>
                         <input
                           value={formFloorNumber}
-                          onChange={(event) => setFormFloorNumber(event.target.value.replace(/\D/g, ''))}
+                          onChange={(event) => handleWorkspaceFloorNumberChange(event.target.value)}
+                          onBlur={() => setFormFloorNumberError(getDuplicateFloorNumberMessage(formFloorNumber, getCurrentEditFloorId()))}
                           inputMode="numeric"
-                          className="w-full border border-[var(--surface-border)] bg-[var(--surface-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)]"
+                          className={`w-full border bg-[var(--surface-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none ${
+                            formFloorNumberError
+                              ? 'border-red-400 focus:border-red-500'
+                              : 'border-[var(--surface-border)] focus:border-[var(--brand-primary)]'
+                          }`}
                           placeholder="VD: 5"
                         />
+                        {formFloorNumberError && (
+                          <p className="mt-1 text-xs font-medium text-red-600">{formFloorNumberError}</p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -549,8 +688,8 @@ export function BuildingManagementPage() {
                     <button
                       type="button"
                       onClick={handleWorkspaceFormSubmit}
-                      disabled={formSaving}
-                      className="inline-flex h-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--brand-primary)] px-4 text-sm font-semibold text-[var(--text-on-color)] disabled:opacity-60"
+                      disabled={formSaving || !!formBuildingNameError || !!formFloorNumberError}
+                      className="inline-flex h-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--brand-primary)] px-4 text-sm font-semibold text-[var(--text-on-color)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:opacity-60"
                     >
                       {formSaving && <Loader2 size={16} className="mr-2 animate-spin" />}
                       Lưu thay đổi

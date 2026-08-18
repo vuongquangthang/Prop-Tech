@@ -2892,3 +2892,11 @@ div[class~="lp-roi-card"] {
   clip-path: inset(0 round var(--radius-badge)) !important;
   overflow: hidden !important;
 }
+
+.asset-tree-chevron {
+  transition: transform 160ms ease;
+}
+
+.asset-tree-details[open] > summary .asset-tree-chevron {
+  transform: rotate(90deg);
+}

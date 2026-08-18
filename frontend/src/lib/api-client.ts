@@ -173,8 +173,12 @@ apiClient.interceptors.response.use(
       }
 
       // Refresh thất bại -> hết phiên thật -> logout.
+      sessionStorage.setItem(
+        'authLogoutMessage',
+        'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác'
+      );
       clearAuthSession();
-      window.location.href = '/';
+      window.location.href = '/login';
     }
 
     return Promise.reject(error);

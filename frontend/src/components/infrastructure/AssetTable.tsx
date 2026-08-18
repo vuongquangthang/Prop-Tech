@@ -1,5 +1,5 @@
-import { Plus, Edit2, Trash2, X, AlertTriangle, Package, Link2, Loader2 } from 'lucide-react';
-import { useMemo, useState, useEffect, type Dispatch, type SetStateAction } from 'react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, Package, Link2, Loader2, Eye, ChevronRight } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { buildingService } from '../../services/api.service';
@@ -28,6 +28,12 @@ interface FormData {
   assetName: string;
   assetCode: string;
   buildingIds: number[];
+}
+
+interface AssetFieldErrors {
+  buildingIds?: string;
+  assetName?: string;
+  assetCode?: string;
 }
 
 interface BuildingOption {
@@ -75,8 +81,9 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetGroup | null>(null);
+  const [deleteAssetError, setDeleteAssetError] = useState('');
   const [formData, setFormData] = useState<FormData>({ assetName: '', assetCode: '', buildingIds: [] });
-  const [assetScopeMode, setAssetScopeMode] = useState<'common' | 'private'>('common');
+  const [assetFieldErrors, setAssetFieldErrors] = useState<AssetFieldErrors>({});
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
 
   // Assign to room state
@@ -88,6 +95,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [assignRoomSearch, setAssignRoomSearch] = useState('');
   const [assignStatusFilter, setAssignStatusFilter] = useState<'all' | 'available' | 'assigned'>('all');
+  const [assignListMode, setAssignListMode] = useState<'assigned' | 'unassigned' | null>(null);
   // New assignment form
   const [addRoomIds, setAddRoomIds] = useState<number[]>([]);
   const [addQty, setAddQty] = useState('1');
@@ -124,7 +132,15 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
   const assetGroups = useMemo<AssetGroup[]>(() => {
     const grouped = new Map<string, TaiSanDto[]>();
     assets.forEach((asset) => {
-      const key = `${asset.assetCode.trim().toLowerCase()}__${asset.assetName.trim().toLowerCase()}`;
+      const scopedBuildingIds = asset.buildingIds?.length
+        ? asset.buildingIds
+        : typeof asset.buildingId === 'number'
+          ? [asset.buildingId]
+          : [];
+      const scopeKey = scopedBuildingIds.length > 0
+        ? `building:${[...scopedBuildingIds].sort((a, b) => a - b).join(',')}`
+        : 'legacy-unscoped';
+      const key = `${asset.assetCode.trim().toLowerCase()}__${asset.assetName.trim().toLowerCase()}__${scopeKey}`;
       grouped.set(key, [...(grouped.get(key) || []), asset]);
     });
 
@@ -163,41 +179,129 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
     }
 
     return assetGroups.filter((asset) =>
-      asset.buildingIds.length === 0 || asset.buildingIds.includes(contextBuildingId),
+      asset.buildingIds.includes(contextBuildingId),
     );
   }, [assetGroups, contextBuildingId]);
 
-  const allBuildingIds = buildings.map((building) => building.id);
-  const selectedAllBuildings = allBuildingIds.length > 0 && formData.buildingIds.length === allBuildingIds.length;
   const getBuildingLabel = (building: BuildingOption) => building.buildingName || building.name || `Tòa #${building.id}`;
+  const getContextBuildingLabel = () => {
+    if (typeof contextBuildingId !== 'number') return '';
+    const building = buildings.find((item) => item.id === contextBuildingId);
+    return building ? getBuildingLabel(building) : `Tòa #${contextBuildingId}`;
+  };
+  const getTargetBuildingIds = () =>
+    typeof contextBuildingId === 'number' ? [contextBuildingId] : formData.buildingIds;
 
-  const toggleBuildingId = (
-    buildingId: number,
-    setSelectedIds: Dispatch<SetStateAction<number[]>>,
-  ) => {
-    setSelectedIds((current) =>
-      current.includes(buildingId)
-        ? current.filter((id) => id !== buildingId)
-        : [...current, buildingId],
-    );
+  const getAssetBuildingIds = (asset: TaiSanDto) =>
+    asset.buildingIds?.length
+      ? asset.buildingIds
+      : typeof asset.buildingId === 'number'
+        ? [asset.buildingId]
+        : [];
+
+  const assetScopesConflict = (first: number[], second: number[]) => {
+    if (first.length === 0 || second.length === 0) {
+      return first.length === second.length;
+    }
+
+    return first.some((buildingId) => second.includes(buildingId));
   };
 
-  const setAllBuildings = () => {
-    setFormData((current) => ({ ...current, buildingIds: allBuildingIds }));
+  const getSelectedAssetIds = () =>
+    selectedAsset?.assetIds || (selectedAsset?.id ? [selectedAsset.id] : []);
+
+  const getDuplicateAssetCodeMessage = (
+    assetCode: string,
+    buildingIds: number[],
+    excludeAssetIds: number[] = [],
+  ) => {
+    const normalizedCode = assetCode.trim().toLowerCase();
+    if (!normalizedCode) return '';
+
+    const excluded = new Set(excludeAssetIds);
+    const duplicated = assets.some((asset) =>
+      !excluded.has(asset.id)
+      && asset.assetCode.trim().toLowerCase() === normalizedCode
+      && assetScopesConflict(getAssetBuildingIds(asset), buildingIds)
+    );
+
+    return duplicated ? 'Mã tài sản đã tồn tại trong tòa nhà đã chọn' : '';
+  };
+
+  const setAssetCodeValidationError = (
+    assetCode: string,
+    buildingIds: number[],
+    excludeAssetIds: number[] = getSelectedAssetIds(),
+  ) => {
+    const duplicateMessage = getDuplicateAssetCodeMessage(assetCode, buildingIds, excludeAssetIds);
+    setAssetFieldErrors((current) => {
+      const next = { ...current };
+      if (duplicateMessage) {
+        next.assetCode = duplicateMessage;
+      } else if (next.assetCode === 'Mã tài sản đã tồn tại trong tòa nhà đã chọn') {
+        delete next.assetCode;
+      }
+      return next;
+    });
+    return duplicateMessage;
+  };
+
+  const openAddModal = () => {
+    setErrorModalMessage('');
+    setAssetFieldErrors({});
+    setFormData({
+      assetName: '',
+      assetCode: '',
+      buildingIds: typeof contextBuildingId === 'number' ? [contextBuildingId] : [],
+    });
+    setShowAddModal(true);
+  };
+
+  const validateAssetForm = (targetBuildingIds: number[]) => {
+    const nextErrors: AssetFieldErrors = {};
+    if (targetBuildingIds.length === 0) {
+      nextErrors.buildingIds = 'Vui lòng chọn tòa nhà áp dụng';
+    }
+    if (!formData.assetName.trim()) {
+      nextErrors.assetName = 'Vui lòng nhập tên tài sản';
+    }
+    if (!formData.assetCode.trim()) {
+      nextErrors.assetCode = 'Vui lòng nhập mã tài sản';
+    } else {
+      const duplicateMessage = getDuplicateAssetCodeMessage(
+        formData.assetCode,
+        targetBuildingIds,
+        getSelectedAssetIds(),
+      );
+      if (duplicateMessage) {
+        nextErrors.assetCode = duplicateMessage;
+      }
+    }
+
+    setAssetFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const clearAssetFieldError = (field: keyof AssetFieldErrors) => {
+    setAssetFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
   };
 
   const handleAdd = async () => {
-    if (assetScopeMode === 'private' && formData.buildingIds.length === 0) {
-      setErrorModalMessage('Vui lòng chọn ít nhất 1 tòa nhà trước khi thêm tài sản');
+    const targetBuildingIds = getTargetBuildingIds();
+    if (!validateAssetForm(targetBuildingIds)) {
       return;
     }
-    if (!formData.assetName.trim() || !formData.assetCode.trim()) return;
     try {
       setSaving(true);
       await api.post(API_ENDPOINTS.ASSETS.BASE, {
         assetName: formData.assetName.trim(),
         assetCode: formData.assetCode.trim(),
-        buildingIds: assetScopeMode === 'common' ? [] : formData.buildingIds,
+        buildingIds: targetBuildingIds,
       });
       setShowAddModal(false);
       setFormData({ assetName: '', assetCode: '', buildingIds: [] });
@@ -210,9 +314,9 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
   };
 
   const handleEdit = async () => {
-    if (!selectedAsset || !formData.assetName.trim()) return;
-    if (assetScopeMode === 'private' && formData.buildingIds.length === 0) {
-      setErrorModalMessage('Vui lòng chọn ít nhất 1 tòa nhà');
+    if (!selectedAsset) return;
+    const targetBuildingIds = getTargetBuildingIds();
+    if (!validateAssetForm(targetBuildingIds)) {
       return;
     }
     try {
@@ -220,7 +324,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
       const payload = {
         assetName: formData.assetName.trim(),
         assetCode: formData.assetCode.trim(),
-        buildingIds: assetScopeMode === 'common' ? [] : formData.buildingIds,
+        buildingIds: targetBuildingIds,
       };
       await Promise.all(selectedAsset.assetIds.map((assetId) => api.put(API_ENDPOINTS.ASSETS.BY_ID(assetId), payload)));
       setShowEditModal(false);
@@ -235,14 +339,20 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
 
   const handleDelete = async () => {
     if (!selectedAsset) return;
+    if ((selectedAsset.totalRooms || 0) > 0) {
+      setDeleteAssetError(`Không thể xóa tài sản đang được sử dụng ở ${selectedAsset.totalRooms} phòng. Vui lòng gỡ tài sản khỏi các phòng trước khi xóa.`);
+      return;
+    }
+
     try {
       setSaving(true);
+      setDeleteAssetError('');
       await Promise.all(selectedAsset.assetIds.map((assetId) => api.delete(API_ENDPOINTS.ASSETS.BY_ID(assetId))));
       setShowDeleteModal(false);
       setSelectedAsset(null);
       await fetchAssets();
     } catch (err: any) {
-      setErrorModalMessage(err.response?.data?.message || err.message || 'Xóa tài sản thất bại. Vui lòng thử lại.');
+      setDeleteAssetError(err.response?.data?.message || err.message || 'Xóa tài sản thất bại. Vui lòng thử lại.');
     } finally {
       setSaving(false);
     }
@@ -250,13 +360,19 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
 
   const handleEditClick = (asset: AssetGroup) => {
     setSelectedAsset(asset);
-    setAssetScopeMode(asset.buildingIds.length > 0 ? 'private' : 'common');
-    setFormData({ assetName: asset.assetName, assetCode: asset.assetCode, buildingIds: asset.buildingIds });
+    setErrorModalMessage('');
+    setAssetFieldErrors({});
+    setFormData({
+      assetName: asset.assetName,
+      assetCode: asset.assetCode,
+      buildingIds: typeof contextBuildingId === 'number' ? [contextBuildingId] : asset.buildingIds,
+    });
     setShowEditModal(true);
   };
 
   const handleDeleteClick = (asset: AssetGroup) => {
     setSelectedAsset(asset);
+    setDeleteAssetError('');
     setShowDeleteModal(true);
   };
 
@@ -269,6 +385,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
     setAddNote('');
     setAssignRoomSearch('');
     setAssignStatusFilter('all');
+    setAssignListMode(null);
     setShowAssignModal(true);
     setAssignLoading(true);
     try {
@@ -425,6 +542,17 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
   );
   const selectedVisibleAvailable = visibleAvailableRoomIds.length > 0 && visibleAvailableRoomIds.every((roomId) => addRoomIds.includes(roomId));
   const selectedAssignRooms = rooms.filter((room) => addRoomIds.includes(room.id));
+  const assignedRooms = rooms.filter((room) => assignedRoomIds.has(room.id));
+  const unassignedRooms = rooms.filter((room) => !assignedRoomIds.has(room.id));
+  const hasAssetFieldErrors = Object.keys(assetFieldErrors).length > 0;
+  const assignScopeLabel = assignAsset
+    ? assignAsset.buildingIds.length === 0
+      ? 'Tất cả tòa nhà'
+      : assignAsset.buildingNames.length > 0
+        ? assignAsset.buildingNames.join(', ')
+        : `${assignAsset.buildingIds.length} tòa nhà`
+    : '';
+  const assignListRooms = assignListMode === 'assigned' ? assignedRooms : assignListMode === 'unassigned' ? unassignedRooms : [];
 
   return (
     <div className="space-y-6">
@@ -435,7 +563,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
           description="Quản lý danh mục tài sản, số lượng và các phòng đang sử dụng."
           actions={
             <button
-              onClick={() => { setAssetScopeMode('common'); setFormData({ assetName: '', assetCode: '', buildingIds: [] }); setShowAddModal(true); }}
+              onClick={openAddModal}
               className="px-4 py-2 bg-gray-800 text-white text-sm rounded flex items-center space-x-2 hover:bg-gray-700"
             >
               <Plus size={16} />
@@ -450,11 +578,11 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
         <div className="border-b border-gray-300 px-6 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-[var(--primary)]">
-              Danh sách tài sản - {filteredAssetGroups.length}/{assetGroups.length} loại tài sản
+              Danh sách tài sản - {filteredAssetGroups.length}/{typeof contextBuildingId === 'number' ? filteredAssetGroups.length : assetGroups.length} loại tài sản
             </h2>
             {embedded && (
               <button
-                onClick={() => { setAssetScopeMode('common'); setFormData({ assetName: '', assetCode: '', buildingIds: [] }); setShowAddModal(true); }}
+                onClick={openAddModal}
                 className="ml-auto inline-flex shrink-0 items-center gap-1.5 bg-gray-800 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-700"
               >
                 <Plus size={14} />
@@ -535,77 +663,56 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
             
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Phạm vi áp dụng *</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAssetScopeMode('common')}
-                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'common' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                  >
-                    Áp dụng chung
-                    <span className="mt-1 block text-xs text-gray-500">Tất cả tòa nhà hiện tại và tòa thêm sau.</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssetScopeMode('private')}
-                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'private' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                  >
-                    Áp dụng riêng
-                    <span className="mt-1 block text-xs text-gray-500">Chọn một hoặc nhiều tòa cụ thể.</span>
-                  </button>
-                </div>
+                <label className="block text-sm text-gray-700 mb-2">Tòa nhà áp dụng *</label>
+                {typeof contextBuildingId === 'number' ? (
+                  <div className="border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900">
+                    {getContextBuildingLabel()}
+                  </div>
+                ) : (
+                  <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
+                    {buildings.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
+                    ) : (
+                      buildings.map((building) => (
+                        <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
+                          <input
+                            type="radio"
+                            name="add-asset-building"
+                            checked={formData.buildingIds.includes(building.id)}
+                            onChange={() => {
+                              const nextBuildingIds = [building.id];
+                              clearAssetFieldError('buildingIds');
+                              setFormData((current) => ({ ...current, buildingIds: nextBuildingIds }));
+                              setAssetCodeValidationError(formData.assetCode, nextBuildingIds, []);
+                            }}
+                            className="h-4 w-4"
+                          />
+                          <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                )}
+                {assetFieldErrors.buildingIds && (
+                  <p className="mt-1 text-xs text-red-600">{assetFieldErrors.buildingIds}</p>
+                )}
               </div>
-
-              {assetScopeMode === 'private' && (
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label className="block text-sm text-gray-700">Tòa nhà *</label>
-                  <button
-                    type="button"
-                    onClick={setAllBuildings}
-                    disabled={selectedAllBuildings || buildings.length === 0}
-                    className="text-xs font-semibold text-blue-700 hover:text-blue-800 disabled:text-gray-400"
-                  >
-                    Chọn tất cả
-                  </button>
-                </div>
-                <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
-                  {buildings.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
-                  ) : (
-                    buildings.map((building) => (
-                      <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
-                        <input
-                          type="checkbox"
-                          checked={formData.buildingIds.includes(building.id)}
-                          onChange={() =>
-                            toggleBuildingId(building.id, (updater) =>
-                              setFormData((current) => ({
-                                ...current,
-                                buildingIds: typeof updater === 'function' ? updater(current.buildingIds) : updater,
-                              })),
-                            )
-                          }
-                          className="h-4 w-4"
-                        />
-                        <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Đã chọn {formData.buildingIds.length}/{buildings.length} tòa nhà.</p>
-              </div>
-              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tên tài sản *</label>
                   <input 
                     type="text"
                     value={formData.assetName}
-                    onChange={e => setFormData(f => ({ ...f, assetName: e.target.value }))}
+                    onChange={e => {
+                      clearAssetFieldError('assetName');
+                      setFormData(f => ({ ...f, assetName: e.target.value }));
+                    }}
                     placeholder="VD: Điều hòa Daikin 12000BTU"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${assetFieldErrors.assetName ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'}`}
                   />
+                  {assetFieldErrors.assetName && (
+                    <p className="mt-1 text-xs text-red-600">{assetFieldErrors.assetName}</p>
+                  )}
                 </div>
 
                 <div>
@@ -613,11 +720,21 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
                   <input 
                     type="text"
                     value={formData.assetCode}
-                    onChange={e => setFormData(f => ({ ...f, assetCode: e.target.value }))}
+                    onChange={e => {
+                      const nextAssetCode = e.target.value;
+                      clearAssetFieldError('assetCode');
+                      setFormData(f => ({ ...f, assetCode: nextAssetCode }));
+                      setAssetCodeValidationError(nextAssetCode, getTargetBuildingIds(), []);
+                    }}
+                    onBlur={() => setAssetCodeValidationError(formData.assetCode, getTargetBuildingIds(), [])}
                     placeholder="VD: AC-001"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${assetFieldErrors.assetCode ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'}`}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Mã tài sản phải là duy nhất trong hệ thống</p>
+                  {assetFieldErrors.assetCode ? (
+                    <p className="mt-1 text-xs text-red-600">{assetFieldErrors.assetCode}</p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">Mã tài sản phải là duy nhất trong hệ thống</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -631,8 +748,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
               </button>
               <button 
                 onClick={handleAdd}
-                disabled={saving || (assetScopeMode === 'private' && formData.buildingIds.length === 0) || !formData.assetName.trim() || !formData.assetCode.trim()}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50"
+                disabled={saving || hasAssetFieldErrors}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:opacity-60"
               >
                 {saving ? 'Đang lưu...' : 'Xác nhận thêm'}
               </button>
@@ -657,86 +774,74 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
             
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Phạm vi áp dụng *</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAssetScopeMode('common')}
-                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'common' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                  >
-                    Áp dụng chung
-                    <span className="mt-1 block text-xs text-gray-500">Tất cả tòa nhà hiện tại và tòa thêm sau.</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssetScopeMode('private')}
-                    className={`service-scope-toggle px-3 py-2 text-left text-sm ${assetScopeMode === 'private' ? 'is-active text-blue-800' : 'is-inactive text-gray-700'}`}
-                  >
-                    Áp dụng riêng
-                    <span className="mt-1 block text-xs text-gray-500">Chọn một hoặc nhiều tòa cụ thể.</span>
-                  </button>
-                </div>
+                <label className="block text-sm text-gray-700 mb-2">Tòa nhà áp dụng *</label>
+                {typeof contextBuildingId === 'number' ? (
+                  <div className="border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900">
+                    {getContextBuildingLabel()}
+                  </div>
+                ) : (
+                  <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
+                    {buildings.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
+                    ) : (
+                      buildings.map((building) => (
+                        <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
+                          <input
+                            type="radio"
+                            name="edit-asset-building"
+                            checked={formData.buildingIds.includes(building.id)}
+                            onChange={() => {
+                              const nextBuildingIds = [building.id];
+                              clearAssetFieldError('buildingIds');
+                              setFormData((current) => ({ ...current, buildingIds: nextBuildingIds }));
+                              setAssetCodeValidationError(formData.assetCode, nextBuildingIds, getSelectedAssetIds());
+                            }}
+                            className="h-4 w-4"
+                          />
+                          <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                )}
+                {assetFieldErrors.buildingIds && (
+                  <p className="mt-1 text-xs text-red-600">{assetFieldErrors.buildingIds}</p>
+                )}
               </div>
-
-              {assetScopeMode === 'private' && (
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label className="block text-sm text-gray-700">Tòa nhà *</label>
-                  <button
-                    type="button"
-                    onClick={setAllBuildings}
-                    disabled={selectedAllBuildings || buildings.length === 0}
-                    className="text-xs font-semibold text-blue-700 hover:text-blue-800 disabled:text-gray-400"
-                  >
-                    Chọn tất cả
-                  </button>
-                </div>
-                <div className="max-h-44 overflow-y-auto border border-gray-300 bg-white">
-                  {buildings.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-gray-500">Chưa có tòa nhà để chọn.</p>
-                  ) : (
-                    buildings.map((building) => (
-                      <label key={building.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 hover:bg-gray-50">
-                        <input
-                          type="checkbox"
-                          checked={formData.buildingIds.includes(building.id)}
-                          onChange={() =>
-                            toggleBuildingId(building.id, (updater) =>
-                              setFormData((current) => ({
-                                ...current,
-                                buildingIds: typeof updater === 'function' ? updater(current.buildingIds) : updater,
-                              })),
-                            )
-                          }
-                          className="h-4 w-4"
-                        />
-                        <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Đã chọn {formData.buildingIds.length}/{buildings.length} tòa nhà.</p>
-              </div>
-              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Tên tài sản *</label>
                   <input 
                     type="text"
                     value={formData.assetName}
-                    onChange={e => setFormData(f => ({ ...f, assetName: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    onChange={e => {
+                      clearAssetFieldError('assetName');
+                      setFormData(f => ({ ...f, assetName: e.target.value }));
+                    }}
+                    className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${assetFieldErrors.assetName ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'}`}
                   />
+                  {assetFieldErrors.assetName && (
+                    <p className="mt-1 text-xs text-red-600">{assetFieldErrors.assetName}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">Mã tài sản</label>
+                  <label className="block text-sm text-gray-700 mb-2">Mã tài sản *</label>
                   <input 
                     type="text"
                     value={formData.assetCode}
-                    onChange={e => setFormData(f => ({ ...f, assetCode: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    onChange={e => {
+                      const nextAssetCode = e.target.value;
+                      clearAssetFieldError('assetCode');
+                      setFormData(f => ({ ...f, assetCode: nextAssetCode }));
+                      setAssetCodeValidationError(nextAssetCode, getTargetBuildingIds(), getSelectedAssetIds());
+                    }}
+                    onBlur={() => setAssetCodeValidationError(formData.assetCode, getTargetBuildingIds(), getSelectedAssetIds())}
+                    className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${assetFieldErrors.assetCode ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'}`}
                   />
+                  {assetFieldErrors.assetCode && (
+                    <p className="mt-1 text-xs text-red-600">{assetFieldErrors.assetCode}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -750,8 +855,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
               </button>
               <button 
                 onClick={handleEdit}
-                disabled={saving || (assetScopeMode === 'private' && formData.buildingIds.length === 0) || !formData.assetName.trim()}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50"
+                disabled={saving || hasAssetFieldErrors}
+                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:opacity-60"
               >
                 {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
@@ -786,6 +891,12 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
                 <p className="text-sm text-gray-800"><strong>Số phòng sử dụng:</strong> {selectedAsset.totalRooms}</p>
                 <p className="text-sm text-gray-800"><strong>Tổng số lượng:</strong> {selectedAsset.totalQuantity}</p>
               </div>
+
+              {deleteAssetError && (
+                <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {deleteAssetError}
+                </div>
+              )}
             </div>
             
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end space-x-3">
@@ -814,7 +925,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
             {/* Header */}
             <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0 bg-white">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Gán tài sản vào phòng</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Liên kết tài sản với phòng</h3>
                 <p className="mt-0.5 text-sm text-gray-500">
                   {assignAsset.assetName} · <span className="font-mono">{assignAsset.assetCode}</span>
                 </p>
@@ -822,6 +933,75 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
               <button onClick={() => setShowAssignModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X size={20} className="text-gray-600" />
               </button>
+            </div>
+
+            <div className="flex-shrink-0 bg-gray-50 p-5">
+              {assignLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 size={24} className="animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {assignError && (
+                    <div className="bg-red-50 border border-red-300 rounded px-3 py-2 text-sm text-red-700">{assignError}</div>
+                  )}
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="border border-gray-200 bg-white px-4 py-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Tòa nhà</p>
+                      <p className="mt-2 text-base font-semibold text-gray-900">{assignScopeLabel}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAssignListMode(assignListMode === 'assigned' ? null : 'assigned')}
+                      className="border border-green-200 bg-white px-4 py-4 text-left transition-colors hover:bg-green-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Đã gán phòng</p>
+                          <p className="mt-2 text-2xl font-semibold text-green-700">{assignedRooms.length}</p>
+                        </div>
+                        <Eye size={18} className="text-green-700" />
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAssignListMode(assignListMode === 'unassigned' ? null : 'unassigned')}
+                      className="border border-blue-200 bg-white px-4 py-4 text-left transition-colors hover:bg-blue-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Chưa gán phòng</p>
+                          <p className="mt-2 text-2xl font-semibold text-blue-700">{unassignedRooms.length}</p>
+                        </div>
+                        <Eye size={18} className="text-blue-700" />
+                      </div>
+                    </button>
+                  </div>
+
+                  {assignListMode && (
+                    <div className="border border-gray-200 bg-white">
+                      <div className="border-b border-gray-200 px-4 py-3">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {assignListMode === 'assigned' ? 'Danh sách phòng đã gán' : 'Danh sách phòng chưa gán'}
+                        </p>
+                      </div>
+                      <div className="grid max-h-[45vh] gap-2 overflow-y-auto p-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {assignListRooms.length === 0 ? (
+                          <p className="text-sm text-gray-500">Không có phòng.</p>
+                        ) : assignListRooms.map((room) => (
+                          <div key={room.id} className="border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                            <p className="font-semibold text-gray-900">{room.roomCode}</p>
+                            <p className="mt-1 text-xs text-gray-600">
+                              {room.buildingName || 'Chưa rõ tòa'}{room.floorNumber ? ` · Tầng ${room.floorNumber}` : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto overscroll-contain bg-gray-50 p-5">
@@ -905,8 +1085,9 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
                 ) : (
                   <div className="space-y-3">
                     {visibleBuildingTree.map((building) => (
-                      <details key={building.buildingId} className="border border-gray-200 bg-white">
-                        <summary className="flex cursor-pointer items-center gap-3 border-b border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900">
+                      <details key={building.buildingId} className="asset-tree-details border border-gray-200 bg-white">
+                        <summary className="flex cursor-pointer list-none items-center gap-3 border-b border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
+                          <ChevronRight size={16} className="asset-tree-chevron shrink-0 text-gray-500" />
                           <span className="min-w-0 flex-1 truncate">{building.buildingName}</span>
                           <span className="shrink-0 bg-white px-2 py-0.5 text-xs text-gray-600">
                             {building.floors.reduce((sum, floor) => sum + floor.rooms.length, 0)} phòng
@@ -918,8 +1099,9 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
                               Chưa có phòng trong tòa này.
                             </div>
                           ) : building.floors.map((floor) => (
-                            <details key={`${building.buildingId}-${floor.floorNumber}`} className="bg-white">
-                              <summary className="flex cursor-pointer items-center gap-3 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <details key={`${building.buildingId}-${floor.floorNumber}`} className="asset-tree-details bg-white">
+                              <summary className="flex cursor-pointer list-none items-center gap-3 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 [&::-webkit-details-marker]:hidden">
+                                <ChevronRight size={15} className="asset-tree-chevron shrink-0 text-gray-400" />
                                 <span className="min-w-0 flex-1 truncate">{floor.floorNumber ? `Tầng ${floor.floorNumber}` : 'Chưa rõ tầng'}</span>
                                 <span className="text-xs text-gray-500">{floor.rooms.length} phòng</span>
                               </summary>

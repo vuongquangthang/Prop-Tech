@@ -47,6 +47,16 @@ public class User
     [Column("LAST_LOGIN_AT")]
     public DateTime? LastLoginAt { get; set; }
 
+    [Column("FAILED_LOGIN_ATTEMPTS")]
+    public int FailedLoginAttempts { get; set; } = 0;
+
+    [Column("TEMP_LOCKED_UNTIL")]
+    public DateTime? TempLockedUntil { get; set; }
+
+    [StringLength(64)]
+    [Column("ACTIVE_SESSION_ID")]
+    public string? ActiveSessionId { get; set; }
+
     [StringLength(500)]
     [Column("REFRESH_TOKEN")]
     public string? RefreshToken { get; set; }

@@ -26,13 +26,18 @@ type Props = {
 
 const REMEMBER_LOGIN_KEY = 'remember_login';
 const REMEMBERED_PHONE_KEY = 'remembered_phone';
+const TEMP_LOCK_MESSAGE = 'Tài khoản bị khóa tạm thời 15 phút do nhập sai quá 5 lần';
+const TEMP_LOCK_DURATION_MS = 15 * 60 * 1000;
 
 export default function LoginScreen({ navigation }: Props) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const [lockExpiresAt, setLockExpiresAt] = useState<number | null>(null);
   const { login, isLoading, error, clearError } = useAuthStore();
+  const isTemporarilyLocked = lockExpiresAt !== null && lockExpiresAt > Date.now();
 
   useEffect(() => {
     let isMounted = true;
@@ -59,11 +64,25 @@ export default function LoginScreen({ navigation }: Props) {
     };
   }, []);
 
-  const handleLogin = async () => {
-    if (isLoading) return;
+  useEffect(() => {
+    if (!lockExpiresAt) return;
 
-    if (!phoneNumber.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số điện thoại');
+    const timer = setInterval(() => {
+      if (lockExpiresAt <= Date.now()) {
+        setLockExpiresAt(null);
+        setValidationError('');
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockExpiresAt]);
+
+  const handleLogin = async () => {
+    if (isLoading || isTemporarilyLocked) return;
+
+    const normalizedPhone = phoneNumber.trim();
+    if (!/^0\d{9}$/.test(normalizedPhone)) {
+      setValidationError('Số điện thoại không hợp lệ');
       return;
     }
     if (!password.trim()) {
@@ -71,8 +90,9 @@ export default function LoginScreen({ navigation }: Props) {
       return;
     }
     try {
+      setValidationError('');
       clearError();
-      const loggedInUser = await login(phoneNumber.trim(), password);
+      const loggedInUser = await login(normalizedPhone, password);
       if (rememberMe) {
         await secureStorage.setItemAsync(REMEMBER_LOGIN_KEY, 'true');
         await secureStorage.setItemAsync(REMEMBERED_PHONE_KEY, phoneNumber.trim());
@@ -88,11 +108,16 @@ export default function LoginScreen({ navigation }: Props) {
       }
     } catch (err: any) {
       const isNetworkError = !err.response;
+      const errorMessage = err.response?.data?.message || 'Số điện thoại hoặc mật khẩu không đúng';
+      if (!isNetworkError && errorMessage.includes(TEMP_LOCK_MESSAGE)) {
+        setValidationError(errorMessage);
+        setLockExpiresAt(Date.now() + TEMP_LOCK_DURATION_MS);
+      }
       Alert.alert(
         'Đăng nhập thất bại',
         isNetworkError
           ? `Không kết nối được đến máy chủ.\n\nĐã thử:\n${(err.attemptedUrls || []).join('\n')}`
-          : err.response?.data?.message || 'Số điện thoại hoặc mật khẩu không đúng'
+          : errorMessage
       );
     }
   };
@@ -119,9 +144,9 @@ export default function LoginScreen({ navigation }: Props) {
           <View style={styles.card}>
             <Text style={styles.title}>Đăng nhập</Text>
 
-            {error && (
+            {(validationError || error) && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>{validationError || error}</Text>
               </View>
             )}
 
@@ -132,7 +157,12 @@ export default function LoginScreen({ navigation }: Props) {
                 placeholder="Số điện thoại"
                 placeholderTextColor="rgba(255,255,255,0.6)"
                 value={phoneNumber}
-                onChangeText={setPhoneNumber}
+                onChangeText={(value) => {
+                  setPhoneNumber(value);
+                  if (validationError) setValidationError('');
+                  if (lockExpiresAt) setLockExpiresAt(null);
+                  if (error) clearError();
+                }}
                 keyboardType="phone-pad"
                 autoCapitalize="none"
                 editable={!isLoading}
@@ -178,13 +208,13 @@ export default function LoginScreen({ navigation }: Props) {
 
             {/* Login button */}
             <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
+              style={[styles.button, (isLoading || isTemporarilyLocked) && styles.buttonDisabled]}
               onPress={handleLogin}
-              disabled={isLoading}
+              disabled={isLoading || isTemporarilyLocked}
               activeOpacity={0.85}
             >
               <Text style={styles.buttonText}>
-                {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                {isLoading ? 'Đang đăng nhập...' : isTemporarilyLocked ? 'Tài khoản tạm khóa' : 'Đăng nhập'}
               </Text>
             </TouchableOpacity>
 

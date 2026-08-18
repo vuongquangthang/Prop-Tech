@@ -75,6 +75,7 @@ public class BuildingService : IBuildingService
     public async Task<BuildingDto> CreateAsync(CreateBuildingDto dto, int ownerUserId)
     {
         var buildingName = dto.BuildingName.Trim();
+        var normalizedBuildingName = NormalizeBuildingName(buildingName);
         if (dto.NumberOfFloors <= 0)
         {
             throw new InvalidOperationException("Số tầng phải lớn hơn 0");
@@ -88,10 +89,13 @@ public class BuildingService : IBuildingService
         var address = dto.Address.Trim();
         var existing = await _context.Buildings
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.BuildingName == buildingName && !item.IsDeleted);
+            .FirstOrDefaultAsync(item =>
+                item.OwnerUserId == ownerUserId
+                && item.BuildingName.Trim().ToUpper() == normalizedBuildingName
+                && !item.IsDeleted);
         if (existing != null)
         {
-            throw new InvalidOperationException($"Tòa nhà '{buildingName}' đã tồn tại");
+            throw new InvalidOperationException("Tên tòa nhà đã tồn tại");
         }
 
         ValidateCoordinates(dto.Latitude, dto.Longitude);
@@ -128,21 +132,38 @@ public class BuildingService : IBuildingService
         }
 
         var nextBuildingName = string.IsNullOrWhiteSpace(dto.BuildingName) ? null : dto.BuildingName.Trim();
-        if (nextBuildingName != null && nextBuildingName != building.BuildingName)
+        if (nextBuildingName != null)
         {
+            var normalizedNextBuildingName = NormalizeBuildingName(nextBuildingName);
             var existing = await _context.Buildings
                 .AsNoTracking()
-                .FirstOrDefaultAsync(item => item.OwnerUserId == ownerUserId && item.BuildingName == nextBuildingName && !item.IsDeleted);
+                .FirstOrDefaultAsync(item =>
+                    item.Id != id
+                    && item.OwnerUserId == ownerUserId
+                    && item.BuildingName.Trim().ToUpper() == normalizedNextBuildingName
+                    && !item.IsDeleted);
             if (existing != null)
             {
-                throw new InvalidOperationException($"Tòa nhà '{nextBuildingName}' đã tồn tại");
+                throw new InvalidOperationException("Tên tòa nhà đã tồn tại");
             }
 
             building.BuildingName = nextBuildingName;
         }
 
         if (!string.IsNullOrWhiteSpace(dto.Address)) building.Address = dto.Address.Trim();
-        if (dto.NumberOfFloors.HasValue) building.NumberOfFloors = dto.NumberOfFloors.Value;
+        if (dto.NumberOfFloors.HasValue)
+        {
+            var activeMaxFloorNumber = await _context.Floors
+                .Where(floor => floor.BuildingId == id && !floor.IsDeleted)
+                .Select(floor => (int?)floor.FloorNumber)
+                .MaxAsync() ?? 0;
+            if (dto.NumberOfFloors.Value != activeMaxFloorNumber)
+            {
+                throw new InvalidOperationException("Không thể chỉnh sửa số tầng trực tiếp. Vui lòng thêm hoặc xóa tầng để cập nhật số tầng.");
+            }
+
+            building.NumberOfFloors = dto.NumberOfFloors.Value;
+        }
         if (dto.Description != null) building.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
         if (dto.Latitude.HasValue || dto.Longitude.HasValue)
         {
@@ -166,9 +187,37 @@ public class BuildingService : IBuildingService
             throw new InvalidOperationException("Tòa nhà không tồn tại");
         }
 
-        if (building.Floors.Any(floor => !floor.IsDeleted && floor.Rooms.Any(room => room.Status != "Đã xóa")))
+        var activeRooms = building.Floors
+            .Where(floor => !floor.IsDeleted)
+            .SelectMany(floor => floor.Rooms)
+            .Where(room => room.Status != "Đã xóa")
+            .ToList();
+
+        if (activeRooms.Any(room => room.Status != "Trống"))
         {
-            throw new InvalidOperationException("Không thể xóa tòa nhà đã có phòng");
+            throw new InvalidOperationException("Không thể xóa tầng này do đã có cư dân ở");
+        }
+
+        var roomIds = activeRooms.Select(room => room.Id).ToList();
+        if (roomIds.Count > 0)
+        {
+            var linkedPosts = await _context.BaiDangTimPhongs
+                .Where(post => roomIds.Contains(post.RoomId)
+                    && post.Status != "deleted"
+                    && !post.IsLocked)
+                .ToListAsync();
+
+            foreach (var post in linkedPosts)
+            {
+                post.IsLocked = true;
+                post.Status = "paused";
+                post.RoomStatus = "Đã xóa";
+            }
+
+            foreach (var room in activeRooms)
+            {
+                room.Status = "Đã xóa";
+            }
         }
 
         foreach (var floor in building.Floors)
@@ -219,5 +268,10 @@ public class BuildingService : IBuildingService
         {
             throw new InvalidOperationException("Kinh Ä‘á»™ khÃ´ng há»£p lá»‡");
         }
+    }
+
+    private static string NormalizeBuildingName(string value)
+    {
+        return value.Trim().ToUpper();
     }
 }

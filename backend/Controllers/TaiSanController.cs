@@ -83,12 +83,19 @@ namespace backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult> Delete(int id)
         {
-            var success = await _taiSanService.DeleteAsync(id, User.GetOwnerUserId());
-            if (!success)
+            try
             {
-                return NotFound(new { message = "Tài sản không tồn tại" });
+                var success = await _taiSanService.DeleteAsync(id, User.GetOwnerUserId());
+                if (!success)
+                {
+                    return NotFound(new { message = "Tài sản không tồn tại" });
+                }
+                return NoContent();
             }
-            return NoContent();
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 }

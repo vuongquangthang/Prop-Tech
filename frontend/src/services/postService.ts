@@ -35,6 +35,9 @@ export interface PostServiceLineItem {
   name: string;
   unit: string;
   price: number;
+  serviceId?: number;
+  buildingId?: number | null;
+  buildingIds?: number[];
 }
 
 export interface PostRecord {
@@ -191,9 +194,14 @@ function normalizeRoomServices(room: any): PostServiceLineItem[] {
 
   return raw.map((item: any, index: number) => ({
     key: String(item?.key ?? item?.serviceId ?? item?.id ?? `service-${index}`),
+    serviceId: Number(item?.serviceId ?? item?.id ?? 0) || undefined,
     name: item?.name ?? item?.serviceName ?? 'Dịch vụ',
     unit: item?.unit ?? '',
     price: Number(item?.price ?? item?.unitPrice ?? item?.amount ?? 0),
+    buildingId: typeof item?.buildingId === 'number' ? item.buildingId : null,
+    buildingIds: Array.isArray(item?.buildingIds)
+      ? item.buildingIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0)
+      : [],
   }));
 }
 

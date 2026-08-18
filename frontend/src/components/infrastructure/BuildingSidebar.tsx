@@ -1,6 +1,7 @@
 import { Plus, ChevronRight, ChevronDown, X, Loader2, Building2, Trash2, AlertTriangle, Info, Edit2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { buildingService, floorService } from '../../services/api.service';
+import { useState, useEffect, useRef } from 'react';
+import { buildingService, floorService, roomService } from '../../services/api.service';
+import { postService } from '../../services/postService';
 import { LocationPicker } from '../LocationPicker';
 
 interface FloorData {
@@ -64,12 +65,13 @@ export function BuildingSidebar({
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<
-    | { type: 'building'; id: number; name: string }
-    | { type: 'floor'; id: number; name: string }
+    | { type: 'building'; id: number; name: string; blockedReason?: string; postCount?: number; roomCount?: number }
+    | { type: 'floor'; id: number; name: string; blockedReason?: string; postCount?: number; roomCount?: number }
     | null
   >(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteModalRequestId = useRef(0);
   const [detailTarget, setDetailTarget] = useState<
     | { type: 'building'; building: BuildingData }
     | { type: 'floor'; floor: FloorData; building: BuildingData }
@@ -79,6 +81,7 @@ export function BuildingSidebar({
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [editBuildingName, setEditBuildingName] = useState('');
+  const [editBuildingNameError, setEditBuildingNameError] = useState('');
   const [editBuildingAddress, setEditBuildingAddress] = useState('');
   const [editBuildingFloors, setEditBuildingFloors] = useState('');
   const [editLatitude, setEditLatitude] = useState<number | null>(null);
@@ -86,6 +89,7 @@ export function BuildingSidebar({
   const [editFloorNumber, setEditFloorNumber] = useState('');
   // Building form fields
   const [buildingName, setBuildingName] = useState('');
+  const [buildingNameError, setBuildingNameError] = useState('');
   const [totalFloorsInput, setTotalFloorsInput] = useState('');
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -94,6 +98,7 @@ export function BuildingSidebar({
   const [selectedBuildingId, setSelectedBuildingId] = useState<number>(0);
   const [lockedAddBuildingId, setLockedAddBuildingId] = useState<number | null>(null);
   const [floorNumber, setFloorNumber] = useState('');
+  const [floorNumberError, setFloorNumberError] = useState('');
 
   useEffect(() => {
     fetchBuildings();
@@ -159,6 +164,62 @@ export function BuildingSidebar({
     }
   };
 
+  const normalizeBuildingName = (value: string) => value.trim().toLocaleLowerCase('vi');
+
+  const getDuplicateBuildingNameMessage = (value: string, excludeBuildingId?: number) => {
+    const normalizedName = normalizeBuildingName(value);
+    if (!normalizedName) return '';
+
+    const duplicated = buildings.some((building) =>
+      building.id !== excludeBuildingId
+      && normalizeBuildingName(building.buildingName) === normalizedName
+    );
+
+    return duplicated ? 'Tên tòa nhà đã tồn tại' : '';
+  };
+
+  const handleBuildingNameChange = (value: string) => {
+    setBuildingName(value);
+    setBuildingNameError(getDuplicateBuildingNameMessage(value));
+  };
+
+  const handleEditBuildingNameChange = (value: string) => {
+    setEditBuildingName(value);
+    const excludeBuildingId = detailTarget?.type === 'building' ? detailTarget.building.id : undefined;
+    setEditBuildingNameError(getDuplicateBuildingNameMessage(value, excludeBuildingId));
+  };
+
+  const getDuplicateFloorNumberMessage = (value: string, buildingId = selectedBuildingId) => {
+    const nextFloorNumber = parseInt(value, 10);
+    if (!buildingId || !Number.isFinite(nextFloorNumber)) return '';
+
+    const targetBuilding = buildings.find((building) => building.id === buildingId);
+    const duplicated = targetBuilding?.floors.some((floor) => floor.floorNumber === nextFloorNumber);
+
+    if (duplicated) {
+      return `Tầng ${nextFloorNumber} đã tồn tại trong tòa nhà này`;
+    }
+
+    const maxFloorNumber = Math.max(0, ...(targetBuilding?.floors.map((floor) => floor.floorNumber) || []));
+    const expectedFloorNumber = maxFloorNumber + 1;
+    if (nextFloorNumber !== expectedFloorNumber) {
+      return `Vui lòng thêm tầng ${expectedFloorNumber} trước khi thêm tầng ${nextFloorNumber}`;
+    }
+
+    return '';
+  };
+
+  const handleFloorNumberChange = (value: string) => {
+    const numericValue = value.replace(/\D/g, '');
+    setFloorNumber(numericValue);
+    setFloorNumberError(getDuplicateFloorNumberMessage(numericValue));
+  };
+
+  const handleSelectedBuildingChange = (buildingId: number) => {
+    setSelectedBuildingId(buildingId);
+    setFloorNumberError(getDuplicateFloorNumberMessage(floorNumber, buildingId));
+  };
+
   const handleAddClick = () => {
     if (onRequestAddBuilding) {
       onRequestAddBuilding();
@@ -168,11 +229,13 @@ export function BuildingSidebar({
     setAddType('building');
     setLockedAddBuildingId(null);
     setBuildingName('');
+    setBuildingNameError('');
     setTotalFloorsInput('');
     setAddress('');
     setLatitude(null);
     setLongitude(null);
     setFloorNumber('');
+    setFloorNumberError('');
     setSelectedBuildingId(buildings.length > 0 ? buildings[0].id : 0);
     setFormError(null);
   };
@@ -202,6 +265,13 @@ export function BuildingSidebar({
     setFormLoading(true);
     try {
       if (addType === 'building') {
+        const duplicateMessage = getDuplicateBuildingNameMessage(buildingName);
+        if (duplicateMessage) {
+          setBuildingNameError(duplicateMessage);
+          setFormError(duplicateMessage);
+          setFormLoading(false);
+          return;
+        }
         if (!buildingName.trim() || !totalFloorsInput || !address.trim()) {
           setFormError('Vui lòng nhập tên tòa nhà, số tầng và địa chỉ');
           setFormLoading(false);
@@ -221,6 +291,13 @@ export function BuildingSidebar({
         }
       } else {
         const bid = selectedBuildingId || (buildings[0]?.id ?? 0);
+        const duplicateMessage = getDuplicateFloorNumberMessage(floorNumber, bid);
+        if (duplicateMessage) {
+          setFloorNumberError(duplicateMessage);
+          setFormError(duplicateMessage);
+          setFormLoading(false);
+          return;
+        }
         if (!bid || !floorNumber) {
           setFormError('Vui lòng chọn tòa nhà và nhập số thứ tự tầng');
           setFormLoading(false);
@@ -248,12 +325,53 @@ export function BuildingSidebar({
     }
   };
 
-  const openDeleteModal = (
+  const openDeleteModal = async (
     target:
       | { type: 'building'; id: number; name: string }
       | { type: 'floor'; id: number; name: string }
   ) => {
+    const requestId = deleteModalRequestId.current + 1;
+    deleteModalRequestId.current = requestId;
+    setDeleteError(null);
     setDeleteTarget(target);
+
+    try {
+      const [rooms, posts] = await Promise.all([
+        roomService.getAll(),
+        postService.getPosts(),
+      ]);
+      const targetRooms = (rooms as any[]).filter((room) => {
+        const buildingId = Number(room.buildingId ?? room.toaNhaId ?? 0);
+        const floorId = Number(room.floorId ?? room.tangId ?? 0);
+        return target.type === 'building' ? buildingId === target.id : floorId === target.id;
+      });
+      const activeRooms = targetRooms.filter((room) => room.status !== 'Đã xóa');
+      const occupiedRooms = activeRooms.filter((room) => room.status !== 'Trống');
+      const activeRoomIds = new Set(activeRooms.map((room) => Number(room.id ?? room.roomId ?? 0)));
+      const linkedPostCount = (posts as any[]).filter((post) => {
+        const roomId = Number(post.roomId ?? post.room?.id ?? 0);
+        const status = String(post.status ?? '').toLowerCase();
+        return activeRoomIds.has(roomId) && status !== 'deleted' && !post.isLocked;
+      }).length;
+
+      if (deleteModalRequestId.current === requestId) {
+        setDeleteTarget({
+          ...target,
+          roomCount: activeRooms.length,
+          postCount: linkedPostCount,
+          blockedReason: occupiedRooms.length > 0 ? 'Không thể xóa tầng này do đã có cư dân ở' : undefined,
+        });
+      }
+    } catch {
+      if (deleteModalRequestId.current === requestId) {
+        setDeleteTarget(target);
+      }
+    }
+  };
+
+  const closeDeleteModal = () => {
+    deleteModalRequestId.current += 1;
+    setDeleteTarget(null);
     setDeleteError(null);
   };
 
@@ -267,6 +385,7 @@ export function BuildingSidebar({
     setDetailError(null);
     if (target.type === 'building') {
       setEditBuildingName(target.building.buildingName);
+      setEditBuildingNameError('');
       setEditBuildingAddress(target.building.address || '');
       setEditBuildingFloors(String(target.building.totalFloors || target.building.floors.length || 1));
       setEditLatitude(target.building.latitude ?? null);
@@ -275,6 +394,7 @@ export function BuildingSidebar({
     } else {
       setEditFloorNumber(String(target.floor.floorNumber));
       setEditBuildingName('');
+      setEditBuildingNameError('');
       setEditBuildingAddress('');
       setEditBuildingFloors('');
       setEditLatitude(null);
@@ -287,6 +407,7 @@ export function BuildingSidebar({
 
     setFormError(null);
     setBuildingName('');
+    setBuildingNameError('');
     setTotalFloorsInput('');
     setAddress('');
     setLatitude(null);
@@ -316,6 +437,14 @@ export function BuildingSidebar({
     } else {
       onSelectFloor(detailTarget.floor.id);
       onSelectBuilding(null);
+      onContextChange?.({
+        type: 'floor',
+        buildingId: detailTarget.building.id,
+        floorId: detailTarget.floor.id,
+        label: `Tầng ${detailTarget.floor.floorNumber} • ${detailTarget.building.buildingName}`,
+        building: detailTarget.building,
+        floor: detailTarget.floor,
+      });
       onRequestAddRoom?.(detailTarget.floor.id);
       setDetailTarget(null);
       return;
@@ -323,7 +452,7 @@ export function BuildingSidebar({
     setDetailTarget(null);
   };
 
-  const handleDetailDelete = () => {
+  const handleDetailDelete = async () => {
     if (!detailTarget) return;
 
     const target =
@@ -340,7 +469,7 @@ export function BuildingSidebar({
           };
 
     setDetailTarget(null);
-    openDeleteModal(target);
+    await openDeleteModal(target);
   };
 
   const handleDetailUpdate = async () => {
@@ -350,20 +479,23 @@ export function BuildingSidebar({
     setDetailError(null);
     try {
       if (detailTarget.type === 'building') {
+        const duplicateMessage = getDuplicateBuildingNameMessage(editBuildingName, detailTarget.building.id);
+        if (duplicateMessage) {
+          setEditBuildingNameError(duplicateMessage);
+          setDetailError(duplicateMessage);
+          return;
+        }
         if (!editBuildingName.trim() || !editBuildingAddress.trim() || !editBuildingFloors) {
           setDetailError('Vui lòng nhập đủ tên tòa, địa chỉ và số tầng');
           return;
         }
 
-        const numberOfFloors = parseInt(editBuildingFloors);
         await buildingService.update(detailTarget.building.id, {
           buildingName: editBuildingName.trim(),
           address: editBuildingAddress.trim(),
-          numberOfFloors,
           latitude: editLatitude ?? undefined,
           longitude: editLongitude ?? undefined,
         } as any);
-        await ensureFloorsForBuilding(detailTarget.building.id, numberOfFloors);
       } else {
         if (!editFloorNumber) {
           setDetailError('Vui lòng nhập số tầng');
@@ -406,7 +538,7 @@ export function BuildingSidebar({
 
       await fetchBuildings();
       onStructureChange?.();
-      setDeleteTarget(null);
+      closeDeleteModal();
     } catch (err: any) {
       setDeleteError(err.message || 'Không thể xóa, vui lòng thử lại');
     } finally {
@@ -674,9 +806,15 @@ export function BuildingSidebar({
                       type="text"
                       placeholder="VD: Tòa D, Tòa E..."
                       value={buildingName}
-                      onChange={e => setBuildingName(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                      onChange={e => handleBuildingNameChange(e.target.value)}
+                      onBlur={() => setBuildingNameError(getDuplicateBuildingNameMessage(buildingName))}
+                      className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${
+                        buildingNameError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'
+                      }`}
                     />
+                    {buildingNameError && (
+                      <p className="mt-1 text-xs font-medium text-red-600">{buildingNameError}</p>
+                    )}
                   </div>
 
                   {/* Number of Floors */}
@@ -731,7 +869,7 @@ export function BuildingSidebar({
                     <label className="block text-sm text-gray-700 mb-2">Chọn tòa nhà *</label>
                     <select
                       value={selectedBuildingId}
-                      onChange={e => setSelectedBuildingId(parseInt(e.target.value))}
+                      onChange={e => handleSelectedBuildingChange(parseInt(e.target.value))}
                       disabled={lockedAddBuildingId !== null}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-gray-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-700">
                       {loading ? (
@@ -756,9 +894,15 @@ export function BuildingSidebar({
                       placeholder="VD: 1, 2, 3..."
                       min="1"
                       value={floorNumber}
-                      onChange={e => setFloorNumber(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                      onChange={e => handleFloorNumberChange(e.target.value)}
+                      onBlur={() => setFloorNumberError(getDuplicateFloorNumberMessage(floorNumber))}
+                      className={`w-full px-3 py-2 text-sm border rounded focus:outline-none ${
+                        floorNumberError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'
+                      }`}
                     />
+                    {floorNumberError && (
+                      <p className="mt-1 text-xs font-medium text-red-600">{floorNumberError}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -798,8 +942,8 @@ export function BuildingSidebar({
               </button>
               <button 
                 onClick={handleSubmit}
-                disabled={formLoading}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
+                disabled={formLoading || (addType === 'building' && !!buildingNameError) || (addType === 'floor' && !!floorNumberError)}
+                className="flex items-center space-x-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:opacity-60 disabled:hover:bg-gray-400"
               >
                 {formLoading && <Loader2 size={14} className="animate-spin" />}
                 <span>Xác nhận thêm</span>
@@ -840,9 +984,15 @@ export function BuildingSidebar({
                       <label className="mb-2 block text-sm text-gray-700">Tên tòa *</label>
                       <input
                         value={editBuildingName}
-                        onChange={(event) => setEditBuildingName(event.target.value)}
-                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                        onChange={(event) => handleEditBuildingNameChange(event.target.value)}
+                        onBlur={() => setEditBuildingNameError(getDuplicateBuildingNameMessage(editBuildingName, detailTarget.building.id))}
+                        className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${
+                          editBuildingNameError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'
+                        }`}
                       />
+                      {editBuildingNameError && (
+                        <p className="mt-1 text-xs font-medium text-red-600">{editBuildingNameError}</p>
+                      )}
                     </div>
                     <div>
                       <label className="mb-2 block text-sm text-gray-700">Địa chỉ *</label>
@@ -1005,8 +1155,8 @@ export function BuildingSidebar({
                 {!onRequestAddBuilding && (
                   <button
                     onClick={detailEditMode ? handleDetailUpdate : () => setDetailEditMode(true)}
-                    disabled={detailLoading}
-                    className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:opacity-50"
+                    disabled={detailLoading || (detailEditMode && detailTarget.type === 'building' && !!editBuildingNameError)}
+                    className="inline-flex items-center gap-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:opacity-60 disabled:hover:bg-gray-400"
                   >
                     {detailLoading ? <Loader2 size={14} className="animate-spin" /> : <Edit2 size={16} />}
                     <span>{detailEditMode ? 'Lưu thay đổi' : 'Sửa'}</span>
@@ -1023,7 +1173,7 @@ export function BuildingSidebar({
           <div className="bg-white rounded-lg w-[500px]">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg text-gray-800">Xác nhận xóa</h3>
-              <button onClick={() => setDeleteTarget(null)} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={closeDeleteModal} className="p-1 hover:bg-gray-100 rounded">
                 <X size={20} className="text-gray-600" />
               </button>
             </div>
@@ -1036,9 +1186,9 @@ export function BuildingSidebar({
                     Bạn có chắc chắn muốn xóa {deleteTarget.type === 'building' ? 'tòa' : 'tầng'} này?
                   </p>
                   <p className="mt-1 text-sm text-red-700">
-                    {deleteTarget.type === 'building'
-                      ? 'Tòa chỉ xóa được khi các tầng bên trong chưa có phòng.'
-                      : 'Tầng chỉ xóa được khi chưa có phòng.'}
+                    {deleteTarget.blockedReason
+                      ? deleteTarget.blockedReason
+                      : 'Chỉ được xóa khi toàn bộ phòng trong phạm vi đang trống.'}
                   </p>
                 </div>
               </div>
@@ -1046,6 +1196,16 @@ export function BuildingSidebar({
               <div className="rounded border border-gray-300 bg-gray-50 p-4">
                 <p className="text-sm text-gray-600">Đối tượng sẽ bị xóa:</p>
                 <p className="mt-1 text-sm font-semibold text-gray-900">{deleteTarget.name}</p>
+                {typeof deleteTarget.roomCount === 'number' && (
+                  <p className="mt-2 text-sm text-gray-700">
+                    {deleteTarget.roomCount} phòng trống sẽ được ẩn khỏi hệ thống.
+                  </p>
+                )}
+                {!!deleteTarget.postCount && (
+                  <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    Có {deleteTarget.postCount} bài đăng liên quan. Khi xác nhận xóa, hệ thống sẽ khóa bài đăng, không xóa lịch sử.
+                  </p>
+                )}
               </div>
 
               {deleteError && (
@@ -1055,7 +1215,7 @@ export function BuildingSidebar({
 
             <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-end gap-3">
               <button
-                onClick={() => setDeleteTarget(null)}
+                onClick={closeDeleteModal}
                 disabled={deleteLoading}
                 className="building-delete-cancel-button px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50"
               >
@@ -1063,7 +1223,7 @@ export function BuildingSidebar({
               </button>
               <button
                 onClick={handleDeleteSubmit}
-                disabled={deleteLoading}
+                disabled={deleteLoading || !!deleteTarget.blockedReason}
                 className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
               >
                 {deleteLoading && <Loader2 size={14} className="animate-spin" />}

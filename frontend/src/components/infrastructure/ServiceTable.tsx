@@ -107,6 +107,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
   const [addBuildingIds, setAddBuildingIds] = useState<number[]>([]);
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [addNameError, setAddNameError] = useState('');
   const [priceScale, setPriceScale] = useState<'unit' | 'thousand' | 'million'>('thousand');
   const [priceError, setPriceError] = useState('');
 
@@ -120,6 +121,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
   const [updatePriceScale, setUpdatePriceScale] = useState<'unit' | 'thousand' | 'million'>('thousand');
   const [updatePriceFormatError, setUpdatePriceFormatError] = useState('');
   const [editName, setEditName] = useState('');
+  const [editNameError, setEditNameError] = useState('');
   const [editServiceType, setEditServiceType] = useState<ServiceTypeValue>('Theo tháng');
   const [editUnit, setEditUnit] = useState('');
   const [editBuildingIds, setEditBuildingIds] = useState<number[]>([]);
@@ -197,10 +199,10 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
       .sort((first, second) => {
         const firstIsCommon = first.buildingIds.length === 0;
         const secondIsCommon = second.buildingIds.length === 0;
-        if (firstIsCommon !== secondIsCommon) return firstIsCommon ? 1 : -1;
+        if (firstIsCommon !== secondIsCommon) return firstIsCommon ? -1 : 1;
 
-        const firstBuilding = firstIsCommon ? 'Chưa gắn tòa' : (first.buildingNames[0] || `Tòa #${first.buildingIds[0]}`);
-        const secondBuilding = secondIsCommon ? 'Chưa gắn tòa' : (second.buildingNames[0] || `Tòa #${second.buildingIds[0]}`);
+        const firstBuilding = firstIsCommon ? 'Áp dụng chung' : (first.buildingNames[0] || `Tòa #${first.buildingIds[0]}`);
+        const secondBuilding = secondIsCommon ? 'Áp dụng chung' : (second.buildingNames[0] || `Tòa #${second.buildingIds[0]}`);
         const buildingCompare = firstBuilding.localeCompare(secondBuilding, 'vi');
         if (buildingCompare !== 0) return buildingCompare;
 
@@ -210,7 +212,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
 
   const getServiceBuildingDisplay = (service: ServiceGroup) => {
     if (service.buildingIds.length === 0) {
-      return 'Chưa gắn tòa';
+      return 'Áp dụng chung';
     }
 
     if (service.buildingIds.length > 1) {
@@ -224,26 +226,91 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
     return `Tòa #${service.buildingIds[0]}`;
   };
 
+  const serviceScopesConflict = (first: number[], second: number[]) => {
+    const firstIsCommon = first.length === 0;
+    const secondIsCommon = second.length === 0;
+    if (firstIsCommon || secondIsCommon) {
+      return firstIsCommon && secondIsCommon;
+    }
+
+    return first.some((buildingId) => second.includes(buildingId));
+  };
+
+  const getDuplicateServiceNameMessage = (
+    name: string,
+    _serviceTypeValue: string,
+    _unitValue: string,
+    buildingIds: number[],
+    excludeServiceIds: number[] = [],
+  ) => {
+    const normalizedName = normalizeText(name);
+    if (!normalizedName) return '';
+
+    const excluded = new Set(excludeServiceIds);
+    const duplicated = serviceGroups.some((service) =>
+      !service.serviceIds.every((serviceId) => excluded.has(serviceId))
+      && normalizeText(service.name) === normalizedName
+      && serviceScopesConflict(service.buildingIds, buildingIds)
+    );
+
+    return duplicated ? 'Tên dịch vụ đã tồn tại trong phạm vi này' : '';
+  };
+
+  const getAddTargetBuildingIds = () =>
+    typeof contextBuildingId === 'number' ? [contextBuildingId] : addBuildingIds;
+
+  const getEditTargetBuildingIds = () =>
+    typeof contextBuildingId === 'number' ? [contextBuildingId] : editBuildingIds;
+
+  const getSelectedServiceIds = () =>
+    selectedService?.serviceIds || (selectedService?.id ? [selectedService.id] : []);
+
+  const handleAddNameChange = (value: string) => {
+    setAddName(value);
+    const duplicateMessage = getDuplicateServiceNameMessage(value, serviceType, addUnit, getAddTargetBuildingIds());
+    setAddNameError(duplicateMessage);
+    if (!duplicateMessage) setAddError(null);
+  };
+
+  const handleEditNameChange = (value: string) => {
+    setEditName(value);
+    const duplicateMessage = getDuplicateServiceNameMessage(value, editServiceType, editUnit, getEditTargetBuildingIds(), getSelectedServiceIds());
+    setEditNameError(duplicateMessage);
+    if (!duplicateMessage) setUpdateError(null);
+  };
+
+  const contextServiceGroups = useMemo(() => {
+    if (typeof contextBuildingId !== 'number') {
+      return serviceGroups;
+    }
+
+    return serviceGroups.filter((service) => service.buildingIds.includes(contextBuildingId));
+  }, [contextBuildingId, serviceGroups]);
+
   const filteredServiceGroups = useMemo(() => {
     const normalizedSearch = normalizeText(serviceSearch);
 
-    return serviceGroups.filter((service) => {
+    return contextServiceGroups.filter((service) => {
       const buildingDisplay = getServiceBuildingDisplay(service);
+      const priceText = typeof service.price === 'number'
+        ? `${service.price} ${service.price.toLocaleString('vi-VN')} ${service.price >= 1000 ? 'nghìn nghin' : ''}`
+        : '';
+      const scheduledPriceText = typeof service.scheduledPrice === 'number'
+        ? `${service.scheduledPrice} ${service.scheduledPrice.toLocaleString('vi-VN')} ${service.scheduledPrice >= 1000 ? 'nghìn nghin' : ''}`
+        : '';
       const searchableText = normalizeText([
         service.name,
         service.type,
         service.unit,
         service.date,
+        service.scheduledEffectiveDate,
         buildingDisplay,
-        service.hasMixedPrices ? 'Nhiều mức giá' : String(service.price ?? ''),
+        service.hasMixedPrices ? 'Nhiều mức giá' : priceText,
+        scheduledPriceText,
       ].join(' '));
 
       const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
       const matchesType = serviceTypeFilter === 'all' || service.type === serviceTypeFilter;
-      const matchesContextBuilding =
-        typeof contextBuildingId === 'number'
-          ? service.buildingIds.includes(contextBuildingId)
-          : true;
       const matchesManualBuilding =
         typeof contextBuildingId === 'number'
           || serviceBuildingFilter === 'all'
@@ -251,9 +318,18 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
           || (serviceBuildingFilter !== 'common'
             && service.buildingIds.includes(Number(serviceBuildingFilter)));
 
-      return matchesSearch && matchesType && matchesContextBuilding && matchesManualBuilding;
+      return matchesSearch && matchesType && matchesManualBuilding;
     });
-  }, [contextBuildingId, serviceGroups, serviceSearch, serviceTypeFilter, serviceBuildingFilter]);
+  }, [contextBuildingId, contextServiceGroups, serviceSearch, serviceTypeFilter, serviceBuildingFilter]);
+
+  const visibleServiceCount = useMemo(
+    () => filteredServiceGroups.reduce((total, group) => total + (group.items?.length || 1), 0),
+    [filteredServiceGroups],
+  );
+  const contextServiceCount = useMemo(
+    () => contextServiceGroups.reduce((total, group) => total + (group.items?.length || 1), 0),
+    [contextServiceGroups],
+  );
 
   const getBuildingLabel = (building: BuildingOption) => building.buildingName || building.name || `Tòa #${building.id}`;
   const getContextBuildingLabel = () => {
@@ -285,11 +361,17 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
   const handleServiceTypeChange = (nextType: ServiceTypeValue) => {
     setServiceType(nextType);
     setAddUnit(SERVICE_TYPE_DEFAULT_UNITS[nextType]);
+    const duplicateMessage = getDuplicateServiceNameMessage(addName, nextType, SERVICE_TYPE_DEFAULT_UNITS[nextType], getAddTargetBuildingIds());
+    setAddNameError(duplicateMessage);
+    if (!duplicateMessage) setAddError(null);
   };
 
   const handleEditServiceTypeChange = (nextType: ServiceTypeValue) => {
     setEditServiceType(nextType);
     setEditUnit(SERVICE_TYPE_DEFAULT_UNITS[nextType]);
+    const duplicateMessage = getDuplicateServiceNameMessage(editName, nextType, SERVICE_TYPE_DEFAULT_UNITS[nextType], getEditTargetBuildingIds(), getSelectedServiceIds());
+    setEditNameError(duplicateMessage);
+    if (!duplicateMessage) setUpdateError(null);
   };
 
   const fetchServices = async () => {
@@ -335,6 +417,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
     setEditUnit(service.unit || SERVICE_TYPE_DEFAULT_UNITS['Theo tháng']);
     const scopedBuildingIds = service.buildingIds?.length ? service.buildingIds : service.buildingId ? [service.buildingId] : [];
     setEditBuildingIds(scopedBuildingIds);
+    setEditNameError('');
     setUpdateNewPrice(service.configuredPrice ? String(Number(service.configuredPrice) / 1_000) : '');
     setUpdateEffectiveDate(service.effectiveDate ? formatLocalDateInput(new Date(service.effectiveDate)) : formatLocalDateInput());
     setUpdateReason('');
@@ -365,6 +448,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
   const openAddModal = () => {
     setAddName(''); setAddUnit(''); setAddPrice(''); setAddError(null); setAddEffectiveDate(formatLocalDateInput());
     setAddBuildingIds(typeof contextBuildingId === 'number' ? [contextBuildingId] : []);
+    setAddNameError('');
     setPriceScale('thousand'); setPriceError('');
     setServiceType('Theo tháng');
     setAddUnit(SERVICE_TYPE_DEFAULT_UNITS['Theo tháng']);
@@ -379,6 +463,12 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
     }
     if (!addName.trim() || !addUnit || !addPrice) {
       setAddError('Vui lòng nhập tên dịch vụ, loại dịch vụ và đơn giá');
+      return;
+    }
+    const duplicateMessage = getDuplicateServiceNameMessage(addName, serviceType, addUnit, targetBuildingIds);
+    if (duplicateMessage) {
+      setAddNameError(duplicateMessage);
+      setAddError(duplicateMessage);
       return;
     }
     if (priceError || !Number.isFinite(addPriceVnd) || addPriceVnd <= 0) {
@@ -421,6 +511,18 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
       setUpdateError('Vui lòng nhập tên dịch vụ và loại dịch vụ');
       return;
     }
+    const duplicateMessage = getDuplicateServiceNameMessage(
+      editName,
+      editServiceType,
+      editUnit,
+      targetBuildingIds,
+      getSelectedServiceIds(),
+    );
+    if (duplicateMessage) {
+      setEditNameError(duplicateMessage);
+      setUpdateError(duplicateMessage);
+      return;
+    }
     if (!updateNewPrice) {
       setUpdateError('Vui lòng nhập đơn giá');
       return;
@@ -438,6 +540,20 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
   };
 
   const confirmUpdatePrice = async () => {
+    const targetBuildingIds = typeof contextBuildingId === 'number' ? [contextBuildingId] : editBuildingIds;
+    const duplicateMessage = getDuplicateServiceNameMessage(
+      editName,
+      editServiceType,
+      editUnit,
+      targetBuildingIds,
+      getSelectedServiceIds(),
+    );
+    if (duplicateMessage) {
+      setShowUpdatePriceConfirm(false);
+      setEditNameError(duplicateMessage);
+      setUpdateError(duplicateMessage);
+      return;
+    }
     setUpdateLoading(true); setUpdateError(null);
     try {
       const serviceName = editName.trim();
@@ -448,7 +564,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
         commonUnitPrice: updatePriceVnd,
         effectiveDate: toLocalIsoString(updateEffectiveDate),
         reason: updateReason.trim() || undefined,
-        buildingIds: typeof contextBuildingId === 'number' ? [contextBuildingId] : editBuildingIds,
+        buildingIds: targetBuildingIds,
       };
       await serviceService.update(selectedService.id, basePayload as any);
       await fetchServices();
@@ -533,7 +649,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-[var(--primary)]">Danh mục dịch vụ & Đơn giá - {filteredServiceGroups.length}/{serviceGroups.length} dịch vụ</h2>
+            <h2 className="text-lg font-semibold text-[var(--primary)]">Danh mục dịch vụ & Đơn giá - {visibleServiceCount}/{contextServiceCount} dịch vụ</h2>
             {embedded && (
               <button
                 onClick={openAddModal}
@@ -607,7 +723,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
           </div>
         </div>
         
-        {serviceGroups.length === 0 ? (
+        {contextServiceGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
             <FileX size={48} className="text-gray-300" />
             <p className="text-gray-500">Chưa có dịch vụ nào được cấu hình</p>
@@ -657,7 +773,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                         'Nhiều mức giá'
                       ) : (
                         <>
-                          <span className="block">{service.price.toLocaleString('vi-VN')}</span>
+                          <span className="block">{typeof service.price === 'number' ? service.price.toLocaleString('vi-VN') : '—'}</span>
                           {typeof service.scheduledPrice === 'number' && (
                             <span className="mt-1 block text-xs text-amber-700">
                               Sắp áp dụng: {service.scheduledPrice.toLocaleString('vi-VN')}
@@ -751,7 +867,13 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                                 type="radio"
                                 name="add-service-building"
                                 checked={addBuildingIds.includes(building.id)}
-                                onChange={() => setAddBuildingIds([building.id])}
+                                onChange={() => {
+                                  const nextBuildingIds = [building.id];
+                                  const duplicateMessage = getDuplicateServiceNameMessage(addName, serviceType, addUnit, nextBuildingIds);
+                                  setAddBuildingIds(nextBuildingIds);
+                                  setAddNameError(duplicateMessage);
+                                  if (!duplicateMessage) setAddError(null);
+                                }}
                                 className="h-4 w-4"
                               />
                               <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
@@ -770,9 +892,11 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                       type="text"
                       placeholder="VD: Phí giặt ủi, Phí an ninh..."
                       value={addName}
-                      onChange={e => setAddName(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                      onChange={e => handleAddNameChange(e.target.value)}
+                      onBlur={() => setAddNameError(getDuplicateServiceNameMessage(addName, serviceType, addUnit, getAddTargetBuildingIds()))}
+                      className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${addNameError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'}`}
                     />
+                    {addNameError && <p className="mt-1 text-xs text-red-600">{addNameError}</p>}
                   </div>
 
                   <div>
@@ -848,8 +972,8 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
               </button>
               <button 
                 onClick={handleAddSubmit}
-                disabled={addLoading}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
+                disabled={addLoading || !!addNameError}
+                className="flex items-center space-x-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:opacity-60"
               >
                 {addLoading && <Loader2 size={14} className="animate-spin" />}
                 <span>Xác nhận thêm</span>
@@ -929,7 +1053,13 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                                 type="radio"
                                 name="edit-service-building"
                                 checked={editBuildingIds.includes(building.id)}
-                                onChange={() => setEditBuildingIds([building.id])}
+                                onChange={() => {
+                                  const nextBuildingIds = [building.id];
+                                  const duplicateMessage = getDuplicateServiceNameMessage(editName, editServiceType, editUnit, nextBuildingIds, getSelectedServiceIds());
+                                  setEditBuildingIds(nextBuildingIds);
+                                  setEditNameError(duplicateMessage);
+                                  if (!duplicateMessage) setUpdateError(null);
+                                }}
                                 className="h-4 w-4"
                               />
                               <span className="text-sm text-gray-800">{getBuildingLabel(building)}</span>
@@ -948,9 +1078,11 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                     <input
                       type="text"
                       value={editName}
-                      onChange={(event) => setEditName(event.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                      onChange={(event) => handleEditNameChange(event.target.value)}
+                      onBlur={() => setEditNameError(getDuplicateServiceNameMessage(editName, editServiceType, editUnit, getEditTargetBuildingIds(), getSelectedServiceIds()))}
+                      className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${editNameError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-gray-500'}`}
                     />
+                    {editNameError && <p className="mt-1 text-xs text-red-600">{editNameError}</p>}
                   </div>
 
                   <div>
@@ -1037,8 +1169,8 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
               </button>
               <button 
                 onClick={handleUpdatePriceSubmit}
-                disabled={updateLoading}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
+                disabled={updateLoading || !!editNameError}
+                className="flex items-center space-x-2 rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:opacity-60"
               >
                 {updateLoading && <Loader2 size={14} className="animate-spin" />}
                 <span>Xác nhận cập nhật</span>

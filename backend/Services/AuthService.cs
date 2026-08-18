@@ -1,7 +1,10 @@
 using backend.DTOs;
+using backend.Hubs;
 using backend.Models;
 using backend.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using System.Text.RegularExpressions;
 
 namespace backend.Services;
 
@@ -20,28 +23,48 @@ public interface IAuthService
     Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileDto dto);
 }
 
+public class TemporaryAccountLockedException : UnauthorizedAccessException
+{
+    public TemporaryAccountLockedException(string message) : base(message)
+    {
+    }
+}
+
 public class AuthService : IAuthService
 {
+    private const int MaxFailedLoginAttempts = 5;
+    private static readonly TimeSpan TemporaryLockDuration = TimeSpan.FromMinutes(15);
+    private const string TemporaryLockMessage = "Tài khoản bị khóa tạm thời 15 phút do nhập sai quá 5 lần";
+
     private readonly IUserRepository _userRepository;
     private readonly IResidentRepository _residentRepository;
     private readonly IJwtService _jwtService;
     private readonly IPasswordResetOtpService _otpService;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public AuthService(
         IUserRepository userRepository,
         IResidentRepository residentRepository,
         IJwtService jwtService,
-        IPasswordResetOtpService otpService)
+        IPasswordResetOtpService otpService,
+        IHubContext<NotificationHub> hubContext)
     {
         _userRepository = userRepository;
         _residentRepository = residentRepository;
         _jwtService = jwtService;
         _otpService = otpService;
+        _hubContext = hubContext;
     }
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request)
     {
-        var identity = request.PhoneNumber.Trim().ToLowerInvariant();
+        var identity = request.PhoneNumber?.Trim().ToLowerInvariant() ?? string.Empty;
+        var isEmail = identity.Contains('@');
+        if (!isEmail && !Regex.IsMatch(identity, @"^0\d{9}$"))
+        {
+            throw new ArgumentException("Số điện thoại không hợp lệ");
+        }
+
         var user = await _userRepository.GetByPhoneOrEmailAsync(identity);
         
         if (user == null)
@@ -49,8 +72,33 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Số điện thoại hoặc mật khẩu không đúng");
         }
 
+        var now = DateTime.UtcNow;
+        if (user.TempLockedUntil.HasValue)
+        {
+            if (user.TempLockedUntil.Value > now)
+            {
+                throw new TemporaryAccountLockedException(TemporaryLockMessage);
+            }
+
+            user.TempLockedUntil = null;
+            user.FailedLoginAttempts = 0;
+            _userRepository.Update(user);
+            await _userRepository.SaveChangesAsync();
+        }
+
+        if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
+        {
+            user.TempLockedUntil = now.Add(TemporaryLockDuration);
+            _userRepository.Update(user);
+            await _userRepository.SaveChangesAsync();
+            throw new TemporaryAccountLockedException(TemporaryLockMessage);
+        }
+
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
+            user.FailedLoginAttempts += 1;
+            _userRepository.Update(user);
+            await _userRepository.SaveChangesAsync();
             throw new UnauthorizedAccessException("Số điện thoại hoặc mật khẩu không đúng");
         }
 
@@ -59,17 +107,24 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Tài khoản đã bị khóa");
         }
 
+        var newSessionId = Guid.NewGuid().ToString("N");
+
         // Update last login
-        user.LastLoginAt = DateTime.UtcNow;
+        user.LastLoginAt = now;
+        user.FailedLoginAttempts = 0;
+        user.TempLockedUntil = null;
+        user.ActiveSessionId = newSessionId;
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync();
+
+        await NotifyPreviousSessionsRevokedAsync(user.Id);
 
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
 
         // Save refresh token to user
         user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        user.RefreshTokenExpiryTime = now.AddDays(7);
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync();
 
@@ -112,6 +167,7 @@ public class AuthService : IAuthService
             Role = "CuDan",
             ResidentId = resident.Id,
             DisplayName = request.FullName,
+            ActiveSessionId = Guid.NewGuid().ToString("N"),
             IsLocked = false
         };
         await _userRepository.AddAsync(user);
@@ -349,5 +405,21 @@ public class AuthService : IAuthService
             "CuDan" => "Resident",
             _ => vietnameseRole // Return as-is if not recognized
         };
+    }
+
+    private async Task NotifyPreviousSessionsRevokedAsync(int userId)
+    {
+        try
+        {
+            await _hubContext.Clients.Group(NotificationHub.UserGroup(userId))
+                .SendAsync("SessionRevoked", new
+                {
+                    message = "Tài khoản của bạn vừa đăng nhập ở một thiết bị khác"
+                });
+        }
+        catch
+        {
+            // SignalR failure must not block login. Stale tokens are still rejected by JWT validation.
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -106,6 +107,29 @@ builder.Services.AddAuthentication(options =>
     // Allow SignalR to authenticate via query string (for WebSocket)
     options.Events = new JwtBearerEvents
     {
+        OnTokenValidated = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirstValue("UserId")
+                ?? context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var sessionId = context.Principal?.FindFirstValue("SessionId");
+
+            if (!int.TryParse(userIdClaim, out var userId) || string.IsNullOrWhiteSpace(sessionId))
+            {
+                return;
+            }
+
+            var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+            var activeSessionId = await db.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => u.ActiveSessionId)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(activeSessionId) && activeSessionId != sessionId)
+            {
+                context.Fail("Session revoked by another login.");
+            }
+        },
         OnMessageReceived = context =>
         {
             var accessToken = context.Request.Query["access_token"];
@@ -487,6 +511,12 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE HOP_DONG ADD CONG_THUC_HOA_DON_JSON NVARCHAR(MAX) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'MUST_CHANGE_PASSWORD')
                     ALTER TABLE [USER] ADD MUST_CHANGE_PASSWORD BIT NOT NULL CONSTRAINT DF_USER_MUST_CHANGE_PASSWORD DEFAULT(0);
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'FAILED_LOGIN_ATTEMPTS')
+                    ALTER TABLE [USER] ADD FAILED_LOGIN_ATTEMPTS INT NOT NULL CONSTRAINT DF_USER_FAILED_LOGIN_ATTEMPTS DEFAULT(0);
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'TEMP_LOCKED_UNTIL')
+                    ALTER TABLE [USER] ADD TEMP_LOCKED_UNTIL DATETIME2 NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'ACTIVE_SESSION_ID')
+                    ALTER TABLE [USER] ADD ACTIVE_SESSION_ID NVARCHAR(64) NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[USER]') AND name = 'OWNER_USER_ID')
                     ALTER TABLE [USER] ADD OWNER_USER_ID INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TOA_NHA') AND name = 'OWNER_USER_ID')
@@ -996,6 +1026,9 @@ static void EnsurePostgresCompatibility(ApplicationDbContext context, string sch
         ALTER TABLE IF EXISTS {{schema}}."USER"
             ADD COLUMN IF NOT EXISTS "OWNER_USER_ID" integer,
             ADD COLUMN IF NOT EXISTS "MUST_CHANGE_PASSWORD" boolean NOT NULL DEFAULT false,
+            ADD COLUMN IF NOT EXISTS "FAILED_LOGIN_ATTEMPTS" integer NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS "TEMP_LOCKED_UNTIL" timestamp with time zone,
+            ADD COLUMN IF NOT EXISTS "ACTIVE_SESSION_ID" character varying(64),
             ADD COLUMN IF NOT EXISTS "TEN_HIEN_THI" character varying(200);
 
         ALTER TABLE IF EXISTS {{schema}}."DICH_VU"

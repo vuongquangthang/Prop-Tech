@@ -99,7 +99,7 @@ const appliesToBuilding = (
     return item.buildingIds.includes(buildingId);
   }
 
-  return !item.buildingId || item.buildingId === buildingId;
+  return item.buildingId === buildingId;
 };
 
 const normalizeServiceKeyPart = (value?: string) =>

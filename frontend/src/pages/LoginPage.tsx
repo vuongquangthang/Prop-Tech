@@ -1,10 +1,14 @@
 ﻿import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router';
 import { getDefaultRoute } from '../lib/roles';
 import { Eye, EyeOff } from 'lucide-react';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { getStoredUser } from '../lib/api-client';
+
+const TEMP_LOCK_MESSAGE = 'Tài khoản bị khóa tạm thời 15 phút do nhập sai quá 5 lần';
+const TEMP_LOCK_DURATION_MS = 15 * 60 * 1000;
 
 export function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -13,17 +17,48 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lockExpiresAt, setLockExpiresAt] = useState<number | null>(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isTemporarilyLocked = lockExpiresAt !== null && lockExpiresAt > Date.now();
+
+  useEffect(() => {
+    const logoutMessage = window.sessionStorage.getItem('authLogoutMessage')
+      || (location.state as any)?.message;
+    if (!logoutMessage) return;
+
+    setError(logoutMessage);
+    window.sessionStorage.removeItem('authLogoutMessage');
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!lockExpiresAt) return;
+
+    const timer = window.setInterval(() => {
+      if (lockExpiresAt <= Date.now()) {
+        setLockExpiresAt(null);
+        setError('');
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [lockExpiresAt]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTemporarilyLocked) return;
     setError('');
+    const identity = phoneNumber.trim();
+    const isEmail = identity.includes('@');
+    if (!isEmail && !/^0\d{9}$/.test(identity)) {
+      setError('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại bắt đầu bằng 0 và có 10 chữ số.');
+      return;
+    }
     setLoading(true);
     try {
-      await login(phoneNumber, password, rememberMe);
+      await login(identity, password, rememberMe);
       const userDataStr = getStoredUser();
       if (userDataStr) {
         const userData = JSON.parse(userDataStr);
@@ -36,6 +71,9 @@ export function LoginPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Đăng nhập thất bại';
       setError(errorMessage);
+      if (errorMessage.includes(TEMP_LOCK_MESSAGE)) {
+        setLockExpiresAt(Date.now() + TEMP_LOCK_DURATION_MS);
+      }
     } finally {
       setLoading(false);
     }
@@ -69,7 +107,11 @@ export function LoginPage() {
                 id="login-phone-number"
                 type="text" 
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => {
+                  setPhoneNumber(e.target.value);
+                  if (error) setError('');
+                  if (lockExpiresAt) setLockExpiresAt(null);
+                }}
                 placeholder="Số điện thoại hoặc email" 
                 className="auth-input"
                 autoComplete="username"
@@ -113,10 +155,10 @@ export function LoginPage() {
 
             <button 
               type="submit"
-              disabled={loading}
+              disabled={loading || isTemporarilyLocked}
               className="auth-submit"
             >
-              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+              {loading ? 'Đang đăng nhập...' : isTemporarilyLocked ? 'Tài khoản tạm khóa' : 'Đăng nhập'}
             </button>
 
             <p className="auth-help">

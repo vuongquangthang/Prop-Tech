@@ -18,6 +18,8 @@ interface AssetOption {
   id: number;
   assetName: string;
   assetCode: string;
+  buildingId?: number | null;
+  buildingIds?: number[];
 }
 
 const POST_IMAGE_LIMIT = 6;
@@ -154,10 +156,39 @@ export function CreatePostPage() {
   const selectedRoomType = String((selectedRoom as any)?.type ?? 'single');
   const isEditing = editingPostId !== null;
   const normalizeServiceKey = (key: unknown) => String(key ?? '').toLowerCase();
+  const getScopedBuildingIds = (service: any) => {
+    if (Array.isArray(service?.buildingIds)) {
+      return service.buildingIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0);
+    }
+
+    const buildingId = Number(service?.buildingId ?? 0);
+    return Number.isFinite(buildingId) && buildingId > 0 ? [buildingId] : [];
+  };
+  const serviceAppliesToSelectedRoom = (service: any) => {
+    const roomBuildingId = Number((selectedRoom as any)?.buildingId ?? 0);
+    if (!Number.isFinite(roomBuildingId) || roomBuildingId <= 0) return false;
+
+    const scopedBuildingIds = getScopedBuildingIds(service);
+    return scopedBuildingIds.includes(roomBuildingId);
+  };
   const availableCatalogServices = serviceCatalog.filter((catalogItem) =>
+    serviceAppliesToSelectedRoom(catalogItem) &&
     !localServices.some((service) => normalizeServiceKey(service.key) === normalizeServiceKey(catalogItem.key))
   );
-  const availableAssetAmenities = assetCatalog.filter((asset) => !selectedAmenities.includes(asset.assetName));
+  const assetAppliesToSelectedRoom = (asset: AssetOption) => {
+    const roomBuildingId = Number((selectedRoom as any)?.buildingId ?? 0);
+    if (!Number.isFinite(roomBuildingId) || roomBuildingId <= 0) return false;
+
+    const scopedBuildingIds = Array.isArray(asset.buildingIds) && asset.buildingIds.length > 0
+      ? asset.buildingIds
+      : typeof asset.buildingId === 'number'
+        ? [asset.buildingId]
+        : [];
+    return scopedBuildingIds.includes(roomBuildingId);
+  };
+  const availableAssetAmenities = assetCatalog.filter((asset) =>
+    assetAppliesToSelectedRoom(asset) && !selectedAmenities.includes(asset.assetName)
+  );
   const postedRoomIds = useMemo(() => {
     return new Set(
       existingPosts
@@ -205,11 +236,22 @@ export function CreatePostPage() {
       }
     }
 
-    setLocalServices((Array.isArray(svcList) ? svcList : []).map((s: any) => ({ ...s })));
+    const catalogByKey = new Map(serviceCatalog.map((service) => [normalizeServiceKey(service.key), service]));
+    const scopedServices = (Array.isArray(svcList) ? svcList : []).filter((service: any) => {
+      const catalogService = catalogByKey.get(normalizeServiceKey(service.key ?? service.serviceId ?? service.id));
+      if (catalogService) {
+        return serviceAppliesToSelectedRoom(catalogService);
+      }
+
+      const scopedBuildingIds = getScopedBuildingIds(service);
+      return scopedBuildingIds.length === 0 || serviceAppliesToSelectedRoom(service);
+    });
+
+    setLocalServices(scopedServices.map((s: any) => ({ ...s })));
 
     setServicePrices((prev) => {
       const next = { ...prev };
-      (Array.isArray(svcList) ? svcList : []).forEach((s: any, idx: number) => {
+      scopedServices.forEach((s: any, idx: number) => {
         const key = `${selectedRoomId}-${idx}`;
         if (!(key in next)) {
           next[key] = s?.price ?? s?.unitPrice ?? s?.amount ?? '';
@@ -217,7 +259,7 @@ export function CreatePostPage() {
       });
       return next;
     });
-  }, [selectedRoom]);
+  }, [selectedRoom, serviceCatalog]);
 
   useEffect(() => {
     if (!selectedRoom || isEditing) return;
@@ -238,9 +280,12 @@ export function CreatePostPage() {
 
         const normalizedCatalog: PostServiceLineItem[] = (Array.isArray(catalog) ? catalog : []).map((service: any, index: number) => ({
           key: String(service.id ?? service.serviceId ?? `catalog-${index}`),
+          serviceId: Number(service.id ?? service.serviceId ?? 0) || undefined,
           name: service.name ?? service.serviceName ?? service.tenDichVu ?? 'Dịch vụ',
           unit: service.unit ?? service.donVi ?? '',
           price: Number(service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0),
+          buildingId: typeof service.buildingId === 'number' ? service.buildingId : null,
+          buildingIds: Array.isArray(service.buildingIds) ? service.buildingIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0) : [],
         }));
         setServiceCatalog(normalizedCatalog);
 
@@ -248,6 +293,8 @@ export function CreatePostPage() {
           id: Number(asset.id ?? 0),
           assetName: String(asset.assetName ?? asset.name ?? 'Tài sản'),
           assetCode: String(asset.assetCode ?? ''),
+          buildingId: typeof asset.buildingId === 'number' ? asset.buildingId : null,
+          buildingIds: Array.isArray(asset.buildingIds) ? asset.buildingIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0) : [],
         }));
         setAssetCatalog(normalizedAssets);
       } catch {

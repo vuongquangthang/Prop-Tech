@@ -48,7 +48,8 @@ public class JwtService : IJwtService
             new("UserId", user.Id.ToString()),
             new("OwnerUserId", (user.OwnerUserId ?? user.Id).ToString()),
             new("PhoneNumber", user.PhoneNumber),
-            new("Role", user.Role)
+            new("Role", user.Role),
+            new("SessionId", user.ActiveSessionId ?? string.Empty)
         };
 
         if (user.ResidentId.HasValue)

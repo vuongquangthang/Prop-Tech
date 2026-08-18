@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Alert } from 'react-native';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
 import { AdminTabs } from './AdminTabs';
@@ -76,8 +76,10 @@ const AdminStack = () => {
 
 export const RootNavigator = () => {
   const { isAuthenticated, user } = useAuthStore();
+  const logout = useAuthStore((state) => state.logout);
   const loadUserFromStore = useAuthStore((state) => state.loadUser);
   const [isInitializing, setIsInitializing] = useState(true);
+  const sessionRevokedAlertShownRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -95,6 +97,10 @@ export const RootNavigator = () => {
 
   // SignalR connection management
   useEffect(() => {
+    let unsubscribeNotification: (() => void) | undefined;
+    let unsubscribeMaintenanceUpdate: (() => void) | undefined;
+    let unsubscribeSessionRevoked: (() => void) | undefined;
+
     if (isAuthenticated) {
       console.log('User authenticated, connecting to SignalR...');
       signalrService
@@ -103,22 +109,31 @@ export const RootNavigator = () => {
           console.log('SignalR connected successfully');
 
           // Subscribe to notifications
-          const unsubscribeNotification = signalrService.onNotification((notification) => {
+          unsubscribeNotification = signalrService.onNotification((notification) => {
             console.log('Received notification:', notification);
             // You can show a toast/alert or update a notification badge here
           });
 
           // Subscribe to maintenance updates
-          const unsubscribeMaintenanceUpdate = signalrService.onMaintenanceUpdate((request) => {
+          unsubscribeMaintenanceUpdate = signalrService.onMaintenanceUpdate((request) => {
             console.log('Maintenance request updated:', request);
             // You can trigger a screen refresh here
           });
 
-          // Store unsubscribe functions
-          return () => {
-            unsubscribeNotification();
-            unsubscribeMaintenanceUpdate();
-          };
+          unsubscribeSessionRevoked = signalrService.onSessionRevoked(async (payload) => {
+            if (sessionRevokedAlertShownRef.current) return;
+            sessionRevokedAlertShownRef.current = true;
+            const message = payload?.message || 'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác';
+            await logout();
+            Alert.alert('Phiên đăng nhập đã kết thúc', message, [
+              {
+                text: 'OK',
+                onPress: () => {
+                  sessionRevokedAlertShownRef.current = false;
+                },
+              },
+            ]);
+          });
         })
         .catch((error) => {
           console.error('SignalR connection failed, but continuing app:', error);
@@ -130,11 +145,14 @@ export const RootNavigator = () => {
     }
 
     return () => {
+      unsubscribeNotification?.();
+      unsubscribeMaintenanceUpdate?.();
+      unsubscribeSessionRevoked?.();
       if (!isAuthenticated) {
         signalrService.disconnect();
       }
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, logout]);
 
   if (isInitializing) {
     return (

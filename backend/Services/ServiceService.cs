@@ -152,7 +152,7 @@ public class ServiceService : IServiceService
             .Include(service => service.BuildingScopes)
                 .ThenInclude(scope => scope.Building)
             .Where(item => item.OwnerUserId == ownerUserId
-                && item.Name == serviceName)
+                && item.Name.Trim().ToUpper() == serviceName.ToUpper())
             .ToListAsync();
         var conflictingActiveService = existingServices
             .FirstOrDefault(item => item.IsActive && ServiceScopesConflict(GetServiceBuildingIds(item), buildingIds));
@@ -233,6 +233,7 @@ public class ServiceService : IServiceService
         }
 
         var effectiveName = nextName ?? service.Name;
+        var normalizedEffectiveName = effectiveName.ToUpper();
         if ((nextName != null && nextName != service.Name) || hasScopeUpdate)
         {
             var sameNameServices = await _context.Services
@@ -241,7 +242,7 @@ public class ServiceService : IServiceService
                 .Where(item => item.OwnerUserId == ownerUserId
                     && item.Id != service.Id
                     && item.IsActive
-                    && item.Name == effectiveName)
+                    && item.Name.Trim().ToUpper() == normalizedEffectiveName)
                 .ToListAsync();
             if (sameNameServices.Any(item => ServiceScopesConflict(GetServiceBuildingIds(item), nextBuildingIds)))
             {
@@ -306,7 +307,10 @@ public class ServiceService : IServiceService
                 ChangedAt = DateTime.UtcNow
             });
 
-            service.CommonUnitPrice = newPrice;
+            if (GetVietnamDate(effectiveDate) <= vietnamToday)
+            {
+                service.CommonUnitPrice = newPrice;
+            }
             service.EffectiveDate = effectiveDate;
             notificationOldPrice = currentPrice;
             notificationNewPrice = newPrice;

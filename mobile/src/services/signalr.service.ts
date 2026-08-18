@@ -10,6 +10,7 @@ export type NotificationHandler = (notification: any) => void;
 export type MaintenanceUpdateHandler = (update: any) => void;
 export type PaymentUpdateHandler = (payment: any) => void;
 export type InvoiceUpdateHandler = (invoice: any) => void;
+export type SessionRevokedHandler = (payload: any) => void;
 
 class SignalRService {
   private connection: SignalR.HubConnection | null = null;
@@ -17,6 +18,7 @@ class SignalRService {
   private maintenanceHandlers: MaintenanceUpdateHandler[] = [];
   private paymentHandlers: PaymentUpdateHandler[] = [];
   private invoiceHandlers: InvoiceUpdateHandler[] = [];
+  private sessionRevokedHandlers: SessionRevokedHandler[] = [];
   private isConnecting: boolean = false;
 
   /**
@@ -77,6 +79,11 @@ class SignalRService {
           console.log('📄 Invoice approved notification:', notification);
           this.invoiceHandlers.forEach(handler => handler(notification));
         }
+      });
+
+      this.connection.on('SessionRevoked', (payload) => {
+        console.log('🔒 Session revoked:', payload);
+        this.sessionRevokedHandlers.forEach(handler => handler(payload));
       });
 
       // Listen for new maintenance requests (from other residents - useful for admin)
@@ -256,6 +263,16 @@ class SignalRService {
       const index = this.invoiceHandlers.indexOf(handler);
       if (index > -1) {
         this.invoiceHandlers.splice(index, 1);
+      }
+    };
+  }
+
+  onSessionRevoked(handler: SessionRevokedHandler): () => void {
+    this.sessionRevokedHandlers.push(handler);
+    return () => {
+      const index = this.sessionRevokedHandlers.indexOf(handler);
+      if (index > -1) {
+        this.sessionRevokedHandlers.splice(index, 1);
       }
     };
   }

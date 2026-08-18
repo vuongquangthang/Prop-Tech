@@ -5,6 +5,8 @@ import { notificationHub, initializeSignalR, disconnectSignalR } from '../lib/si
 import { useAuth } from './AuthContext';
 import { formatDisplayDate } from '../lib/date-utils';
 
+const SESSION_REVOKED_MESSAGE = 'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác';
+
 // Types
 export interface Incident {
   id: string;
@@ -257,7 +259,7 @@ function formatTime(dateString: string): string {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
@@ -485,6 +487,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       };
       notificationHub.on('PaymentSuccess', handlePaymentEvent('PaymentSuccess'));
       notificationHub.on('PaymentFailed', handlePaymentEvent('PaymentFailed'));
+      notificationHub.on('SessionRevoked', async (payload: any) => {
+        const message = payload?.message || SESSION_REVOKED_MESSAGE;
+        window.sessionStorage.setItem('authLogoutMessage', message);
+        await logout();
+        window.location.href = '/login';
+      });
     });
 
     // Cleanup on unmount

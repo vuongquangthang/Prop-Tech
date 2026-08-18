@@ -33,6 +33,14 @@ public class AuthController : ControllerBase
             await _auditLogService.LogAsync(response.User.Id, "LOGIN", "Auth", null, $"Đăng nhập: {request.PhoneNumber}", ip, ua);
             return Ok(response);
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (TemporaryAccountLockedException ex)
+        {
+            return StatusCode(StatusCodes.Status423Locked, new { message = ex.Message });
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { message = ex.Message });

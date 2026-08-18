@@ -129,6 +129,17 @@ public class FloorService : IFloorService
             throw new InvalidOperationException($"Tầng {dto.FloorNumber} đã tồn tại trong tòa nhà này");
         }
 
+        var maxFloorNumber = await _context.Floors
+            .AsNoTracking()
+            .Where(item => item.BuildingId == dto.BuildingId && !item.IsDeleted)
+            .Select(item => (int?)item.FloorNumber)
+            .MaxAsync() ?? 0;
+        var expectedFloorNumber = maxFloorNumber + 1;
+        if (dto.FloorNumber != expectedFloorNumber)
+        {
+            throw new InvalidOperationException($"Vui lòng thêm tầng {expectedFloorNumber} trước khi thêm tầng {dto.FloorNumber}");
+        }
+
         var floor = new Floor
         {
             BuildingId = dto.BuildingId,
@@ -198,9 +209,35 @@ public class FloorService : IFloorService
             throw new InvalidOperationException("Tầng không tồn tại");
         }
 
-        if (floor.Rooms.Any(room => room.Status != "Đã xóa"))
+        var activeRooms = floor.Rooms
+            .Where(room => room.Status != "Đã xóa")
+            .ToList();
+
+        if (activeRooms.Any(room => room.Status != "Trống"))
         {
-            throw new InvalidOperationException("Không thể xóa tầng đã có phòng");
+            throw new InvalidOperationException("Không thể xóa tầng này do đã có cư dân ở");
+        }
+
+        var roomIds = activeRooms.Select(room => room.Id).ToList();
+        if (roomIds.Count > 0)
+        {
+            var linkedPosts = await _context.BaiDangTimPhongs
+                .Where(post => roomIds.Contains(post.RoomId)
+                    && post.Status != "deleted"
+                    && !post.IsLocked)
+                .ToListAsync();
+
+            foreach (var post in linkedPosts)
+            {
+                post.IsLocked = true;
+                post.Status = "paused";
+                post.RoomStatus = "Đã xóa";
+            }
+
+            foreach (var room in activeRooms)
+            {
+                room.Status = "Đã xóa";
+            }
         }
 
         floor.IsDeleted = true;

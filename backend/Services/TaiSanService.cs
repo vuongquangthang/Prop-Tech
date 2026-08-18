@@ -47,19 +47,40 @@ namespace backend.Services
 
         public async Task<TaiSanDto> CreateAsync(CreateTaiSanDto dto, int ownerUserId)
         {
+            var assetName = dto.AssetName?.Trim();
+            var assetCode = dto.AssetCode?.Trim();
+            if (string.IsNullOrWhiteSpace(assetName))
+            {
+                throw new Exception("Vui lòng nhập tên tài sản");
+            }
+            if (string.IsNullOrWhiteSpace(assetCode))
+            {
+                throw new Exception("Vui lòng nhập mã tài sản");
+            }
+
             var buildingIds = NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId);
+            if (buildingIds.Count == 0)
+            {
+                throw new Exception("Vui lòng chọn tòa nhà áp dụng");
+            }
             await EnsureOwnsBuildingsAsync(buildingIds, ownerUserId);
 
             // Check duplicate asset code
-            if (await _context.TaiSans.AnyAsync(asset => asset.OwnerUserId == ownerUserId && asset.AssetCode == dto.AssetCode))
+            var normalizedAssetCode = assetCode.ToUpper();
+            var sameCodeAssets = await _context.TaiSans
+                .AsNoTracking()
+                .Include(asset => asset.BuildingScopes)
+                .Where(asset => asset.OwnerUserId == ownerUserId && asset.AssetCode.Trim().ToUpper() == normalizedAssetCode)
+                .ToListAsync();
+            if (sameCodeAssets.Any(asset => AssetScopesConflict(GetAssetBuildingIds(asset), buildingIds)))
             {
-                throw new Exception($"Mã tài sản '{dto.AssetCode}' đã tồn tại");
+                throw new Exception($"Mã tài sản '{assetCode}' đã tồn tại trong tòa nhà đã chọn");
             }
 
             var taiSan = new TaiSan
             {
-                AssetName = dto.AssetName,
-                AssetCode = dto.AssetCode,
+                AssetName = assetName,
+                AssetCode = assetCode,
                 OwnerUserId = ownerUserId,
                 BuildingId = null
             };
@@ -79,19 +100,47 @@ namespace backend.Services
             }
 
             // Update fields
-            if (!string.IsNullOrEmpty(dto.AssetName))
-                taiSan.AssetName = dto.AssetName;
+            if (dto.AssetName != null)
+            {
+                var nextAssetName = dto.AssetName.Trim();
+                if (string.IsNullOrWhiteSpace(nextAssetName))
+                {
+                    throw new Exception("Vui lòng nhập tên tài sản");
+                }
+                taiSan.AssetName = nextAssetName;
+            }
 
-            if (!string.IsNullOrWhiteSpace(dto.AssetCode))
+            if (dto.AssetCode != null)
             {
                 var nextAssetCode = dto.AssetCode.Trim();
-                var isChangingAssetCode = !string.Equals(taiSan.AssetCode, nextAssetCode, StringComparison.OrdinalIgnoreCase);
-
-                // Check duplicate only when the code is actually changed.
-                // Scope-only updates must not fail because of legacy grouped asset rows with the same code.
-                if (isChangingAssetCode && await _context.TaiSans.AnyAsync(asset => asset.Id != taiSan.Id && asset.OwnerUserId == ownerUserId && asset.AssetCode == nextAssetCode))
+                if (string.IsNullOrWhiteSpace(nextAssetCode))
                 {
-                    throw new Exception($"Mã tài sản '{nextAssetCode}' đã tồn tại");
+                    throw new Exception("Vui lòng nhập mã tài sản");
+                }
+                var isChangingAssetCode = !string.Equals(taiSan.AssetCode, nextAssetCode, StringComparison.OrdinalIgnoreCase);
+                var normalizedNextAssetCode = nextAssetCode.ToUpper();
+
+                var nextBuildingIds = dto.BuildingIds != null || dto.BuildingId.HasValue
+                    ? NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId)
+                    : GetAssetBuildingIds(taiSan);
+                if (nextBuildingIds.Count == 0)
+                {
+                    throw new Exception("Vui lòng chọn tòa nhà áp dụng");
+                }
+
+                if (isChangingAssetCode || dto.BuildingIds != null || dto.BuildingId.HasValue)
+                {
+                    var sameCodeAssets = await _context.TaiSans
+                        .AsNoTracking()
+                        .Include(asset => asset.BuildingScopes)
+                        .Where(asset => asset.Id != taiSan.Id
+                            && asset.OwnerUserId == ownerUserId
+                            && asset.AssetCode.Trim().ToUpper() == normalizedNextAssetCode)
+                        .ToListAsync();
+                    if (sameCodeAssets.Any(asset => AssetScopesConflict(GetAssetBuildingIds(asset), nextBuildingIds)))
+                    {
+                        throw new Exception($"Mã tài sản '{nextAssetCode}' đã tồn tại trong tòa nhà đã chọn");
+                    }
                 }
                 taiSan.AssetCode = nextAssetCode;
             }
@@ -99,6 +148,10 @@ namespace backend.Services
             if (dto.BuildingIds != null || dto.BuildingId.HasValue)
             {
                 var buildingIds = NormalizeBuildingIds(dto.BuildingIds, dto.BuildingId);
+                if (buildingIds.Count == 0)
+                {
+                    throw new Exception("Vui lòng chọn tòa nhà áp dụng");
+                }
                 await EnsureOwnsBuildingsAsync(buildingIds, ownerUserId);
                 SyncAssetBuildingScopes(taiSan, buildingIds);
                 taiSan.BuildingId = null;
@@ -111,6 +164,21 @@ namespace backend.Services
 
         public async Task<bool> DeleteAsync(int id, int ownerUserId)
         {
+            var taiSan = await _taiSanRepository.GetByIdAsync(id, ownerUserId);
+            if (taiSan == null)
+            {
+                return false;
+            }
+
+            var usedRoomCount = taiSan.ChiTietTaiSanPhongs?
+                .Select(detail => detail.RoomId)
+                .Distinct()
+                .Count() ?? 0;
+            if (usedRoomCount > 0)
+            {
+                throw new InvalidOperationException($"Không thể xóa tài sản đang được sử dụng ở {usedRoomCount} phòng. Vui lòng gỡ tài sản khỏi các phòng trước khi xóa.");
+            }
+
             return await _taiSanRepository.DeleteAsync(id, ownerUserId);
         }
 
@@ -145,6 +213,31 @@ namespace backend.Services
             }
 
             return ids;
+        }
+
+        private static List<int> GetAssetBuildingIds(TaiSan asset)
+        {
+            var scopedIds = asset.BuildingScopes?
+                .Select(scope => scope.BuildingId)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<int>();
+            if (scopedIds.Count == 0 && asset.BuildingId.HasValue && asset.BuildingId.Value > 0)
+            {
+                scopedIds.Add(asset.BuildingId.Value);
+            }
+
+            return scopedIds;
+        }
+
+        private static bool AssetScopesConflict(List<int> first, List<int> second)
+        {
+            if (first.Count == 0 || second.Count == 0)
+            {
+                return first.Count == second.Count;
+            }
+
+            return first.Intersect(second).Any();
         }
 
         private async Task EnsureOwnsBuildingsAsync(List<int> buildingIds, int ownerUserId)
