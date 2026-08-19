@@ -162,8 +162,13 @@ class ApiService {
             import('../store/authStore').then(({ useAuthStore }) => {
               const state = useAuthStore.getState();
               if (state && state.isAuthenticated) {
-                // Force logout to update UI
-                state.logout().catch(() => {});
+                useAuthStore.setState({
+                  user: null,
+                  isAuthenticated: false,
+                  isLoading: false,
+                  error: 'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác',
+                  activeContractId: null,
+                });
               }
             });
             

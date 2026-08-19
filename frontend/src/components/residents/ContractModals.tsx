@@ -525,6 +525,22 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     return parts.join(' + ');
   }, [formulaRows, serviceQuantities, householdMemberCount]);
 
+  const getRowCalculationModeText = (row: BillingFormulaRow) => {
+    if (row.quantityExpression === 'n') {
+      return 'Theo chỉ số tiêu thụ cuối tháng';
+    }
+
+    if (row.quantityMode === 'manual') {
+      return 'Theo số lượng nhập';
+    }
+
+    if (row.quantityMode === 'person') {
+      return 'Theo số người ở';
+    }
+
+    return 'Theo tháng';
+  };
+
   const toggleServiceSelection = (serviceId: number) => {
     toggleExclusiveMeterService(serviceId, availablePricingCatalog, setSelectedServiceIds);
   };
@@ -890,10 +906,9 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                             <input type="checkbox" checked={isSelected} readOnly className="pointer-events-none h-4 w-4 shrink-0" />
                             <span>{service.name || service.serviceName}</span>
                           </span>
-                          <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
                           {isMeterService(service) && (
                             <span className="block pl-6 text-xs text-amber-700">
-                              Giá sẽ tự động thay đổi theo giá thị trường.
+                              Giá áp dụng theo bảng giá tại kỳ lập hóa đơn.
                             </span>
                           )}
                         </span>
@@ -1654,6 +1669,34 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     return parts.join(' + ');
   }, [formulaRows, serviceQuantities, householdMemberCount]);
 
+  const getRowCalculationModeText = (row: BillingFormulaRow) => {
+    if (row.quantityExpression === 'n') {
+      return 'Theo chỉ số tiêu thụ cuối tháng';
+    }
+
+    if (row.quantityMode === 'manual') {
+      return 'Theo số lượng nhập';
+    }
+
+    if (row.quantityMode === 'person') {
+      return 'Theo số người ở';
+    }
+
+    return 'Theo tháng';
+  };
+
+  const getRowFormulaDisplayText = (row: BillingFormulaRow) => {
+    if (row.quantityExpression === 'n') {
+      return `${row.serviceName} x n`;
+    }
+
+    return `${row.serviceName} x ${getRowQuantity(row) ?? 0}`;
+  };
+
+  const monthlyFormulaDisplayParts = useMemo(() => {
+    return formulaRows.map(getRowFormulaDisplayText);
+  }, [formulaRows, serviceQuantities, householdMemberCount]);
+
   const toggleServiceSelection = (serviceId: number) => {
     toggleExclusiveMeterService(serviceId, availablePricingCatalog, setSelectedServiceIds);
   };
@@ -2230,7 +2273,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center">
               <DollarSign size={16} className="mr-2" />
-              BƯỚC 4: Danh mục đơn giá áp dụng
+              BƯỚC 4: Danh mục dịch vụ áp dụng
             </h4>
 
             <div className="space-y-2">
@@ -2244,9 +2287,9 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                       <button
                         type="button"
                         onClick={() => toggleServiceSelection(serviceId)}
-                        className="w-full flex items-start justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50"
+                        className="w-full flex items-center justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        <span className="cursor-pointer text-left">
+                        <span className="flex min-h-[48px] cursor-pointer items-center text-left">
                           <span className="flex items-center gap-2">
                             <input
                               type="checkbox"
@@ -2256,20 +2299,11 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                             />
                             <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
                           </span>
-                          <span className="block pl-6 text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
-                          {isMeterService(service) && (
-                            <span className="block pl-6 text-xs text-amber-700">
-                              Giá sẽ tự động thay đổi theo giá thị trường.
-                            </span>
-                          )}
                         </span>
-                        <span className="shrink-0 text-right">
-                          <span className="block font-bold text-gray-800">
-                            {getCurrentServicePrice(service).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
-                          </span>
-                          {getScheduledServicePriceLabel(service) && (
-                            <span className="mt-1 block text-xs font-normal text-amber-700">
-                              Sắp áp dụng: {getScheduledServicePriceLabel(service)}
+                        <span className="shrink-0 self-center text-right text-xs">
+                          {isMeterService(service) && (
+                            <span className="mt-1 block text-amber-700">
+                              Giá áp dụng theo bảng giá tại kỳ lập hóa đơn.
                             </span>
                           )}
                         </span>
@@ -2303,7 +2337,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
               )}
             </div>
             <p className="text-xs text-gray-500 mt-3">
-              🔗 Đơn giá đồng bộ từ <strong>Quản lý Hạ tầng → Dịch vụ & Đơn giá</strong>
+              🔗 Danh mục dịch vụ đồng bộ từ <strong>Quản lý Hạ tầng</strong>
             </p>
             <p className="text-xs text-gray-500 mt-1">
               Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục (tùy chọn)
@@ -2312,23 +2346,20 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
           {/* Step 5 */}
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <h4 className="text-sm text-gray-800 font-bold mb-3">BƯỚC 5: Công thức hóa đơn cuối tháng</h4>
+            <h4 className="text-sm text-gray-800 font-bold mb-3">BƯỚC 5: Cách tính hóa đơn cuối tháng</h4>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border border-gray-200">
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-3 py-2 text-left border-b border-gray-200">Dịch vụ</th>
-                    <th className="px-3 py-2 text-right border-b border-gray-200">Đơn giá</th>
                     <th className="px-3 py-2 text-center border-b border-gray-200">Số lượng</th>
-                    <th className="px-3 py-2 text-left border-b border-gray-200">Công thức</th>
-                    <th className="px-3 py-2 text-right border-b border-gray-200">Tổng tiền</th>
+                    <th className="px-3 py-2 text-left border-b border-gray-200">Cách tính</th>
                   </tr>
                 </thead>
                 <tbody>
                   {formulaRows.map((row) => (
                     <tr key={row.key} className="bg-white">
                       <td className="px-3 py-2 border-b border-gray-100">{row.serviceName}</td>
-                      <td className="px-3 py-2 text-right border-b border-gray-100">{row.unitPrice.toLocaleString('vi-VN')}</td>
                       <td className="px-3 py-2 text-center border-b border-gray-100">
                         {row.quantityExpression === 'n' ? (
                           <span className="font-bold">n</span>
@@ -2340,8 +2371,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                           <span className="font-bold text-gray-700">1</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 border-b border-gray-100 text-gray-700">{getRowFormulaText(row)}</td>
-                      <td className="px-3 py-2 text-right border-b border-gray-100">{getFormulaTotalText(row)}</td>
+                      <td className="px-3 py-2 border-b border-gray-100 text-gray-700">{getRowCalculationModeText(row)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2349,9 +2379,18 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
             </div>
             <div className="mt-3 bg-white border border-gray-200 rounded p-3">
               <p className="text-xs text-gray-600 mb-1">Công thức hóa đơn tháng (để kiểm tra):</p>
-              <p className="text-sm text-gray-800 font-medium break-words">
-                {monthlyFormulaExpression || '(chưa có công thức)'}
-              </p>
+              {monthlyFormulaDisplayParts.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-gray-800">
+                  {monthlyFormulaDisplayParts.map((part, index) => (
+                    <span key={`${part}-${index}`} className="contents">
+                      {index > 0 && <span className="px-1 font-bold text-blue-600">+</span>}
+                      <span>{part}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-800 font-medium">(chưa có công thức)</p>
+              )}
             </div>
             <p className="text-xs text-gray-500 mt-2">
               Công thức sẽ được lưu theo hợp đồng/phòng và áp dụng khi tính hóa đơn nháp mỗi tháng.
@@ -2765,8 +2804,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
   const [contractDetail, setContractDetail] = useState<any>(contract ?? null);
   const [roomDetail, setRoomDetail] = useState<any>(null);
   const [activeServices, setActiveServices] = useState<any[]>([]);
-  const [totalPaid, setTotalPaid] = useState(0);
-  const [currentDebt, setCurrentDebt] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -2790,23 +2827,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
           } catch (e) {
             console.error('Error fetching room detail:', e);
           }
-        }
-
-        try {
-          const invoices = await invoiceService.getAll();
-          const relatedInvoices = (invoices || []).filter((inv: any) => {
-            const cid = Number(inv.contractId || inv.hopDongId || 0);
-            const rid = Number(inv.roomId || inv.phongId || 0);
-            return cid === Number(contract.id) || (roomId && rid === Number(roomId));
-          });
-
-          const paid = relatedInvoices.reduce((sum: number, inv: any) => sum + Number(inv.paidAmount || 0), 0);
-          const total = relatedInvoices.reduce((sum: number, inv: any) => sum + Number(inv.totalAmount || 0), 0);
-          
-          setTotalPaid(paid);
-          setCurrentDebt(total - paid);
-        } catch (e) {
-          console.error('Error calculating financial data:', e);
         }
 
         let currentContractServices: any[] = [];
@@ -2893,6 +2913,12 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
     ?? roomDetail?.address
     ?? roomDetail?.floor?.building?.address
     ?? '';
+  const displayLocationText = [
+    `Phòng ${displayRoom}`,
+    `Tầng ${displayFloorNumber || '—'}`,
+    displayBuildingName || '—',
+    displayBuildingAddress,
+  ].filter(Boolean).join(' - ');
   const displayStartDate = contractDetail?.startDate ? formatDateVi(contractDetail.startDate) : contract?.startDate || '-';
   const displayEndDate = contractDetail?.expectedEndDate
     ? formatDateVi(contractDetail.expectedEndDate)
@@ -2932,366 +2958,224 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
           </button>
         </div>
         
-        <div className="p-6 space-y-6">
-          <div className="border border-blue-200 bg-blue-50 p-4">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-blue-900">
-              <Home size={17} className="shrink-0" />
-              <span>{displayRoom}</span>
-              <span>-</span>
-              <span>Tầng {displayFloorNumber || '—'}</span>
-              <span>-</span>
-              <span>{displayBuildingName || '—'}</span>
-              <span>-</span>
-              <span>{displayBuildingAddress || '—'}</span>
+        <div className="p-6 space-y-5 bg-slate-50">
+          <div className="bg-white border border-gray-300 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Hồ sơ hợp đồng</p>
+                <h2 className="mt-1 text-2xl font-bold text-gray-950">{displayCode}</h2>
+                <p className="mt-3 text-sm leading-5 text-gray-700">
+                  {displayLocationText}
+                </p>
+              </div>
+              <span className={`shrink-0 px-3 py-1 text-sm font-bold rounded-[15px] ${
+                contract?.status === 'active' ? 'bg-green-50 text-green-700' :
+                contract?.status === 'ended' ? 'bg-gray-100 text-gray-700' :
+                contract?.status === 'expired' ? 'bg-red-50 text-red-700' :
+                'bg-amber-50 text-amber-700'
+              }`}>
+                {contract?.status === 'active' ? 'Đang hoạt động' :
+                 contract?.status === 'ended' ? 'Đã tất toán' :
+                 contract?.status === 'expired' ? `Quá hạn ${Math.abs(contract.daysLeft || 0)} ngày` :
+                 `Còn ${contract?.daysLeft ?? '—'} ngày`}
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-4 gap-3 text-sm">
+              <div className="border border-gray-200 bg-slate-50 p-3">
+                <p className="text-xs text-gray-500">Thời hạn</p>
+                <p className="mt-1 font-bold text-gray-900">{displayStartDate} → {displayEndDate}</p>
+              </div>
+              <div className="border border-gray-200 bg-slate-50 p-3">
+                <p className="text-xs text-gray-500">Tiền thuê/tháng</p>
+                <p className="mt-1 font-bold text-blue-700">{fmtCurrency(displayRent)} VNĐ</p>
+              </div>
+              <div className="border border-gray-200 bg-slate-50 p-3">
+                <p className="text-xs text-gray-500">Tiền cọc</p>
+                <p className="mt-1 font-bold text-gray-900">{fmtCurrency(displayDeposit)} VNĐ</p>
+              </div>
+              <div className="border border-gray-200 bg-slate-50 p-3">
+                <p className="text-xs text-gray-500">Ngày thu hằng tháng</p>
+                <p className="mt-1 font-bold text-gray-900">Ngày 5</p>
+              </div>
             </div>
           </div>
 
-          {/* Status Alert */}
-          {contract?.status === 'expired' && (
-            <div className="bg-red-50 border border-red-300 rounded p-4 flex items-start space-x-3">
-              <AlertTriangle size={24} className="text-red-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-red-800 font-bold mb-1">⚠️ Hợp đồng đã quá hạn {Math.abs(contract.daysLeft)} ngày!</p>
-                <p className="text-sm text-red-700">Vui lòng liên hệ cư dân để gia hạn hoặc thanh lý hợp đồng.</p>
-              </div>
-            </div>
-          )}
-
-          {contract?.status === 'ended' && (
-            <div className="bg-gray-50 border border-gray-300 rounded p-4 flex items-start space-x-3">
-              <Check size={24} className="text-gray-700 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-gray-800 font-bold mb-1">Hợp đồng đã tất toán/thanh lý</p>
-                <p className="text-sm text-gray-700">Trạng thái hợp đồng đã kết thúc.</p>
-              </div>
-            </div>
-          )}
-
-          {contract?.status === 'danger' && (
-            <div className="bg-yellow-50 border border-yellow-300 rounded p-4 flex items-start space-x-3">
-              <AlertTriangle size={24} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-yellow-800 font-bold mb-1">⚠️ Hợp đồng sắp hết hn (còn {contract.daysLeft} ngày)</p>
-                <p className="text-sm text-yellow-700">Nên liên hệ cư dân để chuẩn bị gia hạn.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Contract Info */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Thông tin hợp đồng</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Mã hợp đồng:</span>
-                    <span className="text-gray-800 font-bold">{displayCode}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Phòng:</span>
-                    <span className="text-gray-800 font-bold">{displayRoom}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ngày bắt đầu:</span>
-                    <span className="text-gray-800">{displayStartDate}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ngày kết thúc:</span>
-                    <span className="text-gray-800">{displayEndDate}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-gray-300 pt-2">
-                    <span className="text-gray-600">Trạng thái:</span>
-                    <span className={`font-bold ${
-                      contract?.status === 'active' ? 'text-green-700' : 
-                      contract?.status === 'ended' ? 'text-gray-700' :
-                      contract?.status === 'expired' ? 'text-red-700' : 'text-yellow-700'
-                    }`}>
-                      {contract?.status === 'active' ? 'Đang hoạt động' :
-                       contract?.status === 'ended' ? 'Đã hết' :
-                       contract?.status === 'expired' ? `Quá hạn ${Math.abs(contract.daysLeft)} ngày` :
-                       `Còn ${contract?.daysLeft} ngày`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm text-gray-600">Thành viên trong hộ</h4>
-                  <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">{residentList.length} người</span>
-                </div>
-                
-                {/* Head of Household */}
-                <div className="space-y-2">
-                  {headOfHousehold && (
-                    <div className="bg-white border border-gray-300 rounded p-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-gray-800 font-bold">{getResidentName(headOfHousehold)}</p>
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-300">Chủ hộ</span>
-                          </div>
-                          <p className="text-xs text-gray-600">{getResidentPhone(headOfHousehold)} • {getResidentIdCard(headOfHousehold)}</p>
-                          {headOfHousehold.email && <p className="text-xs text-blue-600">{headOfHousehold.email}</p>}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {residentList.filter((r: any) => r !== headOfHousehold).map((member: any, idx: number) => (
-                    <div key={member.id || member.residentId || idx} className="bg-white border border-gray-300 rounded p-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-700">{getResidentName(member)}</p>
-                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-300">{member.residencyRole || 'Thành viên'}</span>
-                          </div>
-                          <p className="text-xs text-gray-600">{getResidentPhone(member)}</p>
-                          {member.email && <p className="text-xs text-blue-600">{member.email}</p>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 Tất cả thành viên có tài khoản trong <strong>Danh sách Cư dân</strong>
+          {(contract?.status === 'expired' || contract?.status === 'danger' || contract?.status === 'ended') && (
+            <div className={`border p-4 flex items-start gap-3 ${
+              contract?.status === 'expired' ? 'bg-red-50 border-red-200' :
+              contract?.status === 'danger' ? 'bg-amber-50 border-amber-200' :
+              'bg-gray-50 border-gray-300'
+            }`}>
+              {contract?.status === 'ended' ? (
+                <Check size={20} className="mt-0.5 text-gray-700" />
+              ) : (
+                <AlertTriangle size={20} className={`mt-0.5 ${contract?.status === 'expired' ? 'text-red-700' : 'text-amber-700'}`} />
+              )}
+              <div className="text-sm">
+                <p className={`font-bold ${
+                  contract?.status === 'expired' ? 'text-red-800' :
+                  contract?.status === 'danger' ? 'text-amber-800' :
+                  'text-gray-800'
+                }`}>
+                  {contract?.status === 'expired'
+                    ? `Hợp đồng đã quá hạn ${Math.abs(contract.daysLeft || 0)} ngày`
+                    : contract?.status === 'danger'
+                      ? `Hợp đồng sắp hết hạn, còn ${contract.daysLeft} ngày`
+                      : 'Hợp đồng đã tất toán/thanh lý'}
+                </p>
+                <p className="mt-0.5 text-gray-600">
+                  {contract?.status === 'ended'
+                    ? 'Hồ sơ này dùng để tra cứu lịch sử, không còn phát sinh hóa đơn mới.'
+                    : 'Nên kiểm tra kế hoạch gia hạn, tất toán hoặc tìm khách mới cho phòng.'}
                 </p>
               </div>
             </div>
+          )}
 
-            <div className="space-y-4">
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Chi phí</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tiền thuê/tháng:</span>
-                    <span className="text-gray-800 font-bold">{fmtCurrency(displayRent)} VNĐ</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tiền cọc theo hợp đồng:</span>
-                    <span className="text-gray-800 font-bold">{fmtCurrency(displayDeposit)} VNĐ</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ngày thanh toán:</span>
-                    <span className="text-gray-800">Ngày 5 hàng tháng</span>
-                  </div>
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-5">
+            <section className="bg-white border border-gray-300 p-4">
+              <h4 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-800">Thông tin phòng thuê</h4>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Diện tích</p>
+                  <p className="mt-1 font-bold text-gray-900">{roomDetail?.area ? `${roomDetail.area} m²` : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Số người tối đa</p>
+                  <p className="mt-1 font-bold text-gray-900">{roomDetail?.maxOccupants ?? roomDetail?.maximumOccupancy ?? '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Trạng thái phòng</p>
+                  <p className="mt-1 font-bold text-green-700">{roomDetail?.status || '-'}</p>
                 </div>
               </div>
-
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Công thức tính hóa đơn hàng tháng</h4>
-                <div className="space-y-2 text-sm">
-                  {(contractDetail?.billingFormulaJson || contractDetail?.BillingFormulaJson) ? (
-                    (() => {
-                      try {
-                        // Support both camelCase and PascalCase from backend
-                        const formulaJson = contractDetail.billingFormulaJson || contractDetail.BillingFormulaJson;
-                        const formula = typeof formulaJson === 'string' 
-                          ? JSON.parse(formulaJson)
-                          : formulaJson;
-                        
-                        const items = Array.isArray(formula) ? formula : [];
-                        
-                        return items.length > 0 ? (
-                          <>
-                            {items.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((item: any, idx: number) => {
-                              const qtyText = item.quantityExpression === 'n' || !item.quantity 
-                                ? 'n' 
-                                : item.quantity;
-                              const normalizedItemType = String(item.itemType || '').toLowerCase();
-                              const formulaName = normalizedItemType === 'dien'
-                                ? 'Tiền điện'
-                                : normalizedItemType === 'nuoc'
-                                  ? 'Tiền nước'
-                                  : normalizedItemType === 'tienphong'
-                                    ? 'Tiền phòng'
-                                    : item.serviceName || item.itemType || 'Dịch vụ';
-                              
-                              return (
-                                <div key={idx} className="py-1">
-                                  <div className="flex justify-between items-start">
-                                    <span className="text-gray-700 flex-1">
-                                      {idx + 1}. {formulaName}
-                                    </span>
-                                    <span className="text-gray-800 font-mono text-right">
-                                      {formulaName} × {qtyText}
-                                    </span>
-                                  </div>
-                                  {isMeterService(item) && (
-                                    <p className="mt-0.5 text-xs text-amber-700">
-                                      Giá điện/nước sẽ tự động thay đổi theo giá thị trường tại thời điểm lập hóa đơn.
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })}
-                            <div className="border-t border-gray-300 pt-2 mt-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-800 font-bold">Tổng cộng</span>
-                                <span className="text-blue-700 font-bold">= Σ (Khoản phí × Số lượng)</span>
-                              </div>
-                            </div>
-                            <p className="text-xs text-gray-500 pt-2 border-t border-gray-300 mt-2">
-                              💡 <strong>n</strong> = Số lượng thực tế sử dụng trong tháng (điện, nước: từ chỉ số đồng hồ)
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-gray-500">Công thức trống</p>
-                        );
-                      } catch (e) {
-                        console.error('Error parsing billing formula:', e);
-                        return <p className="text-red-500 text-xs">Lỗi khi đọc công thức</p>;
-                      }
-                    })()
-                  ) : (
-                    <p className="text-gray-500 text-xs">
-                      Sử dụng công thức mặc định từ danh sách dịch vụ đang kích hoạt
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Dịch vụ đang sử dụng</h4>
-                <div className="space-y-2 text-sm">
-                  {activeServices.length > 0 ? (
-                    activeServices.map((service: any) => (
-                      <div key={service.serviceId || service.id || service.name} className="flex justify-between items-start gap-3">
-                        <span className="text-gray-700">
-                          <span className="block">{service.serviceName || service.name || 'Dịch vụ'}</span>
-                          <span className="block text-xs text-gray-500">Cập nhật giá: {formatServicePriceUpdatedAt(service)}</span>
-                          {isMeterService(service) && (
-                            <span className="block text-xs text-amber-700">
-                              Giá sẽ tự động thay đổi theo giá thị trường.
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-right">
-                          <span className="block font-bold text-gray-800">
-                            {fmtCurrency(getCurrentServicePrice(service))} VNĐ{service.unit ? `/${service.unit}` : ''}
-                          </span>
-                          {getScheduledServicePriceLabel(service) && (
-                            <span className="mt-1 block text-xs text-amber-700">
-                              Sắp áp dụng: {getScheduledServicePriceLabel(service)}
-                            </span>
-                          )}
-                        </span>
-                      </div>
+              <div className="mt-3 border-t border-gray-200 pt-3">
+                <p className="mb-2 text-xs text-gray-500">Tiện nghi / tài sản trong phòng</p>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(roomDetail?.assets) && roomDetail.assets.length > 0 ? (
+                    roomDetail.assets.map((asset: any, idx: number) => (
+                      <span key={asset.assetId || idx} className="rounded-[15px] bg-slate-100 px-2.5 py-1 text-xs text-gray-800">
+                        {asset.assetName || 'Tài sản'}{asset.quantity ? ` (${asset.quantity})` : ''}
+                      </span>
                     ))
                   ) : (
-                    <p className="text-gray-500">Không có dữ liệu dịch vụ</p>
+                    <span className="text-sm text-gray-500">Không có dữ liệu tài sản.</span>
                   )}
-                  <p className="text-xs text-gray-500 pt-2 border-t border-gray-300">
-                    🔗 Đơn giá từ <strong>Dịch vụ & Đơn giá</strong>
-                  </p>
                 </div>
               </div>
+            </section>
 
-              <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                <h4 className="text-sm text-gray-600 mb-3">Thông tin thanh toán</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tổng đã thanh toán:</span>
-                    <span className="text-green-700 font-bold">{fmtCurrency(totalPaid)} VNĐ</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Công nợ hiện tại:</span>
-                    <span className={currentDebt > 0 ? 'text-red-700 font-bold' : 'text-gray-800'}>
-                      {fmtCurrency(currentDebt)} VNĐ
-                    </span>
-                  </div>
-                </div>
+            <section className="bg-white border border-gray-300 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h4 className="text-sm font-bold uppercase tracking-wide text-gray-800">Cư dân trong hợp đồng</h4>
+                <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-[15px]">{residentList.length} người</span>
               </div>
-
-              {/* Electricity Pricing */}
-              {roomDetail?.electricityTiers && roomDetail.electricityTiers.length > 0 && (
-                <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                  <h4 className="text-sm text-gray-600 mb-3">⚡ Bảng giá điện</h4>
-                  {roomDetail.electricityBasePrice && (
-                    <div className="mb-3 pb-3 border-b border-gray-300">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Giá cơ bản:</span>
-                        <span className="text-gray-800 font-bold">{fmtCurrency(roomDetail.electricityBasePrice)}/kWh</span>
+              <div className="divide-y divide-gray-200 border border-gray-200">
+                {residentList.length > 0 ? residentList.map((resident: any, idx: number) => {
+                  const isHead = resident === headOfHousehold;
+                  return (
+                    <div key={resident.id || resident.residentId || idx} className="flex items-center justify-between gap-3 bg-white px-3 py-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-bold text-gray-900">{getResidentName(resident)}</p>
+                          {isHead && <span className="shrink-0 rounded-[15px] bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">Chủ phòng</span>}
+                        </div>
+                        <p className="mt-1 text-xs text-gray-600">{getResidentPhone(resident)} - CCCD: {getResidentIdCard(resident)}</p>
+                        {resident.email && <p className="text-xs text-gray-500">{resident.email}</p>}
                       </div>
+                      {!isHead && (
+                        <span className="shrink-0 text-xs text-gray-600">{resident.residencyRole || 'Thành viên'}</span>
+                      )}
                     </div>
-                  )}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-white">
-                          <th className="px-2 py-2 text-left text-gray-600 border-b border-gray-300">Bậc</th>
-                          <th className="px-2 py-2 text-left text-gray-600 border-b border-gray-300">Khoảng (kWh)</th>
-                          <th className="px-2 py-2 text-right text-gray-600 border-b border-gray-300">Đơn giá</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {roomDetail.electricityTiers.map((tier: any) => (
-                          <tr key={tier.tierNumber} className="border-b border-gray-200">
-                            <td className="px-2 py-2 text-gray-700">{tier.tierNumber}</td>
-                            <td className="px-2 py-2 text-gray-700">{tier.fromKwh} - {tier.toKwh || '∞'}</td>
-                            <td className="px-2 py-2 text-right text-gray-800 font-bold">{fmtCurrency(tier.pricePerKwh)}/kWh</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Water Pricing */}
-              {roomDetail?.waterPricePerCubicMeter && (
-                <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                  <h4 className="text-sm text-gray-600 mb-3">💧 Giá nước</h4>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Đơn giá:</span>
-                    <span className="text-gray-800 font-bold">{fmtCurrency(roomDetail.waterPricePerCubicMeter)}/m³</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Room Details */}
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <h4 className="text-sm text-gray-600 mb-3">Thông tin phòng</h4>
-            <div className="grid grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-gray-600">Diện tích:</p>
-                <p className="text-gray-800 font-bold">{roomDetail?.area ? `${roomDetail.area}m²` : '-'}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Tầng:</p>
-                <p className="text-gray-800 font-bold">{roomDetail?.floorNumber ? `Tầng ${roomDetail.floorNumber}` : '-'}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Tòa nhà:</p>
-                <p className="text-gray-800 font-bold">{roomDetail?.buildingName || '-'}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Trạng thái:</p>
-                <p className="text-green-700 font-bold">{roomDetail?.status || '-'}</p>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-300">
-              <p className="text-gray-600 text-xs mb-2">Tiện nghi:</p>
-              <div className="flex flex-wrap gap-2">
-                {Array.isArray(roomDetail?.assets) && roomDetail.assets.length > 0 ? (
-                  roomDetail.assets.map((asset: any, idx: number) => (
-                    <span key={asset.assetId || idx} className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">
-                      {asset.assetName || 'Tài sản'}{asset.quantity ? ` (${asset.quantity})` : ''}
-                    </span>
-                  ))
-                ) : (
-                  <span className="px-2 py-1 bg-white border border-gray-300 text-xs rounded">Không có dữ liệu tài sản</span>
+                  );
+                }) : (
+                  <p className="px-3 py-4 text-sm text-gray-500">Chưa có dữ liệu cư dân.</p>
                 )}
               </div>
+            </section>
             </div>
-            <p className="text-xs text-gray-500 mt-3">
-              🔗 Thông tin đồng bộ từ <strong>Quản lý Hạ tầng → Cơ cấu tòa nhà & Quản lý kho tài sản</strong>
-            </p>
-          </div>
 
+            <div className="space-y-5">
+
+            <section className="bg-white border border-gray-300 p-4">
+              <h4 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-800">Dịch vụ áp dụng</h4>
+              <div className="space-y-2 text-sm">
+                {activeServices.length > 0 ? (
+                  activeServices.map((service: any) => (
+                    <div key={service.serviceId || service.id || service.name} className="border border-gray-200 bg-slate-50 px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-gray-900">{service.serviceName || service.name || 'Dịch vụ'}</p>
+                          {isMeterService(service) && (
+                            <p className="text-xs text-amber-700">Giá áp dụng theo bảng giá tại kỳ lập hóa đơn.</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-bold text-gray-900">{fmtCurrency(getCurrentServicePrice(service))} VNĐ{service.unit ? `/${service.unit}` : ''}</p>
+                          {getScheduledServicePriceLabel(service) && (
+                            <p className="text-xs text-amber-700">Sắp áp dụng: {getScheduledServicePriceLabel(service)}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">Không có dữ liệu dịch vụ.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="bg-white border border-gray-300 p-4">
+              <h4 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-800">Cách tính hóa đơn</h4>
+              <div className="space-y-2 text-sm">
+                {(contractDetail?.billingFormulaJson || contractDetail?.BillingFormulaJson) ? (
+                  (() => {
+                    try {
+                      const formulaJson = contractDetail.billingFormulaJson || contractDetail.BillingFormulaJson;
+                      const formula = typeof formulaJson === 'string' ? JSON.parse(formulaJson) : formulaJson;
+                      const items = Array.isArray(formula) ? [...formula] : [];
+                      return items.length > 0 ? (
+                        <>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-bold text-gray-900">
+                            {items
+                              .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                              .map((item: any, idx: number) => {
+                                const qtyText = item.quantityExpression === 'n' || !item.quantity ? 'n' : item.quantity;
+                                const normalizedItemType = String(item.itemType || '').toLowerCase();
+                                const formulaName = normalizedItemType === 'dien'
+                                  ? 'Tiền điện'
+                                  : normalizedItemType === 'nuoc'
+                                    ? 'Tiền nước'
+                                    : normalizedItemType === 'tienphong'
+                                      ? 'Tiền phòng'
+                                      : item.serviceName || item.itemType || 'Dịch vụ';
+                                return (
+                                  <span key={`${formulaName}-${idx}`} className="contents">
+                                    {idx > 0 && <span className="px-1 text-blue-700">+</span>}
+                                    <span>{formulaName} x {qtyText}</span>
+                                  </span>
+                                );
+                              })}
+                          </div>
+                          <p className="text-xs text-gray-500">n là số lượng thực tế dùng trong kỳ hóa đơn.</p>
+                        </>
+                      ) : (
+                        <p className="text-gray-500">Công thức trống.</p>
+                      );
+                    } catch (e) {
+                      console.error('Error parsing billing formula:', e);
+                      return <p className="text-red-500 text-xs">Lỗi khi đọc công thức.</p>;
+                    }
+                  })()
+                ) : (
+                  <p className="text-gray-500">Chưa có dữ liệu công thức.</p>
+                )}
+              </div>
+            </section>
+            </div>
+          </div>
         </div>
         
         <div className="border-t border-gray-300 px-6 py-4 flex items-center justify-start sticky bottom-0 bg-white">

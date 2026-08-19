@@ -32,6 +32,7 @@ export interface RefreshTokenRequest {
 }
 
 const AUTH_STORAGE_MODE_KEY = 'authStorageMode';
+const AUTH_LOGOUT_MESSAGE_KEY = 'authLogoutMessage';
 type AuthStorageMode = 'local' | 'session';
 
 const getAuthStorage = (mode?: AuthStorageMode): Storage => {
@@ -63,6 +64,7 @@ export const saveAuthSession = (
   remember: boolean,
 ) => {
   clearAuthSession();
+  clearAuthLogoutMessage();
   const mode: AuthStorageMode = remember ? 'local' : 'session';
   const storage = getAuthStorage(mode);
   storage.setItem('token', accessToken);
@@ -89,6 +91,23 @@ export const clearAuthSession = () => {
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('refreshToken');
   sessionStorage.removeItem('user');
+};
+
+export const saveAuthLogoutMessage = (message: string) => {
+  sessionStorage.setItem(AUTH_LOGOUT_MESSAGE_KEY, message);
+  localStorage.setItem(AUTH_LOGOUT_MESSAGE_KEY, message);
+};
+
+export const consumeAuthLogoutMessage = () => {
+  const message = sessionStorage.getItem(AUTH_LOGOUT_MESSAGE_KEY)
+    || localStorage.getItem(AUTH_LOGOUT_MESSAGE_KEY);
+  clearAuthLogoutMessage();
+  return message;
+};
+
+export const clearAuthLogoutMessage = () => {
+  sessionStorage.removeItem(AUTH_LOGOUT_MESSAGE_KEY);
+  localStorage.removeItem(AUTH_LOGOUT_MESSAGE_KEY);
 };
 
 // Create axios instance
@@ -159,9 +178,15 @@ apiClient.interceptors.response.use(
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+    const requestUrl = String(originalRequest?.url || '').toLowerCase();
+    const isAuthRequest = requestUrl.includes('/api/auth/login')
+      || requestUrl.includes('/api/auth/register')
+      || requestUrl.includes('/api/auth/refresh-token')
+      || requestUrl.includes('/api/auth/forgot-password')
+      || requestUrl.includes('/api/auth/reset-password');
 
     // If 401 and not already retried, try to refresh token (single-flight).
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true;
 
       const newAccessToken = await refreshAccessToken();
@@ -173,12 +198,12 @@ apiClient.interceptors.response.use(
       }
 
       // Refresh thất bại -> hết phiên thật -> logout.
-      sessionStorage.setItem(
-        'authLogoutMessage',
-        'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác'
-      );
+      const logoutMessage = 'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác';
+      saveAuthLogoutMessage(logoutMessage);
       clearAuthSession();
-      window.location.href = '/login';
+      window.dispatchEvent(new CustomEvent('auth:session-revoked', {
+        detail: { message: logoutMessage },
+      }));
     }
 
     return Promise.reject(error);

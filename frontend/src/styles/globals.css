@@ -1822,9 +1822,9 @@
     box-shadow: var(--shadow-card) !important;
   }
 
-  .admin-main-content .fixed.inset-0 > .bg-white,
-  .admin-main-content .admin-content-modal-overlay > .bg-white,
-  .admin-main-content .admin-content-modal-overlay > div:not(.admin-content-modal-panel) {
+.admin-main-content .fixed.inset-0 > .bg-white,
+.admin-main-content .admin-content-modal-overlay > .bg-white,
+.admin-main-content .admin-content-modal-overlay > div:not(.admin-content-modal-panel) {
     max-height: calc(100% - 24px);
     overflow-x: hidden;
     overflow-y: auto;
@@ -1835,7 +1835,40 @@
     background: var(--surface-level-3) !important;
     box-shadow: var(--shadow-strong) !important;
     animation: productModalIn 180ms var(--ease-product);
-  }
+}
+
+.admin-main-content .fixed.inset-0 > .session-revoked-modal,
+.session-revoked-modal {
+  width: min(460px, calc(100vw - 48px)) !important;
+  max-width: 460px !important;
+  min-width: 320px !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  border: 1px solid #dbeafe !important;
+  border-radius: 16px !important;
+}
+
+.session-revoked-modal button {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  opacity: 1 !important;
+}
+
+.session-revoked-modal button:hover {
+  background: var(--primary-hover) !important;
+}
+
+body.session-revoked-active #root {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+body.session-revoked-active .session-revoked-modal,
+body.session-revoked-active .session-revoked-modal * {
+  pointer-events: auto !important;
+}
 
   .admin-main-content .sticky.top-0.bg-white,
   .admin-main-content .sticky.bottom-0.bg-white {

@@ -5,7 +5,7 @@ import { useNavigate, useLocation, Link } from 'react-router';
 import { getDefaultRoute } from '../lib/roles';
 import { Eye, EyeOff } from 'lucide-react';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
-import { getStoredUser } from '../lib/api-client';
+import { consumeAuthLogoutMessage, getStoredUser } from '../lib/api-client';
 
 const TEMP_LOCK_MESSAGE = 'Tài khoản bị khóa tạm thời 15 phút do nhập sai quá 5 lần';
 const TEMP_LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -25,12 +25,10 @@ export function LoginPage() {
   const isTemporarilyLocked = lockExpiresAt !== null && lockExpiresAt > Date.now();
 
   useEffect(() => {
-    const logoutMessage = window.sessionStorage.getItem('authLogoutMessage')
-      || (location.state as any)?.message;
+    const logoutMessage = consumeAuthLogoutMessage() || (location.state as any)?.message;
     if (!logoutMessage) return;
 
     setError(logoutMessage);
-    window.sessionStorage.removeItem('authLogoutMessage');
   }, [location.state]);
 
   useEffect(() => {
