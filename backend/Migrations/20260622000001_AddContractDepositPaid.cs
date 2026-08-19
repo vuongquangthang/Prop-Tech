@@ -14,7 +14,7 @@ namespace backend.Migrations
                 table: "HOP_DONG",
                 type: "bit",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: true);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

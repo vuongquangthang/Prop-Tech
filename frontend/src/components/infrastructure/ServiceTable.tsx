@@ -57,6 +57,12 @@ const normalizeText = (value: string | undefined) =>
 
 const normalizeServiceType = (raw: string | undefined, serviceName?: string): ServiceTypeValue | string => {
   const value = (raw || '').trim().toLowerCase();
+  const normalizedRaw = normalizeText(raw);
+  if (normalizedRaw === 'dien') return 'Điện';
+  if (normalizedRaw === 'nuoc') return 'Nước';
+  if (normalizedRaw === 'can nhap so luong') return 'Cần nhập số lượng';
+  if (normalizedRaw === 'theo thang') return 'Theo tháng';
+
   const searchable = `${normalizeText(raw)} ${normalizeText(serviceName)}`;
 
   if (searchable.includes('dien') || searchable.includes('electric')) {

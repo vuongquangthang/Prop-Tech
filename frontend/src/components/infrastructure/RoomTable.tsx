@@ -242,9 +242,6 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   const [addStatus, setAddStatus] = useState('Trống');
   const [addRoomType, setAddRoomType] = useState<'single' | 'apartment'>('single');
   const [addAddress, setAddAddress] = useState('');
-  const [addLatitude, setAddLatitude] = useState<number | null>(null);
-  const [addLongitude, setAddLongitude] = useState<number | null>(null);
-  const [addLocationMeta, setAddLocationMeta] = useState<ResolvedLocation | null>(null);
   const [addHasPrivateBathroom, setAddHasPrivateBathroom] = useState(false);
   const [addLivingRoomCount, setAddLivingRoomCount] = useState('');
   const [addBedroomCount, setAddBedroomCount] = useState('');
@@ -666,9 +663,6 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setAddStatus('Trống');
     setAddRoomType('single');
     setAddAddress(getFloorBuildingAddress(defaultFloorId));
-    setAddLatitude(null);
-    setAddLongitude(null);
-    setAddLocationMeta(null);
     setAddHasPrivateBathroom(false);
     setAddLivingRoomCount('');
     setAddBedroomCount('');
@@ -733,13 +727,6 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
         floorId: addFloorId,
         roomCode: addRoomCode.trim(),
         address: addAddress.trim() || undefined,
-        latitude: addLatitude ?? undefined,
-        longitude: addLongitude ?? undefined,
-        normalizedAddress: addLocationMeta?.address || addAddress.trim() || undefined,
-        goongPlaceId: addLocationMeta?.placeId,
-        locationSource: addLocationMeta?.source,
-        locationAccuracy: addLocationMeta?.accuracy,
-        manualScanRadiusMeters: addLocationMeta?.source === 'manual-nearby-scan' ? 5 : undefined,
         area: areaValue,
         maxOccupants: maxPeopleValue,
         defaultRentPrice: addPriceVnd,
@@ -1049,20 +1036,11 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                   </select>
                 </div>
 
-                <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-2">Địa chỉ &amp; vị trí (theo toà nhà)</label>
-                    <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded bg-gray-100 text-gray-700">
-                      {selectedAddFloor?.buildingAddress || 'Chưa cập nhật địa chỉ toà nhà'}
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">Vị trí phòng lấy theo toà nhà, không chỉnh sửa tại đây. Muốn đổi, hãy cập nhật ở phần quản lý toà nhà.</p>
+                <div className="rounded border border-gray-200 bg-gray-50 p-3">
+                  <label className="block text-sm text-gray-700 mb-2">Địa chỉ theo tòa nhà</label>
+                  <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded bg-gray-100 text-gray-700">
+                    {selectedAddFloor?.buildingAddress || 'Chưa cập nhật địa chỉ tòa nhà'}
                   </div>
-                  <LocationPicker
-                    readOnly
-                    lat={selectedAddFloor?.buildingLatitude ?? null}
-                    lng={selectedAddFloor?.buildingLongitude ?? null}
-                    onChange={() => { /* read-only: vị trí theo toà nhà */ }}
-                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

@@ -51,4 +51,8 @@ public class RoomUtilityReadingDto
     public bool WaterRecorded { get; set; }
     public bool WaterIsAnomaly { get; set; }
     public string? WaterAnomalyNote { get; set; }
+
+    // Khóa sửa khi hóa đơn tháng này đã được gửi/phê duyệt cho cư dân
+    public bool ReadingsLocked { get; set; }
+    public string? ReadingsLockReason { get; set; }
 }

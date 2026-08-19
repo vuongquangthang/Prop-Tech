@@ -484,7 +484,8 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE PHONG ADD BAN_KINH_QUET_VI_TRI_M INT NULL;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'DA_NOP_TIEN_COC')
                     ALTER TABLE HOP_DONG ADD DA_NOP_TIEN_COC BIT NOT NULL
-                        CONSTRAINT DF_HOP_DONG_DA_NOP_TIEN_COC DEFAULT(0) WITH VALUES;
+                        CONSTRAINT DF_HOP_DONG_DA_NOP_TIEN_COC DEFAULT(1) WITH VALUES;
+                UPDATE HOP_DONG SET DA_NOP_TIEN_COC = 1 WHERE DA_NOP_TIEN_COC = 0;
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('HOP_DONG') AND name = 'CAP_NHAT_LUC')
                     ALTER TABLE HOP_DONG ADD CAP_NHAT_LUC DATETIME2 NULL;
                 IF OBJECT_ID('dbo.LICH_SU_CHINH_SUA_HOP_DONG', 'U') IS NULL
@@ -1013,10 +1014,11 @@ static void EnsurePostgresCompatibility(ApplicationDbContext context, string sch
 
         ALTER TABLE IF EXISTS {{schema}}."HOP_DONG"
             ADD COLUMN IF NOT EXISTS "MA_HOP_DONG" character varying(50),
-            ADD COLUMN IF NOT EXISTS "DA_NOP_TIEN_COC" boolean NOT NULL DEFAULT false,
+            ADD COLUMN IF NOT EXISTS "DA_NOP_TIEN_COC" boolean NOT NULL DEFAULT true,
             ADD COLUMN IF NOT EXISTS "NGAY_THANH_TOAN_HANG_THANG" integer,
             ADD COLUMN IF NOT EXISTS "CONG_THUC_HOA_DON_JSON" text,
             ADD COLUMN IF NOT EXISTS "CAP_NHAT_LUC" timestamp without time zone;
+        UPDATE {{schema}}."HOP_DONG" SET "DA_NOP_TIEN_COC" = true WHERE "DA_NOP_TIEN_COC" = false;
 
         ALTER TABLE IF EXISTS {{schema}}."CU_DAN"
             ADD COLUMN IF NOT EXISTS "OWNER_USER_ID" integer,

@@ -101,6 +101,7 @@ export const API_ENDPOINTS = {
     APPROVE: (id: number) => `/api/HoaDon/${id}/approve`,
     APPROVE_BATCH: '/api/HoaDon/approve-batch',
     REJECT: (id: number) => `/api/HoaDon/${id}/reject`,
+    RESEND: (id: number) => `/api/HoaDon/${id}/resend`,
     SEND_REMINDER: (id: number) => `/api/HoaDon/${id}/send-reminder`,
     EDIT_DRAFT: (id: number) => `/api/HoaDon/${id}/edit-draft`,
     GENERATE: '/api/HoaDon/generate',

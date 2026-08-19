@@ -144,7 +144,7 @@ public class HopDongController : ControllerBase
                 ExpectedEndDate = contract.ExpectedEndDate,
                 ActualRentPrice = contract.ActualRentPrice,
                 DepositAmount = contract.DepositAmount,
-                DepositPaid = contract.DepositPaid,
+                DepositPaid = true,
                 PaymentDayOfMonth = contract.PaymentDayOfMonth,
                 BillingFormulaJson = contract.BillingFormulaJson,
                 UpdatedAt = contract.UpdatedAt,

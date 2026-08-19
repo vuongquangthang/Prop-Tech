@@ -303,6 +303,20 @@ public class HoaDonController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
     }
 
+    [HttpPost("{id}/resend")]
+    [Authorize(Roles = "Admin,QuanLy,KeToan")]
+    public async Task<ActionResult<SendInvoiceReminderResultDto>> ResendInvoice(int id)
+    {
+        try
+        {
+            if (!await OwnsInvoiceAsync(id)) return NotFound(new { message = "Hoa don khong ton tai" });
+            var result = await _hoaDonService.ResendInvoiceNotificationAsync(id);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message }); }
+    }
+
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)

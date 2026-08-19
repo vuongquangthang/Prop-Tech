@@ -317,9 +317,7 @@ export function LocationPicker({ lat, lng, addressQuery, onChange, readOnly = fa
       )}
 
       <div ref={containerRef} className="h-64 w-full overflow-hidden rounded border border-gray-300" />
-      {readOnly ? (
-        <p className="text-xs text-gray-500">Vị trí lấy theo toà nhà. Muốn đổi, hãy cập nhật toạ độ ở phần quản lý toà nhà.</p>
-      ) : (
+      {!readOnly && (
         <p className="text-xs text-gray-500">Kéo bản đồ để xem, bấm vào vị trí để đặt ghim. Có thể kéo ghim để tinh chỉnh; phóng to/thu nhỏ không làm đổi vị trí đã chọn.</p>
       )}
 

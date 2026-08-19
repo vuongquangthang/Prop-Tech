@@ -618,7 +618,7 @@ export function BuildingSidebar({
                 fontWeight: selectedFloor === null && selectedBuilding === null ? 600 : 400,
               }}
             >
-              Tất cả phòng
+              Tất cả
             </button>
             {buildings.map((building) => (
               <div key={building.id}>
@@ -626,49 +626,53 @@ export function BuildingSidebar({
                 <div
                   className="grid items-center rounded transition-colors hover:bg-[var(--brand-surface)]"
                   style={{
-                    gridTemplateColumns: 'minmax(0, 1fr) 32px',
-                    columnGap: '8px',
+                    gridTemplateColumns: '36px minmax(0, 1fr) 32px',
+                    columnGap: '4px',
                     backgroundColor: selectedBuilding === building.id && selectedFloor === null ? 'var(--brand-surface)' : 'transparent',
                   }}
                 >
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
                       setExpandedBuilding(expandedBuilding === building.id ? null : building.id);
-                      const nextSelectedBuilding = selectedBuilding === building.id ? null : building.id;
-                      onSelectBuilding(nextSelectedBuilding);
-                      onSelectFloor(null);
-                      onContextChange?.(
-                        nextSelectedBuilding
-                          ? {
-                              type: 'building',
-                              buildingId: building.id,
-                              floorId: null,
-                              label: building.buildingName,
-                              building,
-                              floor: null,
-                            }
-                          : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng', building: null, floor: null },
-                      );
                     }}
-                    className="flex min-w-0 items-center justify-between rounded transition-colors"
+                    className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-transparent text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                    title={expandedBuilding === building.id ? 'Đóng danh sách tầng' : 'Mở danh sách tầng'}
+                    aria-label={expandedBuilding === building.id ? `Đóng danh sách tầng của ${building.buildingName}` : `Mở danh sách tầng của ${building.buildingName}`}
+                  >
+                    {expandedBuilding === building.id ? (
+                      <ChevronDown size={18} className="shrink-0" />
+                    ) : (
+                      <ChevronRight size={18} className="shrink-0" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setExpandedBuilding(building.id);
+                      onSelectBuilding(building.id);
+                      onSelectFloor(null);
+                      onContextChange?.({
+                        type: 'building',
+                        buildingId: building.id,
+                        floorId: null,
+                        label: building.buildingName,
+                        building,
+                        floor: null,
+                      });
+                    }}
+                    className="flex min-w-0 items-center rounded transition-colors"
                     style={{
-                      padding: '12px 12px 12px 16px',
+                      padding: '12px 8px 12px 0',
                       fontSize: 'var(--type-body)',
                       color: selectedBuilding === building.id && selectedFloor === null ? 'var(--brand-primary)' : 'var(--text-primary)',
                       fontWeight: selectedBuilding === building.id && selectedFloor === null ? 700 : 600,
                       gap: '8px'
                     }}
                   >
-                    <div className="flex min-w-0 items-center" style={{ gap: '8px' }}>
-                      {expandedBuilding === building.id ? (
-                        <ChevronDown size={18} className="shrink-0" />
-                      ) : (
-                        <ChevronRight size={18} className="shrink-0" />
-                      )}
-                      <span className="truncate" style={{ fontWeight: 600 }}>
-                        {building.buildingName} ({building.floors.length}/{building.totalFloors} tầng)
-                      </span>
-                    </div>
+                    <span className="truncate" style={{ fontWeight: 600 }}>
+                      {building.buildingName} ({building.floors.length}/{building.totalFloors} tầng)
+                    </span>
                   </button>
                   <button
                     onClick={() => openDetailModal({ type: 'building', building })}
@@ -698,21 +702,16 @@ export function BuildingSidebar({
                         >
                           <button
                             onClick={() => {
-                              const nextSelectedFloor = selectedFloor === floor.id ? null : floor.id;
-                              onSelectFloor(nextSelectedFloor);
+                              onSelectFloor(floor.id);
                               onSelectBuilding(null);
-                              onContextChange?.(
-                                nextSelectedFloor
-                                  ? {
-                                      type: 'floor',
-                                      buildingId: building.id,
-                                      floorId: floor.id,
-                                      label: `Tầng ${floor.floorNumber} • ${building.buildingName}`,
-                                      building,
-                                      floor,
-                                    }
-                                  : { type: 'all', buildingId: null, floorId: null, label: 'Tất cả hạ tầng', building: null, floor: null },
-                              );
+                              onContextChange?.({
+                                type: 'floor',
+                                buildingId: building.id,
+                                floorId: floor.id,
+                                label: `Tầng ${floor.floorNumber} • ${building.buildingName}`,
+                                building,
+                                floor,
+                              });
                             }}
                             className="min-w-0 text-left rounded transition-colors"
                             style={{

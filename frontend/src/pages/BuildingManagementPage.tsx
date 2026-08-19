@@ -384,30 +384,14 @@ export function BuildingManagementPage() {
   const selectedBuilding = infrastructureContext.building ?? null;
   const selectedFloor = infrastructureContext.floor ?? null;
 
-  const workspaceSections = useMemo(() => [
-    {
-      key: 'services' as const,
-      title: infrastructureContext.type === 'all'
-        ? 'Đơn giá dịch vụ'
-        : 'Đơn giá dịch vụ áp dụng',
-      icon: PlugZap,
-      content: <ServiceTable embedded contextBuildingId={infrastructureContext.buildingId} />,
-    },
-    {
-      key: 'assets' as const,
-      title: infrastructureContext.type === 'all'
-        ? 'Tiện ích'
-        : 'Tiện ích áp dụng',
-      icon: Box,
-      content: <AssetTable embedded contextBuildingId={infrastructureContext.buildingId} />,
-    },
-    {
+  const workspaceSections = useMemo(() => {
+    const roomSection = {
       key: 'rooms' as const,
       title: infrastructureContext.type === 'floor'
         ? 'Thông tin phòng thuộc tầng'
         : infrastructureContext.type === 'building'
           ? 'Thông tin phòng thuộc tòa'
-          : 'Thông tin phòng',
+          : 'Tất cả',
       icon: Home,
       content: (
         <RoomTable
@@ -418,8 +402,28 @@ export function BuildingManagementPage() {
           onRoomsChange={() => setStructureRefreshKey((current) => current + 1)}
         />
       ),
-    },
-  ], [
+    };
+
+    if (infrastructureContext.type === 'all') {
+      return [roomSection];
+    }
+
+    return [
+      {
+        key: 'services' as const,
+        title: 'Đơn giá dịch vụ áp dụng',
+        icon: PlugZap,
+        content: <ServiceTable embedded contextBuildingId={infrastructureContext.buildingId} />,
+      },
+      {
+        key: 'assets' as const,
+        title: 'Tiện ích áp dụng',
+        icon: Box,
+        content: <AssetTable embedded contextBuildingId={infrastructureContext.buildingId} />,
+      },
+      roomSection,
+    ];
+  }, [
     addRoomRequest,
     infrastructureContext.buildingId,
     infrastructureContext.type,
@@ -436,22 +440,15 @@ export function BuildingManagementPage() {
         { label: 'Mã tòa', value: selectedBuilding.buildingCode || '—' },
       ]
     : [
-        { label: 'Ngữ cảnh', value: 'Toàn bộ hạ tầng' },
-        { label: 'Phòng', value: 'Tất cả phòng' },
-        { label: 'Dịch vụ', value: 'Thiết lập theo từng tòa' },
-        { label: 'Tài sản', value: 'Thiết lập theo từng tòa' },
       ];
   const contextTitle = selectedFloor
     ? `Tầng ${selectedFloor.floorNumber} • ${selectedBuilding?.buildingName || selectedFloor.buildingName || '—'}`
-    : selectedBuilding?.buildingName || 'Toàn bộ hạ tầng';
-  const contextSubtitle = selectedBuilding?.address || 'Quản lý phòng, dịch vụ và tài sản trên toàn hệ thống.';
-  const hasInfrastructureSelection = infrastructureContext.type === 'building' || infrastructureContext.type === 'floor';
+    : selectedBuilding?.buildingName || 'Tất cả';
+  const contextSubtitle = selectedBuilding?.address || 'Xem và thao tác danh sách phòng trên toàn hệ thống.';
+  const hasInfrastructureSelection = infrastructureContext.type === 'all' || infrastructureContext.type === 'building' || infrastructureContext.type === 'floor';
   const compactDetailItems = selectedFloor
     ? [
-        { label: 'Tòa nhà', value: selectedBuilding?.buildingName || selectedFloor.buildingName || '—' },
-        { label: 'Số thứ tự tầng', value: String(selectedFloor.floorNumber) },
-        { label: 'Số phòng tầng', value: `${selectedFloor.totalRooms ?? 0}` },
-        { label: 'Tổng số tầng', value: selectedBuilding ? `${selectedBuilding.floors.length}/${selectedBuilding.totalFloors || selectedBuilding.floors.length || 0}` : '—' },
+        { label: 'Số phòng', value: `${selectedFloor.totalRooms ?? 0}` },
       ]
     : selectedBuilding
       ? [
@@ -474,7 +471,13 @@ export function BuildingManagementPage() {
               onSelectFloor={setSelectedFloorId}
               selectedBuilding={selectedBuildingId}
               onSelectBuilding={setSelectedBuildingId}
-              onContextChange={setInfrastructureContext}
+              onContextChange={(context) => {
+                setInfrastructureContext(context);
+                if (context.type === 'all') {
+                  setWorkspaceFormMode(null);
+                  setOpenSteps((current) => ({ ...current, services: false, assets: false, rooms: true }));
+                }
+              }}
               onRequestAddRoom={handleRequestAddRoom}
               onStructureChange={() => setStructureRefreshKey((current) => current + 1)}
               structureRefreshKey={structureRefreshKey}
@@ -490,8 +493,8 @@ export function BuildingManagementPage() {
                   className="px-5 py-3"
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'minmax(240px, 0.9fr) minmax(420px, 1.4fr) auto',
-                    gap: '18px',
+                    gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.05fr)',
+                    gap: '24px',
                     alignItems: 'start',
                   }}
                 >
@@ -505,7 +508,9 @@ export function BuildingManagementPage() {
                       </span>
                     </div>
                     <h2 className="truncate text-xl font-semibold leading-tight text-[var(--primary)]">{contextTitle}</h2>
-                    <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{contextSubtitle}</p>
+                    {!selectedBuilding && (
+                      <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{contextSubtitle}</p>
+                    )}
                   </div>
 
                   <div
@@ -513,33 +518,35 @@ export function BuildingManagementPage() {
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      columnGap: '28px',
+                      columnGap: '18px',
                       rowGap: '8px',
                     }}
                   >
                     {compactDetailItems.map((item) => (
                       <div
                         key={item.label}
-                        className="min-w-0"
-                        style={{ display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', gap: '8px', alignItems: 'center' }}
+                        className="flex min-w-0 items-center gap-1.5"
                       >
-                        <span className="text-[var(--text-secondary)]">{item.label}</span>
+                        <span className="shrink-0 text-[var(--text-secondary)]">{item.label}:&nbsp;</span>
                         <span className="truncate font-semibold text-[var(--text-primary)]">{item.value}</span>
                       </div>
                     ))}
                     {selectedBuilding && (
                       <div
-                        className="min-w-0"
-                        style={{ display: 'grid', gridColumn: '1 / -1', gridTemplateColumns: '120px minmax(0, 1fr)', gap: '8px', alignItems: 'center' }}
+                        className="flex min-w-0 items-center gap-1.5"
+                        style={{ gridColumn: '1 / -1' }}
                       >
-                        <span className="text-[var(--text-secondary)]">Vị trí</span>
+                        <span className="shrink-0 text-[var(--text-secondary)]">Vị trí:&nbsp;</span>
+                        <span className="min-w-0 truncate font-semibold text-[var(--text-primary)]">
+                          {selectedBuilding.address || '—'}
+                        </span>
                         <button
                           type="button"
                           onClick={() => setShowLocationModal(true)}
-                          className="inline-flex w-fit items-center gap-2 border border-[var(--surface-border)] bg-white px-3 py-1.5 text-sm font-semibold text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-surface)]"
+                          className="ml-2 inline-flex w-fit max-w-full shrink-0 items-center gap-2 border border-[var(--surface-border)] bg-white px-3 py-1.5 text-sm font-semibold text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-surface)]"
                         >
                           <MapPin size={15} />
-                          <span>{hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}</span>
+                          <span className="truncate">{hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}</span>
                         </button>
                       </div>
                     )}
@@ -759,6 +766,7 @@ export function BuildingManagementPage() {
                           lng={selectedBuilding.longitude}
                           addressQuery={selectedBuilding.address || selectedBuilding.buildingName}
                           onChange={() => {}}
+                          readOnly
                         />
                       </div>
                     ) : (

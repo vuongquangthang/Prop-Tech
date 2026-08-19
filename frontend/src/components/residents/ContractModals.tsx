@@ -61,7 +61,6 @@ const buildContractHistoryChanges = (current: any, previous?: any): ContractHist
   compareField('ExpectedEndDate', 'Ngày kết thúc', formatHistoryDate);
   compareField('ActualRentPrice', 'Giá thuê', formatHistoryMoney);
   compareField('DepositAmount', 'Tiền cọc', formatHistoryMoney);
-  compareField('DepositPaid', 'Trạng thái tiền cọc', (value) => value ? 'Đã trả' : 'Chưa trả');
   compareField('PaymentDayOfMonth', 'Ngày thanh toán', (value) => value ? `Ngày ${value}` : 'Theo cấu hình chung');
 
   const previousResidents: any[] = Array.isArray(snapshotValue(previous, 'Residents')) ? snapshotValue(previous, 'Residents') : [];
@@ -221,7 +220,6 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   const [customDurationUnit, setCustomDurationUnit] = useState<'months' | 'years'>('months');
   const [monthlyRent, setMonthlyRent] = useState('');
   const [deposit, setDeposit] = useState('');
-  const [depositPaid, setDepositPaid] = useState(false);
   const [paymentDayOfMonth, setPaymentDayOfMonth] = useState<number | null>(null);
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
   const [serviceQuantities, setServiceQuantities] = useState<Record<number, string>>({});
@@ -257,13 +255,11 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
         const detailEndDate = detailData?.expectedEndDate ?? detailData?.ExpectedEndDate;
         const detailRent = detailData?.actualRentPrice ?? detailData?.ActualRentPrice;
         const detailDeposit = detailData?.depositAmount ?? detailData?.DepositAmount;
-        const detailDepositPaid = detailData?.depositPaid ?? detailData?.DepositPaid;
         const detailPaymentDay = detailData?.paymentDayOfMonth ?? detailData?.PaymentDayOfMonth;
         const detailFormulaJson = detailData?.billingFormulaJson ?? detailData?.BillingFormulaJson;
         setStartDate(detailStartDate ? formatLocalDateInput(new Date(detailStartDate)) : '');
         setMonthlyRent(detailRent !== null && detailRent !== undefined ? String(detailRent) : '');
         setDeposit(detailDeposit !== null && detailDeposit !== undefined ? String(detailDeposit) : '');
-        setDepositPaid(Boolean(detailDepositPaid));
         setPaymentDayOfMonth(detailPaymentDay ? Number(detailPaymentDay) : null);
         if (detailFormulaJson) {
           try {
@@ -865,13 +861,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
               <div><label className="block text-sm text-gray-700 mb-2">Tiền cọc</label>
                 <MoneyInput value={deposit} onChange={setDeposit} defaultScale="million" disabled /></div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-              <div className="border border-gray-200 bg-white px-3 py-2">
-                <span className="text-gray-600">Trạng thái tiền cọc: </span>
-                <span className={depositPaid ? 'font-semibold text-green-700' : 'font-semibold text-amber-700'}>
-                  {depositPaid ? 'Đã trả' : 'Chưa trả'}
-                </span>
-              </div>
+            <div className="mt-3 grid grid-cols-1 gap-4 text-sm">
               <div className="border border-gray-200 bg-white px-3 py-2">
                 <span className="text-gray-600">Ngày thanh toán: </span>
                 <span className="font-semibold text-gray-800">
@@ -1401,7 +1391,6 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   const [customDurationUnit, setCustomDurationUnit] = useState<'months' | 'years'>('months');
   const [monthlyRent, setMonthlyRent] = useState('');
   const [deposit, setDeposit] = useState('');
-  const [depositPaid, setDepositPaid] = useState(false);
   const [contractSequence, setContractSequence] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
   const [serviceQuantities, setServiceQuantities] = useState<Record<number, string>>({});
@@ -1837,7 +1826,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
         expectedEndDate: formatLocalDateInput(end),
         actualRentPrice: parseFloat(monthlyRent.replace(/[^0-9.]/g, '')),
         depositAmount: deposit ? parseFloat(deposit.replace(/[^0-9.]/g, '')) : undefined,
-        depositPaid,
+        depositPaid: true,
         selectedServiceIds,
         billingFormulaItems: formulaRows.map((row) => ({
           sortOrder: row.sortOrder,
@@ -2226,30 +2215,9 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                 {fieldErrors.monthlyRent && <p className="mt-1 text-xs text-red-600">{fieldErrors.monthlyRent}</p>}
               </div>
               <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label className="block text-sm text-gray-700">Tiền cọc</label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={depositPaid}
-                      onChange={(event) => setDepositPaid(event.target.checked)}
-                      className="h-4 w-4"
-                    />
-                    <span>Đã nộp tiền cọc</span>
-                  </label>
-                </div>
+                <label className="mb-2 block text-sm text-gray-700">Tiền cọc</label>
                 <MoneyInput value={deposit} onChange={(value) => { setDeposit(value); setFieldError('deposit'); }} defaultScale="million" />
                 {fieldErrors.deposit && <p className="mt-1 text-xs text-red-600">{fieldErrors.deposit}</p>}
-                {depositPaid && (
-                  <p className="mt-1.5 text-xs text-green-700">
-                    Đã ghi nhận tiền cọc, cư dân không cần nộp thêm.
-                  </p>
-                )}
-                {!depositPaid && toNumber(deposit) > 0 && (
-                  <p className="mt-1.5 text-xs text-amber-700">
-                    Tiền cọc sẽ được cộng một lần vào hóa đơn tháng đầu của hợp đồng.
-                  </p>
-                )}
               </div>
             </div>
 
@@ -2931,14 +2899,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
     : (contractDetail?.endDate ? formatDateVi(contractDetail.endDate) : (contract?.endDate || '-'));
   const displayRent = contractDetail?.monthlyRent ?? contractDetail?.actualRentPrice ?? contract?.monthlyRent ?? 0;
   const displayDeposit = contractDetail?.deposit ?? contractDetail?.depositAmount ?? contract?.deposit ?? 0;
-  const depositPaidValue = contractDetail?.depositPaid ?? contractDetail?.DepositPaid ?? contract?.depositPaid ?? false;
-  const displayDepositPaid = depositPaidValue === true || String(depositPaidValue).toLowerCase() === 'true';
-  const depositStatus = Number(displayDeposit) <= 0
-    ? 'Không yêu cầu'
-    : displayDepositPaid
-      ? 'Đã trả'
-      : 'Chưa trả';
-  const paidDepositAmount = displayDepositPaid ? Number(displayDeposit) : 0;
   const residentList: any[] = Array.isArray(contractDetail?.residents)
     ? contractDetail.residents
     : (Array.isArray(contract?.residents) ? contract.residents : []);
@@ -3111,22 +3071,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tiền cọc theo hợp đồng:</span>
                     <span className="text-gray-800 font-bold">{fmtCurrency(displayDeposit)} VNĐ</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Trạng thái tiền cọc:</span>
-                    <span className={`font-bold ${
-                      Number(displayDeposit) <= 0
-                        ? 'text-gray-600'
-                        : displayDepositPaid
-                          ? 'text-green-700'
-                          : 'text-amber-700'
-                    }`}>
-                      {depositStatus}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tiền cọc đã trả:</span>
-                    <span className="text-gray-800 font-bold">{fmtCurrency(paidDepositAmount)} VNĐ</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ngày thanh toán:</span>

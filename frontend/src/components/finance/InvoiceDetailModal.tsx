@@ -192,6 +192,9 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
   const [members, setMembers] = useState<ResidentMember[]>([]);
   const [contract, setContract] = useState<ContractInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
+  const [resendError, setResendError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -236,6 +239,23 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
   const statusInfo = detail ? (STATUS_MAP[detail.status] || { label: detail.status, color: '#374151', bg: '#f3f4f6' }) : null;
   const primaryMember = members.find(m => m.residencyRole === 'Người thuê chính' || m.residencyRole === 'Người thuê');
   const sendCount = members.length || 1;
+  const canResendInvoice = Boolean(detail && !isDraft && detail.status !== 'Nháp' && detail.status !== 'Bị từ chối');
+
+  const handleResendInvoice = async () => {
+    if (!detail || !canResendInvoice) return;
+    setResending(true);
+    setResendMessage('');
+    setResendError('');
+    try {
+      const res = await api.post<{ sentCount?: number }>(API_ENDPOINTS.INVOICES.RESEND(detail.id));
+      const sentCount = res.data?.sentCount ?? sendCount;
+      setResendMessage(`Đã gửi lại hóa đơn cho ${sentCount} người.`);
+    } catch (err: any) {
+      setResendError(err.response?.data?.message || 'Không thể gửi lại hóa đơn.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   return (
     <div
@@ -427,11 +447,15 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
             In hóa đơn
           </button>
           <button
-            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={handleResendInvoice}
+            disabled={!canResendInvoice || resending}
+            style={{ padding: '8px 16px', backgroundColor: 'var(--brand-secondary)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: (!canResendInvoice || resending) ? 'not-allowed' : 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px', opacity: (!canResendInvoice || resending) ? 0.55 : 1 }}
           >
             <Send size={14} />
-            Gửi lại cho {sendCount > 0 ? `${sendCount} người` : 'cư dân'}
+            {resending ? 'Đang gửi...' : `Gửi lại cho ${sendCount > 0 ? `${sendCount} người` : 'cư dân'}`}
           </button>
+          {resendMessage && <span style={{ fontSize: 'var(--type-caption)', color: 'var(--success)' }}>{resendMessage}</span>}
+          {resendError && <span style={{ fontSize: 'var(--type-caption)', color: 'var(--error)' }}>{resendError}</span>}
           {isDraft && detail && (
             <button
               style={{ padding: '8px 16px', backgroundColor: 'var(--info)', color: 'white', border: 'none', borderRadius: 'var(--radius-button)', fontWeight: 600, cursor: 'pointer', fontSize: 'var(--type-caption)', display: 'flex', alignItems: 'center', gap: '6px' }}

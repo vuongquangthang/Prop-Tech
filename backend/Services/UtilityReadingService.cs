@@ -60,6 +60,9 @@ public class UtilityReadingService : IUtilityReadingService
                 .Select(ct => ct.Resident != null ? ct.Resident.FullName : null)
                 .FirstOrDefault();
 
+            var sentInvoice = await GetSentInvoiceAsync(activeContract.Id, month, year);
+            var readingsLocked = sentInvoice != null;
+
             // Tìm usage detail cho điện có hiệu lực trong kỳ (ServiceId = 1)
             var elecUsage = await SelectElectricityUsageAsync(
                 room.ChiTietSuDungDichVus,
@@ -150,7 +153,11 @@ public class UtilityReadingService : IUtilityReadingService
                 NewWaterReading = newWater,
                 WaterRecorded = waterRecorded,
                 WaterIsAnomaly = waterIsAnomaly,
-                WaterAnomalyNote = waterAnomalyNote
+                WaterAnomalyNote = waterAnomalyNote,
+                ReadingsLocked = readingsLocked,
+                ReadingsLockReason = readingsLocked
+                    ? $"Hóa đơn tháng {month}/{year} đã gửi cho cư dân (trạng thái: {sentInvoice!.Status})"
+                    : null
             });
         }
 
@@ -180,12 +187,28 @@ public class UtilityReadingService : IUtilityReadingService
                     continue;
                 }
 
+                var periodStart = CreatePeriodStartUtc(dto.Year, dto.Month);
+                var periodEnd = CreatePeriodEndUtc(dto.Year, dto.Month);
+                var activeContract = await _context.HopDongs
+                    .Where(hd => hd.RoomId == dto.RoomId
+                                 && hd.StartDate <= periodEnd
+                                 && (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStart))
+                    .OrderByDescending(hd => hd.StartDate)
+                    .FirstOrDefaultAsync();
+                var sentInvoice = activeContract == null
+                    ? null
+                    : await GetSentInvoiceAsync(activeContract.Id, dto.Month, dto.Year);
+                if (sentInvoice != null)
+                {
+                    result.Failed++;
+                    result.Errors.Add($"Phòng {room.RoomCode}: Không thể sửa chỉ số vì hóa đơn tháng {dto.Month}/{dto.Year} đã gửi cho cư dân (trạng thái: {sentInvoice.Status})");
+                    continue;
+                }
+
                 // Ghi chỉ số điện
                 if (dto.NewElecReading.HasValue)
                 {
                     // Use the same logic as invoice calculation: get service active during the period
-                    var periodStart = CreatePeriodStartUtc(dto.Year, dto.Month);
-                    var periodEnd = CreatePeriodEndUtc(dto.Year, dto.Month);
                     var elecUsage = SelectSubmittedUtilityUsage(
                         room.ChiTietSuDungDichVus,
                         dto.ElecUsageDetailId,
@@ -200,11 +223,9 @@ public class UtilityReadingService : IUtilityReadingService
                                     && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                         .OrderByDescending(u => u.ApplyFrom)
                         .FirstOrDefault();
-                    elecUsage ??= await EnsureUtilityUsageAsync(room, null, periodStart, periodEnd, ownerUserId, IsElectricityService);
-
                     if (elecUsage == null)
                     {
-                        result.Errors.Add($"Phòng {room.RoomCode}: Không có dịch vụ điện");
+                        result.Warnings.Add($"Phòng {room.RoomCode}: Không áp dụng dịch vụ điện, bỏ qua chỉ số điện");
                     }
                     else
                     {
@@ -266,8 +287,6 @@ public class UtilityReadingService : IUtilityReadingService
                 if (dto.NewWaterReading.HasValue)
                 {
                     // Use the same logic as invoice calculation: get service active during the period
-                    var periodStart = CreatePeriodStartUtc(dto.Year, dto.Month);
-                    var periodEnd = CreatePeriodEndUtc(dto.Year, dto.Month);
                     var waterUsage = SelectSubmittedUtilityUsage(
                         room.ChiTietSuDungDichVus,
                         dto.WaterUsageDetailId,
@@ -282,11 +301,9 @@ public class UtilityReadingService : IUtilityReadingService
                                     && (u.ApplyTo == null || u.ApplyTo >= periodStart))
                         .OrderByDescending(u => u.ApplyFrom)
                         .FirstOrDefault();
-                    waterUsage ??= await EnsureUtilityUsageAsync(room, null, periodStart, periodEnd, ownerUserId, IsWaterService);
-
                     if (waterUsage == null)
                     {
-                        result.Errors.Add($"Phòng {room.RoomCode}: Không có dịch vụ nước");
+                        result.Warnings.Add($"Phòng {room.RoomCode}: Không áp dụng dịch vụ nước, bỏ qua chỉ số nước");
                     }
                     else
                     {
@@ -373,6 +390,18 @@ public class UtilityReadingService : IUtilityReadingService
         }
 
         return (false, null);
+    }
+
+    private async Task<HoaDon?> GetSentInvoiceAsync(int contractId, byte month, short year)
+    {
+        return await _context.HoaDons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(invoice =>
+                invoice.ContractId == contractId
+                && invoice.Month == month
+                && invoice.Year == year
+                && invoice.Status != "Nháp"
+                && invoice.Status != "Bị từ chối");
     }
 
     private async Task<(bool IsAnomaly, string? Note)> EvaluateWaterAnomalyAsync(long usageDetailId, byte month, short year, decimal currentReading)

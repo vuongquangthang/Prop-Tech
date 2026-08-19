@@ -24,6 +24,8 @@ interface RoomUtilityReading {
   waterRecorded: boolean;
   waterIsAnomaly?: boolean;
   waterAnomalyNote?: string;
+  readingsLocked?: boolean;
+  readingsLockReason?: string;
 }
 
 interface RowEdit {
@@ -133,6 +135,15 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     return usage >= 0 ? String(Math.round(usage)) : '-';
   };
 
+  const hasEnteredRequiredReadings = (room: RoomUtilityReading) => {
+    const edit = edits[room.roomId];
+    if (!edit) return false;
+    const requiresElec = Boolean(room.elecUsageDetailId);
+    const requiresWater = Boolean(room.waterUsageDetailId);
+    if (!requiresElec && !requiresWater) return false;
+    return (!requiresElec || Boolean(edit.newElec)) && (!requiresWater || Boolean(edit.newWater));
+  };
+
   const saveReadingsBatch = async ({ showSuccess = true }: { showSuccess?: boolean } = {}) => {
     setSaving(true);
     setErrors([]);
@@ -140,15 +151,21 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     if (showSuccess) setSuccessMsg('');
     try {
       const payload = rooms
-        .filter(r => edits[r.roomId]?.newElec || edits[r.roomId]?.newWater)
+        .filter(r =>
+          !r.readingsLocked
+          && (
+            (r.elecUsageDetailId && edits[r.roomId]?.newElec)
+            || (r.waterUsageDetailId && edits[r.roomId]?.newWater)
+          )
+        )
         .map(r => ({
           roomId: r.roomId,
           month: selectedMonth,
           year: selectedYear,
           elecUsageDetailId: r.elecUsageDetailId,
           waterUsageDetailId: r.waterUsageDetailId,
-          newElecReading: edits[r.roomId]?.newElec ? parseInt(edits[r.roomId].newElec, 10) : undefined,
-          newWaterReading: edits[r.roomId]?.newWater ? parseInt(edits[r.roomId].newWater, 10) : undefined,
+          newElecReading: r.elecUsageDetailId && edits[r.roomId]?.newElec ? parseInt(edits[r.roomId].newElec, 10) : undefined,
+          newWaterReading: r.waterUsageDetailId && edits[r.roomId]?.newWater ? parseInt(edits[r.roomId].newWater, 10) : undefined,
         }));
 
       const res = await api.post<{ success: number; failed: number; errors: string[]; warnings: string[] }>(
@@ -175,7 +192,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
   };
 
   const getEnteredRoomIds = () => rooms
-    .filter(r => edits[r.roomId]?.newElec && edits[r.roomId]?.newWater)
+    .filter(hasEnteredRequiredReadings)
     .map(r => r.roomId);
 
   const loadCalculatedInvoices = async (roomIds: number[]) => {
@@ -285,7 +302,8 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     }
   }, [floorOptions, selectedFloor]);
 
-  const filledCount = filteredRooms.filter(r => edits[r.roomId]?.newElec && edits[r.roomId]?.newWater).length;
+  const fillableRooms = filteredRooms.filter(room => room.elecUsageDetailId || room.waterUsageDetailId);
+  const filledCount = fillableRooms.filter(hasEnteredRequiredReadings).length;
 
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -374,7 +392,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
             </FilterSelect>
 
             <div style={{ fontSize: 'var(--type-body)', color: 'var(--text-secondary)', marginLeft: '12px', flexShrink: 0 }}>
-              Đã nhập: <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filledCount}/{filteredRooms.length}</span> phòng
+              Đã nhập: <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filledCount}/{fillableRooms.length}</span> phòng
             </div>
           </div>
 
@@ -456,7 +474,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                     const waterAbnormal = isAbnormal(room, 'water');
                     const elecUsage = calcUsage(room, 'elec');
                     const waterUsage = calcUsage(room, 'water');
-                    const rowLocked = lockedCalculatedRoomIds.has(room.roomId);
+                    const rowLocked = Boolean(room.readingsLocked) || lockedCalculatedRoomIds.has(room.roomId);
+                    const elecApplicable = Boolean(room.elecUsageDetailId);
+                    const waterApplicable = Boolean(room.waterUsageDetailId);
+                    const lockTitle = room.readingsLockReason || 'Phòng đã được tính hóa đơn, không thể sửa chỉ số.';
 
                     return (
                       <tr
@@ -480,7 +501,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                         </td>
                         {/* Điện mới */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          {(isCurrentMonth || room.elecUsageDetailId) ? (
+                          {elecApplicable ? (
                             <input
                               type="number"
                               step={1}
@@ -489,10 +510,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
                               disabled={!isCurrentMonth || rowLocked}
                               className="focus:outline-none"
-                              title={rowLocked ? 'Phòng đã được tính hóa đơn, không thể sửa chỉ số.' : room.elecAnomalyNote || undefined}
+                              title={rowLocked ? lockTitle : room.elecAnomalyNote || undefined}
                               style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (!isCurrentMonth || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (!isCurrentMonth || rowLocked) ? 'not-allowed' : 'text' }}
                             />
-                          ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
+                          ) : <span style={{ color: 'var(--text-secondary)' }}>Không áp dụng</span>}
                         </td>
                         {/* Tiêu thụ điện */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
@@ -507,7 +528,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                         </td>
                         {/* Nước mới */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          {(isCurrentMonth || room.waterUsageDetailId) ? (
+                          {waterApplicable ? (
                             <input
                               type="number"
                               step={1}
@@ -516,10 +537,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               onChange={e => handleInputChange(room.roomId, 'newWater', e.target.value)}
                               disabled={!isCurrentMonth || rowLocked}
                               className="focus:outline-none"
-                              title={rowLocked ? 'Phòng đã được tính hóa đơn, không thể sửa chỉ số.' : room.waterAnomalyNote || undefined}
+                              title={rowLocked ? lockTitle : room.waterAnomalyNote || undefined}
                               style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (!isCurrentMonth || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (!isCurrentMonth || rowLocked) ? 'not-allowed' : 'text' }}
                             />
-                          ) : <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
+                          ) : <span style={{ color: 'var(--text-secondary)' }}>Không áp dụng</span>}
                         </td>
                         {/* Tiêu thụ nước */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>

@@ -197,7 +197,7 @@ public class HopDongService : IHopDongService
                     ExpectedEndDate = dto.ExpectedEndDate,
                     ActualRentPrice = dto.ActualRentPrice,
                     DepositAmount = dto.DepositAmount,
-                    DepositPaid = dto.DepositPaid,
+                    DepositPaid = true,
                     PaymentDayOfMonth = dto.PaymentDayOfMonth,
                     BillingFormulaJson = SerializeBillingFormula(dto.BillingFormulaItems)
                 };
@@ -342,9 +342,6 @@ public class HopDongService : IHopDongService
 
         if (dto.DepositAmount.HasValue)
             contract.DepositAmount = dto.DepositAmount;
-
-        if (dto.DepositPaid.HasValue)
-            contract.DepositPaid = dto.DepositPaid.Value;
 
         if (dto.PaymentDayOfMonth.HasValue)
             contract.PaymentDayOfMonth = dto.PaymentDayOfMonth;
@@ -1196,7 +1193,6 @@ public class HopDongService : IHopDongService
         if (dto.Residents != null) changes.Add("cập nhật thành viên");
         if (dto.SelectedServiceIds != null) changes.Add("cập nhật danh mục dịch vụ");
         if (dto.BillingFormulaItems != null || !string.IsNullOrWhiteSpace(dto.BillingFormulaJson)) changes.Add("cập nhật công thức hóa đơn");
-        if (dto.DepositPaid.HasValue) changes.Add("cập nhật trạng thái tiền cọc");
         return changes.Count == 0 ? "Cập nhật hợp đồng" : string.Join(", ", changes);
     }
 
@@ -1212,7 +1208,7 @@ public class HopDongService : IHopDongService
             contract.ExpectedEndDate,
             contract.ActualRentPrice,
             contract.DepositAmount,
-            contract.DepositPaid,
+            DepositPaid = true,
             contract.PaymentDayOfMonth,
             contract.BillingFormulaJson,
             contract.UpdatedAt,
@@ -1242,7 +1238,7 @@ public class HopDongService : IHopDongService
             ExpectedEndDate = contract.ExpectedEndDate,
             ActualRentPrice = contract.ActualRentPrice,
             DepositAmount = contract.DepositAmount,
-            DepositPaid = contract.DepositPaid,
+            DepositPaid = true,
             PaymentDayOfMonth = contract.PaymentDayOfMonth,
             BillingFormulaJson = contract.BillingFormulaJson,
             UpdatedAt = contract.UpdatedAt,

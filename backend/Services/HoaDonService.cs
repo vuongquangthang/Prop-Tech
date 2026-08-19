@@ -25,6 +25,7 @@ public interface IHoaDonService
     Task<HoaDonDto> ApproveAsync(int id, int approvedByUserId);
     Task<BatchReadingResultDto> BatchApproveAsync(List<int> invoiceIds, int approvedByUserId);
     Task<HoaDonDto> RejectAsync(int id, string reason);
+    Task<SendInvoiceReminderResultDto> ResendInvoiceNotificationAsync(int id);
     Task<SendInvoiceReminderResultDto> SendReminderAsync(int invoiceId, int sentByUserId, string? customContent = null);
     Task DeleteAsync(int id);
     Task<List<HoaDonDto>> GetByUserIdAsync(int userId);
@@ -404,22 +405,6 @@ public class HoaDonService : IHoaDonService
                     }
                 }
 
-                var depositAmount = contract.DepositAmount ?? 0;
-                var isFirstContractMonth =
-                    contract.StartDate.Year == year &&
-                    contract.StartDate.Month == month;
-                if (!contract.DepositPaid && depositAmount > 0 && isFirstContractMonth)
-                {
-                    lineItems.Add(new ChiTietHoaDon
-                    {
-                        ItemType = "PhatSinh",
-                        Description = $"Tiền cọc hợp đồng {contract.ContractCode}",
-                        Quantity = 1,
-                        UnitPrice = depositAmount
-                    });
-                    total += depositAmount;
-                }
-
                 if (missingReadingReasons.Any())
                 {
                     result.Skipped++;
@@ -565,7 +550,30 @@ public class HoaDonService : IHoaDonService
         return MapToDto(updated!);
     }
 
-    private async Task NotifyResidentAsync(HoaDon invoice)
+    public async Task<SendInvoiceReminderResultDto> ResendInvoiceNotificationAsync(int id)
+    {
+        var invoice = await _hoaDonRepository.GetWithDetailsAsync(id);
+        if (invoice == null) throw new InvalidOperationException("Hóa đơn không tồn tại");
+        if (invoice.Status == "Nháp" || invoice.Status == "Bị từ chối")
+        {
+            throw new InvalidOperationException("Chỉ có thể gửi lại hóa đơn đã phát hành");
+        }
+
+        var sentCount = await NotifyResidentAsync(invoice);
+        if (sentCount == 0)
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản cư dân để gửi hóa đơn");
+        }
+
+        return new SendInvoiceReminderResultDto
+        {
+            InvoiceId = invoice.Id,
+            SentCount = sentCount,
+            RecipientUserIds = new List<int>()
+        };
+    }
+
+    private async Task<int> NotifyResidentAsync(HoaDon invoice)
     {
         try
         {
@@ -574,6 +582,8 @@ public class HoaDonService : IHoaDonService
             var residentUsers = await _context.ChiTietOs
                 .Where(ct => ct.ContractId == contractId)
                 .SelectMany(ct => ct.Resident.Users)
+                .Where(user => user.Role == "CuDan")
+                .Distinct()
                 .ToListAsync();
 
             foreach (var user in residentUsers)
@@ -601,10 +611,13 @@ public class HoaDonService : IHoaDonService
                     invoice.Id,
                     $"invoice://detail?invoiceId={invoice.Id}");
             }
+
+            return residentUsers.Count;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"⚠️ SignalR notify failed: {ex.Message}");
+            return 0;
         }
     }
 

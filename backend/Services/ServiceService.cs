@@ -521,12 +521,26 @@ public class ServiceService : IServiceService
     private static string NormalizeServiceType(string? serviceType, string? serviceName = null)
     {
         var value = (serviceType ?? string.Empty).Trim().ToLowerInvariant();
-        var searchableValue = NormalizeKey($"{serviceType} {serviceName}");
         if (string.IsNullOrWhiteSpace(value))
         {
             return "Theo tháng";
         }
 
+        var normalizedType = NormalizeKey(serviceType);
+        var explicitType = normalizedType switch
+        {
+            "dien" => "Điện",
+            "nuoc" => "Nước",
+            "can nhap so luong" => "Cần nhập số lượng",
+            "theo thang" => "Theo tháng",
+            _ => null
+        };
+        if (explicitType != null)
+        {
+            return explicitType;
+        }
+
+        var searchableValue = NormalizeKey($"{serviceType} {serviceName}");
         if (searchableValue.Contains("dien") || searchableValue.Contains("electric"))
         {
             return "Điện";
@@ -557,7 +571,7 @@ public class ServiceService : IServiceService
             return "Theo tháng";
         }
 
-        return NormalizeKey(serviceType) switch
+        return normalizedType switch
         {
             "dien" => "Điện",
             "nuoc" => "Nước",
