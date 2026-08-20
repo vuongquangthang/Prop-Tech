@@ -211,18 +211,12 @@ export function PostManagementPage() {
 
   return (
     <div className="space-y-6">
-        <div className="flex items-end gap-8 border-b border-gray-300">
-            <button
-              className="-mb-px border-b-2 px-2 pb-3 text-sm font-semibold"
-              style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
-            >
-              Quản lý bài đăng
+        <div className="product-tabs">
+            <button type="button" className="is-active">
+              <span>Quản lý bài đăng</span>
             </button>
-            <button
-              onClick={() => navigate('/messages')}
-              className="-mb-px border-b-2 border-transparent px-2 pb-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
-            >
-              Tin nhắn
+            <button type="button" onClick={() => navigate('/messages')}>
+              <span>Tin nhắn</span>
             </button>
         </div>
 

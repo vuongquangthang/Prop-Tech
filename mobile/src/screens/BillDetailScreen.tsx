@@ -39,7 +39,7 @@ export default function BillDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<InitiatePaymentResponse | null>(null);
   const [canPayInvoice, setCanPayInvoice] = useState(false);
-  const paymentPermissionMessage = 'Chỉ chủ hộ/người thuê chính được thanh toán hóa đơn. Thành viên cần được chủ hộ hoặc chủ nhà xử lý.';
+  const paymentPermissionMessage = 'Chỉ cư dân đại diện/người thuê chính được thanh toán hóa đơn. Thành viên cần được cư dân đại diện hoặc chủ nhà xử lý.';
 
   const loadInvoice = useCallback(async () => {
     if (!invoiceId) {

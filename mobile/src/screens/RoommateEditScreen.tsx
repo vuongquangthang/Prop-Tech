@@ -223,7 +223,7 @@ export default function RoommateEditScreen() {
           ? contracts.find((contract) => contract.id === activeContractId)
           : undefined;
       if (selectedContract && !canResidentManageRoommatePosts(selectedContract, user?.residentId)) {
-        throw new Error('Chỉ chủ phòng/người thuê chính được chỉnh sửa bài đăng tìm người ở ghép.');
+        throw new Error('Chỉ cư dân đại diện/người thuê chính được chỉnh sửa bài đăng tìm người ở ghép.');
       }
       const targetRoomId = selectedContract?.roomId ?? routeRoomId;
       const [myPost, roomData] = await Promise.all([
@@ -696,7 +696,7 @@ export default function RoommateEditScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>Yêu cầu từ chủ phòng</Text>
+              <Text style={styles.label}>Yêu cầu từ cư dân đại diện</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 multiline

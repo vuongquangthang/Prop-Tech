@@ -833,7 +833,7 @@ public class PostService : IPostService
 
         if (!canManagePost)
         {
-            throw new InvalidOperationException("Chỉ chủ phòng/người thuê chính được đăng và chỉnh sửa bài đăng tìm người ở ghép.");
+            throw new InvalidOperationException("Chỉ cư dân đại diện/người thuê chính được đăng và chỉnh sửa bài đăng tìm người ở ghép.");
         }
     }
 

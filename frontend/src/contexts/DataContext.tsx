@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { maintenanceService, notificationService } from '../services/feature.service';
 import { invoiceService, paymentService } from '../services/api.service';
@@ -261,7 +261,7 @@ function formatTime(dateString: string): string {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
@@ -270,6 +270,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionRevokedMessage, setSessionRevokedMessage] = useState<string | null>(null);
+  const authDataScopeKey = user ? `${user.ownerUserId ?? user.id}:${user.id}` : 'anonymous';
+  const activeDataScopeRef = useRef(authDataScopeKey);
 
   const showSessionRevokedModal = (message: string) => {
     saveAuthLogoutMessage(message);
@@ -280,26 +282,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Fetch all data from API
   const fetchData = async () => {
+    const requestScopeKey = authDataScopeKey;
+    const isCurrentScope = () => activeDataScopeRef.current === requestScopeKey;
+
     try {
       setLoading(true);
       setError(null);
+      let latestIncidents: Incident[] = [];
+      let latestInvoices: Invoice[] = [];
 
       // Fetch maintenance requests (incidents)
       try {
         const maintenanceData = await maintenanceService.getAll();
         const mappedIncidents = maintenanceData.map(mapMaintenanceToIncident);
+        if (!isCurrentScope()) return;
+        latestIncidents = mappedIncidents;
         setIncidents(mappedIncidents);
       } catch (err) {
         console.error('Error fetching maintenance:', err);
+        if (!isCurrentScope()) return;
+        setIncidents([]);
       }
 
       // Fetch notifications
       try {
         const notifData = await notificationService.getMy();
         const mappedNotifications = notifData.map(mapBackendNotification);
+        if (!isCurrentScope()) return;
         setNotifications(mappedNotifications);
       } catch (err) {
         console.error('Error fetching notifications:', err);
+        if (!isCurrentScope()) return;
+        setNotifications([]);
       }
 
       // Fetch invoices
@@ -317,16 +331,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
           dueDate: inv.hanThanhToan,
           items: inv.chiTiet || [],
         }));
+        if (!isCurrentScope()) return;
+        latestInvoices = mappedInvoices;
         setInvoices(mappedInvoices);
       } catch (err) {
         console.error('Error fetching invoices:', err);
+        if (!isCurrentScope()) return;
+        setInvoices([]);
       }
 
       // Generate activities from recent data
       const newActivities: Activity[] = [];
       
       // Add recent incidents as activities
-      incidents.slice(0, 5).forEach(inc => {
+      latestIncidents.slice(0, 5).forEach(inc => {
         newActivities.push({
           id: `act-inc-${inc.id}`,
           title: `Sự cố: ${inc.title}`,
@@ -337,7 +355,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
 
       // Add recent invoices as activities
-      invoices.slice(0, 5).forEach(inv => {
+      latestInvoices.slice(0, 5).forEach(inv => {
         newActivities.push({
           id: `act-inv-${inv.id}`,
           title: `Hóa đơn ${inv.period}: ${inv.amount}`,
@@ -351,15 +369,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     } catch (err: any) {
       console.error('Error fetching data:', err);
+      if (!isCurrentScope()) return;
       setError(err.message || 'Không thể tải dữ liệu');
     } finally {
-      setLoading(false);
+      if (isCurrentScope()) {
+        setLoading(false);
+      }
     }
   };
 
   // Initialize data and SignalR — only when authenticated
   useEffect(() => {
     if (authLoading) return;
+    activeDataScopeRef.current = authDataScopeKey;
 
     if (!isAuthenticated) {
       setIncidents([]);
@@ -371,6 +393,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       disconnectSignalR();
       return;
     }
+
+    setIncidents([]);
+    setNotifications([]);
+    setBills([]);
+    setInvoices([]);
+    setActivities([]);
+    setError(null);
 
     fetchData();
 
@@ -508,7 +537,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clearInterval(refreshTimer);
       disconnectSignalR();
     };
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, authDataScopeKey]);
 
   useEffect(() => {
     const handleSessionRevoked = (event: Event) => {

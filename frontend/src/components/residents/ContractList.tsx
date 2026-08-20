@@ -234,7 +234,7 @@ export function ContractList() {
           </FilterSelect>
           <input
             type="text"
-            placeholder="Tìm theo mã hợp đồng, phòng hoặc chủ hộ..."
+            placeholder="Tìm theo mã hợp đồng, phòng hoặc cư dân đại diện..."
             className="app-input"
             style={{ width: '360px', flex: '0 0 360px' }}
             value={searchTerm}
@@ -257,7 +257,7 @@ export function ContractList() {
                 <tr>
                   <th>Mã hợp đồng</th>
                   <th>Phòng</th>
-                  <th>Chủ hộ</th>
+                  <th>Cư dân đại diện</th>
                   <th>Ngày bắt đầu</th>
                   <th>Ngày kết thúc</th>
                   <th>Tiền cọc (VNĐ)</th>

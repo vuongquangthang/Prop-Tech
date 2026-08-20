@@ -1,113 +1,68 @@
-import { Check, Monitor, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useTheme, type ThemePreference } from '../contexts/ThemeContext';
-
-const options: Array<{
-  value: ThemePreference;
-  label: string;
-  icon: typeof Sun;
-}> = [
-  { value: 'light', label: 'Sáng', icon: Sun },
-  { value: 'dark', label: 'Tối', icon: Moon },
-  { value: 'system', label: 'Hệ thống', icon: Monitor },
-];
+import { useTheme } from '../contexts/ThemeContext';
 
 export function ThemeSwitcher() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const ActiveIcon = resolvedTheme === 'dark' ? Moon : Sun;
+  const { resolvedTheme, setTheme } = useTheme();
+  const [doorPhase, setDoorPhase] = useState<'idle' | 'closing' | 'opening'>('idle');
+  const [targetTheme, setTargetTheme] = useState<'light' | 'dark'>(resolvedTheme);
+  const timersRef = useRef<number[]>([]);
+  const isDark = resolvedTheme === 'dark';
+  const NextIcon = isDark ? Sun : Moon;
+  const DoorIcon = targetTheme === 'dark' ? Moon : Sun;
+  const isAnimating = doorPhase !== 'idle';
 
   useEffect(() => {
-    if (!open || !triggerRef.current) return;
-
-    const updatePosition = () => {
-      const rect = triggerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setMenuPosition({
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-      });
-    };
-
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
     return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
+      timersRef.current.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [open]);
+  }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [open]);
+  const handleToggleTheme = () => {
+    if (isAnimating) return;
+
+    const nextTheme = isDark ? 'light' : 'dark';
+    setTargetTheme(nextTheme);
+    setDoorPhase('closing');
+
+    timersRef.current.forEach((timer) => window.clearTimeout(timer));
+    timersRef.current = [
+      window.setTimeout(() => {
+        setTheme(nextTheme);
+        setDoorPhase('opening');
+      }, 520),
+      window.setTimeout(() => {
+        setDoorPhase('idle');
+      }, 1120),
+    ];
+  };
 
   return (
-    <div ref={containerRef} className="theme-switcher">
+    <div className="theme-switcher">
       <button
-        ref={triggerRef}
         type="button"
-        className="theme-switcher-trigger"
-        aria-label="Chọn giao diện"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        className={`theme-switcher-trigger theme-toggle-button ${isDark ? 'is-dark' : 'is-light'}`}
+        aria-label={isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+        title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}
+        disabled={isAnimating}
+        onClick={handleToggleTheme}
       >
-        <ActiveIcon size={18} />
+        <span className="theme-toggle-icon" key={resolvedTheme}>
+          <NextIcon size={18} />
+        </span>
       </button>
 
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          className="theme-switcher-menu"
-          role="menu"
-          style={{ position: 'fixed', top: menuPosition.top, right: menuPosition.right }}
-        >
-          <p>Giao diện</p>
-          {options.map((option) => {
-            const Icon = option.icon;
-            const selected = theme === option.value;
-            return (
-              <button
-                type="button"
-                key={option.value}
-                role="menuitemradio"
-                aria-checked={selected}
-                onClick={() => {
-                  setTheme(option.value);
-                  setOpen(false);
-                }}
-              >
-                <Icon size={16} />
-                <span>{option.label}</span>
-                {selected && <Check size={15} />}
-              </button>
-            );
-          })}
+      {isAnimating && createPortal(
+        <div className={`theme-door-transition is-${doorPhase} to-${targetTheme}`} aria-hidden="true">
+          <div className="theme-door-panel theme-door-panel-left" />
+          <div className="theme-door-panel theme-door-panel-right">
+            <span className="theme-door-handle">
+              <DoorIcon size={28} />
+            </span>
+          </div>
         </div>,
-        document.body
+        document.body,
       )}
     </div>
   );

@@ -49,6 +49,8 @@ interface UtilityReadingTableProps {
   embedded?: boolean;
 }
 
+const CALCULATION_RESULT_PREVIEW_LIMIT = 5;
+
 export function UtilityReadingTable({ embedded = false }: UtilityReadingTableProps = {}) {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
@@ -68,6 +70,9 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
   const [modalInvoiceId, setModalInvoiceId] = useState<number | null>(null);
   const [sendingInvoices, setSendingInvoices] = useState(false);
   const [sendResult, setSendResult] = useState('');
+  const [showAllSkippedReasons, setShowAllSkippedReasons] = useState(false);
+  const [showAllCalculationErrors, setShowAllCalculationErrors] = useState(false);
+  const [showAllCalculationWarnings, setShowAllCalculationWarnings] = useState(false);
   const [calcResult, setCalcResult] = useState<{
     totalContracts: number;
     totalInvoices: number;
@@ -108,6 +113,9 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     setCalculatedInvoices([]);
     setCalcResult(null);
     setSendResult('');
+    setShowAllSkippedReasons(false);
+    setShowAllCalculationErrors(false);
+    setShowAllCalculationWarnings(false);
   }, [selectedMonth, selectedYear]);
 
   const handleInputChange = (roomId: number, field: 'newElec' | 'newWater', value: string) => {
@@ -236,6 +244,9 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
       setLockedCalculatedRoomIds(new Set(enteredRoomIds));
       setCalculatedInvoices(await loadCalculatedInvoices(enteredRoomIds));
       setSendResult('');
+      setShowAllSkippedReasons(false);
+      setShowAllCalculationErrors(false);
+      setShowAllCalculationWarnings(false);
       setCalculateModal(true);
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi tính toán hóa đơn.']);
@@ -316,6 +327,16 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
 
   // Only allow input for the current month
   const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
+
+  const skippedReasonsPreview = calcResult
+    ? (showAllSkippedReasons ? calcResult.skippedReasons : calcResult.skippedReasons.slice(0, CALCULATION_RESULT_PREVIEW_LIMIT))
+    : [];
+  const calculationErrorsPreview = calcResult
+    ? (showAllCalculationErrors ? calcResult.errors : calcResult.errors.slice(0, CALCULATION_RESULT_PREVIEW_LIMIT))
+    : [];
+  const calculationWarningsPreview = calcResult
+    ? (showAllCalculationWarnings ? calcResult.warnings : calcResult.warnings.slice(0, CALCULATION_RESULT_PREVIEW_LIMIT))
+    : [];
 
   useEffect(() => {
     if (selectedMonth > maxMonthForSelectedYear) {
@@ -667,28 +688,66 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
               {/* Skipped reasons */}
               {calcResult.skippedReasons.length > 0 && (
                 <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
-                  <p className="text-xs font-semibold text-yellow-700 mb-2">⚠️ Phòng bị bỏ qua, không tạo hóa đơn:</p>
-                  <div className="space-y-0.5 max-h-32 overflow-y-auto">
-                    {calcResult.skippedReasons.map((r, i) => <p key={i} className="text-xs text-yellow-600">• {r}</p>)}
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold text-yellow-700">⚠️ Phòng bị bỏ qua ({calcResult.skippedReasons.length})</p>
+                    {calcResult.skippedReasons.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSkippedReasons((current) => !current)}
+                        className="text-xs font-semibold text-yellow-700 underline-offset-2 hover:underline"
+                      >
+                        {showAllSkippedReasons ? 'Thu gọn' : `Xem thêm ${calcResult.skippedReasons.length - CALCULATION_RESULT_PREVIEW_LIMIT}`}
+                      </button>
+                    )}
                   </div>
+                  <div className={`space-y-0.5 ${showAllSkippedReasons ? 'max-h-44 overflow-y-auto pr-1' : ''}`}>
+                    {skippedReasonsPreview.map((r, i) => <p key={i} className="text-xs text-yellow-600">• {r}</p>)}
+                  </div>
+                  {!showAllSkippedReasons && calcResult.skippedReasons.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
+                    <p className="mt-2 text-xs text-yellow-700">
+                      Còn {calcResult.skippedReasons.length - CALCULATION_RESULT_PREVIEW_LIMIT} phòng bị bỏ qua. Bấm “Xem thêm” nếu cần kiểm tra chi tiết.
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* Calculation errors */}
               {calcResult.errors.length > 0 && (
                 <div className="bg-red-50 border border-red-300 rounded p-3">
-                  <p className="text-xs font-semibold text-red-700 mb-1">⚠️ Lỗi không tạo được hóa đơn:</p>
-                  <div className="space-y-0.5 max-h-28 overflow-y-auto">
-                    {calcResult.errors.map((e, i) => <p key={i} className="text-xs text-red-600">• {e}</p>)}
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold text-red-700">⚠️ Lỗi không tạo được hóa đơn ({calcResult.errors.length})</p>
+                    {calcResult.errors.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCalculationErrors((current) => !current)}
+                        className="text-xs font-semibold text-red-700 underline-offset-2 hover:underline"
+                      >
+                        {showAllCalculationErrors ? 'Thu gọn' : `Xem thêm ${calcResult.errors.length - CALCULATION_RESULT_PREVIEW_LIMIT}`}
+                      </button>
+                    )}
+                  </div>
+                  <div className={`space-y-0.5 ${showAllCalculationErrors ? 'max-h-36 overflow-y-auto pr-1' : ''}`}>
+                    {calculationErrorsPreview.map((e, i) => <p key={i} className="text-xs text-red-600">• {e}</p>)}
                   </div>
                 </div>
               )}
 
               {calcResult.warnings.length > 0 && (
                 <div className="bg-orange-50 border border-orange-300 rounded p-3">
-                  <p className="text-xs font-semibold text-orange-700 mb-1">⚠️ Cảnh báo cần kiểm tra công thức/dịch vụ:</p>
-                  <div className="space-y-0.5 max-h-28 overflow-y-auto">
-                    {calcResult.warnings.map((w, i) => <p key={i} className="text-xs text-orange-600">• {w}</p>)}
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold text-orange-700">⚠️ Cảnh báo cần kiểm tra công thức/dịch vụ ({calcResult.warnings.length})</p>
+                    {calcResult.warnings.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCalculationWarnings((current) => !current)}
+                        className="text-xs font-semibold text-orange-700 underline-offset-2 hover:underline"
+                      >
+                        {showAllCalculationWarnings ? 'Thu gọn' : `Xem thêm ${calcResult.warnings.length - CALCULATION_RESULT_PREVIEW_LIMIT}`}
+                      </button>
+                    )}
+                  </div>
+                  <div className={`space-y-0.5 ${showAllCalculationWarnings ? 'max-h-36 overflow-y-auto pr-1' : ''}`}>
+                    {calculationWarningsPreview.map((w, i) => <p key={i} className="text-xs text-orange-600">• {w}</p>)}
                   </div>
                 </div>
               )}

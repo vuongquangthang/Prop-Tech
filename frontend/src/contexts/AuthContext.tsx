@@ -25,6 +25,7 @@ interface User {
   address?: string;
   avatarUrl?: string;
   role: string;
+  ownerUserId?: number | null;
 }
 
 interface AuthContextType {

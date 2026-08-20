@@ -177,7 +177,7 @@ function ViewSettlementsTab() {
                 <th className="px-6 py-3 text-left text-sm text-gray-600">Mã TS</th>
                 <th className="px-6 py-3 text-left text-sm text-gray-600">Ngày tất toán</th>
                 <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
-                <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
+                <th className="px-6 py-3 text-left text-sm text-gray-600">Cư dân đại diện</th>
                 <th className="px-6 py-3 text-right text-sm text-gray-600">Tiền hoàn cọc</th>
                 <th className="px-6 py-3 text-right text-sm text-gray-600">Khấu trừ</th>
                 <th className="px-6 py-3 text-right text-sm text-gray-600">Tổng tất toán</th>
@@ -476,7 +476,7 @@ function CreateSettlementTab({ onCreated }: { onCreated: () => void }) {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Tìm theo mã hợp đồng, số phòng hoặc chủ hộ..."
+              placeholder="Tìm theo mã hợp đồng, số phòng hoặc cư dân đại diện..."
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:border-gray-500"
               value={contractQuery}
               onChange={(e) => setContractQuery(e.target.value)}
@@ -527,7 +527,7 @@ function CreateSettlementTab({ onCreated }: { onCreated: () => void }) {
                 <p className="text-gray-900">{selectedContract?.roomNumber || selectedContract?.soPhong || '-'}</p>
               </div>
               <div>
-                <p className="text-gray-600 mb-1">Chủ hộ</p>
+                <p className="text-gray-600 mb-1">Cư dân đại diện</p>
                 <p className="text-gray-900">{selectedContract ? getMainResidentName(selectedContract) : '-'}</p>
               </div>
               <div>

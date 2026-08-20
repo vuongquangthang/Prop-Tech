@@ -31,7 +31,7 @@ const getReminderLevelInfo = (daysLate: number) => {
     return { level: 1, label: 'Mức 1 - Nhắc nhẹ', range: '1-6 ngày quá hạn', color: 'bg-blue-100 text-blue-800' };
   }
 
-  return { level: 0, label: 'Chưa quá hạn', range: '0 ngày quá hạn', color: 'bg-gray-100 text-gray-700' };
+  return { level: 0, label: 'Chưa quá hạn', range: 'Trong hạn thanh toán', color: 'bg-gray-100 text-gray-700' };
 };
 
 const getRowColor = (daysLate: number) => {
@@ -164,7 +164,7 @@ export function DebtTable() {
           <p className="text-xs text-gray-600 mt-1">phòng</p>
         </div>
         <div className="bg-white border-2 border-gray-300 rounded p-4">
-          <p className="text-sm text-gray-600 mb-2">Nợ quá 30 ngày</p>
+          <p className="text-sm text-gray-600 mb-2">Nợ quá hạn</p>
           <p className="text-2xl text-red-600">{over30Days}</p>
           <p className="text-xs text-gray-600 mt-1">phòng</p>
         </div>
@@ -194,17 +194,14 @@ export function DebtTable() {
               <thead className="bg-gray-50 border-b border-gray-300">
                 <tr>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">Phòng</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">Chủ hộ</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-600">Cư dân đại diện</th>
                   <th className="px-6 py-3 text-right text-sm text-gray-600">Số tiền nợ (VNĐ)</th>
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Số ngày trễ</th>
-                  <th className="px-6 py-3 text-center text-sm text-gray-600">Mức nhắc nợ</th>
                   <th className="px-6 py-3 text-center text-sm text-gray-600">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredData.map((debt) => {
-                  const reminderLevelInfo = getReminderLevelInfo(debt.daysLate);
-
                   return (
                     <tr
                       key={debt.invoiceId}
@@ -214,14 +211,8 @@ export function DebtTable() {
                       <td className="px-6 py-4 text-sm text-gray-800">{debt.room}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{debt.tenant}</td>
                       <td className="px-6 py-4 text-sm text-red-600 text-right">{debt.amount.toLocaleString('vi-VN')}</td>
-                      <td className="px-6 py-4 text-sm text-gray-800 text-center">{debt.daysLate} ngày</td>
-                      <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
-                        <div className="inline-flex flex-col items-center gap-1">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-[15px] ${reminderLevelInfo.color}`}>
-                            {reminderLevelInfo.label}
-                          </span>
-                          <span className="text-xs text-gray-500">{reminderLevelInfo.range}</span>
-                        </div>
+                      <td className={`px-6 py-4 text-sm font-semibold text-center ${debt.daysLate > 0 ? 'text-red-700' : 'text-gray-700'}`}>
+                        {debt.daysLate} ngày
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center space-x-2">

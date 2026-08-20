@@ -64,6 +64,15 @@ export class SignalRService {
     }
   }
 
+  removeAllListeners(): void {
+    if (!this.connection) return;
+
+    this.listeners.forEach((_callbacks, eventName) => {
+      this.connection?.off(eventName);
+    });
+    this.listeners.clear();
+  }
+
   on(eventName: string, callback: (...args: any[]) => void): void {
     if (!this.connection) return;
 
@@ -137,6 +146,7 @@ export async function initializeSignalR(): Promise<void> {
 // Export helper to cleanup all hubs
 export async function disconnectSignalR(): Promise<void> {
   try {
+    notificationHub.removeAllListeners();
     await notificationHub.stop();
   } catch (error) {
     console.error('Failed to disconnect SignalR:', error);

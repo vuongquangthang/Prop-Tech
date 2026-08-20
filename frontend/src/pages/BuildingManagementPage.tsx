@@ -518,10 +518,12 @@ export function BuildingManagementPage() {
                         <button
                           type="button"
                           onClick={() => setShowLocationModal(true)}
-                          className="ml-2 inline-flex w-fit max-w-full shrink-0 items-center gap-2 border border-[var(--surface-border)] bg-white px-3 py-1.5 text-sm font-semibold text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-surface)]"
+                          title={hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}
+                          aria-label={hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}
+                          className="ml-2 inline-flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-white text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-surface)]"
+                          style={{ borderRadius: 'var(--radius-button)' }}
                         >
-                          <MapPin size={15} />
-                          <span className="truncate">{hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}</span>
+                          <MapPin size={15} strokeWidth={2.5} />
                         </button>
                       </div>
                     )}
@@ -683,19 +685,8 @@ export function BuildingManagementPage() {
 
             {hasInfrastructureSelection && activeWorkspaceSection && (
               <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
-                <div
-                  className="border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur"
-                  style={{ borderRadius: '18px 18px 0 0' }}
-                >
-                  <div style={{ overflowX: 'auto' }}>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${workspaceSections.length}, minmax(0, 1fr))`,
-                        gap: '8px',
-                        minWidth: workspaceSections.length > 1 ? '720px' : '240px',
-                      }}
-                    >
+                <div className="border-b border-[var(--surface-border)]">
+                  <div className="product-tabs border-0">
                     {workspaceSections.map((section) => {
                       const isActive = activeWorkspaceSection.key === section.key;
                       return (
@@ -703,18 +694,12 @@ export function BuildingManagementPage() {
                           key={section.key}
                           type="button"
                           onClick={() => setActiveWorkspaceTab(section.key)}
-                          className={`group relative flex min-w-0 items-center justify-center px-4 py-2.5 text-sm font-semibold transition-all ${
-                            isActive
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
-                          }`}
-                          style={{ borderRadius: '16px', width: '100%' }}
+                          className={isActive ? 'is-active' : ''}
                         >
                           <span className="truncate whitespace-nowrap">{section.title}</span>
                         </button>
                       );
                     })}
-                    </div>
                   </div>
                 </div>
                 <div className="p-3">

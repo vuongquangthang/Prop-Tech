@@ -291,20 +291,18 @@ export function MessagesPage() {
 
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
-      <div className="flex shrink-0 items-end gap-8 border-b border-gray-300">
+      <div className="product-tabs shrink-0">
         <button
           type="button"
           onClick={() => navigate('/post-management')}
-          className="-mb-px border-b-2 border-transparent px-2 pb-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
         >
-          Quản lý bài đăng
+          <span>Quản lý bài đăng</span>
         </button>
         <button
           type="button"
-          className="-mb-px border-b-2 px-2 pb-3 text-sm font-semibold"
-          style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+          className="is-active"
         >
-          Tin nhắn
+          <span>Tin nhắn</span>
         </button>
       </div>
 

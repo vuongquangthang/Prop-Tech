@@ -99,12 +99,12 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
 };
 
 const RESIDENCY_ROLE_LABELS: Record<string, string> = {
-  'Người thuê chính': 'Chủ hộ',
-  'Người thuê':       'Chủ hộ',
+  'Người thuê chính': 'Cư dân đại diện',
+  'Người thuê':       'Cư dân đại diện',
   'Người ở cùng':    'Thành viên',
   'Khác':            'Khác',
-  PRIMARY:          'Chủ hộ',
-  OWNER:            'Chủ hộ',
+  PRIMARY:          'Cư dân đại diện',
+  OWNER:            'Cư dân đại diện',
   TENANT:           'Người thuê',
 };
 
@@ -369,7 +369,7 @@ export function InvoiceDetailModal({ invoiceId, invoiceNumber, onClose, onApprov
                   )}
                   {/* {members.length > 0 && (
                     <div style={{ marginTop: '10px', padding: '8px 10px', backgroundColor: 'rgba(21, 128, 61, 0.08)', border: '1px solid rgba(21, 128, 61, 0.18)', borderRadius: '8px', fontSize: 'var(--type-caption)', color: 'var(--success)' }}>
-                      Tất cả {members.length} người đã nhận thông báo qua App cư dân. Chỉ chủ hộ có quyền thanh toán.
+                      Tất cả {members.length} người đã nhận thông báo qua App cư dân. Chỉ cư dân đại diện có quyền thanh toán.
                     </div>
                   )} */}
                 </InfoCard>

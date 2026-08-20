@@ -1,6 +1,6 @@
 import { Filter, Lock, Unlock, Loader2, AlertTriangle, UserX, Copy, Check, Eye, Phone, Plus, UserRound, Shield, KeyRound } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { userService } from '../../services/api.service';
+import { contractService, userService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDisplayDateTime } from '../../lib/date-utils';
@@ -8,9 +8,11 @@ import { searchIncludes } from '../../lib/search';
 
 interface UserData {
   id: number | string;
+  residentId?: number;
   username: string;
   fullName: string;
   role: 'Admin' | 'CuDan';
+  displayRole: 'Admin' | 'CuDan' | 'CuDanDaiDien';
   status: string;
   lastLogin: string;
   isLocked: boolean;
@@ -22,11 +24,13 @@ const DEFAULT_RESIDENT_TEMP_PASSWORD = '123456';
 const roleColors = {
   Admin: 'bg-purple-100 text-purple-800 border-purple-300',
   CuDan: 'bg-blue-100 text-blue-800 border-blue-300',
+  CuDanDaiDien: 'bg-emerald-100 text-emerald-800 border-emerald-300',
 };
 
 const roleLabels = {
   Admin: 'BQL',
   CuDan: 'Cư dân',
+  CuDanDaiDien: 'Cư dân đại diện',
 };
 
 function normalizeRole(rawRole: string | undefined): 'Admin' | 'CuDan' {
@@ -34,6 +38,29 @@ function normalizeRole(rawRole: string | undefined): 'Admin' | 'CuDan' {
   if (role === 'admin') return 'Admin';
   return 'CuDan';
 }
+
+const isRepresentativeRole = (role?: string) => {
+  const normalized = String(role || '').trim().toLowerCase();
+  return ['người thuê chính', 'nguoi thue chinh', 'cư dân đại diện', 'cu dan dai dien', 'chủ hộ', 'chu ho', 'chủ phòng', 'chu phong', 'primary', 'owner'].includes(normalized);
+};
+
+const getRepresentativeResidentKeys = (contracts: any[]) => {
+  const ids = new Set<number>();
+  const phones = new Set<string>();
+
+  contracts.forEach((contract) => {
+    const residents = Array.isArray(contract?.residents) ? contract.residents : [];
+    residents.forEach((resident: any) => {
+      if (!isRepresentativeRole(resident?.residencyRole || resident?.vaiTroCuTru || resident?.role)) return;
+      const residentId = Number(resident?.residentId ?? resident?.id);
+      if (Number.isFinite(residentId) && residentId > 0) ids.add(residentId);
+      const phone = String(resident?.phoneNumber || resident?.soDienThoai || '').trim();
+      if (phone) phones.add(phone);
+    });
+  });
+
+  return { ids, phones };
+};
 
 const statusColors = {
   active: 'bg-green-100 text-green-800 border-green-300',
@@ -82,7 +109,11 @@ export function UserAccountsTable() {
     try {
       setLoading(true);
       setError(null);
-      const data = await userService.getAll();
+      const [data, activeContracts] = await Promise.all([
+        userService.getAll(),
+        contractService.getActive().catch(() => []),
+      ]);
+      const representativeKeys = getRepresentativeResidentKeys(Array.isArray(activeContracts) ? activeContracts : []);
       
       const userData: UserData[] = data.map((user: any) => {
         // Determine status from isLocked field
@@ -93,11 +124,22 @@ export function UserAccountsTable() {
           status = 'inactive';
         }
 
+        const residentId = Number(user.residentId || user.resident?.id || user.cuDanId || 0);
+        const username = user.phoneNumber || user.username || user.tenDangNhap || '';
+        const role = normalizeRole(user.role || user.vaiTro);
+        const isRepresentative = role === 'CuDan'
+          && (
+            (Number.isFinite(residentId) && residentId > 0 && representativeKeys.ids.has(residentId))
+            || representativeKeys.phones.has(String(username).trim())
+          );
+
         return {
           id: user.id || user.userId || 0,
-          username: user.phoneNumber || user.username || user.tenDangNhap || '',
+          residentId: Number.isFinite(residentId) && residentId > 0 ? residentId : undefined,
+          username,
           fullName: user.residentName || user.fullName || user.hoTen || '',
-          role: normalizeRole(user.role || user.vaiTro),
+          role,
+          displayRole: isRepresentative ? 'CuDanDaiDien' : role,
           status,
           lastLogin: formatDisplayDateTime(user.lastLoginAt, 'Chưa đăng nhập'),
           isLocked: user.isLocked || false,
@@ -348,8 +390,8 @@ export function UserAccountsTable() {
                     <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{user.username}</td>
                     <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.fullName}</td>
                     <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
-                      <span className={`inline-block px-3 py-1 rounded border ${roleColors[user.role]}`} style={{ fontSize: 'var(--type-caption)' }}>
-                        {roleLabels[user.role]}
+                      <span className={`inline-block px-3 py-1 rounded border ${roleColors[user.displayRole]}`} style={{ fontSize: 'var(--type-caption)' }}>
+                        {roleLabels[user.displayRole]}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
@@ -462,7 +504,7 @@ export function UserAccountsTable() {
                     <Shield size={16} className="text-gray-500 mt-0.5" />
                     <div className="min-w-0">
                       <p className="text-gray-500">Vai trò</p>
-                      <p className="text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 600 }}>{roleLabels[viewUser.role]}</p>
+                      <p className="text-gray-900" style={{ fontSize: 'var(--type-body)', fontWeight: 600 }}>{roleLabels[viewUser.displayRole]}</p>
                     </div>
                   </div>
                 </div>

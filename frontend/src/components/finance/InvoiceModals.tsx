@@ -105,7 +105,7 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-gray-800 font-bold">{invoice?.tenant}</p>
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-300">Chủ hộ</span>
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-300">Cư dân đại diện</span>
                         </div>
                         <p className="text-xs text-gray-600">0912345678</p>
                       </div>
@@ -160,7 +160,7 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                 </div>
 
                 <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-300">
-                  🔗 <strong>Tất cả 4 người</strong> đã nhận thông báo qua App cư dân. <strong>Chỉ chủ hộ</strong> có quyền thanh toán.
+                  🔗 <strong>Tất cả 4 người</strong> đã nhận thông báo qua App cư dân. <strong>Chỉ cư dân đại diện</strong> có quyền thanh toán.
                 </p>
               </div>
             </div>
@@ -486,7 +486,7 @@ export function PrintInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                   <p>Họ tên: <strong>{invoice?.tenant}</strong></p>
                   <p>Phòng: <strong>{invoice?.room}</strong> (50m²)</p>
                   <p>Điện thoại: 0912345678</p>
-                  <p className="text-xs mt-1">Số người ở: 4 người (1 chủ hộ + 3 thành viên)</p>
+                  <p className="text-xs mt-1">Số người ở: 4 người (1 cư dân đại diện + 3 thành viên)</p>
                 </div>
               </div>
 
@@ -657,7 +657,7 @@ export function SendInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
             <h4 className="text-sm text-gray-800 font-bold mb-3">Thông tin gửi:</h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Chủ hộ:</span>
+                <span className="text-gray-600">Cư dân đại diện:</span>
                 <span className="text-gray-800 font-bold">{invoice?.tenant}</span>
               </div>
               <div className="flex justify-between">
@@ -685,7 +685,7 @@ export function SendInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                   </div>
                   <div>
                     <p className="text-sm text-gray-800 font-bold">{invoice?.tenant}</p>
-                    <p className="text-xs text-gray-600">Chủ hộ • 0912345678</p>
+                    <p className="text-xs text-gray-600">Cư dân đại diện • 0912345678</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">

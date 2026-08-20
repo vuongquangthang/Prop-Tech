@@ -347,41 +347,22 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
       )}
 
       {/* Tabs row */}
-      <div
-        className="border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur"
-        style={{ borderRadius: '18px' }}
-      >
-        <div style={{ overflowX: 'auto' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
-              gap: '8px',
-              minWidth: '520px',
-            }}
-          >
-            {tabs.map(tab => {
-              const active = activeTab === tab.key;
+      <div className="product-tabs">
+        {tabs.map(tab => {
+          const active = activeTab === tab.key;
 
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => { setActiveTab(tab.key); setSelectedInvoice(null); setSelectedIds(new Set()); setSearch(''); }}
-                  className={`group relative flex min-w-0 items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all ${
-                    active
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
-                  }`}
-                  style={{ borderRadius: '16px', width: '100%' }}
-                >
-                  <span className="truncate whitespace-nowrap">{tab.label}</span>
-                  <span className="rounded-full bg-white/75 px-1.5 py-0.5 text-xs leading-none text-current">{tab.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => { setActiveTab(tab.key); setSelectedInvoice(null); setSelectedIds(new Set()); setSearch(''); }}
+              className={active ? 'is-active' : ''}
+            >
+              <span className="truncate whitespace-nowrap">{tab.label}</span>
+              <b>{tab.count}</b>
+            </button>
+          );
+        })}
       </div>
 
       {/* Toolbar: filter left, actions right */}
@@ -545,7 +526,7 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
                     )}
                     <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Mã hóa đơn</th>
                     <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Phòng</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Chủ hộ</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Cư dân đại diện</th>
                     <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Kỳ thanh toán</th>
                     <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Tổng tiền (VND)</th>
                     <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-secondary)' }}>Trạng thái</th>

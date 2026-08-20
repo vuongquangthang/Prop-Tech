@@ -1,7 +1,7 @@
 import { Search, Edit2, X, AlertTriangle, User, Mail, Phone, Home, Shield, Loader2, Filter } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { EditResidentModal } from './ResidentTableModals';
-import { residentService } from '../../services/api.service';
+import { contractService, residentService } from '../../services/api.service';
 import { DataCard, DataTable, EmptyState, LoadingState, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 import { searchIncludes } from '../../lib/search';
@@ -15,6 +15,7 @@ interface ResidentData {
   buildingName?: string;
   floorNumber?: number;
   room?: string;
+  role: 'CuDan' | 'CuDanDaiDien';
   status?: string;
   contractCode?: string;
   debt?: string;
@@ -23,6 +24,34 @@ interface ResidentData {
 const statusConfig = {
   active: { label: 'Đang hoạt động', tone: 'success' as const },
   locked: { label: 'Bị khóa', tone: 'danger' as const },
+};
+
+const roleConfig = {
+  CuDan: { label: 'Cư dân', tone: 'info' as const },
+  CuDanDaiDien: { label: 'Cư dân đại diện', tone: 'success' as const },
+};
+
+const isRepresentativeRole = (role?: string) => {
+  const normalized = String(role || '').trim().toLowerCase();
+  return ['người thuê chính', 'nguoi thue chinh', 'cư dân đại diện', 'cu dan dai dien', 'chủ hộ', 'chu ho', 'chủ phòng', 'chu phong', 'primary', 'owner'].includes(normalized);
+};
+
+const getRepresentativeResidentKeys = (contracts: any[]) => {
+  const ids = new Set<number>();
+  const phones = new Set<string>();
+
+  contracts.forEach((contract) => {
+    const residents = Array.isArray(contract?.residents) ? contract.residents : [];
+    residents.forEach((resident: any) => {
+      if (!isRepresentativeRole(resident?.residencyRole || resident?.vaiTroCuTru || resident?.role)) return;
+      const residentId = Number(resident?.residentId ?? resident?.id);
+      if (Number.isFinite(residentId) && residentId > 0) ids.add(residentId);
+      const phone = String(resident?.phoneNumber || resident?.soDienThoai || '').trim();
+      if (phone) phones.add(phone);
+    });
+  });
+
+  return { ids, phones };
 };
 
 export function ResidentTable() {
@@ -42,7 +71,11 @@ export function ResidentTable() {
     try {
       setLoading(true);
       setError(null);
-      const data = await residentService.getAll();
+      const [data, activeContracts] = await Promise.all([
+        residentService.getAll(),
+        contractService.getActive().catch(() => []),
+      ]);
+      const representativeKeys = getRepresentativeResidentKeys(Array.isArray(activeContracts) ? activeContracts : []);
       setResidents(data.map((r: any) => ({
         id: r.id,
         fullName: r.fullName || r.hoTen || '',
@@ -52,6 +85,10 @@ export function ResidentTable() {
         buildingName: r.buildingName || r.tenToaNha || '',
         floorNumber: r.floorNumber ?? r.soTang ?? undefined,
         room: r.roomCode || r.soPhong || '',
+        role: representativeKeys.ids.has(Number(r.id))
+          || representativeKeys.phones.has(String(r.phoneNumber || r.soDienThoai || '').trim())
+          ? 'CuDanDaiDien'
+          : 'CuDan',
         status: r.isLocked ? 'locked' : 'active',
         contractCode: '',  // TODO: Get from contract data
         debt: '0'  // TODO: Get from invoice data
@@ -153,6 +190,7 @@ export function ResidentTable() {
                   <th>Họ tên</th>
                   <th>Số điện thoại</th>
                   <th>Email</th>
+                  <th>Vai trò</th>
                   <th>Tòa nhà</th>
                   <th>Tầng</th>
                   <th>Số phòng</th>
@@ -166,6 +204,11 @@ export function ResidentTable() {
                     <td className="font-semibold">{resident.fullName}</td>
                     <td>{resident.phoneNumber || '-'}</td>
                     <td>{resident.email || '-'}</td>
+                    <td>
+                      <StatusBadge tone={roleConfig[resident.role].tone}>
+                        {roleConfig[resident.role].label}
+                      </StatusBadge>
+                    </td>
                     <td>{resident.buildingName || '-'}</td>
                     <td>{resident.floorNumber ?? '-'}</td>
                     <td>{resident.room || '-'}</td>
