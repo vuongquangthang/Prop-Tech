@@ -16,6 +16,7 @@ public class NotificationHub : Hub
 
     public static string UserGroup(int userId) => $"user_{userId}";
     public static string OwnerGroup(int ownerUserId) => $"owner_{ownerUserId}";
+    public static string SessionGroup(string sessionId) => $"session_{sessionId}";
 
     public override async Task OnConnectedAsync()
     {
@@ -26,6 +27,12 @@ public class NotificationHub : Hub
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, UserGroup(userId.Value));
             _logger.LogInformation($"User {userId} connected to NotificationHub. ConnectionId: {Context.ConnectionId}");
+        }
+
+        var sessionId = GetCurrentSessionId();
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, SessionGroup(sessionId));
         }
 
         if (ownerUserId.HasValue)
@@ -45,6 +52,12 @@ public class NotificationHub : Hub
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, UserGroup(userId.Value));
             _logger.LogInformation($"User {userId} disconnected from NotificationHub. ConnectionId: {Context.ConnectionId}");
+        }
+
+        var sessionId = GetCurrentSessionId();
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, SessionGroup(sessionId));
         }
 
         if (ownerUserId.HasValue)
@@ -74,6 +87,11 @@ public class NotificationHub : Hub
         return int.TryParse(claim, out var ownerUserId)
             ? ownerUserId
             : GetCurrentUserId();
+    }
+
+    private string? GetCurrentSessionId()
+    {
+        return Context.User?.FindFirstValue("SessionId");
     }
 
     // Client can send test message

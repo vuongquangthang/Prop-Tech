@@ -124,11 +124,11 @@ export const RootNavigator = () => {
             if (sessionRevokedAlertShownRef.current) return;
             sessionRevokedAlertShownRef.current = true;
             const message = payload?.message || 'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác';
-            await logout();
             Alert.alert('Phiên đăng nhập đã kết thúc', message, [
               {
                 text: 'OK',
-                onPress: () => {
+                onPress: async () => {
+                  await logout();
                   sessionRevokedAlertShownRef.current = false;
                 },
               },

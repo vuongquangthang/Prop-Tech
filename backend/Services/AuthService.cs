@@ -107,6 +107,7 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Tài khoản đã bị khóa");
         }
 
+        var previousSessionId = user.ActiveSessionId;
         var newSessionId = Guid.NewGuid().ToString("N");
 
         // Update last login
@@ -117,7 +118,7 @@ public class AuthService : IAuthService
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync();
 
-        await NotifyPreviousSessionsRevokedAsync(user.Id);
+        await NotifyPreviousSessionsRevokedAsync(user.Id, previousSessionId);
 
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
@@ -407,15 +408,24 @@ public class AuthService : IAuthService
         };
     }
 
-    private async Task NotifyPreviousSessionsRevokedAsync(int userId)
+    private async Task NotifyPreviousSessionsRevokedAsync(int userId, string? previousSessionId)
     {
         try
         {
+            var payload = new
+            {
+                message = "Tài khoản của bạn vừa đăng nhập ở một thiết bị khác"
+            };
+
+            if (!string.IsNullOrWhiteSpace(previousSessionId))
+            {
+                await _hubContext.Clients.Group(NotificationHub.SessionGroup(previousSessionId))
+                    .SendAsync("SessionRevoked", payload);
+                return;
+            }
+
             await _hubContext.Clients.Group(NotificationHub.UserGroup(userId))
-                .SendAsync("SessionRevoked", new
-                {
-                    message = "Tài khoản của bạn vừa đăng nhập ở một thiết bị khác"
-                });
+                .SendAsync("SessionRevoked", payload);
         }
         catch
         {

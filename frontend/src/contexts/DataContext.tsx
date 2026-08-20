@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { maintenanceService, notificationService } from '../services/feature.service';
 import { invoiceService, paymentService } from '../services/api.service';
 import { notificationHub, initializeSignalR, disconnectSignalR } from '../lib/signalr-service';
 import { useAuth } from './AuthContext';
 import { formatDisplayDate } from '../lib/date-utils';
+import { clearAuthLogoutMessage, clearAuthSession, saveAuthLogoutMessage } from '../lib/api-client';
 
 const SESSION_REVOKED_MESSAGE = 'Tài khoản của bạn vừa đăng nhập ở một thiết bị khác';
 
@@ -267,6 +269,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionRevokedMessage, setSessionRevokedMessage] = useState<string | null>(null);
+
+  const showSessionRevokedModal = (message: string) => {
+    saveAuthLogoutMessage(message);
+    clearAuthSession();
+    void disconnectSignalR();
+    setSessionRevokedMessage(message);
+  };
 
   // Fetch all data from API
   const fetchData = async () => {
@@ -489,9 +499,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       notificationHub.on('PaymentFailed', handlePaymentEvent('PaymentFailed'));
       notificationHub.on('SessionRevoked', async (payload: any) => {
         const message = payload?.message || SESSION_REVOKED_MESSAGE;
-        window.sessionStorage.setItem('authLogoutMessage', message);
-        await logout();
-        window.location.href = '/login';
+        showSessionRevokedModal(message);
       });
     });
 
@@ -502,6 +510,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [isAuthenticated, authLoading]);
 
+  useEffect(() => {
+    const handleSessionRevoked = (event: Event) => {
+      const message = (event as CustomEvent<{ message?: string }>).detail?.message || SESSION_REVOKED_MESSAGE;
+      showSessionRevokedModal(message);
+    };
+
+    window.addEventListener('auth:session-revoked', handleSessionRevoked);
+    return () => window.removeEventListener('auth:session-revoked', handleSessionRevoked);
+  }, []);
+
+  const confirmSessionRevoked = async () => {
+    setSessionRevokedMessage(null);
+    clearAuthLogoutMessage();
+    await logout();
+    window.location.href = '/login';
+  };
+
+  useEffect(() => {
+    if (!sessionRevokedMessage) return;
+
+    document.body.classList.add('session-revoked-active');
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.classList.remove('session-revoked-active');
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [sessionRevokedMessage]);
+
   // CRUD operations
   const addIncident = async (incident: Omit<Incident, 'id' | 'reportedAt' | 'status'>) => {
     try {
@@ -509,7 +547,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         roomId: parseInt(incident.apartment) || 0,
         issueType: incident.category,
         description: `${incident.title} - ${incident.location}${incident.description ? ': ' + incident.description : ''}`,
-        mediaUrl: incident.imageUrl,
+        mediaUrls: incident.mediaUrls || incident.imageUrl,
       });
 
       const newIncident = mapMaintenanceToIncident(result);
@@ -714,7 +752,72 @@ export function DataProvider({ children }: { children: ReactNode }) {
     refreshData,
   };
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  const sessionRevokedModal = sessionRevokedMessage
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[2147483647] flex items-center justify-center p-6"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(15, 23, 42, 0.82)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            pointerEvents: 'auto',
+            zIndex: 2147483647,
+          }}
+          aria-modal="true"
+          role="dialog"
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div
+            className="session-revoked-modal overflow-hidden rounded-2xl border bg-white shadow-2xl"
+            style={{
+              width: 'min(480px, calc(100vw - 48px))',
+              maxWidth: '480px',
+              minWidth: '320px',
+              maxHeight: 'none',
+              background: '#ffffff',
+              borderColor: '#dbeafe',
+            }}
+          >
+            <div style={{ padding: '32px 40px 28px' }}>
+              <p className="text-lg font-bold leading-7 text-gray-950">{sessionRevokedMessage}</p>
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Vì lý do bảo mật, phiên hiện tại sẽ kết thúc.
+              </p>
+            </div>
+
+            <div className="flex justify-center border-t border-gray-100 bg-slate-50" style={{ padding: '24px 40px' }}>
+              <button
+                type="button"
+                onClick={confirmSessionRevoked}
+                className="min-w-[132px] rounded-xl px-5 py-3 text-sm font-bold text-white shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2"
+                style={{
+                  backgroundColor: 'var(--primary)',
+                  color: '#ffffff',
+                  border: '0',
+                  borderRadius: '12px',
+                  boxShadow: '0 12px 24px rgba(30, 78, 140, 0.28)',
+                }}
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <DataContext.Provider value={value}>
+      {children}
+      {sessionRevokedModal}
+    </DataContext.Provider>
+  );
 }
 
 export function useData() {
