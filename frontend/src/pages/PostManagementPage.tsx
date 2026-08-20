@@ -257,7 +257,11 @@ export function PostManagementPage() {
                 </thead>
                 <tbody>
                   {sorted.map((p) => (
-                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={p.id}
+                      className="cursor-pointer border-b border-gray-100 hover:bg-gray-50"
+                      onClick={() => setSelectedPost(p)}
+                    >
                       <td className="px-6 py-4">
                         <div className="font-semibold">{p.roomCode}</div>
                       </td>
@@ -268,7 +272,7 @@ export function PostManagementPage() {
                           <span>{p.views ?? 0}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => navigate(`/messages?room=post-${p.id}`)}
@@ -306,7 +310,7 @@ export function PostManagementPage() {
                           );
                         })()}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           {(() => {
                             const statusMeta = getPostDisplayStatus(p);

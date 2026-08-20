@@ -2,6 +2,7 @@ import { Search, Calculator, CheckCircle, Plus, Eye, Loader2, AlertTriangle, X, 
 import { useState, useEffect } from 'react';
 import { tatToanService, contractService, invoiceService } from '../../services/api.service';
 import { formatDisplayDate, formatLocalDateInput } from '../../lib/date-utils';
+import { searchIncludes } from '../../lib/search';
 import { MoneyInput } from '../ui/MoneyInput';
 import { DateTextInput } from '../ui/DateTextInput';
 
@@ -42,31 +43,23 @@ export function SettlementForm() {
   return (
     <div className="h-full flex flex-col space-y-6">
       {/* Tabs */}
-      <div className="bg-white border-2 border-gray-300 rounded p-2">
-        <div className="grid grid-cols-2 gap-2 max-w-[560px]">
+      <div className="product-tabs">
         <button
+          type="button"
           onClick={() => setActiveTab('view')}
-          className={`flex items-center justify-center space-x-2 px-5 py-2.5 rounded text-sm transition-colors ${
-            activeTab === 'view'
-              ? 'bg-gray-800 text-white'
-              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-          }`}
+          className={activeTab === 'view' ? 'is-active' : ''}
         >
           <Eye size={16} />
           <span>Xem hồ sơ tất toán</span>
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('create')}
-          className={`flex items-center justify-center space-x-2 px-5 py-2.5 rounded text-sm transition-colors ${
-            activeTab === 'create'
-              ? 'bg-gray-800 text-white'
-              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-          }`}
+          className={activeTab === 'create' ? 'is-active' : ''}
         >
           <Plus size={16} />
           <span>Tạo hồ sơ tất toán</span>
         </button>
-        </div>
       </div>
 
       {/* Tab Content */}
@@ -114,12 +107,10 @@ function ViewSettlementsTab() {
   };
 
   const filtered = settlements.filter(s => {
-    if (!searchTerm) return true;
-    const q = searchTerm.toLowerCase();
     return (
-      String(s.id).includes(q) ||
-      (s.roomNumber || '').toLowerCase().includes(q) ||
-      (s.residentName || '').toLowerCase().includes(q)
+      searchIncludes(s.id, searchTerm) ||
+      searchIncludes(s.roomNumber, searchTerm) ||
+      searchIncludes(s.residentName, searchTerm)
     );
   });
 
@@ -198,7 +189,11 @@ function ViewSettlementsTab() {
               {filtered.map((s) => {
                 const { label, cls } = statusLabel(s.status);
                 return (
-                  <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr
+                    key={s.id}
+                    className="cursor-pointer border-b border-gray-200 hover:bg-gray-50"
+                    onClick={() => openSettlementDetail(Number(s.id))}
+                  >
                     <td className="px-6 py-4 text-sm text-gray-900 font-medium">TS-{String(s.id).padStart(3, '0')}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {formatDisplayDate(s.settlementDate, '-')}
@@ -214,7 +209,7 @@ function ViewSettlementsTab() {
                     <td className="px-6 py-4 text-sm text-gray-900 text-right font-medium">
                       {s.totalSettlement != null ? Number(s.totalSettlement).toLocaleString('vi-VN') : '-'}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                       <span className={`inline-block px-3 py-1 rounded border text-xs ${cls}`}>{label}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -384,12 +379,11 @@ function CreateSettlementTab({ onCreated }: { onCreated: () => void }) {
   const eligibleContracts = contracts
     .filter((c: any) => isActiveContract(c) && !settledContractIds.has(Number(c.id)))
     .filter((c: any) => {
-      if (!contractQuery.trim()) return true;
-      const q = contractQuery.toLowerCase();
-      const code = (c.contractCode || c.maHopDong || '').toString().toLowerCase();
-      const room = (c.roomNumber || c.soPhong || '').toString().toLowerCase();
-      const tenant = getMainResidentName(c).toLowerCase();
-      return code.includes(q) || room.includes(q) || tenant.includes(q);
+      return (
+        searchIncludes(c.contractCode || c.maHopDong, contractQuery) ||
+        searchIncludes(c.roomNumber || c.soPhong, contractQuery) ||
+        searchIncludes(getMainResidentName(c), contractQuery)
+      );
     });
 
   const selectedContract = eligibleContracts.find((c: any) => String(c.id) === selectedContractId)
@@ -494,7 +488,7 @@ function CreateSettlementTab({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => setSelectedContractId(e.target.value)}
             disabled={loadingData}
           >
-            <option value="">Chọn hợp đồng đủ điều kiện tất toán...</option>
+            <option value="">Chọn hợp đồng</option>
             {eligibleContracts.map((c: any) => (
               <option key={c.id} value={c.id}>
                 {(c.contractCode || c.maHopDong || `HD-${c.id}`)} - {(c.roomNumber || c.soPhong || '-')} - {getMainResidentName(c)}

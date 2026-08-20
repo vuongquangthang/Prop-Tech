@@ -7,6 +7,7 @@ import { InvoiceDetailModal } from './InvoiceDetailModal';
 import { FilterSelect } from '../ui/FilterSelect';
 import { PageHeader } from '../ui/product-system';
 import { buildingService, floorService, roomService, type Building, type Floor, type Room } from '../../services/api.service';
+import { searchIncludes } from '../../lib/search';
 
 interface LineItem {
   id: number;
@@ -87,6 +88,8 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
   const [selectedFloorId, setSelectedFloorId] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -187,13 +190,44 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
     return true;
   });
 
+  const getInvoicePeriod = (invoice: Invoice) => {
+    if (invoice.month && invoice.year) {
+      return { month: invoice.month, year: invoice.year };
+    }
+
+    const dateValue = invoice.issueDate || invoice.dueDate || invoice.confirmedAt || invoice.paidAt;
+    if (!dateValue) return null;
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+
+    return { month: date.getMonth() + 1, year: date.getFullYear() };
+  };
+
+  const availableYears = Array.from(new Set([
+    currentDate.getFullYear(),
+    ...allInvoices
+      .map(getInvoicePeriod)
+      .filter((period): period is { month: number; year: number } => !!period)
+      .map(period => period.year),
+  ])).sort((a, b) => b - a);
+
+  const timeFiltered = locationFiltered.filter(invoice => {
+    if (!selectedMonth && !selectedYear) return true;
+    const period = getInvoicePeriod(invoice);
+    if (!period) return false;
+    if (selectedMonth && period.month !== Number(selectedMonth)) return false;
+    if (selectedYear && period.year !== Number(selectedYear)) return false;
+    return true;
+  });
+
   const filteredInvoices = search.trim()
-    ? locationFiltered.filter(inv =>
-        inv.invoiceNumber?.toLowerCase().includes(search.toLowerCase()) ||
-        inv.roomCode?.toLowerCase().includes(search.toLowerCase()) ||
-        inv.residentName?.toLowerCase().includes(search.toLowerCase())
+    ? timeFiltered.filter(inv =>
+        searchIncludes(inv.invoiceNumber, search) ||
+        searchIncludes(inv.roomCode, search) ||
+        searchIncludes(inv.residentName, search)
       )
-    : locationFiltered;
+    : timeFiltered;
 
   const availableFloors = selectedBuildingId
     ? floors.filter(floor => String(floor.buildingId) === selectedBuildingId)
@@ -313,34 +347,45 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
       )}
 
       {/* Tabs row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0' }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => { setActiveTab(tab.key); setSelectedInvoice(null); setSelectedIds(new Set()); setSearch(''); }}
+      <div
+        className="border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur"
+        style={{ borderRadius: '18px' }}
+      >
+        <div style={{ overflowX: 'auto' }}>
+          <div
             style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: activeTab === tab.key ? 600 : 400,
-              border: '1px solid',
-              borderBottom: activeTab === tab.key ? '1px solid white' : '1px solid var(--surface-border)',
-              borderColor: activeTab === tab.key ? 'var(--surface-border)' : 'transparent',
-              borderRadius: '6px 6px 0 0',
-              backgroundColor: activeTab === tab.key ? 'white' : 'transparent',
-              color: activeTab === tab.key ? 'var(--text-primary)' : 'var(--text-secondary)',
-              cursor: 'pointer',
-              position: 'relative',
-              bottom: '-1px',
+              display: 'grid',
+              gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
+              gap: '8px',
+              minWidth: '520px',
             }}
           >
-            {tab.label}{' '}
-            <span style={{ fontWeight: 400 }}>({tab.count})</span>
-          </button>
-        ))}
+            {tabs.map(tab => {
+              const active = activeTab === tab.key;
+
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => { setActiveTab(tab.key); setSelectedInvoice(null); setSelectedIds(new Set()); setSearch(''); }}
+                  className={`group relative flex min-w-0 items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all ${
+                    active
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                  }`}
+                  style={{ borderRadius: '16px', width: '100%' }}
+                >
+                  <span className="truncate whitespace-nowrap">{tab.label}</span>
+                  <span className="rounded-full bg-white/75 px-1.5 py-0.5 text-xs leading-none text-current">{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Toolbar: filter left, actions right */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <Filter size={18} style={{ color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }} />
         <input
           type="text"
@@ -349,6 +394,40 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
           onChange={e => setSearch(e.target.value)}
           style={{ padding: '7px 12px', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-button)', fontSize: '14px', width: '220px', minWidth: '220px', maxWidth: '220px', flex: '0 0 220px', backgroundColor: 'var(--surface-card)', color: 'var(--text-primary)' }}
         />
+        <FilterSelect
+          value={selectedMonth}
+          onChange={(event) => {
+            setSelectedMonth(event.target.value);
+            setSelectedIds(new Set());
+          }}
+          wrapperClassName="w-[135px] min-w-[135px] max-w-[135px] flex-none"
+          className="w-full"
+          style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
+        >
+          <option value="">Tất cả tháng</option>
+          {Array.from({ length: 12 }, (_, index) => index + 1).map(month => (
+            <option key={month} value={String(month)}>
+              Tháng {String(month).padStart(2, '0')}
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect
+          value={selectedYear}
+          onChange={(event) => {
+            setSelectedYear(event.target.value);
+            setSelectedIds(new Set());
+          }}
+          wrapperClassName="w-[115px] min-w-[115px] max-w-[115px] flex-none"
+          className="w-full"
+          style={{ width: '100%', minWidth: 0, maxWidth: '100%', fieldSizing: 'fixed' } as React.CSSProperties}
+        >
+          <option value="">Tất cả năm</option>
+          {availableYears.map(year => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </FilterSelect>
         <FilterSelect
           value={selectedBuildingId}
           onChange={(event) => {
@@ -408,11 +487,13 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
             setSelectedBuildingId('');
             setSelectedFloorId('');
             setSelectedRoomId('');
+            setSelectedMonth('');
+            setSelectedYear('');
             setSelectedIds(new Set());
           }}
-          disabled={!selectedBuildingId && !selectedFloorId && !selectedRoomId}
+          disabled={!selectedBuildingId && !selectedFloorId && !selectedRoomId && !selectedMonth && !selectedYear}
           className="w-[78px] min-w-[78px] max-w-[78px] flex-none px-3 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:pointer-events-none"
-          style={{ visibility: (selectedBuildingId || selectedFloorId || selectedRoomId) ? 'visible' : 'hidden' }}
+          style={{ visibility: (selectedBuildingId || selectedFloorId || selectedRoomId || selectedMonth || selectedYear) ? 'visible' : 'hidden' }}
         >
           Xóa lọc
         </button>
@@ -475,7 +556,7 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
                   {filteredInvoices.map(inv => (
                     <tr
                       key={inv.id}
-                      onClick={() => setSelectedInvoice(inv)}
+                      onClick={() => setModalInvoiceId(inv.id)}
                       style={{
                         borderBottom: '1px solid var(--surface-border)',
                         cursor: 'pointer',

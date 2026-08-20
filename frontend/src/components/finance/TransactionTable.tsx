@@ -1,6 +1,7 @@
 import { CheckCircle, AlertCircle, Link2, Filter, X, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSignalRRefresh } from '../../lib/useSignalRRefresh';
+import { searchIncludes } from '../../lib/search';
 import { paymentService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { DateTextInput } from '../ui/DateTextInput';
@@ -148,9 +149,8 @@ export function TransactionTable() {
     }
 
     if (searchText.trim()) {
-      const q = searchText.trim().toLowerCase();
-      const haystack = `${t.bankCode} ${t.content} ${t.invoice} ${t.paymentMethod || ''}`.toLowerCase();
-      if (!haystack.includes(q)) return false;
+      const haystack = `${t.bankCode} ${t.content} ${t.invoice} ${t.paymentMethod || ''}`;
+      if (!searchIncludes(haystack, searchText)) return false;
     }
 
     return true;

@@ -3,7 +3,6 @@
 import {
   AlertTriangle,
   ArrowUpRight,
-  Bell,
   ChevronRight,
   Clock3,
   CreditCard,
@@ -43,7 +42,7 @@ import {
   reportService,
 } from '../services/feature.service';
 
-type ActivityType = 'resident' | 'payment' | 'complaint' | 'visitor';
+type ActivityType = 'resident' | 'payment' | 'complaint';
 type Severity = 'critical' | 'high' | 'medium';
 
 interface ActivityItem {
@@ -504,17 +503,7 @@ export function Dashboard() {
       path: `/maintenance-request?requestId=${encodeURIComponent(String(ticket.id))}`,
     }));
 
-    const visitorItems = [
-      {
-        id: 'visitor-empty',
-        type: 'visitor' as ActivityType,
-        title: 'Đăng ký khách/visitor',
-        detail: 'Chưa có dữ liệu visitor mới trong kỳ này',
-        time: 'Module đăng ký khách',
-      },
-    ];
-
-    return [...complaintItems, ...paymentItems, ...residentItems, ...visitorItems].slice(0, 9);
+    return [...complaintItems, ...paymentItems, ...residentItems].slice(0, 9);
   }, [invoices, maintenance, residents]);
 
   const expiringContracts = contracts.filter((contract) => {
@@ -540,14 +529,6 @@ export function Dashboard() {
       detail: `${debtStats?.overdueInvoicesCount ?? invoices.length} hóa đơn quá hạn · ${millionCurrency(outstandingDebt)} đ`,
       action: 'Xử lý công nợ',
       path: '/debt-management',
-    },
-    {
-      id: 'maintenance',
-      severity: overdueTickets > 0 ? 'high' : 'medium',
-      title: 'Bảo trì quá hạn SLA',
-      detail: `${overdueTickets} yêu cầu bảo trì có nguy cơ quá hạn SLA`,
-      action: 'Mở bảo trì',
-      path: '/maintenance-request',
     },
   ];
 
@@ -764,7 +745,6 @@ export function Dashboard() {
                   {activity.type === 'resident' && <UsersRound size={16} />}
                   {activity.type === 'payment' && <CreditCard size={16} />}
                   {activity.type === 'complaint' && <MessageSquareWarning size={16} />}
-                  {activity.type === 'visitor' && <Bell size={16} />}
                 </i>
                 <div>
                   <b>{activity.title}</b>
@@ -1616,7 +1596,6 @@ const dashboardStyles = `
   .activity-item i.resident { background: var(--chart-1); }
   .activity-item i.payment { background: var(--chart-4); }
   .activity-item i.complaint { background: var(--chart-5); }
-  .activity-item i.visitor { background: var(--chart-3); }
 
   .activity-item b,
   .alert-card b {

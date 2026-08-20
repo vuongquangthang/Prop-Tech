@@ -833,42 +833,59 @@
   .product-status-badge.is-brand { background: var(--primary-soft); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 28%, transparent); }
 
   .product-tabs {
-    display: inline-flex;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(140px, 1fr);
     align-items: center;
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid rgba(215, 224, 234, 0.9);
-    border-radius: var(--radius-table);
-    background: color-mix(in srgb, var(--card) 78%, transparent);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    gap: 8px;
+    width: 100%;
+    overflow-x: auto;
+    padding: 8px 12px;
+    border: 1px solid rgb(226, 232, 240);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: none;
+    backdrop-filter: blur(10px);
   }
 
   .product-tabs button {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-height: 38px;
-    padding: 8px 13px;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 10px 16px;
     border: 0;
-    border-radius: var(--radius-control);
+    border-radius: 16px;
     background: transparent;
-    color: var(--text-secondary);
+    color: rgb(71, 85, 105);
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
+    transition: all 160ms ease;
+    white-space: nowrap;
+  }
+
+  .product-tabs button:hover {
+    background: rgb(248, 250, 252);
+    color: rgb(15, 23, 42);
   }
 
   .product-tabs button.is-active {
-    background: var(--card);
-    color: var(--text-primary);
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    background: rgb(219, 234, 254);
+    color: rgb(30, 64, 175);
+    box-shadow: none;
   }
 
   .product-tabs b {
     min-width: 22px;
-    padding: 2px 7px;
-    border-radius: var(--radius-badge);
-    background: var(--brand-surface);
-    color: var(--brand-primary);
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.75);
+    color: currentColor;
     font-size: 12px;
+    line-height: 1.35;
   }
 
   .product-modal-panel.is-sm { width: min(100%, 460px); }

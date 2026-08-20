@@ -1006,7 +1006,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   );
 }
 import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Plus, Users } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
@@ -1014,6 +1014,7 @@ import { formatDisplayDate, formatDisplayDateTime, formatLocalDateInput } from '
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { invoiceService, serviceService } from '../../services/api.service';
+import { normalizeSearchText, searchIncludes } from '../../lib/search';
 import { MoneyInput } from '../ui/MoneyInput';
 import { DateTextInput } from '../ui/DateTextInput';
 
@@ -1669,7 +1670,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   }, [tenantType, selectedResidentId, residents]);
 
   const filteredResidents = residents.filter((resident: any) => {
-    const keyword = residentSearch.trim().toLowerCase();
+    const keyword = normalizeSearchText(residentSearch);
     if (!keyword) return true;
     const searchableText = [
       resident.fullName,
@@ -1683,10 +1684,9 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       resident.email,
     ]
       .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+      .join(' ');
 
-    return searchableText.includes(keyword);
+    return searchIncludes(searchableText, keyword);
   });
 
   useEffect(() => {
@@ -2445,7 +2445,7 @@ function AddFamilyMemberModal({
 
   const filteredExistingResidents = useMemo(() => {
     const excluded = new Set(excludeResidentIds.map(Number));
-    const query = residentSearch.trim().toLowerCase();
+    const query = normalizeSearchText(residentSearch);
 
     return residents
       .filter((resident: any) => {
@@ -2458,9 +2458,9 @@ function AddFamilyMemberModal({
           getResidentPhoneValue(resident),
           getResidentIdCard(resident),
           getResidentEmail(resident),
-        ].join(' ').toLowerCase();
+        ].join(' ');
 
-        return haystack.includes(query);
+        return searchIncludes(haystack, query);
       })
       .slice(0, 50);
   }, [excludeResidentIds, residentSearch, residents]);
@@ -3308,6 +3308,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
 }
 
 export function PrintContractModal({ contract, onClose }: ContractModalProps) {
+  const printContentRef = useRef<HTMLDivElement | null>(null);
   const residentList: any[] = Array.isArray(contract?.residents) ? contract.residents : [];
   const headOfHousehold = residentList.find((r: any) => r.residencyRole === 'Người thuê chính') || residentList[0];
 
@@ -3315,6 +3316,48 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
   const getResidentPhone = (r: any) => r?.phoneNumber || r?.soDienThoai || '---';
   const getResidentIdCard = (r: any) => r?.idCardNumber || r?.soCCCD || '---';
   const getResidentEmail = (r: any) => r?.email || '---';
+
+  const handlePrint = () => {
+    const content = printContentRef.current?.innerHTML;
+    if (!content) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>In hợp đồng ${contract?.code || ''}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #111827; margin: 32px; }
+            .text-center { text-align: center; }
+            .mb-6 { margin-bottom: 24px; }
+            .mt-2 { margin-top: 8px; }
+            .ml-4 { margin-left: 16px; }
+            .pt-4 { padding-top: 16px; }
+            .space-y-4 > * + * { margin-top: 16px; }
+            .font-bold, strong { font-weight: 700; }
+            .text-xl { font-size: 20px; }
+            .text-sm { font-size: 14px; }
+            .text-xs { font-size: 12px; }
+            .text-gray-500, .text-gray-600 { color: #4b5563; }
+            @page { size: A4; margin: 18mm; }
+          </style>
+        </head>
+        <body>${content}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
 
   return (
     <div className="admin-content-modal-overlay">
@@ -3371,7 +3414,7 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
           </div>
 
           {/* Contract Preview */}
-          <div className="bg-white border-2 border-gray-300 rounded p-6" style={{ minHeight: '400px' }}>
+          <div ref={printContentRef} className="bg-white border-2 border-gray-300 rounded p-6" style={{ minHeight: '400px' }}>
             <div className="text-center mb-6">
               <h2 className="text-xl text-gray-800 font-bold">HỢP ĐỒNG THUÊ PHÒNG</h2>
               <p className="text-sm text-gray-600 mt-2">Số: {contract?.code}</p>
@@ -3461,7 +3504,7 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
             Hủy
           </button>
           <button 
-            onClick={onClose}
+            onClick={handlePrint}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-2"
           >
             <Printer size={16} />

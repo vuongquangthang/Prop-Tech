@@ -4,6 +4,7 @@ import { EditResidentModal } from './ResidentTableModals';
 import { residentService } from '../../services/api.service';
 import { DataCard, DataTable, EmptyState, LoadingState, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
+import { searchIncludes } from '../../lib/search';
 
 interface ResidentData {
   id: number;
@@ -67,10 +68,10 @@ export function ResidentTable() {
   const filteredResidents = residents
     .filter((resident) => {
       const matchesSearch =
-        resident.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (resident.phoneNumber && resident.phoneNumber.includes(searchTerm)) ||
-        (resident.buildingName && resident.buildingName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (resident.room && resident.room.includes(searchTerm));
+        searchIncludes(resident.fullName, searchTerm) ||
+        searchIncludes(resident.phoneNumber, searchTerm) ||
+        searchIncludes(resident.buildingName, searchTerm) ||
+        searchIncludes(resident.room, searchTerm);
       const matchesStatus = statusFilter === 'all' || resident.status === statusFilter;
       return matchesSearch && matchesStatus;
     })

@@ -2,6 +2,7 @@ import { Plus, Edit2, Trash2, X, AlertTriangle, Package, Link2, Loader2, Eye, Ch
 import { useMemo, useState, useEffect } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
+import { normalizeSearchText, searchIncludes } from '../../lib/search';
 import { buildingService } from '../../services/api.service';
 import { PageHeader } from '../ui/product-system';
 
@@ -506,7 +507,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
         };
       })
     : [];
-  const normalizedAssignSearch = assignRoomSearch.trim().toLowerCase();
+  const normalizedAssignSearch = normalizeSearchText(assignRoomSearch);
   const visibleBuildingTree = buildingTree
     .map((building) => ({
       ...building,
@@ -525,9 +526,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
               floor.floorNumber ? `Tầng ${floor.floorNumber}` : '',
             ]
               .filter(Boolean)
-              .join(' ')
-              .toLowerCase()
-              .includes(normalizedAssignSearch);
+              .join(' ');
+            return searchIncludes(searchValue, normalizedAssignSearch);
           }),
         }))
         .filter((floor) => floor.rooms.length > 0),
@@ -535,7 +535,7 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
     .filter((building) => {
       if (building.floors.length > 0) return true;
       if (!normalizedAssignSearch && assignStatusFilter === 'all') return true;
-      return normalizedAssignSearch.length > 0 && building.buildingName.toLowerCase().includes(normalizedAssignSearch);
+      return normalizedAssignSearch.length > 0 && searchIncludes(building.buildingName, normalizedAssignSearch);
     });
   const visibleAvailableRoomIds = visibleBuildingTree.flatMap((building) =>
     building.floors.flatMap((floor) => floor.rooms.filter((room) => !assignedRoomIds.has(room.id)).map((room) => room.id)),

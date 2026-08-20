@@ -4,6 +4,7 @@ import { userService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDisplayDateTime } from '../../lib/date-utils';
+import { searchIncludes } from '../../lib/search';
 
 interface UserData {
   id: number | string;
@@ -172,9 +173,9 @@ export function UserAccountsTable() {
   const filteredUsers = users.filter(user => {
     const roleMatch = roleFilter === 'all' || user.role === roleFilter;
     const statusMatch = statusFilter === 'all' || user.status === statusFilter;
-    const searchMatch = searchText === '' || 
-      user.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-      user.username.toLowerCase().includes(searchText.toLowerCase());
+    const searchMatch =
+      searchIncludes(user.fullName, searchText) ||
+      searchIncludes(user.username, searchText);
     return roleMatch && statusMatch && searchMatch;
   });
 
@@ -339,15 +340,19 @@ export function UserAccountsTable() {
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr
+                    key={user.id}
+                    className="cursor-pointer border-b border-gray-200 hover:bg-gray-50"
+                    onClick={() => handleViewUser(user)}
+                  >
                     <td className="px-6 py-4 text-gray-800" style={{ fontSize: 'var(--type-body)' }}>{user.username}</td>
                     <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-body)' }}>{user.fullName}</td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                       <span className={`inline-block px-3 py-1 rounded border ${roleColors[user.role]}`} style={{ fontSize: 'var(--type-caption)' }}>
                         {roleLabels[user.role]}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                       <span className={`inline-block px-3 py-1 rounded border ${statusColors[user.status as keyof typeof statusColors]}`} style={{ fontSize: 'var(--type-caption)' }}>
                         {statusLabels[user.status as keyof typeof statusLabels]}
                       </span>

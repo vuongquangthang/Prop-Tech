@@ -206,12 +206,16 @@ export function DebtTable() {
                   const reminderLevelInfo = getReminderLevelInfo(debt.daysLate);
 
                   return (
-                    <tr key={debt.invoiceId} className={`border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysLate)}`}>
+                    <tr
+                      key={debt.invoiceId}
+                      className={`cursor-pointer border-b border-gray-200 hover:bg-gray-50 ${getRowColor(debt.daysLate)}`}
+                      onClick={() => openViewDebtModal(debt)}
+                    >
                       <td className="px-6 py-4 text-sm text-gray-800">{debt.room}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{debt.tenant}</td>
                       <td className="px-6 py-4 text-sm text-red-600 text-right">{debt.amount.toLocaleString('vi-VN')}</td>
                       <td className="px-6 py-4 text-sm text-gray-800 text-center">{debt.daysLate} ngày</td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                         <div className="inline-flex flex-col items-center gap-1">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-[15px] ${reminderLevelInfo.color}`}>
                             {reminderLevelInfo.label}

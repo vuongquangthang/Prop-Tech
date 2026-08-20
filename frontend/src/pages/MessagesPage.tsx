@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '../components/ui/utils';
 import { useAuth } from '../contexts/AuthContext';
+import { searchIncludes } from '../lib/search';
 import {
   buildPropTechPartnerUserId,
   loadRoomConversations,
@@ -195,9 +196,9 @@ export function MessagesPage() {
   const filteredConversations = useMemo(
     () =>
       conversations.filter((conversation) =>
-        conversation.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conversation.roomInquiry.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conversation.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+        searchIncludes(conversation.userName, searchQuery) ||
+        searchIncludes(conversation.roomInquiry, searchQuery) ||
+        searchIncludes(conversation.lastMessage, searchQuery)
       ),
     [conversations, searchQuery]
   );

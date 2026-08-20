@@ -624,14 +624,18 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                     </thead>
                     <tbody>
                       {calculatedInvoices.map(invoice => (
-                        <tr key={invoice.id} className="border-t border-gray-200">
+                        <tr
+                          key={invoice.id}
+                          className="cursor-pointer border-t border-gray-200 hover:bg-gray-50"
+                          onClick={() => setModalInvoiceId(invoice.id)}
+                        >
                           <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                             {invoice.roomCode || invoice.roomNumber || `#${invoice.roomId}`}
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">
                             {(invoice.totalAmount || 0).toLocaleString('vi-VN')} đ
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 text-center" onClick={(event) => event.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => setModalInvoiceId(invoice.id)}
@@ -716,6 +720,8 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
           invoiceId={modalInvoiceId}
           isDraft
           onClose={() => setModalInvoiceId(null)}
+          onApprove={() => setModalInvoiceId(null)}
+          onReject={() => setModalInvoiceId(null)}
         />
       )}
     </>

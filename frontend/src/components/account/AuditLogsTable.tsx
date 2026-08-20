@@ -4,6 +4,7 @@ import { auditLogService, AuditLog } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date-utils';
 import { DateTextInput } from '../ui/DateTextInput';
+import { searchIncludes } from '../../lib/search';
 
 interface AuditLogRow {
   time: string;
@@ -104,10 +105,10 @@ export function AuditLogsTable() {
   const filteredLogs = auditLogsData.filter(log => {
     const accountMatch = accountFilter === 'all' || log.accountType === accountFilter;
     const actionMatch = actionFilter === 'all' || log.action === actionFilter;
-    const searchMatch = searchText === '' ||
-      log.account.toLowerCase().includes(searchText.toLowerCase()) ||
-      log.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchText.toLowerCase());
+    const searchMatch =
+      searchIncludes(log.account, searchText) ||
+      searchIncludes(log.fullName, searchText) ||
+      searchIncludes(log.details, searchText);
     
     let dateMatch = true;
     if (dateFrom || dateTo) {

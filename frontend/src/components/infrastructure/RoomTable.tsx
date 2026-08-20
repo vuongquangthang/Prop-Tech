@@ -944,7 +944,11 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
               {filteredRooms.map(room => {
                 const cfg = getStatusConfig(room.status);
                 return (
-                  <tr key={room.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr
+                    key={room.id}
+                    className="cursor-pointer border-b border-gray-200 hover:bg-gray-50"
+                    onClick={() => { void openDetailModal(room); }}
+                  >
                     <td className="px-6 py-4 text-sm text-gray-800">
                       <div className="font-semibold">{room.code || room.roomNumber}</div>
                     </td>
@@ -954,7 +958,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                     <td className="px-6 py-4 text-center">
                       <span className="admin-status-badge inline-block rounded px-3 py-1 text-xs font-semibold" style={{ backgroundColor: cfg.bgColor, color: cfg.textColor, border: `1px solid ${cfg.borderColor}` }}>{cfg.label}</span>
                     </td>
-                    <td className="px-6 py-4 text-center sticky right-0 bg-white">
+                    <td className="px-6 py-4 text-center sticky right-0 bg-white" onClick={(event) => event.stopPropagation()}>
                       <div className="flex items-center justify-center space-x-2">
                         <button onClick={() => { void openDetailModal(room); }} className="p-2 hover:bg-gray-100 rounded" title="Xem chi tiết"><Eye size={16} className="text-gray-600" /></button>
                         <button onClick={() => openEditModal(room)} className="p-2 hover:bg-gray-100 rounded" title="Sửa"><Edit2 size={16} className="text-gray-600" /></button>
