@@ -22,6 +22,17 @@ public sealed class ChatbotIngestTriggerResult
     public bool Success { get; init; }
     public string Message { get; init; } = string.Empty;
     public int? Documents { get; init; }
+
+    /// <summary>
+    /// True khi chatbot da tra ve mot HTTP response (du la loi) -> biet CHAC KET QUA.
+    /// False khi cuoc goi vo giua duong (timeout, cancel, mat mang) -> KHONG BIET
+    /// chatbot da ingest hay chua.
+    ///
+    /// Phan biet nay quan trong: chi duoc rollback (xoa row + file) khi biet chac
+    /// chatbot that bai. Neu khong biet, xoa di se tao ra lech nguoc - ChromaDB co
+    /// chunk nhung Prop-Tech khong con ban ghi nao.
+    /// </summary>
+    public bool ResponseReceived { get; init; }
 }
 
 public class ChatbotIngestService : IChatbotIngestService
@@ -92,6 +103,7 @@ public class ChatbotIngestService : IChatbotIngestService
                 {
                     Triggered = true,
                     Success = false,
+                    ResponseReceived = true,
                     Message = $"Chatbot ingest failed with status {(int)response.StatusCode}."
                 };
             }
@@ -100,6 +112,7 @@ public class ChatbotIngestService : IChatbotIngestService
             {
                 Triggered = true,
                 Success = true,
+                ResponseReceived = true,
                 Message = "Chatbot ingest completed.",
                 Documents = TryReadDocumentsCount(body)
             };
@@ -112,6 +125,7 @@ public class ChatbotIngestService : IChatbotIngestService
             {
                 Triggered = true,
                 Success = false,
+                ResponseReceived = false,
                 Message = ex.Message
             };
         }
@@ -188,6 +202,7 @@ public class ChatbotIngestService : IChatbotIngestService
                 {
                     Triggered = true,
                     Success = false,
+                    ResponseReceived = true,
                     Message = $"Chatbot document ingest failed with status {(int)response.StatusCode}."
                 };
             }
@@ -196,6 +211,7 @@ public class ChatbotIngestService : IChatbotIngestService
             {
                 Triggered = true,
                 Success = true,
+                ResponseReceived = true,
                 Message = "Chatbot document ingest completed.",
                 Documents = TryReadDocumentsCount(body)
             };
@@ -208,6 +224,7 @@ public class ChatbotIngestService : IChatbotIngestService
             {
                 Triggered = true,
                 Success = false,
+                ResponseReceived = false,
                 Message = ex.Message
             };
         }

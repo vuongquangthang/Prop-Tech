@@ -183,13 +183,20 @@ public class KnowledgeBaseController : ControllerBase
             var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, ownerUserId);
 
             // Buoc 2: gui cung file sang chatbot app de chunk + embedding vao ChromaDB.
+            //
+            // CO Y KHONG dung HttpContext.RequestAborted o day. File da nam tren R2 va
+            // co row trong KNOWLEDGE_BASE, nen buoc ingest phai chay den cung du browser
+            // co con doi hay khong. Truoc day token nay duoc truyen vao: ingest lanh
+            // (cold start bge-m3 ~27s) vuot timeout 30s cua axios -> browser huy ->
+            // token bat -> cuoc goi bi cancel giua duong, trong khi chatbot van index
+            // xong -> ChromaDB co chunk ma Prop-Tech thi rollback sach.
             var ingestResult = await _chatbotIngestService.IngestDocumentAsync(
                 file,
                 ownerUserId,
                 userId,
                 category,
                 result.FileName,
-                HttpContext.RequestAborted);
+                CancellationToken.None);
 
             result.IngestTriggered = ingestResult.Triggered;
             result.IngestSucceeded = ingestResult.Success;
@@ -198,25 +205,39 @@ public class KnowledgeBaseController : ControllerBase
 
             // Triggered == false nghia la admin da tat Chatbot:AutoIngestOnKnowledgeUpload,
             // day la lua chon co y cua nguoi van hanh chu khong phai loi -> giu file va
-            // canh bao tren UI. Chi hoan tac khi da goi chatbot nhung that bai.
+            // canh bao tren UI.
             if (ingestResult.Triggered && !ingestResult.Success)
             {
-                // Ingest that bai -> hoan tac buoc 1 de KNOWLEDGE_BASE va ChromaDB
-                // khong lech nhau (khong de lai tai lieu chatbot khong doc duoc).
-                var rolledBack = false;
-                if (result.Entry != null)
+                // Chi hoan tac khi chatbot da TRA LOI ro rang la that bai. Luc do chac
+                // chan ChromaDB khong co gi, nen xoa row + file la dung.
+                if (ingestResult.ResponseReceived)
                 {
-                    rolledBack = await _service.RollbackUploadedDocumentAsync(result.Entry.Id, ownerUserId);
+                    var rolledBack = false;
+                    if (result.Entry != null)
+                    {
+                        rolledBack = await _service.RollbackUploadedDocumentAsync(result.Entry.Id, ownerUserId);
+                    }
+
+                    result.Entry = null;
+                    result.FileUrl = string.Empty;
+
+                    return StatusCode(502, new
+                    {
+                        message = rolledBack
+                            ? $"Ingest sang ChromaDB that bai, da hoan tac file va ban ghi vua tao: {ingestResult.Message}"
+                            : $"Ingest sang ChromaDB that bai: {ingestResult.Message}",
+                        result
+                    });
                 }
 
-                result.Entry = null;
-                result.FileUrl = string.Empty;
-
+                // Cuoc goi vo giua duong -> KHONG biet chatbot da ingest hay chua. Giu
+                // nguyen row va file: neu chatbot that su da index xong thi xoa di se
+                // tao ra lech nguoc (ChromaDB co chunk, Prop-Tech trong tron).
                 return StatusCode(502, new
                 {
-                    message = rolledBack
-                        ? $"Ingest sang ChromaDB that bai, da hoan tac file va ban ghi vua tao: {ingestResult.Message}"
-                        : $"Ingest sang ChromaDB that bai: {ingestResult.Message}",
+                    message = "Khong nhan duoc phan hoi tu chatbot nen chua xac nhan duoc "
+                        + "ingest. Tai lieu VAN duoc giu lai trong kho tri thuc. Kiem tra "
+                        + $"chatbot roi ingest lai neu can. Chi tiet: {ingestResult.Message}",
                     result
                 });
             }

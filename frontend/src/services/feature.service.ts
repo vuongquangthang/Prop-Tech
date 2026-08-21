@@ -461,6 +461,11 @@ export const knowledgeService = {
         ingestMessage?: string | null;
         ingestDocuments?: number | null;
       }>(API_ENDPOINTS.KNOWLEDGE.UPLOAD_DOCUMENT, formData, {
+        // Timeout mac dinh 30s la qua ngan cho request nay: backend con phai upload
+        // len R2 roi cho chatbot chunk + embedding ca file (lan dau load model
+        // bge-m3 mat gan 30s mot minh). Het 30s browser huy request va nguoi dung
+        // thay "that bai" du server van dang lam viec.
+        timeout: 5 * 60 * 1000,
       });
       return response.data;
     } catch (error) {
