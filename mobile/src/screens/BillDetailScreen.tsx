@@ -27,6 +27,9 @@ type RootStackParamList = {
 
 type BillDetailScreenRouteProp = RouteProp<RootStackParamList, 'BillDetail'>;
 
+const isNetworkRefreshError = (error: any) =>
+  error?.message === 'Network Error' || error?.code === 'ERR_NETWORK' || !error?.response;
+
 export default function BillDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<BillDetailScreenRouteProp>();
@@ -60,8 +63,13 @@ export default function BillDetailScreen() {
         setCanPayInvoice(false);
       }
     } catch (err: any) {
-      setError(err.message || 'Không thể tải thông tin hóa đơn');
-      console.error('Load invoice error:', err);
+      const message = err.message || 'Không thể tải thông tin hóa đơn';
+      if (isNetworkRefreshError(err) && invoice) {
+        console.warn('Invoice refresh skipped after temporary network error:', message);
+      } else {
+        setError(message);
+        console.warn('Load invoice failed:', message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +89,7 @@ export default function BillDetailScreen() {
         amount: invoice.totalAmount,
         paymentMethod: 'QR',
       });
-      console.log('[PayOS] initiate response:', JSON.stringify(response, null, 2));
+      console.log('[SePay] initiate response:', JSON.stringify(response, null, 2));
       setPaymentInfo(response);
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể khởi tạo thanh toán');
@@ -91,7 +99,7 @@ export default function BillDetailScreen() {
   };
 
   /**
-   * PayOS trả về raw EMV QR string (000201...), không phải URL.
+   * SePay/VietQR trả về raw EMV QR string (000201...), không phải URL.
    * Dùng qrserver.com để render thành ảnh.
    */
   const buildQrImageUri = (qrData: string): string => {
@@ -110,7 +118,7 @@ export default function BillDetailScreen() {
     loadInvoice();
   }, [loadInvoice]);
 
-  // Auto-refresh when PayOS webhook fires PaymentSuccess via SignalR
+  // Auto-refresh when SePay webhook fires PaymentSuccess via SignalR
   useEffect(() => {
     const unsub = signalRService.onPaymentUpdate((payment) => {
       if (payment.invoiceId === invoiceId && payment.type === 'SUCCESS') {

@@ -19,6 +19,9 @@ import { palette } from '../theme/palette';
 import { contractService, ContractDetail } from '../services/contract.service';
 import { useAuthStore } from '../store/authStore';
 
+const isNetworkRefreshError = (error: any) =>
+  error?.message === 'Network Error' || error?.code === 'ERR_NETWORK' || !error?.response;
+
 export default function IssuesScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
@@ -40,8 +43,13 @@ export default function IssuesScreen() {
       const data = await maintenanceService.getMyRequests();
       setRequests(data);
     } catch (err: any) {
-      setError(err.message || 'Không thể tải danh sách sự cố');
-      console.error('Load requests error:', err);
+      const message = err.message || 'Không thể tải danh sách sự cố';
+      if (isNetworkRefreshError(err) && requests.length > 0) {
+        console.warn('Maintenance refresh skipped after temporary network error:', message);
+      } else {
+        setError(message);
+        console.warn('Load requests failed:', message);
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
