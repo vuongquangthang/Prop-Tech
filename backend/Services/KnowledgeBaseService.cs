@@ -161,7 +161,7 @@ public class KnowledgeBaseService : IKnowledgeBaseService
             throw new InvalidOperationException("Ten file khong hop le");
         }
 
-        var storedFileName = $"{Guid.NewGuid():N}_{BuildSafeStorageName(originalFileName)}";
+        var storedFileName = $"{BuildStoragePrefix()}_{BuildSafeStorageName(originalFileName)}";
         var contentType = ResolveContentType(file.ContentType, originalFileName);
 
         await using var stream = file.OpenReadStream();
@@ -217,6 +217,19 @@ public class KnowledgeBaseService : IKnowledgeBaseService
             CreatedAt = kb.CreatedAt,
         };
     }
+
+    /// <summary>
+    /// Tien to chong trung ten file tren kho luu tru. Truoc day dung ca 32 ky tu hex
+    /// cua Guid, lam URL dai qua muc:
+    ///   .../d02757222e6343eaba71edbb3089ebe2_A1_quy_trinh_bao_su_co.md
+    ///
+    /// Cat con 12 ky tu (2^48 gia tri). Muon trung key thi phai trung CA tien to VA
+    /// ten file da chuan hoa, nen o quy mo kho tri thuc vai nghin file thi kha nang
+    /// trung khong dang ke - trong khi URL ngan di 20 ky tu. Khong cat ngan hon nua
+    /// vi trung key se ghi de file cu ma khong bao loi gi.
+    /// </summary>
+    private static string BuildStoragePrefix()
+        => Guid.NewGuid().ToString("N")[..12];
 
     /// <summary>
     /// Trinh duyet gui content type KHONG kem charset (vi du "text/markdown" cho file
