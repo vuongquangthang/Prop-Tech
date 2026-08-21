@@ -162,9 +162,7 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         }
 
         var storedFileName = $"{Guid.NewGuid():N}_{BuildSafeStorageName(originalFileName)}";
-        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
-            ? "application/octet-stream"
-            : file.ContentType;
+        var contentType = ResolveContentType(file.ContentType, originalFileName);
 
         await using var stream = file.OpenReadStream();
         var fileUrl = await _storage.UploadAsync(stream, storedFileName, contentType);
@@ -218,6 +216,29 @@ public class KnowledgeBaseService : IKnowledgeBaseService
             OwnerUserId = kb.OwnerUserId,
             CreatedAt = kb.CreatedAt,
         };
+    }
+
+    /// <summary>
+    /// Trinh duyet gui content type KHONG kem charset (vi du "text/markdown" cho file
+    /// .md). R2 luu nguyen va tra ve dung nhu vay, nen browser doc file UTF-8 bang
+    /// encoding legacy (windows-1252) -> tieng Viet thanh mojibake:
+    /// "Quy trinh" hien ra thanh "Quy trÃ¬nh".
+    ///
+    /// Voi file text thi ep ve "text/plain; charset=utf-8": vua hien thi ngay trong
+    /// tab thay vi tai xuong, vua dung dau. Cac dinh dang binary (pdf, docx) giu
+    /// nguyen content type do browser gui.
+    /// </summary>
+    private static string ResolveContentType(string? uploadedContentType, string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (extension is ".md" or ".txt")
+        {
+            return "text/plain; charset=utf-8";
+        }
+
+        return string.IsNullOrWhiteSpace(uploadedContentType)
+            ? "application/octet-stream"
+            : uploadedContentType;
     }
 
     private static string BuildSafeStorageName(string fileName)
