@@ -22,10 +22,6 @@ function canViewManagedConversations(role?: string): boolean {
   return normalized === 'admin' || normalized === 'quanly' || normalized === 'manager';
 }
 
-function isResidentPost(post: any): boolean {
-  return String(post?.createdByUserRole ?? '').trim().toLowerCase() === 'cudan';
-}
-
 function getTrouytinRoomUrl(roomId: string): string {
   const value = roomId.trim();
   return value ? `${TROUYTIN_WEB_BASE_URL}/rooms/${encodeURIComponent(value)}` : '';
@@ -73,19 +69,22 @@ export function MessagesPage() {
   const canSeeManagedConversations = canViewManagedConversations(user?.role);
   const roomParam = searchParams.get('room');
 
-  const loadConversationList = async () => {
+  const loadConversationPartnerIds = async () => {
     const partnerIds = new Set<string>();
     if (partnerUserId) partnerIds.add(partnerUserId);
 
     if (canSeeManagedConversations) {
-      const posts = await postService.getPosts().catch(() => []);
-      posts.forEach((post) => {
-        if (post.createdByUserId && !isResidentPost(post)) {
-          partnerIds.add(buildPropTechPartnerUserId(post.createdByUserId));
-        }
+      const creatorIds = await postService.getManagedPartnerUserIds().catch(() => []);
+      creatorIds.forEach((id) => {
+        partnerIds.add(buildPropTechPartnerUserId(id));
       });
     }
 
+    return [...partnerIds];
+  };
+
+  const loadConversationList = async () => {
+    const partnerIds = await loadConversationPartnerIds();
     const batches = await Promise.all([...partnerIds].map((id) => loadRoomConversations(id)));
     const merged = new Map<string, RoomConversation>();
     batches.flat().forEach((conversation) => {
@@ -139,16 +138,7 @@ export function MessagesPage() {
 
     const timer = window.setInterval(() => {
       void (async () => {
-        const posts = await postService.getPosts().catch(() => []);
-        const ids = new Set<string>();
-        if (partnerUserId) ids.add(partnerUserId);
-        posts.forEach((post) => {
-          if (post.createdByUserId && !isResidentPost(post)) {
-            ids.add(buildPropTechPartnerUserId(post.createdByUserId));
-          }
-        });
-
-        const nextIds = [...ids];
+        const nextIds = await loadConversationPartnerIds();
         setConversationPartnerIds((current) =>
           current.join('|') === nextIds.join('|') ? current : nextIds
         );

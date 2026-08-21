@@ -11,6 +11,7 @@ namespace backend.Services;
 public interface IPostService
 {
     Task<List<PostDto>> GetAllAsync(int ownerUserId);
+    Task<List<int>> GetManagedPartnerUserIdsAsync(int ownerUserId);
     Task<PostDto?> GetByIdAsync(int id, int? ownerUserId = null);
     Task<PostDto?> GetByUserIdAsync(int userId, int? roomId = null);
     Task<PostDto> CreateAsync(CreatePostDto dto, int? createdByUserId = null, int? ownerUserId = null);
@@ -76,6 +77,20 @@ public class PostService : IPostService
             .ToListAsync();
 
         return posts.Select(MapToDto).ToList();
+    }
+
+    public async Task<List<int>> GetManagedPartnerUserIdsAsync(int ownerUserId)
+    {
+        return await FilterPostsForOwner(_context.BaiDangTimPhongs, ownerUserId)
+            .AsNoTracking()
+            .Where(post => post.Status != DeletedPostStatus
+                || post.DeletionSource == ModerationDeletedSource
+                || post.DeletionSource == OwnerDeletedSource)
+            .Where(post => post.CreatedByUserId.HasValue)
+            .Select(post => post.CreatedByUserId!.Value)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToListAsync();
     }
 
     public async Task<PostDto?> GetByIdAsync(int id, int? ownerUserId = null)

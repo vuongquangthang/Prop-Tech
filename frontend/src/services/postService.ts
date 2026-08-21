@@ -439,6 +439,14 @@ function isManagedPost(post: PostRecord): boolean {
   return ['admin', 'quanly', 'manager', 'ketoan', 'nhanvien'].includes(role) || post.createdByUserId == null;
 }
 
+function shouldHydratePostRooms(posts: any[]): boolean {
+  return posts.some((post) => {
+    if (!post?.roomId || post?.room || post?.roomDto) return false;
+    if (!post.roomCode || !post.buildingName || post.floorNumber === undefined || post.floorNumber === null) return true;
+    return false;
+  });
+}
+
 export const postService = {
   getRooms: async (): Promise<RoomOption[]> => {
     try {
@@ -452,21 +460,22 @@ export const postService = {
 
   getPosts: async (): Promise<PostRecord[]> => {
     try {
-      const [roomsResp, postsResp] = await Promise.all([
-        api.get(API_ENDPOINTS.ROOMS.BASE),
-        api.get(API_ENDPOINTS.POSTS.BASE),
-      ]);
+      const postsResp = await api.get(API_ENDPOINTS.POSTS.BASE);
+      const posts = Array.isArray(postsResp.data) ? postsResp.data : [];
+      let roomMap = new Map<number, any>();
 
-      const rooms = Array.isArray(roomsResp.data) ? roomsResp.data : [];
-      const roomMap = new Map<number, any>();
-      for (const r of rooms) {
-        roomMap.set(Number(r.id ?? r.roomId ?? 0), r);
+      if (shouldHydratePostRooms(posts)) {
+        const roomsResp = await api.get(API_ENDPOINTS.ROOMS.BASE);
+        const rooms = Array.isArray(roomsResp.data) ? roomsResp.data : [];
+        roomMap = new Map<number, any>();
+        for (const r of rooms) {
+          roomMap.set(Number(r.id ?? r.roomId ?? 0), r);
+        }
       }
 
-      const posts = Array.isArray(postsResp.data) ? postsResp.data : [];
       const normalized = posts.map((p: any) => {
         const postCopy = { ...p } as any;
-        if (postCopy.roomId) {
+        if (postCopy.roomId && roomMap.size > 0) {
           const room = roomMap.get(Number(postCopy.roomId));
           if (room && !postCopy.room && !postCopy.roomDto) {
             postCopy.room = room;
@@ -492,6 +501,17 @@ export const postService = {
       });
 
       return normalized.filter(isManagedPost).map(applyCachedAmenities);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  getManagedPartnerUserIds: async (): Promise<number[]> => {
+    try {
+      const response = await api.get(`${API_ENDPOINTS.POSTS.BASE}/partner-user-ids`);
+      return Array.isArray(response.data)
+        ? response.data.map((id: unknown) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0)
+        : [];
     } catch (error) {
       throw new Error(handleApiError(error));
     }
