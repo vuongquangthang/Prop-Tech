@@ -30,6 +30,47 @@ import { formatMoneyVnd } from '../lib/postValidation';
 import { postService, type PostEditHistoryDto } from '../services/postService';
 import { buildPropTechPartnerUserId, loadRoomConversations } from '../services/roomConversationService';
 import { ImageViewer } from '../components/ui/ImageViewer';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+} from '../components/ui/pagination';
+
+const POSTS_PER_PAGE = 10;
+
+function getVisiblePages(currentPage: number, totalPages: number): Array<number | 'left-ellipsis' | 'right-ellipsis'> {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const middlePages = new Set([
+    Math.max(2, currentPage - 1),
+    Math.min(totalPages - 1, currentPage),
+    Math.min(totalPages - 1, currentPage + 1),
+  ]);
+
+  const pages: Array<number | 'left-ellipsis' | 'right-ellipsis'> = [1];
+  const sortedMiddlePages = Array.from(middlePages).sort((a, b) => a - b);
+
+  if (sortedMiddlePages[0] > 2) {
+    pages.push('left-ellipsis');
+  }
+
+  sortedMiddlePages.forEach((page) => {
+    if (page > 1 && page < totalPages) {
+      pages.push(page);
+    }
+  });
+
+  if (sortedMiddlePages[sortedMiddlePages.length - 1] < totalPages - 1) {
+    pages.push('right-ellipsis');
+  }
+
+  pages.push(totalPages);
+  return pages;
+}
 
 const roomStatusConfig = {
   'Trống': { label: 'Trống', bgColor: '#D1FAE5', textColor: '#065F46', borderColor: '#A7F3D0' },
@@ -106,8 +147,15 @@ export function PostManagementPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [pendingMessagesByPost, setPendingMessagesByPost] = useState<Record<string, number>>({});
   const [detailPreviewImage, setDetailPreviewImage] = useState<{ images: string[]; index: number; titlePrefix: string } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const sorted = useMemo(() => [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [posts]);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / POSTS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * POSTS_PER_PAGE;
+  const endIndex = Math.min(startIndex + POSTS_PER_PAGE, sorted.length);
+  const visiblePosts = sorted.slice(startIndex, endIndex);
+  const visiblePages = getVisiblePages(safeCurrentPage, totalPages);
 
   const getPostLocationAddress = (post: any) => {
     const buildingName = post?.buildingName || '—';
@@ -127,6 +175,10 @@ export function PostManagementPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(location as any)?.state?.refresh]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sorted.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,7 +302,7 @@ export function PostManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((p) => (
+                  {visiblePosts.map((p) => (
                     <tr
                       key={p.id}
                       className="cursor-pointer border-b border-gray-100 hover:bg-gray-50"
@@ -351,6 +403,75 @@ export function PostManagementPage() {
                 </tbody>
               </table>
             </div>
+
+            {sorted.length > 0 && (
+              <div className="flex flex-col items-center justify-between gap-4 border-t border-gray-200 px-6 py-4 text-sm text-gray-600 sm:flex-row">
+                <p>
+                  Hiển thị{' '}
+                  <span className="font-semibold text-gray-900">
+                    {startIndex + 1}-{endIndex}
+                  </span>{' '}
+                  / <span className="font-semibold text-gray-900">{sorted.length}</span> bài đăng
+                </p>
+
+                {sorted.length > POSTS_PER_PAGE && (
+                  <Pagination className="w-auto">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          size="default"
+                          aria-disabled={safeCurrentPage === 1}
+                          className={safeCurrentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setCurrentPage((page) => Math.max(1, page - 1));
+                          }}
+                        >
+                          Trước
+                        </PaginationLink>
+                      </PaginationItem>
+
+                      {visiblePages.map((page) =>
+                        typeof page === 'number' ? (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href="#"
+                              isActive={page === safeCurrentPage}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setCurrentPage(page);
+                              }}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={page}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        ),
+                      )}
+
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          size="default"
+                          aria-disabled={safeCurrentPage === totalPages}
+                          className={safeCurrentPage === totalPages ? 'pointer-events-none opacity-50' : undefined}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setCurrentPage((page) => Math.min(totalPages, page + 1));
+                          }}
+                        >
+                          Sau
+                        </PaginationLink>
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
+            )}
           </div>
         )}
 

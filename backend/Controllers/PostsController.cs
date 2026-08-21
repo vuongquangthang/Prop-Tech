@@ -48,6 +48,21 @@ public class PostsController : ControllerBase
         }
     }
 
+    [HttpGet("partner-user-ids")]
+    [Authorize(Roles = "Admin,QuanLy")]
+    public async Task<ActionResult<List<int>>> GetManagedPartnerUserIds()
+    {
+        try
+        {
+            var userIds = await _postService.GetManagedPartnerUserIdsAsync(GetOwnerUserId());
+            return Ok(userIds);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+        }
+    }
+
     [HttpGet("{id}")]
     [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<PostDto>> GetById(int id)

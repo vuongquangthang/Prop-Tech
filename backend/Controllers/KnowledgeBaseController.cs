@@ -197,7 +197,11 @@ public class KnowledgeBaseController : ControllerBase
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "Không có file được tải lên" });
 
-            var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt" };
+            // Bỏ ".doc": chatApp chỉ hỗ trợ .pdf/.docx/.txt/.md (SUPPORTED_EXT
+            // trong core/config.py), nên file .doc vẫn trích được kiến thức
+            // nhưng ingest vào ChromaDB luôn thất bại -> admin thấy "trích được
+            // N mục" kèm IngestSucceeded=false mà không rõ lý do.
+            var allowedExtensions = new[] { ".pdf", ".docx", ".txt", ".md" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(extension))
                 return BadRequest(new { message = "Chỉ chấp nhận file PDF, DOCX, DOC, TXT" });
