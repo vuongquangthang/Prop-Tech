@@ -177,30 +177,46 @@ public class KnowledgeBaseController : ControllerBase
             }
 
             var ownerUserId = User.GetOwnerUserId();
+
+            // Buoc 1: luu file len Cloudflare R2 va ghi 1 row vao KNOWLEDGE_BASE.
+            // Row nay la nguon du lieu cho GET /api/KnowledgeBase (danh sach tren UI).
+            var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, ownerUserId);
+
+            // Buoc 2: gui cung file sang chatbot app de chunk + embedding vao ChromaDB.
             var ingestResult = await _chatbotIngestService.IngestDocumentAsync(
                 file,
                 ownerUserId,
                 userId,
                 category,
-                Path.GetFileName(file.FileName),
+                result.FileName,
                 HttpContext.RequestAborted);
 
-            var result = new DocumentUploadResultDto
-            {
-                FileName = Path.GetFileName(file.FileName),
-                FileUrl = string.Empty,
-                Entry = null,
-                IngestTriggered = ingestResult.Triggered,
-                IngestSucceeded = ingestResult.Success,
-                IngestMessage = ingestResult.Message,
-                IngestDocuments = ingestResult.Documents,
-            };
+            result.IngestTriggered = ingestResult.Triggered;
+            result.IngestSucceeded = ingestResult.Success;
+            result.IngestMessage = ingestResult.Message;
+            result.IngestDocuments = ingestResult.Documents;
 
-            if (!ingestResult.Success)
+            // Triggered == false nghia la admin da tat Chatbot:AutoIngestOnKnowledgeUpload,
+            // day la lua chon co y cua nguoi van hanh chu khong phai loi -> giu file va
+            // canh bao tren UI. Chi hoan tac khi da goi chatbot nhung that bai.
+            if (ingestResult.Triggered && !ingestResult.Success)
             {
+                // Ingest that bai -> hoan tac buoc 1 de KNOWLEDGE_BASE va ChromaDB
+                // khong lech nhau (khong de lai tai lieu chatbot khong doc duoc).
+                var rolledBack = false;
+                if (result.Entry != null)
+                {
+                    rolledBack = await _service.RollbackUploadedDocumentAsync(result.Entry.Id, ownerUserId);
+                }
+
+                result.Entry = null;
+                result.FileUrl = string.Empty;
+
                 return StatusCode(502, new
                 {
-                    message = ingestResult.Message,
+                    message = rolledBack
+                        ? $"Ingest sang ChromaDB that bai, da hoan tac file va ban ghi vua tao: {ingestResult.Message}"
+                        : $"Ingest sang ChromaDB that bai: {ingestResult.Message}",
                     result
                 });
             }

@@ -13,6 +13,14 @@ public interface IKnowledgeBaseService
     Task<KnowledgeBaseDto> CreateAsync(CreateKnowledgeBaseDto dto, int userId, int ownerUserId);
     Task<KnowledgeBaseDto> UpdateAsync(int id, UpdateKnowledgeBaseDto dto, int userId, int ownerUserId);
     Task DeleteAsync(int id, int ownerUserId);
+
+    /// <summary>
+    /// Hoan tac 1 lan upload: xoa row KNOWLEDGE_BASE va file tren kho luu tru (R2/local).
+    /// Dung khi ingest sang ChromaDB that bai -> tranh de lai tai lieu chi ton tai o
+    /// Prop-Tech nhung chatbot khong bao gio doc duoc.
+    /// </summary>
+    Task<bool> RollbackUploadedDocumentAsync(int id, int ownerUserId);
+
     Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId);
     Task<DocumentUploadResultDto> UploadDocumentForOwnerAsync(IFormFile file, string category, bool autoActivate, int? userId, int? ownerUserId);
 }
@@ -111,6 +119,35 @@ public class KnowledgeBaseService : IKnowledgeBaseService
 
         _repository.Remove(kb);
         await _repository.SaveChangesAsync();
+    }
+
+    public async Task<bool> RollbackUploadedDocumentAsync(int id, int ownerUserId)
+    {
+        var kb = await _repository.GetByIdAsync(id, ownerUserId);
+        if (kb == null)
+        {
+            return false;
+        }
+
+        var fileUrl = kb.FileUrl;
+        _repository.Remove(kb);
+        await _repository.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(fileUrl))
+        {
+            try
+            {
+                // Xoa file la best-effort: row DB da bien mat nen file con lai chi la
+                // rac trong bucket, khong duoc phep lam request upload nem exception.
+                await _storage.DeleteAsync(fileUrl);
+            }
+            catch
+            {
+                // Bo qua - caller da biet upload that bai.
+            }
+        }
+
+        return true;
     }
 
     public Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId)
