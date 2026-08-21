@@ -1,4 +1,4 @@
-import { Save, Camera, Loader2, AlertTriangle, Key, Eye, EyeOff, CheckCircle, Trash2, X } from 'lucide-react';
+import { Save, Camera, Loader2, AlertTriangle, Key, Eye, EyeOff, CheckCircle, Trash2, X, Landmark } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getStoredAuthToken } from '../../lib/api-client';
@@ -22,6 +22,7 @@ export function MyProfileForm() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPasswordSuccessModal, setShowPasswordSuccessModal] = useState(false);
+  const [showPaymentAccountModal, setShowPaymentAccountModal] = useState(false);
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
@@ -179,24 +180,24 @@ export function MyProfileForm() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Profile Form */}
-      <div className="bg-white border-2 border-gray-300 rounded p-8">
-        <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="bg-white border-2 border-gray-300 rounded p-5">
+        <div className="mb-4 flex items-center justify-between gap-4">
           <div>
             <h2 className="table-section-title">Thông tin cá nhân</h2>
-            <p className="mt-1 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Cập nhật ảnh đại diện và thông tin hiển thị của tài khoản.</p>
+            <p className="mt-0.5 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Cập nhật ảnh đại diện và thông tin hiển thị của tài khoản.</p>
           </div>
         </div>
         
-        <div className="grid grid-cols-3 gap-8">
+        <div className="grid grid-cols-3 gap-5">
           {/* Avatar Column */}
-          <div className="col-span-1 flex flex-col items-center space-y-4">
-            <div className="w-40 h-40 bg-gray-200 rounded-full flex items-center justify-center border-2 border-gray-300 overflow-hidden">
+          <div className="col-span-1 flex flex-col items-center space-y-2">
+            <div className="w-28 h-28 bg-gray-200 rounded-full flex items-center justify-center border-2 border-gray-300 overflow-hidden">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-4xl text-gray-500">👤</span>
+                <span className="text-3xl text-gray-500">👤</span>
               )}
             </div>
             <input
@@ -209,7 +210,7 @@ export function MyProfileForm() {
             <div className="flex flex-wrap items-center justify-center gap-2">
               <button 
                 onClick={handleChangePhoto}
-                className="px-4 py-2 bg-white border border-gray-800 text-gray-800 rounded hover:bg-gray-50 flex items-center space-x-2"
+                className="px-3 py-1.5 bg-white border border-gray-800 text-gray-800 rounded hover:bg-gray-50 flex items-center space-x-2"
                 style={{ fontSize: 'var(--type-caption)' }}
               >
                 <Camera size={16} />
@@ -219,7 +220,7 @@ export function MyProfileForm() {
                 <button
                   type="button"
                   onClick={handleRemovePhoto}
-                  className="px-4 py-2 bg-white border border-red-500 text-red-600 rounded hover:bg-red-50 flex items-center space-x-2"
+                  className="px-3 py-1.5 bg-white border border-red-500 text-red-600 rounded hover:bg-red-50 flex items-center space-x-2"
                   style={{ fontSize: 'var(--type-caption)' }}
                 >
                   <Trash2 size={16} />
@@ -227,85 +228,82 @@ export function MyProfileForm() {
                 </button>
               )}
             </div>
-            <p className="text-gray-500 text-center" style={{ fontSize: 'var(--type-caption)' }}>
-              Định dạng: JPG, PNG<br/>
-              Kích thước tối đa: 2MB
-            </p>
+            <p className="text-gray-500 text-center" style={{ fontSize: 'var(--type-caption)' }}>JPG/PNG, tối đa 2MB</p>
           </div>
           
           {/* Info Column */}
-          <div className="col-span-2 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Họ và Tên *</label>
+                <label className="block text-gray-700 mb-1.5" style={{ fontSize: 'var(--type-caption)' }}>Họ và Tên *</label>
                 <input 
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   style={{ fontSize: 'var(--type-caption)' }}
                 />
               </div>
               <div>
-                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Username</label>
+                <label className="block text-gray-700 mb-1.5" style={{ fontSize: 'var(--type-caption)' }}>Username</label>
                 <input 
                   type="text"
                   value={username}
                   disabled
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded"
+                  className="w-full px-3 py-1.5 bg-gray-100 border border-gray-300 rounded"
                   style={{ fontSize: 'var(--type-caption)' }}
                 />
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Email *</label>
+                <label className="block text-gray-700 mb-1.5" style={{ fontSize: 'var(--type-caption)' }}>Email *</label>
                 <input 
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   style={{ fontSize: 'var(--type-caption)' }}
                 />
               </div>
               <div>
-                <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Số điện thoại *</label>
+                <label className="block text-gray-700 mb-1.5" style={{ fontSize: 'var(--type-caption)' }}>Số điện thoại *</label>
                 <input 
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                   style={{ fontSize: 'var(--type-caption)' }}
                 />
               </div>
             </div>
             
             <div>
-              <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Vai trò</label>
+              <label className="block text-gray-700 mb-1.5" style={{ fontSize: 'var(--type-caption)' }}>Vai trò</label>
               <input 
                 type="text"
                 value="Admin - Quản lý hệ thống"
                 disabled
-                className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded"
+                className="w-full px-3 py-1.5 bg-gray-100 border border-gray-300 rounded"
                 style={{ fontSize: 'var(--type-caption)' }}
               />
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-2" style={{ fontSize: 'var(--type-caption)' }}>Địa chỉ</label>
+              <label className="block text-gray-700 mb-1.5" style={{ fontSize: 'var(--type-caption)' }}>Địa chỉ</label>
               <textarea
-                rows={2}
+                rows={1}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Nhập địa chỉ..."
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                 style={{ fontSize: 'var(--type-caption)' }}
               />
             </div>
 
             {/* Nút lưu nằm cuối khối thông tin cá nhân, căn phải */}
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-end pt-1">
               <button
                 onClick={handleSaveChanges}
                 className="app-button-primary"
@@ -318,16 +316,18 @@ export function MyProfileForm() {
         </div>
       </div>
       
-      {/* Security Section */}
-      <div className="bg-white border-2 border-gray-300 rounded p-8">
-        <div className="flex items-center justify-between gap-4">
+      {/* Account Settings */}
+      <div className="bg-white border-2 border-gray-300 rounded p-4">
+        <div className="mb-3 flex items-center justify-between gap-4">
           <div>
-            <h2 className="table-section-title">Thông tin bảo mật</h2>
-            <p className="mt-2 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>
-              Mật khẩu được ẩn vì lý do bảo mật. Bạn nên đổi mật khẩu định kỳ để bảo vệ tài khoản.
-            </p>
+            <h2 className="table-section-title">Thiết lập tài khoản</h2>
+            <p className="mt-0.5 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Quản lý bảo mật và thông tin nhận thanh toán.</p>
           </div>
+        </div>
+
+        <div className={`grid gap-3 ${canManagePaymentAccount ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
           <button
+            type="button"
             onClick={() => {
               setPasswordError(null);
               setCurrentPassword('');
@@ -335,21 +335,40 @@ export function MyProfileForm() {
               setConfirmPassword('');
               setShowPasswordModal(true);
             }}
-            className="px-4 py-2 bg-white border border-gray-800 text-gray-800 rounded hover:bg-gray-50 flex items-center space-x-2"
-            style={{ fontSize: 'var(--type-caption)' }}
+            className="flex items-center justify-between border border-gray-300 bg-gray-50 px-4 py-2.5 text-left hover:bg-white"
           >
-            <Key size={16} />
-            <span>Đổi mật khẩu</span>
+            <span className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-[6px] bg-blue-50 text-blue-700">
+                <Key size={18} />
+              </span>
+              <span>
+                <span className="block font-semibold text-gray-900" style={{ fontSize: 'var(--type-caption)' }}>Đổi mật khẩu</span>
+                <span className="block text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Cập nhật mật khẩu đăng nhập</span>
+              </span>
+            </span>
+            <span className="text-gray-400">›</span>
           </button>
+
+          {canManagePaymentAccount && (
+            <button
+              type="button"
+              onClick={() => setShowPaymentAccountModal(true)}
+            className="flex items-center justify-between border border-gray-300 bg-gray-50 px-4 py-2.5 text-left hover:bg-white"
+            >
+              <span className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-[6px] bg-blue-50 text-blue-700">
+                  <Landmark size={18} />
+                </span>
+                <span>
+                  <span className="block font-semibold text-gray-900" style={{ fontSize: 'var(--type-caption)' }}>Tài khoản ngân hàng</span>
+                  <span className="block text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Cấu hình tài khoản nhận tiền</span>
+                </span>
+              </span>
+              <span className="text-gray-400">›</span>
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Tài khoản nhận tiền - chỉ chủ nhà/quản lý */}
-      {canManagePaymentAccount && (
-        <div className="mt-6">
-          <PaymentAccountForm />
-        </div>
-      )}
 
       {/* Success Modal */}
       {showSuccessModal && (
@@ -373,6 +392,30 @@ export function MyProfileForm() {
               <p className="text-gray-600 mb-6" style={{ fontSize: 'var(--type-caption)' }}>
                 Thông tin cá nhân và bảo mật của bạn đã được cập nhật.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentAccountModal && (
+        <div className="admin-content-modal-overlay">
+          <div className="relative w-[760px] max-w-[calc(100vw-32px)] bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
+              <div>
+                <h3 className="table-section-title">Tài khoản ngân hàng</h3>
+                <p className="mt-1 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Thông tin nhận tiền khi cư dân thanh toán hóa đơn.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPaymentAccountModal(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+                aria-label="Đóng"
+              >
+                <X size={20} className="text-gray-600" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-6">
+              <PaymentAccountForm />
             </div>
           </div>
         </div>

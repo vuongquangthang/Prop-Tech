@@ -110,8 +110,6 @@ function MetricCard({
   title,
   value,
   sub,
-  icon: Icon,
-  tone = 'blue',
 }: {
   title: string;
   value: string;
@@ -119,26 +117,12 @@ function MetricCard({
   icon: typeof Home;
   tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray';
 }) {
-  const toneClass = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    green: 'bg-green-50 text-green-700 border-green-200',
-    orange: 'bg-orange-50 text-orange-700 border-orange-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    gray: 'bg-gray-50 text-gray-700 border-gray-200',
-  }[tone];
-
   return (
     <div className="bg-white border border-gray-300 rounded p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-gray-600">{title}</p>
-          <p className="mt-2 text-2xl font-bold text-gray-950">{value}</p>
-          <p className="mt-1 text-xs text-gray-500">{sub}</p>
-        </div>
-        <div className={`border rounded p-2 ${toneClass}`}>
-          <Icon size={18} />
-        </div>
+      <div>
+        <p className="text-sm font-semibold text-gray-600">{title}</p>
+        <p className="mt-2 text-2xl font-bold text-gray-950">{value}</p>
+        <p className="mt-1 text-xs text-gray-500">{sub}</p>
       </div>
     </div>
   );

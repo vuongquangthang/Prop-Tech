@@ -1627,9 +1627,16 @@
   }
 
   .admin-content-modal-header h2,
-  .admin-content-modal-header h3 {
+  .admin-content-modal-header h3,
+  .product-modal-header h2,
+  .product-modal-header h3,
+  .admin-content-dialog-content h2,
+  .admin-content-dialog-content h3 {
+    margin: 0 !important;
+    font-size: 16px !important;
     font-weight: 800 !important;
     letter-spacing: -0.015em;
+    color: var(--primary) !important;
   }
 
   .bg-white.border-2.border-gray-300.rounded:not(button),
@@ -2751,7 +2758,9 @@ select {
 
   .admin-main-content {
     margin-top: 56px !important;
-    min-height: calc(100dvh - 56px) !important;
+    height: calc(100dvh - 56px) !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
   }
 
   .admin-content-modal-overlay {

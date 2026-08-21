@@ -49,13 +49,15 @@ export function AdminLayout() {
 
   return (
     <div
-      className={`min-h-screen bg-surface-bg text-text-primary ${sidebarCollapsed ? 'sidebar-is-collapsed' : 'sidebar-is-expanded'}`}
-      style={{ minHeight: '100dvh', backgroundColor: 'var(--surface-level-1)' }}
+      className={`h-screen overflow-hidden bg-surface-bg text-text-primary ${sidebarCollapsed ? 'sidebar-is-collapsed' : 'sidebar-is-expanded'}`}
+      style={{ height: '100dvh', backgroundColor: 'var(--surface-level-1)' }}
     >
       <style>{`
         .admin-main-content {
           margin-top: var(--admin-topbar-height);
-          min-height: calc(100dvh - var(--admin-topbar-height));
+          height: calc(100dvh - var(--admin-topbar-height));
+          min-height: 0;
+          overflow-y: auto;
           transition: margin-left 0.2s ease;
         }
 
