@@ -14,13 +14,13 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
     const allowed = ['.pdf', '.docx', '.txt', '.md'];
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!allowed.includes(ext)) {
-      setErrorMsg('Chỉ chấp nhận file PDF, DOCX, TXT, MD');
+      setErrorMsg('Chi chap nhan file PDF, DOCX, TXT, MD');
       setUploadStep('error');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      setErrorMsg('Kích thước file không được vượt quá 10MB');
+      setErrorMsg('Kich thuoc file khong duoc vuot qua 10MB');
       setUploadStep('error');
       return;
     }
@@ -42,11 +42,11 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
     if (!selectedFile) return;
     setUploadStep('processing');
     try {
-      const result = await knowledgeService.uploadDocument(selectedFile, 'Khác', true);
+      const result = await knowledgeService.uploadDocument(selectedFile, 'Khac', true);
       setUploadResult(result);
       setUploadStep('result');
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Đã xảy ra lỗi khi tải file');
+      setErrorMsg(err?.message || 'Da xay ra loi khi tai file');
       setUploadStep('error');
     }
   };
@@ -70,7 +70,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-2">
             <Upload size={20} className="text-gray-800" />
-            <h3 className="text-lg text-gray-800">Tải file vào kho tri thức</h3>
+            <h3 className="text-lg text-gray-800">Tai file vao kho tri thuc</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X size={20} className="text-gray-600" />
@@ -80,8 +80,8 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 space-y-4">
           <div className="bg-blue-50 border border-blue-300 rounded p-4">
             <p className="text-sm text-blue-800">
-              <strong>Hỗ trợ:</strong> PDF, DOCX, TXT, MD • <strong>Tối đa:</strong> 10MB •
-              File sẽ được lưu vào Cloudflare R2/kho lưu trữ, sau đó hệ thống sẽ thử đồng bộ nội dung sang Chatbot/ChromaDB.
+              <strong>Ho tro:</strong> PDF, DOCX, TXT, MD - <strong>Toi da:</strong> 10MB -
+              File se duoc gui sang chatbot app local de xu ly va luu vao ChromaDB.
             </p>
           </div>
 
@@ -107,13 +107,13 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 <>
                   <FileText size={48} className="text-green-600 mx-auto mb-3" />
                   <p className="text-sm text-green-800 font-bold mb-1">{selectedFile.name}</p>
-                  <p className="text-xs text-green-600">{formatFileSize(selectedFile.size)} • Click để đổi file</p>
+                  <p className="text-xs text-green-600">{formatFileSize(selectedFile.size)} - Click de doi file</p>
                 </>
               ) : (
                 <>
                   <Upload size={48} className="text-gray-400 mx-auto mb-3" />
-                  <p className="text-sm text-gray-700 font-bold mb-1">Kéo thả file vào đây hoặc click để chọn</p>
-                  <p className="text-xs text-gray-500">Hỗ trợ: PDF, DOCX, TXT, MD</p>
+                  <p className="text-sm text-gray-700 font-bold mb-1">Keo tha file vao day hoac click de chon</p>
+                  <p className="text-xs text-gray-500">Ho tro: PDF, DOCX, TXT, MD</p>
                 </>
               )}
             </div>
@@ -128,10 +128,10 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
               <div>
-                <p className="text-lg text-gray-800 font-bold">Đang tải file lên kho lưu trữ...</p>
+                <p className="text-lg text-gray-800 font-bold">Dang gui file sang chatbot app...</p>
                 <p className="text-sm text-gray-600 mt-2">"{selectedFile?.name}"</p>
                 <p className="text-xs text-gray-500 mt-2 px-4">
-                  Hệ thống đang lưu file gốc, URL và thử ingest sang ChromaDB nếu chatbot local đang chạy.
+                  Chatbot app local se doc file, chia chunk, embedding va ghi vao ChromaDB.
                 </p>
               </div>
             </div>
@@ -141,7 +141,7 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
             <div className="bg-red-50 border border-red-300 rounded p-4 flex items-start space-x-3">
               <AlertTriangle size={24} className="text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-red-800 font-bold mb-1">Tải file thất bại</p>
+                <p className="text-sm text-red-800 font-bold mb-1">Tai file that bai</p>
                 <p className="text-sm text-red-700">{errorMsg}</p>
               </div>
             </div>
@@ -155,9 +155,9 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                     <Check size={32} className="text-white" />
                   </div>
                 </div>
-                <p className="text-lg text-green-800 font-bold mb-2">Đã lưu file vào kho tri thức</p>
+                <p className="text-lg text-green-800 font-bold mb-2">Da dong bo file vao ChromaDB</p>
                 <p className="text-sm text-green-700">
-                  File <strong>"{uploadResult?.fileName || selectedFile?.name}"</strong> đã được lưu thành công.
+                  File <strong>"{uploadResult?.fileName || selectedFile?.name}"</strong> da duoc chatbot app xu ly thanh cong.
                 </p>
                 {uploadResult?.ingestTriggered && (
                   <div
@@ -168,25 +168,14 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                     }`}
                   >
                     {uploadResult.ingestSucceeded
-                      ? `Đã ingest sang ChromaDB${uploadResult.ingestDocuments ? ` (${uploadResult.ingestDocuments} tài liệu)` : ''}.`
-                      : `File đã lưu, nhưng ingest ChromaDB chưa thành công: ${uploadResult.ingestMessage || 'kiểm tra chatbot local.'}`}
+                      ? `Da ingest sang ChromaDB${uploadResult.ingestDocuments ? ` (${uploadResult.ingestDocuments} tai lieu)` : ''}.`
+                      : `Ingest ChromaDB chua thanh cong: ${uploadResult.ingestMessage || 'kiem tra chatbot local.'}`}
                   </div>
                 )}
                 {!uploadResult?.ingestTriggered && (
                   <div className="mt-3 rounded border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
-                    File đã lưu. Auto ingest đang tắt trong cấu hình backend.
+                    Backend chua goi ingest. Kiem tra cau hinh Chatbot__AutoIngestOnKnowledgeUpload.
                   </div>
-                )}
-                {uploadResult?.fileUrl && (
-                  <a
-                    href={uploadResult.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-block max-w-full truncate rounded border border-green-300 bg-white px-3 py-2 text-sm text-green-700 hover:underline"
-                    title={uploadResult.fileUrl}
-                  >
-                    {uploadResult.fileUrl}
-                  </a>
                 )}
               </div>
             </div>
@@ -197,14 +186,14 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
           {(uploadStep === 'upload' || uploadStep === 'error') && (
             <>
               <button onClick={onClose} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                Hủy
+                Huy
               </button>
               {uploadStep === 'error' && (
                 <button
                   onClick={resetUpload}
                   className="px-4 py-2 bg-white border border-gray-800 text-gray-800 text-sm rounded hover:bg-gray-50"
                 >
-                  Chọn lại
+                  Chon lai
                 </button>
               )}
               <button
@@ -213,19 +202,19 @@ export function UploadFileModal({ onClose }: { onClose: () => void }) {
                 className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2 disabled:opacity-40"
               >
                 <Upload size={16} />
-                <span>Tải lên</span>
+                <span>Tai len</span>
               </button>
             </>
           )}
           {uploadStep === 'processing' && (
             <button disabled className="px-4 py-2 bg-gray-400 text-white text-sm rounded cursor-not-allowed">
-              Đang tải lên...
+              Dang tai len...
             </button>
           )}
           {uploadStep === 'result' && (
             <button onClick={onClose} className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-2">
               <Check size={16} />
-              <span>Hoàn thành</span>
+              <span>Hoan thanh</span>
             </button>
           )}
         </div>

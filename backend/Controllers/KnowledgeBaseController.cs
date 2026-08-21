@@ -177,19 +177,33 @@ public class KnowledgeBaseController : ControllerBase
             }
 
             var ownerUserId = User.GetOwnerUserId();
-            var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, ownerUserId);
             var ingestResult = await _chatbotIngestService.IngestDocumentAsync(
                 file,
                 ownerUserId,
                 userId,
                 category,
-                result.FileName,
+                Path.GetFileName(file.FileName),
                 HttpContext.RequestAborted);
 
-            result.IngestTriggered = ingestResult.Triggered;
-            result.IngestSucceeded = ingestResult.Success;
-            result.IngestMessage = ingestResult.Message;
-            result.IngestDocuments = ingestResult.Documents;
+            var result = new DocumentUploadResultDto
+            {
+                FileName = Path.GetFileName(file.FileName),
+                FileUrl = string.Empty,
+                Entry = null,
+                IngestTriggered = ingestResult.Triggered,
+                IngestSucceeded = ingestResult.Success,
+                IngestMessage = ingestResult.Message,
+                IngestDocuments = ingestResult.Documents,
+            };
+
+            if (!ingestResult.Success)
+            {
+                return StatusCode(502, new
+                {
+                    message = ingestResult.Message,
+                    result
+                });
+            }
 
             return Ok(result);
         }

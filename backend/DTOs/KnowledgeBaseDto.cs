@@ -37,7 +37,7 @@ public class DocumentUploadResultDto
 {
     public string FileName { get; set; } = null!;
     public string FileUrl { get; set; } = null!;
-    public KnowledgeBaseDto Entry { get; set; } = null!;
+    public KnowledgeBaseDto? Entry { get; set; }
     public bool IngestTriggered { get; set; }
     public bool IngestSucceeded { get; set; }
     public string? IngestMessage { get; set; }

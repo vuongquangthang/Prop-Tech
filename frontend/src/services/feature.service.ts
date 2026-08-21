@@ -455,7 +455,7 @@ export const knowledgeService = {
       const response = await api.post<{
         fileName: string;
         fileUrl: string;
-        entry: KnowledgeBase;
+        entry?: KnowledgeBase | null;
         ingestTriggered: boolean;
         ingestSucceeded: boolean;
         ingestMessage?: string | null;
