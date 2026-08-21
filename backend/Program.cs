@@ -1077,51 +1077,19 @@ static void EnsurePostgresCompatibility(ApplicationDbContext context, string sch
             END IF;
         END $$;
 
-        -- Entity KnowledgeBase chi con map 5 cot (KB_ID, TEN_FILE, FILE_URL,
-        -- OWNER_USER_ID, CREATED_AT). Cac DB tao truoc do van con cac cot legacy
-        -- TIEU_DE / NOI_DUNG / IS_ACTIVE / UPDATED_AT o trang thai NOT NULL va
-        -- khong co default, nen moi INSERT tu EF (EF bo qua cot khong map) deu
-        -- chet voi 23502 not-null violation -> upload tai lieu tri thuc that bai.
-        -- Gan default de INSERT thieu cot van hop le. Khong DROP COLUMN de khong
-        -- pha du lieu cu, va cung khong DROP NOT NULL de tranh sinh row nua voi.
-        DO $$
-        BEGIN
-            IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = {{schemaLiteral}}
-                  AND table_name = 'KNOWLEDGE_BASE' AND column_name = 'TIEU_DE'
-            ) THEN
-                ALTER TABLE {{schema}}."KNOWLEDGE_BASE"
-                    ALTER COLUMN "TIEU_DE" SET DEFAULT '';
-            END IF;
+        ALTER TABLE IF EXISTS {{schema}}."KNOWLEDGE_BASE"
+            DROP CONSTRAINT IF EXISTS "FK_KNOWLEDGE_BASE_USER_UPDATED_BY";
 
-            IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = {{schemaLiteral}}
-                  AND table_name = 'KNOWLEDGE_BASE' AND column_name = 'NOI_DUNG'
-            ) THEN
-                ALTER TABLE {{schema}}."KNOWLEDGE_BASE"
-                    ALTER COLUMN "NOI_DUNG" SET DEFAULT '';
-            END IF;
+        DROP INDEX IF EXISTS {{schema}}."IX_KNOWLEDGE_BASE_UPDATED_BY";
 
-            IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = {{schemaLiteral}}
-                  AND table_name = 'KNOWLEDGE_BASE' AND column_name = 'IS_ACTIVE'
-            ) THEN
-                ALTER TABLE {{schema}}."KNOWLEDGE_BASE"
-                    ALTER COLUMN "IS_ACTIVE" SET DEFAULT true;
-            END IF;
-
-            IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = {{schemaLiteral}}
-                  AND table_name = 'KNOWLEDGE_BASE' AND column_name = 'UPDATED_AT'
-            ) THEN
-                ALTER TABLE {{schema}}."KNOWLEDGE_BASE"
-                    ALTER COLUMN "UPDATED_AT" SET DEFAULT CURRENT_TIMESTAMP;
-            END IF;
-        END $$;
+        ALTER TABLE IF EXISTS {{schema}}."KNOWLEDGE_BASE"
+            DROP COLUMN IF EXISTS "TIEU_DE",
+            DROP COLUMN IF EXISTS "NOI_DUNG",
+            DROP COLUMN IF EXISTS "THE_LOAI",
+            DROP COLUMN IF EXISTS "TAGS",
+            DROP COLUMN IF EXISTS "IS_ACTIVE",
+            DROP COLUMN IF EXISTS "UPDATED_AT",
+            DROP COLUMN IF EXISTS "UPDATED_BY";
 
         ALTER TABLE IF EXISTS {{schema}}."CHI_SO_DIEN"
             ADD COLUMN IF NOT EXISTS "IS_ANOMALY" boolean NOT NULL DEFAULT false,
