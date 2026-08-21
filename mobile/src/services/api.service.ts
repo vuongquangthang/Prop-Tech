@@ -8,9 +8,16 @@ declare const process: {
   env?: Record<string, string | undefined>;
 };
 
-// Base URL - Change this to your actual backend URL
+// Thứ tự ưu tiên base URL: env override -> IP máy dev suy ra từ Expo bundler -> mặc định.
+// Khi EXPO_PUBLIC_API_BASE_URL để trống, app tự bám IP LAN hiện tại của máy chạy Metro
+// (cũng là máy chạy backend), nên đổi mạng hay router cấp IP mới đều không cần sửa file.
 const envBaseUrl =
   typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_BASE_URL : undefined;
+// apiPort chi dung cho cac fallback chay trong LAN/emulator (Expo host, 10.0.2.2,
+// localhost). Mac dinh cuoi cung van la backend Render de app chay duoc ngoai mang noi bo.
+const apiPort =
+  (typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_API_PORT : undefined)?.trim() ||
+  '5052';
 const defaultApiBaseUrl = 'https://proptech-backend-epac.onrender.com';
 
 const extractHost = (value: unknown) => {
@@ -32,10 +39,12 @@ const getExpoHostApiBaseUrl = () => {
     NativeModules.SourceCode?.scriptURL;
   const host = extractHost(hostUri);
 
-  return host ? `http://${host}:5052` : undefined;
+  return host ? `http://${host}:${apiPort}` : undefined;
 };
 
-export let API_BASE_URL = envBaseUrl?.trim() ? envBaseUrl.trim() : defaultApiBaseUrl;
+export let API_BASE_URL = envBaseUrl?.trim()
+  ? envBaseUrl.trim()
+  : getExpoHostApiBaseUrl() ?? defaultApiBaseUrl;
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
@@ -49,8 +58,8 @@ const API_BASE_URL_FALLBACKS = uniqueUrls([
   API_BASE_URL,
   getExpoHostApiBaseUrl(),
   defaultApiBaseUrl,
-  Platform.OS === 'android' ? 'http://10.0.2.2:5052' : undefined,
-  'http://localhost:5052',
+  Platform.OS === 'android' ? `http://10.0.2.2:${apiPort}` : undefined,
+  `http://localhost:${apiPort}`,
 ]);
 
 // Storage keys
