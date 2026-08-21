@@ -34,8 +34,10 @@ public class ChatService : IChatService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<ChatService> _logger;
     private readonly string _chatbotBaseUrl;
+    private readonly string _chatbotInternalApiKey;
 
     private const string DefaultChatbotBaseUrl = "http://localhost:8000";
+    private const string DefaultChatbotInternalApiKey = "dev-internal-key";
 
     public ChatService(
         ILichSuChatRepository chatRepository,
@@ -51,6 +53,9 @@ public class ChatService : IChatService
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _chatbotBaseUrl = (configuration["Chatbot:BaseUrl"] ?? DefaultChatbotBaseUrl).TrimEnd('/');
+        _chatbotInternalApiKey = configuration["Chatbot:InternalApiKey"]
+            ?? configuration["InternalApiKey"]
+            ?? DefaultChatbotInternalApiKey;
     }
 
     public async Task<List<ChatMessageDto>> GetChatHistoryAsync(int userId, int limit = 100)
@@ -219,7 +224,19 @@ public class ChatService : IChatService
                 sessionId = string.IsNullOrWhiteSpace(sessionId) ? userId.ToString() : sessionId
             });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            var res = await client.PostAsync($"{_chatbotBaseUrl}/api/v1/chat", content);
+
+            // chatApp yêu cầu internal API key cho MỌI request, kể cả nhánh
+            // legacy (không mang X-User-*). Trước đây request này không có
+            // header nào và chỉ đi qua được nhờ chatApp cho phép gọi vô danh —
+            // tức là bất kỳ ai cũng đọc được kho tri thức của mọi tenant.
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post, $"{_chatbotBaseUrl}/api/v1/chat")
+            {
+                Content = content
+            };
+            request.Headers.TryAddWithoutValidation("X-Internal-Api-Key", _chatbotInternalApiKey);
+
+            using var res = await client.SendAsync(request);
             var json = await res.Content.ReadAsStringAsync();
 
             _logger.LogInformation("Chatbot response: status={StatusCode}, buildingCode={BuildingCode}", (int)res.StatusCode, buildingCode);
@@ -279,7 +296,28 @@ public class ChatService : IChatService
             .ToList();
     }
 
+    /// <summary>
+    /// Trả về building_code dùng làm khóa cách ly tenant khi gọi chatApp.
+    ///
+    /// PHẢI theo quy ước "owner-{ownerUserId}" — CÙNG quy ước với
+    /// ChatAppProxyService (mobile), core/db_ingest.py và
+    /// api/routers/internal_ingest.py của chatApp. Mọi tòa nhà của một chủ nhà
+    /// chia sẻ chung một kho tri thức.
+    ///
+    /// Trước đây hàm này trả về Floor.BuildingId dạng số ("7"), trong khi toàn
+    /// bộ vector trong ChromaDB được gắn "OWNER-{n}". Hệ quả: sau MỘT lần gọi
+    /// POST /api/internal/ingest/rebuild (xóa mọi vector origin=postgres rồi
+    /// thêm lại dưới OWNER-*), retrieval theo "7" luôn rỗng -> chatbot trả
+    /// FALLBACK_MESSAGE cho MỌI câu hỏi và ghi nhận "khoảng trống tri thức"
+    /// cho mọi câu — tính năng chat trên web chết im lặng.
+    /// </summary>
     private async Task<string?> ResolveBuildingCodeAsync(int userId)
+    {
+        var ownerUserId = await ResolveOwnerUserIdAsync(userId);
+        return ownerUserId.HasValue ? $"owner-{ownerUserId.Value}" : null;
+    }
+
+    private async Task<int?> ResolveOwnerUserIdAsync(int userId)
     {
         var user = await _context.Users
             .AsNoTracking()
@@ -305,39 +343,42 @@ public class ChatService : IChatService
                 .OrderByDescending(item => item.FromDate)
                 .FirstOrDefaultAsync();
 
-            if (currentResidency?.HopDong?.Room?.Floor != null)
+            var buildingId = currentResidency?.HopDong?.Room?.Floor?.BuildingId;
+
+            if (buildingId == null)
             {
-                return currentResidency.HopDong.Room.Floor.BuildingId.ToString();
+                var latestResidency = await _context.ChiTietOs
+                    .AsNoTracking()
+                    .Include(item => item.HopDong)
+                        .ThenInclude(contract => contract.Room)
+                            .ThenInclude(room => room.Floor)
+                    .Where(item => item.ResidentId == user.ResidentId.Value)
+                    .OrderByDescending(item => item.FromDate)
+                    .FirstOrDefaultAsync();
+
+                buildingId = latestResidency?.HopDong?.Room?.Floor?.BuildingId;
             }
 
-            var latestResidency = await _context.ChiTietOs
-                .AsNoTracking()
-                .Include(item => item.HopDong)
-                    .ThenInclude(contract => contract.Room)
-                        .ThenInclude(room => room.Floor)
-                .Where(item => item.ResidentId == user.ResidentId.Value)
-                .OrderByDescending(item => item.FromDate)
-                .FirstOrDefaultAsync();
-
-            if (latestResidency?.HopDong?.Room?.Floor != null)
+            if (buildingId.HasValue)
             {
-                return latestResidency.HopDong.Room.Floor.BuildingId.ToString();
+                // Cư dân không mang OwnerUserId, phải truy ngược chủ của tòa nhà
+                // họ đang ở để lấy đúng phạm vi kho tri thức.
+                var owner = await _context.Buildings
+                    .AsNoTracking()
+                    .Where(item => item.Id == buildingId.Value)
+                    .Select(item => item.OwnerUserId)
+                    .FirstOrDefaultAsync();
+
+                if (owner.HasValue)
+                {
+                    return owner.Value;
+                }
             }
         }
 
         if (user.OwnerUserId.HasValue)
         {
-            var buildingId = await _context.Buildings
-                .AsNoTracking()
-                .Where(item => item.OwnerUserId == user.OwnerUserId.Value && !item.IsDeleted)
-                .OrderBy(item => item.Id)
-                .Select(item => (int?)item.Id)
-                .FirstOrDefaultAsync();
-
-            if (buildingId.HasValue)
-            {
-                return buildingId.Value.ToString();
-            }
+            return user.OwnerUserId.Value;
         }
 
         return null;
