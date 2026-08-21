@@ -462,7 +462,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
         {/* Table */}
         <div className="rounded" style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)' }}>
           <div style={{ borderBottom: '1px solid var(--surface-border)', padding: 'var(--space-card)' }}>
-            <h2 style={{ fontSize: 'var(--type-section-title)', color: 'var(--text-primary)', fontWeight: 600 }}>
+            <h2 className="table-section-title">
               Chỉ số Điện/Nước — Tháng {String(selectedMonth).padStart(2, '0')}/{selectedYear}
             </h2>
           </div>

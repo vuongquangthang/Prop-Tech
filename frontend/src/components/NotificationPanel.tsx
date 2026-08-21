@@ -11,14 +11,34 @@ interface NotificationPanelProps {
 
 export function NotificationPanel({ onClose, onNotificationsChanged }: NotificationPanelProps) {
   const navigate = useNavigate();
-  const [adminNotifications, setAdminNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     setLoading(true);
-    notificationService.getAdminAll(100).then(data => {
-      setAdminNotifications(data);
-    }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      notificationService.getAdminAll(100),
+      notificationService.getMy(false),
+    ])
+      .then(([adminItems, personalItems]) => {
+        if (!mounted) return;
+        const byId = new Map<number, Notification>();
+        [...adminItems, ...personalItems].forEach((item) => byId.set(item.id, item));
+        setNotifications(Array.from(byId.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ));
+      })
+      .catch(() => {
+        if (mounted) setNotifications([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const getTypeColor = (type: string) => {
@@ -40,7 +60,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
 
   const handleMarkAsRead = async (id: number) => {
     await notificationService.markAsRead(id);
-    setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
     onNotificationsChanged?.();
   };
 
@@ -82,7 +102,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
 
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead();
-    setAdminNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     onNotificationsChanged?.();
   };
 
@@ -126,14 +146,14 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
               color: 'var(--text-primary)',
               marginBottom: '4px',
             }}>
-              Thông báo Admin
+              Thông báo
             </h3>
             <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
-              {adminNotifications.length} thông báo
+              {notifications.length} thông báo
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {adminNotifications.some(n => !n.isRead) && (
+            {notifications.some(n => !n.isRead) && (
               <button
                 onClick={handleMarkAllRead}
                 className="p-2 rounded-[10px] transition-colors hover:bg-slate-100"
@@ -163,7 +183,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
                 Dang tai thong bao...
               </p>
             </div>
-          ) : adminNotifications.length === 0 ? (
+          ) : notifications.length === 0 ? (
             <div className="text-center py-12 px-6">
               <div 
                 className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
@@ -180,7 +200,7 @@ export function NotificationPanel({ onClose, onNotificationsChanged }: Notificat
             </div>
           ) : (
             <div className="divide-y" style={{ borderColor: 'var(--surface-border)' }}>
-              {adminNotifications.map((notification) => {
+              {notifications.map((notification) => {
                 const typeColor = getTypeColor(notification.notificationType);
                 return (
                   <button

@@ -218,7 +218,7 @@ export function AuditLogsTable() {
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Nhật ký hoạt động - {filteredLogs.length} bản ghi</h2>
+          <h2 className="table-section-title">Nhật ký hoạt động - {filteredLogs.length} bản ghi</h2>
         </div>
         
         <div className="overflow-x-auto">

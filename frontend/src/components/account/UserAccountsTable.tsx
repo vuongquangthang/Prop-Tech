@@ -347,7 +347,7 @@ export function UserAccountsTable() {
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="flex items-center justify-between gap-3 border-b border-gray-300 px-6 py-4">
-          <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách tài khoản - {filteredUsers.length} tài khoản</h2>
+          <h2 className="table-section-title">Danh sách tài khoản - {filteredUsers.length} tài khoản</h2>
           <button
             onClick={() => setShowCreateModal(true)}
             className="app-button-primary shrink-0"

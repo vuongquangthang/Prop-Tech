@@ -502,7 +502,7 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
         {/* Table */}
         <div style={{ flex: 1, backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--surface-border)' }}>
-            <h2 style={{ fontSize: '15px', fontWeight: 600 }}>
+            <h2 className="table-section-title">
               Danh sách hóa đơn — {filteredInvoices.length} hóa đơn
             </h2>
           </div>

@@ -148,7 +148,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="bg-white border border-gray-300 rounded">
       <div className="border-b border-gray-300 px-5 py-4">
-        <h2 className="text-lg font-bold text-gray-950">{title}</h2>
+        <h2 className="table-section-title">{title}</h2>
       </div>
       <div className="p-5 space-y-5">{children}</div>
     </section>
@@ -180,7 +180,7 @@ function ReportFilterBar({
     return (
       <div className="flex flex-wrap items-center gap-3 bg-white border border-gray-300 rounded p-4">
         <span className="text-sm font-semibold text-gray-700">Phạm vi</span>
-        <span className="rounded-[15px] bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
+        <span className="rounded-[6px] bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
           Theo mốc 30/60 ngày tới
         </span>
       </div>
@@ -199,7 +199,7 @@ function ReportFilterBar({
         </FilterSelect>
       )}
       {forceMonth && (
-        <span className="rounded-[15px] bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">Tháng</span>
+        <span className="rounded-[6px] bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">Tháng</span>
       )}
       {(forceMonth || periodMode === 'month') && (
         <FilterSelect value={String(selectedMonth)} onChange={(event) => onMonthChange(Number(event.target.value))}>
@@ -562,7 +562,7 @@ export function OccupancyReportContent() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_1fr]">
           <div className="border border-gray-300 rounded p-4">
-            <h3 className="mb-3 text-sm font-bold text-gray-800">Phân bổ trạng thái phòng</h3>
+            <h3 className="table-section-title" style={{ marginBottom: 12 }}>Phân bổ trạng thái phòng</h3>
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie data={[
@@ -618,7 +618,7 @@ export function OccupancyReportContent() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
           <div className="border border-gray-300 rounded p-4">
-            <h3 className="mb-3 text-sm font-bold text-gray-800">Biểu đồ cột doanh thu: tiền phòng và dịch vụ</h3>
+            <h3 className="table-section-title" style={{ marginBottom: 12 }}>Biểu đồ cột doanh thu: tiền phòng và dịch vụ</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={revenueChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -632,7 +632,7 @@ export function OccupancyReportContent() {
             </ResponsiveContainer>
           </div>
           <div className="border border-gray-300 rounded p-4">
-            <h3 className="mb-3 text-sm font-bold text-gray-800">Thu hồi công nợ = 100%</h3>
+            <h3 className="table-section-title" style={{ marginBottom: 12 }}>Thu hồi công nợ = 100%</h3>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie data={collectionChartData} dataKey="value" nameKey="name" innerRadius={56} outerRadius={86} label>
@@ -686,7 +686,7 @@ export function OccupancyReportContent() {
           <MetricCard title="Tỷ lệ sự cố lặp lại" value={formatPercent(report.repeatRate)} sub="Theo phòng/loại sự cố trong năm" icon={AlertTriangle} tone={report.repeatRate > 20 ? 'red' : 'green'} />
         </div>
         <div className="border border-gray-300 rounded p-4">
-          <h3 className="mb-3 text-sm font-bold text-gray-800">Sự cố theo loại</h3>
+          <h3 className="table-section-title" style={{ marginBottom: 12 }}>Sự cố theo loại</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={report.issueByType}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -708,7 +708,7 @@ export function OccupancyReportContent() {
           <MetricCard title="Phòng có bất thường" value={`${report.consumptionRows.filter((item) => item.anomaly).length}`} sub="Theo cờ bất thường khi nhập chỉ số" icon={AlertTriangle} tone="red" />
         </div>
         <div className="border border-gray-300 rounded overflow-hidden">
-          <div className="border-b border-gray-300 px-4 py-3 text-sm font-bold text-gray-800">Tiêu thụ điện/nước mỗi phòng và chênh lệch so với tháng trước</div>
+          <div className="table-section-title border-b border-gray-300 px-4 py-3">Tiêu thụ điện/nước mỗi phòng và chênh lệch so với tháng trước</div>
           <div className="max-h-80 overflow-auto">
             <table className="w-full">
               <thead className="bg-gray-50">

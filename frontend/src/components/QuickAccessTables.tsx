@@ -163,7 +163,7 @@ export function QuickAccessTables() {
                   <AlertCircle size={24} style={{ color: 'var(--text-on-color)' }} />
                 </div>
                 <div>
-                  <h2 style={{ fontSize: 'var(--type-section-title)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <h2 className="table-section-title">
                     Hóa đơn quá hạn chưa thu
                   </h2>
                   <p style={{ fontSize: 'var(--type-caption)', color: 'var(--error)', fontWeight: 600 }}>
@@ -300,7 +300,7 @@ export function QuickAccessTables() {
                     <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
                   </div>
                   <div>
-                    <h2 style={{ fontSize: 'var(--type-section-title)', color: 'var(--text-primary)', fontWeight: 600 }}>Sự cố chờ xử lý</h2>
+                    <h2 className="table-section-title">Sự cố chờ xử lý</h2>
                     <p style={{ fontSize: 'var(--type-caption)', color: 'var(--warning)' }}>{newIssues.length} sự cố{totalIssues > newIssues.length ? ` (Còn ${totalIssues - newIssues.length} nữa)` : ''}</p>
                   </div>
                 </div>

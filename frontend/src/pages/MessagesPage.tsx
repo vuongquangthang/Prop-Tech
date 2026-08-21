@@ -320,7 +320,7 @@ export function MessagesPage() {
           )}
         >
           <div className="shrink-0 border-b border-gray-300 px-4 py-3">
-            <h2 className="text-base font-bold text-gray-800">Tin nhắn</h2>
+            <h2 className="table-section-title">Tin nhắn</h2>
           </div>
 
           <div className="shrink-0 border-b border-gray-300 px-3 py-2">

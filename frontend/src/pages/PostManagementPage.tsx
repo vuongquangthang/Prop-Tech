@@ -227,7 +227,7 @@ export function PostManagementPage() {
         ) : (
           <div className="overflow-hidden rounded-[12px] border-2 border-gray-300 bg-white">
             <div className="flex items-center justify-between border-b border-gray-300 px-6 py-4">
-              <h2 className="text-lg font-semibold text-[var(--primary)]">Danh sách bài đăng</h2>
+              <h2 className="table-section-title">Danh sách bài đăng</h2>
               <button
                 onClick={() => navigate('/post-management/create')}
                 className="app-button-primary shrink-0"

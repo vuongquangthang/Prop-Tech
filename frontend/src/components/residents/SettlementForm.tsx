@@ -152,7 +152,7 @@ function ViewSettlementsTab() {
       {/* Settlements List */}
       <div className="bg-white border-2 border-gray-300 rounded overflow-hidden flex-1">
         <div className="border-b border-gray-300 px-6 py-4 bg-gray-50">
-          <h2 className="text-lg text-[var(--primary)]">Danh sách hồ sơ tất toán ({filtered.length})</h2>
+          <h2 className="table-section-title">Danh sách hồ sơ tất toán ({filtered.length})</h2>
         </div>
 
         {loading ? (

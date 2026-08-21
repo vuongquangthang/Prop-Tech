@@ -45,7 +45,7 @@ export function KnowledgeBaseTable() {
 
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="flex items-center justify-between gap-3 border-b border-gray-300 px-6 py-4">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--primary)]">
+          <h2 className="table-section-title flex items-center gap-2">
             <FileText size={18} />
             <span>Dữ liệu tri thức gần đây</span>
           </h2>

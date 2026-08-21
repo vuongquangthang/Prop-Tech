@@ -239,7 +239,7 @@ export function ResidentNotificationComposer({ compact = false, formId, hideSubm
         <div className={`bg-white border border-gray-300 rounded h-fit ${compact ? 'p-4' : 'p-5'}`}>
           <div className="mb-4 flex items-center gap-2">
             <Bell size={18} className="text-blue-700" />
-            <h2 className="text-base font-bold text-gray-900">Xem trước</h2>
+            <h2 className="table-section-title">Xem trước</h2>
           </div>
           <div className="border border-gray-200 bg-gray-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">

@@ -162,7 +162,7 @@ export function DraftInvoicesPage() {
 
       {/* Step 1: Calculate */}
       <div style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)', padding: 'var(--space-card)' }}>
-        <h2 style={{ fontSize: 'var(--type-section-title)', fontWeight: 600, marginBottom: '16px' }}>
+        <h2 className="table-section-title" style={{ marginBottom: '16px' }}>
           Bước 1: Tính toán hóa đơn
         </h2>
         <div className="flex items-center gap-4">
@@ -234,7 +234,7 @@ export function DraftInvoicesPage() {
         {/* Invoice list */}
         <div style={{ flex: 1, backgroundColor: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)' }}>
           <div style={{ padding: 'var(--space-card)', borderBottom: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: 'var(--type-section-title)', fontWeight: 600 }}>
+            <h2 className="table-section-title">
               Bước 2: Xem xét — {drafts.length} hóa đơn nháp
             </h2>
             {selectedIds.size > 0 && (

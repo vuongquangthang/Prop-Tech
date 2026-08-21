@@ -127,7 +127,7 @@ export function ContractList() {
     if (status === 'expired') {
       return <StatusBadge tone="danger">
         <AlertCircle size={14} className="mr-1" />
-        Quá hạn {Math.abs(daysLeft)} ngày
+        Đã hết hạn
       </StatusBadge>;
     }
     if (status === 'danger') {
@@ -229,7 +229,6 @@ export function ContractList() {
             <option value="active">Đang hoạt động</option>
             <option value="warning">Sắp hết hạn (&lt;30 ngày)</option>
             <option value="danger">Sắp hết hạn (&lt;7 ngày)</option>
-            <option value="expired">Đã quá hạn</option>
             <option value="ended">Đã hết</option>
           </FilterSelect>
           <input

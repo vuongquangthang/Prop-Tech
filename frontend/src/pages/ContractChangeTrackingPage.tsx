@@ -65,7 +65,7 @@ export function ContractChangeTrackingPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--primary)]">Đề xuất đang chờ cư dân xác nhận</h2>
+            <h2 className="table-section-title">Đề xuất đang chờ cư dân xác nhận</h2>
             <p className="text-sm text-gray-600 mt-1">Theo dõi trạng thái đề xuất thay đổi hợp đồng: Pending, Discussing, Confirmed</p>
           </div>
           <button

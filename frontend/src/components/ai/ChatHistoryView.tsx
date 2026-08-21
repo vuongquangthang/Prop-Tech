@@ -234,7 +234,7 @@ export function ChatHistoryView() {
           <div className="p-4" style={{ borderBottom: '1px solid var(--surface-border)' }}>
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>Lịch sử hội thoại</h3>
+                <h3 className="table-section-title leading-tight">Lịch sử hội thoại</h3>
                 <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{chatSessions.length} cuộc hội thoại</p>
               </div>
               <MessageSquare size={18} style={{ color: 'var(--brand-primary)' }} />

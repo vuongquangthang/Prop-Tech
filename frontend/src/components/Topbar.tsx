@@ -242,8 +242,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
         <ThemeSwitcher />
         <button
           type="button"
-          className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]"
-          style={{ padding: '10px' }}
+          className="topbar-icon-button relative"
           title="Gửi thông báo cư dân"
           aria-label="Gửi thông báo cư dân"
           onClick={() => {
@@ -256,8 +255,7 @@ export function Topbar({ title = 'Bảng điều khiển', onMenuToggle }: Topba
         </button>
         <button
           type="button"
-          className="relative rounded-xl transition-colors hover:bg-[var(--brand-surface)]"
-          style={{ padding: '10px' }}
+          className="topbar-icon-button relative"
           onClick={() => {
             setShowUserMenu(false);
             setShowNotifications((current) => {

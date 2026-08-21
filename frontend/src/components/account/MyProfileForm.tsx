@@ -184,7 +184,7 @@ export function MyProfileForm() {
       <div className="bg-white border-2 border-gray-300 rounded p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin cá nhân</h2>
+            <h2 className="table-section-title">Thông tin cá nhân</h2>
             <p className="mt-1 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>Cập nhật ảnh đại diện và thông tin hiển thị của tài khoản.</p>
           </div>
         </div>
@@ -322,7 +322,7 @@ export function MyProfileForm() {
       <div className="bg-white border-2 border-gray-300 rounded p-8">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Thông tin bảo mật</h2>
+            <h2 className="table-section-title">Thông tin bảo mật</h2>
             <p className="mt-2 text-gray-500" style={{ fontSize: 'var(--type-caption)' }}>
               Mật khẩu được ẩn vì lý do bảo mật. Bạn nên đổi mật khẩu định kỳ để bảo vệ tài khoản.
             </p>

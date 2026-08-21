@@ -290,7 +290,7 @@ export function DebtReportContent() {
       {/* Debt Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4">
-          <h2 className="text-[var(--primary)]" style={{ fontSize: 'var(--type-body-bold)', fontWeight: 700 }}>Danh sách công nợ - {filteredData.length} phòng</h2>
+          <h2 className="table-section-title">Danh sách công nợ - {filteredData.length} phòng</h2>
         </div>
         
         <div className="overflow-x-auto">
@@ -317,7 +317,7 @@ export function DebtReportContent() {
                     <td className="px-6 py-4 text-gray-800 text-center" style={{ fontSize: 'var(--type-body)' }}>{debt.daysOverdue} ngày</td>
                     <td className="px-6 py-4 text-center">
                       <div className="inline-flex flex-col items-center gap-1">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-[15px] ${reminderLevelInfo.color}`}>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-[6px] ${reminderLevelInfo.color}`}>
                           {reminderLevelInfo.label}
                         </span>
                         <span className="text-xs text-gray-500">{reminderLevelInfo.range}</span>

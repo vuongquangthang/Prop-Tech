@@ -655,7 +655,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="border-b border-gray-300 px-6 py-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-[var(--primary)]">Danh mục dịch vụ & Đơn giá - {visibleServiceCount}/{contextServiceCount} dịch vụ</h2>
+            <h2 className="table-section-title">Danh mục dịch vụ & Đơn giá - {visibleServiceCount}/{contextServiceCount} dịch vụ</h2>
             {embedded && (
               <button
                 onClick={openAddModal}

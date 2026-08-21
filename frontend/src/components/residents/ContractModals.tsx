@@ -1524,8 +1524,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     if (!monthlyRent || toNumber(monthlyRent) <= 0) {
       nextErrors.monthlyRent = 'Sai định dạng. Tiền thuê phải lớn hơn 0';
     }
-    if (deposit && toNumber(deposit) < 0) {
-      nextErrors.deposit = 'Sai định dạng. Tiền cọc không được âm';
+    if (!deposit || toNumber(deposit) <= 0) {
+      nextErrors.deposit = 'Sai định dạng. Tiền cọc phải lớn hơn 0';
     }
 
     setFieldErrors(nextErrors);
@@ -1749,7 +1749,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     && Number(durationMonths) > 0
     && monthlyRent
     && toNumber(monthlyRent) > 0
-    && (!deposit || toNumber(deposit) >= 0),
+    && deposit
+    && toNumber(deposit) > 0,
   );
   const areServiceQuantitiesValid = quantityInputServices.every((service: any) => {
     const serviceId = Number(service.id ?? service.serviceId ?? 0);
@@ -2328,7 +2329,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                 {fieldErrors.monthlyRent && <p className="mt-1 text-xs text-red-600">{fieldErrors.monthlyRent}</p>}
               </div>
               <div>
-                <label className="mb-2 block text-sm text-gray-700">Tiền cọc</label>
+                <label className="mb-2 block text-sm text-gray-700">Tiền cọc *</label>
                 <MoneyInput value={deposit} onChange={(value) => { setDeposit(value); setFieldError('deposit'); }} defaultScale="million" />
                 {fieldErrors.deposit && <p className="mt-1 text-xs text-red-600">{fieldErrors.deposit}</p>}
               </div>

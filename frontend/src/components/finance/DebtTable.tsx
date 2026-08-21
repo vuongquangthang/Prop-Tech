@@ -173,7 +173,7 @@ export function DebtTable() {
       {/* Table */}
       <div className="bg-white border-2 border-gray-300 rounded">
         <div className="flex items-center justify-between gap-3 border-b border-gray-300 px-6 py-4">
-          <h2 className="text-lg font-semibold text-[var(--primary)]">Danh sách công nợ - {filteredData.length} phòng</h2>
+          <h2 className="table-section-title">Danh sách công nợ - {filteredData.length} phòng</h2>
           <button
             onClick={() => setIsBatchSendReminderModalOpen(true)}
             className="app-button-primary shrink-0"
