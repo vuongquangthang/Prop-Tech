@@ -259,8 +259,8 @@ class ApiService {
     const normalizedConfiguredUrl = this.normalizeBaseUrl(API_BASE_URL);
     const normalizedSavedUrl = savedBaseUrl ? this.normalizeBaseUrl(savedBaseUrl) : undefined;
     const fallbackUrls = uniqueUrls([
-      savedBaseUrl || undefined,
       API_BASE_URL,
+      savedBaseUrl || undefined,
       getExpoHostApiBaseUrl(),
       ...API_BASE_URL_FALLBACKS,
     ]);
@@ -283,12 +283,18 @@ class ApiService {
         return response.data;
       } catch (error: any) {
         if (error.response) {
+          const normalizedAttemptUrl = this.normalizeBaseUrl(baseUrl);
+          const isStaleSavedUrl = Boolean(normalizedSavedUrl)
+            && normalizedAttemptUrl === normalizedSavedUrl
+            && normalizedSavedUrl !== normalizedConfiguredUrl;
+
+          if (isStaleSavedUrl && [502, 503, 504].includes(error.response.status)) {
+            console.warn(`Saved API is returning ${error.response.status}, trying configured API: ${baseUrl}`);
+            continue;
+          }
+
           if (error.response.status === 401) {
             lastAuthError = error;
-            const normalizedAttemptUrl = this.normalizeBaseUrl(baseUrl);
-            const isStaleSavedUrl = Boolean(normalizedSavedUrl)
-              && normalizedAttemptUrl === normalizedSavedUrl
-              && normalizedSavedUrl !== normalizedConfiguredUrl;
 
             if (isStaleSavedUrl) {
               console.warn(`Đăng nhập chưa khớp tại API đã lưu, thử API cấu hình: ${baseUrl}`);
