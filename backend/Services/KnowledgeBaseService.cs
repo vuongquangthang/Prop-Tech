@@ -177,8 +177,27 @@ public class KnowledgeBaseService : IKnowledgeBaseService
             CreatedAt = DateTime.UtcNow,
         };
 
-        await _repository.AddAsync(kb);
-        await _repository.SaveChangesAsync();
+        try
+        {
+            await _repository.AddAsync(kb);
+            await _repository.SaveChangesAsync();
+        }
+        catch
+        {
+            // File da nam tren R2 nhung khong ghi duoc metadata -> khong con gi tham
+            // chieu toi no. Xoa de khong de lai file rac trong bucket, roi nem tiep
+            // loi goc de caller biet that bai.
+            try
+            {
+                await _storage.DeleteAsync(fileUrl);
+            }
+            catch
+            {
+                // Bo qua: loi goc quan trong hon.
+            }
+
+            throw;
+        }
 
         var entry = MapToDto(kb);
         return new DocumentUploadResultDto
