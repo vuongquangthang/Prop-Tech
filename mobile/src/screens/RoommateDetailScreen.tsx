@@ -402,7 +402,7 @@ export default function RoommateDetailScreen() {
               </View>
               <View style={styles.conditionRow}>
                 <Ionicons name="document-text-outline" size={16} color="#6B7280" />
-                <Text style={styles.itemText}>Yêu cầu từ chủ phòng: {post.landlordRequirements || 'Không có'}</Text>
+                <Text style={styles.itemText}>Yêu cầu từ cư dân đại diện: {post.landlordRequirements || 'Không có'}</Text>
               </View>
             </View>
 

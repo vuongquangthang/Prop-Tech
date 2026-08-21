@@ -149,7 +149,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
             <>
               {debt?.daysLate >= 30 && (
                 <div className="bg-red-50 border border-red-300 rounded p-4 text-sm text-red-800">
-                  <strong>⚠️ Cảnh báo:</strong> Công nợ đã quá hạn {debt.daysLate} ngày. Nên xử lý ưu tiên.
+                  <strong>⚠️ Cảnh báo:</strong> Công nợ đã quá hạn. Nên xử lý ưu tiên.
                 </div>
               )}
 
@@ -158,7 +158,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
                   <h4 className="text-sm text-gray-700 font-bold mb-3">Thông tin công nợ</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between"><span className="text-gray-600">Phòng:</span><span className="text-gray-800 font-bold">{debt?.room || invoice?.roomNumber || '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Chủ hộ:</span><span className="text-gray-800">{debt?.tenant || invoice?.residentName || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Cư dân đại diện:</span><span className="text-gray-800">{debt?.tenant || invoice?.residentName || '—'}</span></div>
                     <div className="flex justify-between"><span className="text-gray-600">Kỳ thanh toán:</span><span className="text-gray-800">{period}</span></div>
                     <div className="flex justify-between"><span className="text-gray-600">Hạn thanh toán:</span><span className="text-gray-800">{dueDateText}</span></div>
                     <div className="flex justify-between"><span className="text-gray-600">Trạng thái:</span><span className="text-gray-800">{statusText}</span></div>
@@ -171,7 +171,7 @@ export function ViewDebtModal({ debt, onClose }: DebtModalProps) {
                     <div className="flex justify-between"><span className="text-red-700">Tổng hóa đơn:</span><span className="text-red-900 font-bold">{formatCurrency(totalAmount)}</span></div>
                     <div className="flex justify-between"><span className="text-red-700">Đã thanh toán:</span><span className="text-red-900 font-bold">{formatCurrency(paidAmount)}</span></div>
                     <div className="flex justify-between border-t border-red-300 pt-2"><span className="text-red-800 font-bold">Còn nợ:</span><span className="text-red-900 font-bold text-lg">{formatCurrency(remainingAmount)}</span></div>
-                    <div className="flex justify-between"><span className="text-red-700">Số ngày trễ:</span><span className="text-red-900 font-bold">{debt?.daysLate || 0} ngày</span></div>
+                    <div className="flex justify-between"><span className="text-red-700">Tình trạng:</span><span className="text-red-900 font-bold">Quá hạn</span></div>
                     <div className="flex justify-between gap-3">
                       <span className="text-red-700">Mức nhắc nợ:</span>
                       <span className="text-right text-red-900 font-bold">
@@ -413,7 +413,7 @@ function ContractDetailModal({ debt, onClose }: DebtModalProps) {
             <div className="bg-red-50 border border-red-300 rounded p-4">
               <p className="text-sm text-red-800">
                 <strong>⚠️ Cảnh báo:</strong> Hợp đồng này đang có công nợ <strong>{debt?.amount} VNĐ</strong> 
-                {' '}quá hạn <strong>{debt?.daysLate} ngày</strong>. Cần xử lý khẩn cấp!
+                {' '}quá hạn. Cần xử lý khẩn cấp!
               </p>
             </div>
           )}
@@ -449,7 +449,7 @@ function InvoiceDetailModal({ debt, onClose }: DebtModalProps) {
           {debt?.daysLate > 0 && (
             <div className="bg-red-50 border border-red-300 rounded p-4">
               <p className="text-sm text-red-800 font-bold">
-                🚨 Hóa đơn này đã quá hạn {debt?.daysLate} ngày!
+                🚨 Hóa đơn này đã quá hạn!
               </p>
             </div>
           )}
@@ -673,7 +673,7 @@ function TransactionHistoryModal({ debt, onClose }: DebtModalProps) {
                     <td className="px-3 py-2 text-center text-gray-500">-</td>
                     <td className="px-3 py-2 text-center">
                       <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded border border-red-300">
-                        Quá hạn {debt?.daysLate} ngày
+                        Quá hạn
                       </span>
                     </td>
                   </tr>
@@ -688,7 +688,7 @@ function TransactionHistoryModal({ debt, onClose }: DebtModalProps) {
                       <td className="px-3 py-2 text-center text-gray-500">-</td>
                       <td className="px-3 py-2 text-center">
                         <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded border border-red-300">
-                          Quá hạn 52 ngày
+                          Quá hạn
                         </span>
                       </td>
                     </tr>
@@ -894,13 +894,12 @@ export function SendReminderModal({ debt, onClose }: DebtModalProps) {
       ? formatDisplayDate(invoice.dueDate)
       : 'chưa xác định';
     const remainAmount = Number(invoice?.remainingAmount ?? debt?.amount ?? 0);
-    const daysLate = Number(debt?.daysLate ?? 0);
-    const reminderLevelInfo = getReminderLevelInfo(daysLate);
+    const reminderLevelInfo = getReminderLevelInfo(debt?.daysLate);
 
     return {
       gentle: `Xin chào ${tenantName},
 
-Hóa đơn kỳ ${period} của quý cư dân đã quá hạn ${daysLate} ngày.
+Hóa đơn kỳ ${period} của quý cư dân đã quá hạn.
 Mức độ nhắc nợ: ${reminderLevelInfo.label} (${reminderLevelInfo.range}).
 Số tiền còn nợ: ${formatCurrency(remainAmount)}.
 Hạn thanh toán: ${dueDateText}.
@@ -912,7 +911,7 @@ Trân trọng,\nBan quản lý`,
 
 Kính gửi ${tenantName},
 
-Hóa đơn kỳ ${period} đã quá hạn ${daysLate} ngày.
+Hóa đơn kỳ ${period} đã quá hạn.
 Mức độ nhắc nợ: ${reminderLevelInfo.label} (${reminderLevelInfo.range}).
 Số tiền còn nợ: ${formatCurrency(remainAmount)}.
 
@@ -975,10 +974,10 @@ Trân trọng,\nBan quản lý`,
           mappedRecipients = [
             {
               residentId: -1,
-              fullName: debt?.tenant || invoiceData?.residentName || 'Chủ hộ',
+              fullName: debt?.tenant || invoiceData?.residentName || 'Cư dân đại diện',
               phoneNumber: debt?.phone || '',
               email: '',
-              residencyRole: 'Chủ hộ',
+              residencyRole: 'Cư dân đại diện',
             },
           ];
         }
@@ -1098,7 +1097,7 @@ Trân trọng,\nBan quản lý`,
             <h4 className="text-sm text-gray-800 font-bold mb-3">Thông tin công nợ:</h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Chủ hộ:</span>
+                <span className="text-gray-600">Cư dân đại diện:</span>
                 <span className="text-gray-800 font-bold">{debt?.tenant}</span>
               </div>
               <div className="flex justify-between">
@@ -1106,8 +1105,8 @@ Trân trọng,\nBan quản lý`,
                 <span className="text-red-700 font-bold">{formatCurrency(Number(invoice?.remainingAmount ?? debt?.amount ?? 0))}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Số ngày trễ:</span>
-                <span className="text-red-700 font-bold">{debt?.daysLate} ngày</span>
+                <span className="text-gray-600">Tình trạng:</span>
+                <span className="text-red-700 font-bold">Quá hạn</span>
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-gray-600">Mức nhắc nợ:</span>
@@ -1219,7 +1218,7 @@ export function BlockAccountModal({ debt, onClose }: DebtModalProps) {
                 <span className="text-gray-800 font-bold">{debt?.room}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Chủ hộ:</span>
+                <span className="text-gray-600">Cư dân đại diện:</span>
                 <span className="text-gray-800 font-bold">{debt?.tenant}</span>
               </div>
               <div className="flex justify-between">
@@ -1227,8 +1226,8 @@ export function BlockAccountModal({ debt, onClose }: DebtModalProps) {
                 <span className="text-red-700 font-bold">{debt?.amount} VNĐ</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Số ngày trễ:</span>
-                <span className="text-red-700 font-bold">{debt?.daysLate} ngày</span>
+                <span className="text-gray-600">Tình trạng:</span>
+                <span className="text-red-700 font-bold">Quá hạn</span>
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-gray-600">Mức nhắc nợ:</span>
@@ -1251,7 +1250,7 @@ export function BlockAccountModal({ debt, onClose }: DebtModalProps) {
                   <Lock size={16} className="text-red-600" />
                   <div>
                     <p className="text-sm text-gray-800 font-bold">{debt?.tenant}</p>
-                    <p className="text-xs text-gray-600">Chủ hộ • {debt?.phone}</p>
+                    <p className="text-xs text-gray-600">Cư dân đại diện • {debt?.phone}</p>
                   </div>
                 </div>
                 <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Sẽ bị khóa</span>
@@ -1531,7 +1530,7 @@ export function BatchSendReminderModal({ debts, onClose }: { debts?: any[], onCl
                         <p className="text-sm text-gray-800 font-bold">{debt.room} - {debt.tenant}</p>
                         <p className="text-xs text-gray-600">
                           Nợ: <strong className="text-red-700">{debt.amount} VNĐ</strong> • 
-                          Trễ: <strong>{debt.daysLate} ngày</strong> • 
+                          <strong>Quá hạn</strong> • 
                           Đã nhắc: <strong>{debt.reminderLevel} lần</strong>
                         </p>
                       </div>

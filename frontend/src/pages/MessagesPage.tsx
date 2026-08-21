@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '../components/ui/utils';
 import { useAuth } from '../contexts/AuthContext';
+import { searchIncludes } from '../lib/search';
 import {
   buildPropTechPartnerUserId,
   loadRoomConversations,
@@ -195,9 +196,9 @@ export function MessagesPage() {
   const filteredConversations = useMemo(
     () =>
       conversations.filter((conversation) =>
-        conversation.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conversation.roomInquiry.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conversation.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+        searchIncludes(conversation.userName, searchQuery) ||
+        searchIncludes(conversation.roomInquiry, searchQuery) ||
+        searchIncludes(conversation.lastMessage, searchQuery)
       ),
     [conversations, searchQuery]
   );
@@ -290,20 +291,18 @@ export function MessagesPage() {
 
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
-      <div className="flex shrink-0 items-end gap-8 border-b border-gray-300">
+      <div className="product-tabs shrink-0">
         <button
           type="button"
           onClick={() => navigate('/post-management')}
-          className="-mb-px border-b-2 border-transparent px-2 pb-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
         >
-          Quản lý bài đăng
+          <span>Quản lý bài đăng</span>
         </button>
         <button
           type="button"
-          className="-mb-px border-b-2 px-2 pb-3 text-sm font-semibold"
-          style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+          className="is-active"
         >
-          Tin nhắn
+          <span>Tin nhắn</span>
         </button>
       </div>
 

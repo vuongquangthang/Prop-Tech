@@ -230,7 +230,7 @@ export function QuickAccessTables() {
                     />
                   </th>
                   <th style={{ textAlign: 'left', fontSize: 'var(--type-body-bold)', color: 'var(--text-primary)', paddingBottom: '16px', fontWeight: 700 }}>Phòng</th>
-                  <th style={{ textAlign: 'left', fontSize: 'var(--type-body-bold)', color: 'var(--text-primary)', paddingBottom: '16px', fontWeight: 700 }}>Chủ hộ</th>
+                  <th style={{ textAlign: 'left', fontSize: 'var(--type-body-bold)', color: 'var(--text-primary)', paddingBottom: '16px', fontWeight: 700 }}>Cư dân đại diện</th>
                   <th style={{ textAlign: 'right', fontSize: 'var(--type-body-bold)', color: 'var(--text-primary)', paddingBottom: '16px', fontWeight: 700 }}>Số tiền nợ</th>
                   <th style={{ textAlign: 'center', fontSize: 'var(--type-body-bold)', color: 'var(--text-primary)', paddingBottom: '16px', fontWeight: 700 }}>Số ngày trễ</th>
                   <th style={{ textAlign: 'center', fontSize: 'var(--type-body-bold)', color: 'var(--text-primary)', paddingBottom: '16px', fontWeight: 700 }}></th>
@@ -389,7 +389,7 @@ export function QuickAccessTables() {
                     <p style={{ fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 600, marginTop: '4px' }}>{selectedInvoice.room}</p>
                   </div>
                   <div>
-                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>Chủ hộ</p>
+                    <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>Cư dân đại diện</p>
                     <p style={{ fontSize: 'var(--type-body)', color: 'var(--text-primary)', fontWeight: 600, marginTop: '4px' }}>{selectedInvoice.tenant}</p>
                   </div>
                   <div>

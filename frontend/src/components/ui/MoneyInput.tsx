@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export type MoneyScale = 'unit' | 'thousand' | 'million';
 
@@ -66,16 +67,19 @@ export function MoneyInput({
         disabled={disabled}
         aria-label="Số tiền"
       />
-      <select
-        value={scale}
-        onChange={(event) => handleScaleChange(event.target.value as MoneyScale)}
-        disabled={disabled}
-        aria-label="Đơn vị tiền"
-      >
-        <option value="unit">VNĐ</option>
-        <option value="thousand">nghìn</option>
-        <option value="million">triệu</option>
-      </select>
+      <span className="money-input-unit">
+        <select
+          value={scale}
+          onChange={(event) => handleScaleChange(event.target.value as MoneyScale)}
+          disabled={disabled}
+          aria-label="Đơn vị tiền"
+        >
+          <option value="unit">VNĐ</option>
+          <option value="thousand">nghìn</option>
+          <option value="million">triệu</option>
+        </select>
+        <ChevronDown size={16} aria-hidden="true" />
+      </span>
     </div>
   );
 }

@@ -26,7 +26,7 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usages = await _chiTietService.GetAllAsync();
+            var usages = await _chiTietService.GetAllAsync(User.GetOwnerUserId());
             return Ok(usages);
         }
         catch (Exception ex)
@@ -44,7 +44,7 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usages = await _chiTietService.GetActiveUsagesAsync();
+            var usages = await _chiTietService.GetActiveUsagesAsync(User.GetOwnerUserId());
             return Ok(usages);
         }
         catch (Exception ex)
@@ -61,7 +61,9 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usages = await _chiTietService.GetByResidentIdAsync(residentId);
+            var usages = User.IsInRole("CuDan")
+                ? await _chiTietService.GetByResidentIdAsync(residentId)
+                : await _chiTietService.GetByResidentIdAsync(residentId, User.GetOwnerUserId());
             return Ok(usages);
         }
         catch (Exception ex)
@@ -78,7 +80,9 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usages = await _chiTietService.GetByRoomIdAsync(roomId);
+            var usages = User.IsInRole("CuDan")
+                ? await _chiTietService.GetByRoomIdAsync(roomId)
+                : await _chiTietService.GetByRoomIdAsync(roomId, User.GetOwnerUserId());
             return Ok(usages);
         }
         catch (Exception ex)
@@ -96,7 +100,7 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usages = await _chiTietService.GetByServiceIdAsync(serviceId);
+            var usages = await _chiTietService.GetByServiceIdAsync(serviceId, User.GetOwnerUserId());
             return Ok(usages);
         }
         catch (Exception ex)
@@ -113,7 +117,9 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usage = await _chiTietService.GetByIdAsync(id);
+            var usage = User.IsInRole("CuDan")
+                ? await _chiTietService.GetByIdAsync(id)
+                : await _chiTietService.GetByIdAsync(id, User.GetOwnerUserId());
             if (usage == null)
             {
                 return NotFound(new { message = "Chi tiết sử dụng dịch vụ không tồn tại" });
@@ -135,7 +141,7 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usage = await _chiTietService.CreateAsync(dto);
+            var usage = await _chiTietService.CreateAsync(dto, User.GetOwnerUserId());
             return CreatedAtAction(nameof(GetById), new { id = usage.Id }, usage);
         }
         catch (InvalidOperationException ex)
@@ -157,7 +163,7 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            var usage = await _chiTietService.UpdateAsync(id, dto);
+            var usage = await _chiTietService.UpdateAsync(id, dto, User.GetOwnerUserId());
             return Ok(usage);
         }
         catch (InvalidOperationException ex)
@@ -179,7 +185,7 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            await _chiTietService.EndUsageAsync(id, dto);
+            await _chiTietService.EndUsageAsync(id, dto, User.GetOwnerUserId());
             return Ok(new { message = "Kết thúc sử dụng dịch vụ thành công" });
         }
         catch (InvalidOperationException ex)
@@ -201,7 +207,7 @@ public class ChiTietSuDungDichVuController : ControllerBase
     {
         try
         {
-            await _chiTietService.DeleteAsync(id);
+            await _chiTietService.DeleteAsync(id, User.GetOwnerUserId());
             return Ok(new { message = "Xóa chi tiết sử dụng dịch vụ thành công" });
         }
         catch (InvalidOperationException ex)

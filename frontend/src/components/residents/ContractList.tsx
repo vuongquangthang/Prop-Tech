@@ -1,4 +1,4 @@
-import { Plus, Search, Eye, FileText, AlertCircle, Loader2, AlertTriangle, FileX, Pencil, Filter, CalendarPlus } from 'lucide-react';
+import { Plus, Search, Eye, Printer, AlertCircle, Loader2, AlertTriangle, FileX, Pencil, Filter, CalendarPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { CreateContractModal, ViewContractModal, PrintContractModal, EditContractModal, ExtendContractModal } from './ContractModals';
@@ -6,6 +6,7 @@ import { contractService, tatToanService } from '../../services/api.service';
 import { formatDisplayDate } from '../../lib/date-utils';
 import { DataCard, DataTable, EmptyState, LoadingState, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
+import { searchIncludes } from '../../lib/search';
 
 interface ContractData {
   id: number;
@@ -182,12 +183,10 @@ export function ContractList() {
   };
 
   const filteredContracts = contracts.filter((contract) => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
     const matchesSearch =
-      normalizedSearch.length === 0 ||
-      contract.code.toLowerCase().includes(normalizedSearch) ||
-      contract.room.toLowerCase().includes(normalizedSearch) ||
-      contract.tenant.toLowerCase().includes(normalizedSearch);
+      searchIncludes(contract.code, searchTerm) ||
+      searchIncludes(contract.room, searchTerm) ||
+      searchIncludes(contract.tenant, searchTerm);
     const matchesStatus = statusFilter === 'all' || contract.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -235,7 +234,7 @@ export function ContractList() {
           </FilterSelect>
           <input
             type="text"
-            placeholder="Tìm theo mã hợp đồng, phòng hoặc chủ hộ..."
+            placeholder="Tìm theo mã hợp đồng, phòng hoặc cư dân đại diện..."
             className="app-input"
             style={{ width: '360px', flex: '0 0 360px' }}
             value={searchTerm}
@@ -258,7 +257,7 @@ export function ContractList() {
                 <tr>
                   <th>Mã hợp đồng</th>
                   <th>Phòng</th>
-                  <th>Chủ hộ</th>
+                  <th>Cư dân đại diện</th>
                   <th>Ngày bắt đầu</th>
                   <th>Ngày kết thúc</th>
                   <th>Tiền cọc (VNĐ)</th>
@@ -269,7 +268,11 @@ export function ContractList() {
               </thead>
               <tbody>
                 {filteredContracts.map((contract) => (
-                  <tr key={contract.id} className={getRowColor(contract.status)}>
+                  <tr
+                    key={contract.id}
+                    className={`cursor-pointer ${getRowColor(contract.status)}`}
+                    onClick={() => openViewModal(contract)}
+                  >
                     <td className="font-semibold text-[var(--brand-primary)]">{contract.code}</td>
                     <td>{contract.room}</td>
                     <td>{contract.tenant}</td>
@@ -280,13 +283,13 @@ export function ContractList() {
                     <td>
                       {getStatusBadge(contract.daysLeft, contract.status)}
                     </td>
-                    <td>
+                    <td onClick={(event) => event.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
                         <button className="product-action-icon" title="Xem chi tiết" onClick={() => openViewModal(contract)}>
                           <Eye size={16} />
                         </button>
                         <button className="product-action-icon" title="In hợp đồng" onClick={() => openPrintModal(contract)}>
-                          <FileText size={16} />
+                          <Printer size={16} />
                         </button>
                         <button className="product-action-icon" title="Cập nhật hợp đồng" onClick={() => openEditModal(contract)}>
                           <Pencil size={16} />

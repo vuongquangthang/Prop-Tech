@@ -149,6 +149,31 @@ public class HoaDonService : IHoaDonService
                 hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= periodStartUtc))
             .ToListAsync();
 
+        var contractIds = contracts.Select(contract => contract.Id).ToList();
+        if (contractIds.Count > 0)
+        {
+            var finalizedInvoiceContractIds = await _context.HoaDons
+                .AsNoTracking()
+                .Where(invoice =>
+                    contractIds.Contains(invoice.ContractId)
+                    && invoice.Month == month
+                    && invoice.Year == year
+                    && invoice.Status != "Nháp"
+                    && invoice.Status != "Bị từ chối")
+                .Select(invoice => invoice.ContractId)
+                .Distinct()
+                .ToListAsync();
+
+            if (finalizedInvoiceContractIds.Count > 0)
+            {
+                var finalizedInvoiceContractIdSet = finalizedInvoiceContractIds.ToHashSet();
+                result.Skipped += finalizedInvoiceContractIdSet.Count;
+                contracts = contracts
+                    .Where(contract => !finalizedInvoiceContractIdSet.Contains(contract.Id))
+                    .ToList();
+            }
+        }
+
         var serviceIds = contracts
             .SelectMany(contract => contract.Room?.ChiTietSuDungDichVus ?? Enumerable.Empty<ChiTietSuDungDichVu>())
             .Select(usage => usage.ServiceId)
@@ -199,7 +224,6 @@ public class HoaDonService : IHoaDonService
                     if (existingInvoice.Status != "Nháp" && existingInvoice.Status != "Bị từ chối")
                     {
                         result.Skipped++;
-                        result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
                         continue;
                     }
                     _context.ChiTietHoaDons.RemoveRange(existingInvoice.ChiTietHoaDons);

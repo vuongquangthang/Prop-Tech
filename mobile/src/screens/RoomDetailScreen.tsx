@@ -308,7 +308,7 @@ export default function RoomDetailScreen() {
                     <Text style={styles.residentName}>{resident.fullName || 'Không có tên'}</Text>
                     {isHeadOfHousehold && (
                       <View style={styles.roleTag}>
-                        <Text style={styles.roleTagText}>Chủ hộ</Text>
+                        <Text style={styles.roleTagText}>Cư dân đại diện</Text>
                       </View>
                     )}
                   </View>

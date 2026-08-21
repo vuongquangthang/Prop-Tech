@@ -440,7 +440,7 @@ public class PaymentService : IPaymentService
 
         if (!IsPrimaryResidentRole(residency.ResidencyRole))
         {
-            throw new InvalidOperationException("Chỉ chủ hộ/người thuê chính được thanh toán hóa đơn. Thành viên cần được chủ hộ hoặc chủ nhà xử lý.");
+            throw new InvalidOperationException("Chỉ cư dân đại diện/người thuê chính được thanh toán hóa đơn. Thành viên cần được cư dân đại diện hoặc chủ nhà xử lý.");
         }
     }
 

@@ -7,16 +7,16 @@ namespace backend.Services;
 
 public interface IChiTietSuDungDichVuService
 {
-    Task<List<ChiTietSuDungDichVuDto>> GetAllAsync();
-    Task<List<ChiTietSuDungDichVuDto>> GetActiveUsagesAsync();
-    Task<List<ChiTietSuDungDichVuDto>> GetByResidentIdAsync(int residentId);
-    Task<List<ChiTietSuDungDichVuDto>> GetByRoomIdAsync(int roomId);
-    Task<List<ChiTietSuDungDichVuDto>> GetByServiceIdAsync(int serviceId);
-    Task<ChiTietSuDungDichVuDto?> GetByIdAsync(long id);
-    Task<ChiTietSuDungDichVuDto> CreateAsync(CreateChiTietSuDungDichVuDto dto);
-    Task<ChiTietSuDungDichVuDto> UpdateAsync(long id, UpdateChiTietSuDungDichVuDto dto);
-    Task EndUsageAsync(long id, EndChiTietSuDungDichVuDto dto);
-    Task DeleteAsync(long id);
+    Task<List<ChiTietSuDungDichVuDto>> GetAllAsync(int ownerUserId);
+    Task<List<ChiTietSuDungDichVuDto>> GetActiveUsagesAsync(int ownerUserId);
+    Task<List<ChiTietSuDungDichVuDto>> GetByResidentIdAsync(int residentId, int? ownerUserId = null);
+    Task<List<ChiTietSuDungDichVuDto>> GetByRoomIdAsync(int roomId, int? ownerUserId = null);
+    Task<List<ChiTietSuDungDichVuDto>> GetByServiceIdAsync(int serviceId, int ownerUserId);
+    Task<ChiTietSuDungDichVuDto?> GetByIdAsync(long id, int? ownerUserId = null);
+    Task<ChiTietSuDungDichVuDto> CreateAsync(CreateChiTietSuDungDichVuDto dto, int ownerUserId);
+    Task<ChiTietSuDungDichVuDto> UpdateAsync(long id, UpdateChiTietSuDungDichVuDto dto, int ownerUserId);
+    Task EndUsageAsync(long id, EndChiTietSuDungDichVuDto dto, int ownerUserId);
+    Task DeleteAsync(long id, int ownerUserId);
 }
 
 public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
@@ -41,9 +41,9 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         _xeRepository = xeRepository;
     }
 
-    public async Task<List<ChiTietSuDungDichVuDto>> GetAllAsync()
+    public async Task<List<ChiTietSuDungDichVuDto>> GetAllAsync(int ownerUserId)
     {
-        var usages = await _chiTietRepository.GetAllAsync();
+        var usages = await _chiTietRepository.GetAllAsync(ownerUserId);
         var usagesList = usages.ToList();
         var result = new List<ChiTietSuDungDichVuDto>();
         foreach (var usage in usagesList)
@@ -54,9 +54,9 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         return result;
     }
 
-    public async Task<List<ChiTietSuDungDichVuDto>> GetActiveUsagesAsync()
+    public async Task<List<ChiTietSuDungDichVuDto>> GetActiveUsagesAsync(int ownerUserId)
     {
-        var usages = await _chiTietRepository.GetActiveUsagesAsync();
+        var usages = await _chiTietRepository.GetActiveUsagesAsync(ownerUserId);
         var result = new List<ChiTietSuDungDichVuDto>();
         foreach (var usage in usages)
         {
@@ -66,9 +66,11 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         return result;
     }
 
-    public async Task<List<ChiTietSuDungDichVuDto>> GetByResidentIdAsync(int residentId)
+    public async Task<List<ChiTietSuDungDichVuDto>> GetByResidentIdAsync(int residentId, int? ownerUserId = null)
     {
-        var usages = await _chiTietRepository.GetByResidentIdAsync(residentId);
+        var usages = ownerUserId.HasValue
+            ? await _chiTietRepository.GetByResidentIdAsync(residentId, ownerUserId.Value)
+            : await _chiTietRepository.GetByResidentIdAsync(residentId);
         var result = new List<ChiTietSuDungDichVuDto>();
         foreach (var usage in usages)
         {
@@ -78,9 +80,11 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         return result;
     }
 
-    public async Task<List<ChiTietSuDungDichVuDto>> GetByRoomIdAsync(int roomId)
+    public async Task<List<ChiTietSuDungDichVuDto>> GetByRoomIdAsync(int roomId, int? ownerUserId = null)
     {
-        var usages = await _chiTietRepository.GetByRoomIdAsync(roomId);
+        var usages = ownerUserId.HasValue
+            ? await _chiTietRepository.GetByRoomIdAsync(roomId, ownerUserId.Value)
+            : await _chiTietRepository.GetByRoomIdAsync(roomId);
         var result = new List<ChiTietSuDungDichVuDto>();
         foreach (var usage in usages)
         {
@@ -90,9 +94,9 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         return result;
     }
 
-    public async Task<List<ChiTietSuDungDichVuDto>> GetByServiceIdAsync(int serviceId)
+    public async Task<List<ChiTietSuDungDichVuDto>> GetByServiceIdAsync(int serviceId, int ownerUserId)
     {
-        var usages = await _chiTietRepository.GetByServiceIdAsync(serviceId);
+        var usages = await _chiTietRepository.GetByServiceIdAsync(serviceId, ownerUserId);
         var result = new List<ChiTietSuDungDichVuDto>();
         foreach (var usage in usages)
         {
@@ -102,20 +106,26 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         return result;
     }
 
-    public async Task<ChiTietSuDungDichVuDto?> GetByIdAsync(long id)
+    public async Task<ChiTietSuDungDichVuDto?> GetByIdAsync(long id, int? ownerUserId = null)
     {
-        var usage = await _chiTietRepository.GetByIdAsync(id);
+        var usage = ownerUserId.HasValue
+            ? (await _chiTietRepository.GetAllAsync(ownerUserId.Value)).FirstOrDefault(item => item.Id == id)
+            : await _chiTietRepository.GetByIdAsync(id);
         if (usage == null) return null;
         return await MapToDtoAsync(usage);
     }
 
-    public async Task<ChiTietSuDungDichVuDto> CreateAsync(CreateChiTietSuDungDichVuDto dto)
+    public async Task<ChiTietSuDungDichVuDto> CreateAsync(CreateChiTietSuDungDichVuDto dto, int ownerUserId)
     {
         // Validate service exists
         var service = await _serviceRepository.GetByIdAsync(dto.ServiceId);
         if (service == null)
         {
             throw new InvalidOperationException("Dịch vụ không tồn tại");
+        }
+        if (service.OwnerUserId != ownerUserId)
+        {
+            throw new InvalidOperationException("Dịch vụ không thuộc chủ nhà hiện tại");
         }
 
         // Validate resident exists
@@ -126,10 +136,14 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         }
 
         // Validate room exists
-        var room = await _roomRepository.GetByIdAsync(dto.RoomId);
+        var room = await _roomRepository.GetWithDetailsAsync(dto.RoomId);
         if (room == null)
         {
             throw new InvalidOperationException("Phòng không tồn tại");
+        }
+        if (room.Floor?.Building?.OwnerUserId != ownerUserId)
+        {
+            throw new InvalidOperationException("Phòng không thuộc chủ nhà hiện tại");
         }
 
         // Validate vehicle if specified
@@ -168,9 +182,9 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         return await MapToDtoAsync(created!);
     }
 
-    public async Task<ChiTietSuDungDichVuDto> UpdateAsync(long id, UpdateChiTietSuDungDichVuDto dto)
+    public async Task<ChiTietSuDungDichVuDto> UpdateAsync(long id, UpdateChiTietSuDungDichVuDto dto, int ownerUserId)
     {
-        var usage = await _chiTietRepository.GetByIdAsync(id);
+        var usage = (await _chiTietRepository.GetAllAsync(ownerUserId)).FirstOrDefault(item => item.Id == id);
         if (usage == null)
         {
             throw new InvalidOperationException("Chi tiết sử dụng dịch vụ không tồn tại");
@@ -195,9 +209,9 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         return await MapToDtoAsync(updated!);
     }
 
-    public async Task EndUsageAsync(long id, EndChiTietSuDungDichVuDto dto)
+    public async Task EndUsageAsync(long id, EndChiTietSuDungDichVuDto dto, int ownerUserId)
     {
-        var usage = await _chiTietRepository.GetByIdAsync(id);
+        var usage = (await _chiTietRepository.GetAllAsync(ownerUserId)).FirstOrDefault(item => item.Id == id);
         if (usage == null)
         {
             throw new InvalidOperationException("Chi tiết sử dụng dịch vụ không tồn tại");
@@ -213,9 +227,9 @@ public class ChiTietSuDungDichVuService : IChiTietSuDungDichVuService
         await _chiTietRepository.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(long id, int ownerUserId)
     {
-        var usage = await _chiTietRepository.GetByIdAsync(id);
+        var usage = (await _chiTietRepository.GetAllAsync(ownerUserId)).FirstOrDefault(item => item.Id == id);
         if (usage == null)
         {
             throw new InvalidOperationException("Chi tiết sử dụng dịch vụ không tồn tại");

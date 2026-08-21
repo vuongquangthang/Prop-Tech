@@ -5,7 +5,7 @@ import { ServiceTable } from '../components/infrastructure/ServiceTable';
 import { AssetTable } from '../components/infrastructure/AssetTable';
 import { LocationPicker } from '../components/LocationPicker';
 import { buildingService, floorService } from '../services/api.service';
-import { AlertTriangle, Box, Building2, ChevronDown, ChevronRight, Home, Layers3, Loader2, MapPin, PlugZap, X } from 'lucide-react';
+import { AlertTriangle, Box, Building2, Home, Loader2, MapPin, PlugZap, X } from 'lucide-react';
 
 type InfrastructureStep = 'services' | 'assets' | 'rooms';
 type WorkspaceFormMode = 'add-building' | 'edit-building' | 'add-floor' | 'edit-floor' | null;
@@ -53,12 +53,7 @@ export function BuildingManagementPage() {
     building: null,
     floor: null,
   });
-  // Mặc định ĐÓNG tất cả mục, chỉ mở khi người dùng bấm vào.
-  const [openSteps, setOpenSteps] = useState<Record<InfrastructureStep, boolean>>({
-    services: false,
-    assets: false,
-    rooms: false,
-  });
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<InfrastructureStep>('rooms');
   const [workspaceFormMode, setWorkspaceFormMode] = useState<WorkspaceFormMode>(null);
   const [knownBuildings, setKnownBuildings] = useState<Array<{ id: number; buildingName: string }>>([]);
   const [formBuildingName, setFormBuildingName] = useState('');
@@ -154,18 +149,8 @@ export function BuildingManagementPage() {
     setSelectedFloorId(floorId);
     setSelectedBuildingId(null);
     setWorkspaceFormMode(null);
-    setOpenSteps((current) => ({
-      ...current,
-      rooms: true,
-    }));
+    setActiveWorkspaceTab('rooms');
     setAddRoomRequest({ id: Date.now(), floorId });
-  };
-
-  const toggleStep = (step: InfrastructureStep) => {
-    setOpenSteps((current) => ({
-      ...current,
-      [step]: !current[step],
-    }));
   };
 
 
@@ -375,12 +360,6 @@ export function BuildingManagementPage() {
     }
   };
 
-  const contextTypeLabel = infrastructureContext.type === 'floor'
-    ? 'Tầng'
-    : infrastructureContext.type === 'building'
-      ? 'Tòa nhà'
-      : 'Toàn bộ';
-
   const selectedBuilding = infrastructureContext.building ?? null;
   const selectedFloor = infrastructureContext.floor ?? null;
 
@@ -431,6 +410,8 @@ export function BuildingManagementPage() {
     selectedFloorId,
     structureRefreshKey,
   ]);
+  const activeWorkspaceSection = workspaceSections.find((section) => section.key === activeWorkspaceTab)
+    ?? workspaceSections[0];
 
   const detailItems = selectedBuilding
     ? [
@@ -475,7 +456,9 @@ export function BuildingManagementPage() {
                 setInfrastructureContext(context);
                 if (context.type === 'all') {
                   setWorkspaceFormMode(null);
-                  setOpenSteps((current) => ({ ...current, services: false, assets: false, rooms: true }));
+                  setActiveWorkspaceTab('rooms');
+                } else {
+                  setActiveWorkspaceTab('services');
                 }
               }}
               onRequestAddRoom={handleRequestAddRoom}
@@ -495,19 +478,11 @@ export function BuildingManagementPage() {
                     display: 'grid',
                     gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.05fr)',
                     gap: '24px',
-                    alignItems: 'start',
+                    alignItems: 'center',
                   }}
                 >
-                  <div className="min-w-0">
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="inline-flex h-7 w-7 items-center justify-center bg-[var(--brand-surface)] text-[var(--brand-primary)]">
-                        <Layers3 size={15} />
-                      </span>
-                      <span className="border border-[var(--brand-border)] bg-[var(--brand-surface)] px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--brand-primary)]">
-                        {contextTypeLabel}
-                      </span>
-                    </div>
-                    <h2 className="truncate text-xl font-semibold leading-tight text-[var(--primary)]">{contextTitle}</h2>
+                  <div className="flex min-w-0 flex-col justify-center">
+                    <h2 className="truncate text-lg font-semibold leading-tight text-[var(--primary)]">{contextTitle}</h2>
                     {!selectedBuilding && (
                       <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{contextSubtitle}</p>
                     )}
@@ -543,10 +518,12 @@ export function BuildingManagementPage() {
                         <button
                           type="button"
                           onClick={() => setShowLocationModal(true)}
-                          className="ml-2 inline-flex w-fit max-w-full shrink-0 items-center gap-2 border border-[var(--surface-border)] bg-white px-3 py-1.5 text-sm font-semibold text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-surface)]"
+                          title={hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}
+                          aria-label={hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}
+                          className="ml-2 inline-flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-white text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-surface)]"
+                          style={{ borderRadius: 'var(--radius-button)' }}
                         >
-                          <MapPin size={15} />
-                          <span className="truncate">{hasLocation ? 'Xem bản đồ' : 'Chưa chọn vị trí'}</span>
+                          <MapPin size={15} strokeWidth={2.5} />
                         </button>
                       </div>
                     )}
@@ -706,33 +683,30 @@ export function BuildingManagementPage() {
               </section>
             )}
 
-            {hasInfrastructureSelection && workspaceSections.map((section) => {
-              const Icon = section.icon;
-              const isOpen = openSteps[section.key];
-              return (
-                <section key={section.key} className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => toggleStep(section.key)}
-                    className="flex w-full items-center justify-between gap-4 border-b border-[var(--surface-border)] bg-[var(--surface-muted)] px-4 py-3 text-left transition-colors hover:bg-[var(--brand-surface)]"
-                    aria-expanded={isOpen}
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--surface-card)] text-[var(--brand-primary)]">
-                        <Icon size={17} />
-                      </span>
-                      <span className="truncate text-base font-semibold text-[var(--primary)]">{section.title}</span>
-                    </span>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
-                      {isOpen ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
-                    </span>
-                  </button>
-                  <div className={isOpen ? 'p-3' : 'hidden'}>
-                    {section.content}
+            {hasInfrastructureSelection && activeWorkspaceSection && (
+              <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
+                <div className="border-b border-[var(--surface-border)]">
+                  <div className="product-tabs border-0">
+                    {workspaceSections.map((section) => {
+                      const isActive = activeWorkspaceSection.key === section.key;
+                      return (
+                        <button
+                          key={section.key}
+                          type="button"
+                          onClick={() => setActiveWorkspaceTab(section.key)}
+                          className={isActive ? 'is-active' : ''}
+                        >
+                          <span className="truncate whitespace-nowrap">{section.title}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                </section>
-              );
-            })}
+                </div>
+                <div className="p-3">
+                  {activeWorkspaceSection.content}
+                </div>
+              </section>
+            )}
 
             {showLocationModal && selectedBuilding && (
               <div className="admin-content-modal-overlay">

@@ -211,18 +211,12 @@ export function PostManagementPage() {
 
   return (
     <div className="space-y-6">
-        <div className="flex items-end gap-8 border-b border-gray-300">
-            <button
-              className="-mb-px border-b-2 px-2 pb-3 text-sm font-semibold"
-              style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
-            >
-              Quản lý bài đăng
+        <div className="product-tabs">
+            <button type="button" className="is-active">
+              <span>Quản lý bài đăng</span>
             </button>
-            <button
-              onClick={() => navigate('/messages')}
-              className="-mb-px border-b-2 border-transparent px-2 pb-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
-            >
-              Tin nhắn
+            <button type="button" onClick={() => navigate('/messages')}>
+              <span>Tin nhắn</span>
             </button>
         </div>
 
@@ -257,7 +251,11 @@ export function PostManagementPage() {
                 </thead>
                 <tbody>
                   {sorted.map((p) => (
-                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={p.id}
+                      className="cursor-pointer border-b border-gray-100 hover:bg-gray-50"
+                      onClick={() => setSelectedPost(p)}
+                    >
                       <td className="px-6 py-4">
                         <div className="font-semibold">{p.roomCode}</div>
                       </td>
@@ -268,7 +266,7 @@ export function PostManagementPage() {
                           <span>{p.views ?? 0}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => navigate(`/messages?room=post-${p.id}`)}
@@ -306,7 +304,7 @@ export function PostManagementPage() {
                           );
                         })()}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center" onClick={(event) => event.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           {(() => {
                             const statusMeta = getPostDisplayStatus(p);

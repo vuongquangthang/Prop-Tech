@@ -1,72 +1,45 @@
 import { useState } from 'react';
-import { Calculator, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { UtilityReadingTable } from '../components/finance/UtilityReadingTable';
 import { InvoiceTable } from '../components/finance/InvoiceTable';
 
 type BillingSection = 'readings' | 'invoices';
 
 export function BillingWorkflowPage() {
-  // Mac dinh dong het, nguoi dung tu mo tung muc
-  const [openSections, setOpenSections] = useState<Record<BillingSection, boolean>>({
-    readings: false,
-    invoices: false,
-  });
+  const [activeSection, setActiveSection] = useState<BillingSection>('readings');
 
-  const toggleSection = (section: BillingSection) => {
-    setOpenSections((current) => ({
-      ...current,
-      [section]: !current[section],
-    }));
-  };
+  const tabs: Array<{ key: BillingSection; label: string }> = [
+    { key: 'readings', label: 'Nhập chỉ số điện/nước' },
+    { key: 'invoices', label: 'Kiểm tra và gửi hóa đơn' },
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--surface-page)]" style={{ paddingTop: '20px', paddingRight: 'var(--space-layout)', paddingBottom: '32px', paddingLeft: 'var(--space-layout)', gap: '14px' }}>
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        <div className="space-y-4">
-          <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
-            <button
-              type="button"
-              onClick={() => toggleSection('readings')}
-              className="flex w-full items-center justify-between gap-4 border-b border-[var(--surface-border)] bg-[var(--surface-muted)] px-5 py-4 text-left transition-colors hover:bg-[var(--brand-surface)]"
-              aria-expanded={openSections.readings}
-            >
-              <span className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center bg-[var(--brand-surface)] text-[var(--brand-primary)]">
-                  <Calculator size={18} />
-                </span>
-                <span className="text-lg font-semibold text-[var(--primary)]">Nhập chỉ số điện/nước</span>
-              </span>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
-                {openSections.readings ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-              </span>
-            </button>
-            <div className={openSections.readings ? 'p-4' : 'hidden'}>
-              <UtilityReadingTable embedded />
+        <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
+          <div className="border-b border-[var(--surface-border)] bg-[var(--surface-muted)] p-3">
+            <div className="product-tabs">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={activeSection === tab.key ? 'is-active' : ''}
+                  onClick={() => setActiveSection(tab.key)}
+                >
+                  <span>{tab.label}</span>
+                </button>
+              ))}
             </div>
-          </section>
+          </div>
 
-          <section className="border border-[var(--surface-border)] bg-[var(--surface-card)] shadow-sm">
-            <button
-              type="button"
-              onClick={() => toggleSection('invoices')}
-              className="flex w-full items-center justify-between gap-4 border-b border-[var(--surface-border)] bg-[var(--surface-muted)] px-5 py-4 text-left transition-colors hover:bg-[var(--brand-surface)]"
-              aria-expanded={openSections.invoices}
-            >
-              <span className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center bg-[var(--brand-surface)] text-[var(--brand-primary)]">
-                  <FileText size={18} />
-                </span>
-                <span className="text-lg font-semibold text-[var(--primary)]">Kiểm tra và gửi hóa đơn</span>
-              </span>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--surface-border)] bg-[var(--surface-card)] text-[var(--text-secondary)]">
-                {openSections.invoices ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-              </span>
-            </button>
-            <div className={openSections.invoices ? 'p-4' : 'hidden'}>
+          <div className="p-4">
+            {activeSection === 'readings' && (
+              <UtilityReadingTable embedded />
+            )}
+            {activeSection === 'invoices' && (
               <InvoiceTable embedded />
-            </div>
-          </section>
-        </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -10,6 +10,25 @@ public class ChiTietSuDungDichVuRepository : Repository<ChiTietSuDungDichVu>, IC
     {
     }
 
+    private IQueryable<ChiTietSuDungDichVu> WithDetails()
+        => _dbSet
+            .Include(ct => ct.Service)
+            .Include(ct => ct.Resident)
+            .Include(ct => ct.Vehicle)
+            .Include(ct => ct.Room)
+                .ThenInclude(room => room.Floor)
+                    .ThenInclude(floor => floor.Building);
+
+    private IQueryable<ChiTietSuDungDichVu> ForOwner(int ownerUserId)
+        => WithDetails().Where(ct => ct.Room.Floor.Building.OwnerUserId == ownerUserId);
+
+    public async Task<IEnumerable<ChiTietSuDungDichVu>> GetAllAsync(int ownerUserId)
+    {
+        return await ForOwner(ownerUserId)
+            .OrderByDescending(ct => ct.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<IEnumerable<ChiTietSuDungDichVu>> GetByContractIdAsync(int hopDongId)
     {
         // ChiTietSuDungDichVu không lưu ContractId trực tiếp, cần join qua Room
@@ -59,11 +78,15 @@ public class ChiTietSuDungDichVuRepository : Repository<ChiTietSuDungDichVu>, IC
 
     public async Task<IEnumerable<ChiTietSuDungDichVu>> GetByResidentIdAsync(int residentId)
     {
-        return await _dbSet
-            .Include(ct => ct.Service)
-            .Include(ct => ct.Resident)
-            .Include(ct => ct.Vehicle)
-            .Include(ct => ct.Room)
+        return await WithDetails()
+            .Where(ct => ct.ResidentId == residentId)
+            .OrderByDescending(ct => ct.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ChiTietSuDungDichVu>> GetByResidentIdAsync(int residentId, int ownerUserId)
+    {
+        return await ForOwner(ownerUserId)
             .Where(ct => ct.ResidentId == residentId)
             .OrderByDescending(ct => ct.CreatedAt)
             .ToListAsync();
@@ -71,11 +94,15 @@ public class ChiTietSuDungDichVuRepository : Repository<ChiTietSuDungDichVu>, IC
 
     public async Task<IEnumerable<ChiTietSuDungDichVu>> GetByRoomIdAsync(int roomId)
     {
-        return await _dbSet
-            .Include(ct => ct.Service)
-            .Include(ct => ct.Resident)
-            .Include(ct => ct.Vehicle)
-            .Include(ct => ct.Room)
+        return await WithDetails()
+            .Where(ct => ct.RoomId == roomId)
+            .OrderByDescending(ct => ct.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ChiTietSuDungDichVu>> GetByRoomIdAsync(int roomId, int ownerUserId)
+    {
+        return await ForOwner(ownerUserId)
             .Where(ct => ct.RoomId == roomId)
             .OrderByDescending(ct => ct.CreatedAt)
             .ToListAsync();
@@ -83,11 +110,15 @@ public class ChiTietSuDungDichVuRepository : Repository<ChiTietSuDungDichVu>, IC
 
     public async Task<IEnumerable<ChiTietSuDungDichVu>> GetByServiceIdAsync(int serviceId)
     {
-        return await _dbSet
-            .Include(ct => ct.Service)
-            .Include(ct => ct.Resident)
-            .Include(ct => ct.Vehicle)
-            .Include(ct => ct.Room)
+        return await WithDetails()
+            .Where(ct => ct.ServiceId == serviceId)
+            .OrderByDescending(ct => ct.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ChiTietSuDungDichVu>> GetByServiceIdAsync(int serviceId, int ownerUserId)
+    {
+        return await ForOwner(ownerUserId)
             .Where(ct => ct.ServiceId == serviceId)
             .OrderByDescending(ct => ct.CreatedAt)
             .ToListAsync();
@@ -96,11 +127,16 @@ public class ChiTietSuDungDichVuRepository : Repository<ChiTietSuDungDichVu>, IC
     public async Task<IEnumerable<ChiTietSuDungDichVu>> GetActiveUsagesAsync()
     {
         var now = DateTime.UtcNow;
-        return await _dbSet
-            .Include(ct => ct.Service)
-            .Include(ct => ct.Resident)
-            .Include(ct => ct.Vehicle)
-            .Include(ct => ct.Room)
+        return await WithDetails()
+            .Where(ct => ct.ApplyTo == null || ct.ApplyTo >= now)
+            .OrderByDescending(ct => ct.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ChiTietSuDungDichVu>> GetActiveUsagesAsync(int ownerUserId)
+    {
+        var now = DateTime.UtcNow;
+        return await ForOwner(ownerUserId)
             .Where(ct => ct.ApplyTo == null || ct.ApplyTo >= now)
             .OrderByDescending(ct => ct.CreatedAt)
             .ToListAsync();

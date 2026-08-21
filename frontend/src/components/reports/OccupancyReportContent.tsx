@@ -313,6 +313,12 @@ export function OccupancyReportContent() {
   }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
+    if (activeTab === 'utilities' && periodMode !== 'month') {
+      setPeriodMode('month');
+    }
+  }, [activeTab, periodMode]);
+
+  useEffect(() => {
     let mounted = true;
     const periodInvoices = invoices.filter((invoice) =>
       isFinalInvoice(invoice.status)
@@ -364,7 +370,10 @@ export function OccupancyReportContent() {
         .filter((contract) => overlapsPeriod(contract, start, end))
         .map((contract) => contract.roomId)
     );
-    const occupiedRooms = rooms.filter((room) => activeRoomIds.has(room.id) || isRentedStatus(room.status)).length;
+    const periodIncludesToday = start <= now && now <= end;
+    const occupiedRooms = rooms.filter((room) =>
+      activeRoomIds.has(room.id) || (periodIncludesToday && isRentedStatus(room.status))
+    ).length;
     const totalRooms = rooms.length;
     const vacantRooms = Math.max(0, totalRooms - occupiedRooms);
     const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
@@ -477,7 +486,8 @@ export function OccupancyReportContent() {
     { key: 'maintenance', label: 'Sự cố / bảo trì', icon: Wrench },
     { key: 'utilities', label: 'Điện nước', icon: PlugZap },
   ];
-  const revenueChartData = monthlyRevenue.map((row) => ({
+  const filteredRevenueRows = monthlyRevenue.filter((row) => periodMode === 'year' || row.month === selectedMonth);
+  const revenueChartData = filteredRevenueRows.map((row) => ({
     period: `${String(row.month).padStart(2, '0')}/${row.year}`,
     'Tiền phòng': Number(row.roomRentRevenue || 0),
     'Dịch vụ': Number(row.serviceRevenue || 0),
@@ -507,19 +517,8 @@ export function OccupancyReportContent() {
         </div>
       )}
 
-      <div
-        className="sticky top-16 z-30 border border-slate-200 bg-white/95 px-3 py-2 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur"
-        style={{ borderRadius: '18px' }}
-      >
-        <div style={{ overflowX: 'auto' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-              gap: '8px',
-              minWidth: '920px',
-            }}
-          >
+      <div className="sticky top-16 z-30">
+        <div className="product-tabs">
           {tabs.map((tab) => {
             const active = activeTab === tab.key;
 
@@ -528,21 +527,12 @@ export function OccupancyReportContent() {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`group relative flex min-w-0 items-center justify-center px-4 py-2.5 text-sm font-semibold transition-all ${
-                  active
-                    ? 'bg-blue-100 text-blue-800 shadow-[0_10px_22px_rgba(37,99,235,0.22)]'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
-                }`}
-                style={{ borderRadius: '16px', width: '100%' }}
+                className={active ? 'is-active' : ''}
               >
                 <span className="whitespace-nowrap">{tab.label}</span>
-                {active && (
-                  <span className="absolute inset-x-6 -bottom-2 h-1 rounded-full bg-blue-700" />
-                )}
               </button>
             );
           })}
-          </div>
         </div>
       </div>
 

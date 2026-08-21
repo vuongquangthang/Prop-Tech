@@ -385,7 +385,7 @@ export default function RoommatePostScreen() {
               <View style={styles.permissionNotice}>
                 <Ionicons name="lock-closed-outline" size={16} color="#92400E" />
                 <Text style={styles.permissionNoticeText}>
-                  Chỉ chủ phòng/người thuê chính được tạo và chỉnh sửa bài đăng tìm người ở ghép.
+                  Chỉ cư dân đại diện/người thuê chính được tạo và chỉnh sửa bài đăng tìm người ở ghép.
                 </Text>
               </View>
             )}

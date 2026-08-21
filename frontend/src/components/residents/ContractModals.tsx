@@ -250,7 +250,8 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
         }
         const services = await serviceService.getAll();
         const active = Array.isArray(services) ? services : [];
-        setActivePricingCatalog(active.filter((s: any) => s.isActive !== false));
+        const activeServices = active.filter((s: any) => s.isActive !== false);
+        setActivePricingCatalog(activeServices);
         const detailStartDate = detailData?.startDate ?? detailData?.StartDate;
         const detailEndDate = detailData?.expectedEndDate ?? detailData?.ExpectedEndDate;
         const detailRent = detailData?.actualRentPrice ?? detailData?.ActualRentPrice;
@@ -268,7 +269,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
               const serviceItems = formula.filter((item: any) => item.itemType !== 'TienPhong' && (item.serviceId || item.serviceName));
               setInitialFormulaItems(serviceItems);
               const svcIds = serviceItems.filter((item: any) => item.serviceId).map((item: any) => Number(item.serviceId));
-              setSelectedServiceIds(svcIds);
+              setSelectedServiceIds(ensureRequiredMeterServices(svcIds, activeServices));
               setServiceQuantities(Object.fromEntries(
                 serviceItems
                   .filter((item: any) => item.serviceId && item.quantityExpression !== 'n')
@@ -427,7 +428,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     const availableServiceIds = new Set(
       availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
     );
-    setSelectedServiceIds((current) => normalizeExclusiveMeterServices(
+    setSelectedServiceIds((current) => ensureRequiredMeterServices(
       current.filter((serviceId) => availableServiceIds.has(serviceId)),
       availablePricingCatalog,
     ));
@@ -515,16 +516,6 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
     return `${unitPrice} x ${quantity}`;
   };
 
-  const monthlyFormulaExpression = useMemo(() => {
-    if (!formulaRows.length) return '';
-
-    const parts = formulaRows.map((row) => {
-      return `${row.serviceName}(${getRowFormulaText(row)})`;
-    });
-
-    return parts.join(' + ');
-  }, [formulaRows, serviceQuantities, householdMemberCount]);
-
   const getRowCalculationModeText = (row: BillingFormulaRow) => {
     if (row.quantityExpression === 'n') {
       return 'Theo chỉ số tiêu thụ cuối tháng';
@@ -540,6 +531,18 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
 
     return 'Theo tháng';
   };
+
+  const getRowFormulaDisplayText = (row: BillingFormulaRow) => {
+    if (row.quantityExpression === 'n') {
+      return `${row.serviceName} x n`;
+    }
+
+    return `${row.serviceName} x ${getRowQuantity(row) ?? 0}`;
+  };
+
+  const monthlyFormulaDisplayParts = useMemo(() => {
+    return formulaRows.map(getRowFormulaDisplayText);
+  }, [formulaRows, serviceQuantities, householdMemberCount]);
 
   const toggleServiceSelection = (serviceId: number) => {
     toggleExclusiveMeterService(serviceId, availablePricingCatalog, setSelectedServiceIds);
@@ -791,9 +794,9 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           </div>
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><User size={16} className="mr-2" />BƯỚC 1: Thông tin chủ hộ</h4>
+            <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><User size={16} className="mr-2" />BƯỚC 1: Thông tin người đại diện</h4>
             <div className="mb-4">
-              <label className="block text-sm text-gray-700 mb-2">Chọn chủ phòng / người đại diện *</label>
+              <label className="block text-sm text-gray-700 mb-2">Chọn cư dân đại diện *</label>
               <select
                 value={selectedPrimaryResident?.key ?? ''}
                 onChange={(event) => setSelectedPrimaryResidentKey(event.target.value)}
@@ -806,7 +809,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-500">
-                Người được chọn sẽ có quyền thanh toán hóa đơn trên app. Người chủ phòng cũ sẽ chuyển thành thành viên ở cùng.
+                Người được chọn sẽ có quyền thanh toán hóa đơn trên app. Cư dân đại diện cũ sẽ chuyển thành thành viên ở cùng.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -888,37 +891,32 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
           </div>
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><DollarSign size={16} className="mr-2" />BƯỚC 4: Danh mục đơn giá</h4>
+            <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center"><DollarSign size={16} className="mr-2" />BƯỚC 4: Danh mục dịch vụ áp dụng</h4>
             <div className="space-y-2">
               {availablePricingCatalog.length > 0 ? (
                 availablePricingCatalog.map((service: any) => {
                   const serviceId = Number(service.id ?? service.serviceId ?? 0);
                   const isSelected = selectedServiceIds.includes(serviceId);
+                  const isRequiredMeter = isMeterService(service);
                   return (
                     <div key={serviceId} className="bg-white border border-gray-200">
                       <button
                         type="button"
                         onClick={() => toggleServiceSelection(serviceId)}
-                        className="w-full flex items-start justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50"
+                        aria-disabled={isRequiredMeter && isSelected}
+                        title={isRequiredMeter && isSelected ? 'Dịch vụ điện/nước là bắt buộc và không thể bỏ chọn' : undefined}
+                        className={`w-full flex items-center justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50 ${isRequiredMeter && isSelected ? 'cursor-not-allowed' : ''}`}
                       >
-                        <span className="text-left">
+                        <span className="flex min-h-[48px] items-center text-left">
                           <span className="flex items-center gap-2">
-                            <input type="checkbox" checked={isSelected} readOnly className="pointer-events-none h-4 w-4 shrink-0" />
+                            <input type="checkbox" checked={isSelected} readOnly disabled={isRequiredMeter && isSelected} className="pointer-events-none h-4 w-4 shrink-0" />
                             <span>{service.name || service.serviceName}</span>
                           </span>
-                          {isMeterService(service) && (
-                            <span className="block pl-6 text-xs text-amber-700">
-                              Giá áp dụng theo bảng giá tại kỳ lập hóa đơn.
-                            </span>
-                          )}
                         </span>
-                        <span className="shrink-0 text-right">
-                          <span className="block font-bold text-gray-800">
-                            {getCurrentServicePrice(service).toLocaleString('vi-VN')} VNĐ{service.unit ? `/${service.unit}` : ''}
-                          </span>
-                          {getScheduledServicePriceLabel(service) && (
-                            <span className="mt-1 block text-xs font-normal text-amber-700">
-                              Sắp áp dụng: {getScheduledServicePriceLabel(service)}
+                        <span className="shrink-0 self-center text-right text-xs">
+                          {isMeterService(service) && (
+                            <span className="block text-amber-700">
+                              Giá áp dụng theo bảng giá tại kỳ lập hóa đơn.
                             </span>
                           )}
                         </span>
@@ -946,27 +944,24 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                 <p className="text-sm text-gray-500">Chưa có dữ liệu danh mục đơn giá cho tòa này.</p>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục</p>
+            <p className="text-xs text-gray-500 mt-1">Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục. Điện/nước là bắt buộc.</p>
           </div>
 
           <div className="bg-gray-50 border border-gray-300 rounded p-4">
-            <h4 className="text-sm text-gray-800 font-bold mb-3">BƯỚC 5: Công thức hóa đơn cuối tháng</h4>
+            <h4 className="text-sm text-gray-800 font-bold mb-3">BƯỚC 5: Cách tính hóa đơn cuối tháng</h4>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border border-gray-200">
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-3 py-2 text-left border-b border-gray-200">Dịch vụ</th>
-                    <th className="px-3 py-2 text-right border-b border-gray-200">Đơn giá</th>
                     <th className="px-3 py-2 text-center border-b border-gray-200">Số lượng</th>
-                    <th className="px-3 py-2 text-left border-b border-gray-200">Công thức</th>
-                    <th className="px-3 py-2 text-right border-b border-gray-200">Tổng tiền</th>
+                    <th className="px-3 py-2 text-left border-b border-gray-200">Cách tính</th>
                   </tr>
                 </thead>
                 <tbody>
                   {formulaRows.map((row) => (
                     <tr key={row.key} className="bg-white">
                       <td className="px-3 py-2 border-b border-gray-100">{row.serviceName}</td>
-                      <td className="px-3 py-2 text-right border-b border-gray-100">{row.unitPrice.toLocaleString('vi-VN')}</td>
                       <td className="px-3 py-2 text-center border-b border-gray-100">
                         {row.quantityExpression === 'n' ? (
                           <span className="font-bold">n</span>
@@ -978,8 +973,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
                           <span className="font-bold text-gray-700">1</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 border-b border-gray-100 text-gray-700">{getRowFormulaText(row)}</td>
-                      <td className="px-3 py-2 text-right border-b border-gray-100">{getFormulaTotalText(row)}</td>
+                      <td className="px-3 py-2 border-b border-gray-100 text-gray-700">{getRowCalculationModeText(row)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -987,9 +981,18 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
             </div>
             <div className="mt-3 bg-white border border-gray-200 rounded p-3">
               <p className="text-xs text-gray-600 mb-1">Công thức hóa đơn tháng (để kiểm tra):</p>
-              <p className="text-sm text-gray-800 font-medium break-words">
-                {monthlyFormulaExpression || '(chưa có công thức)'}
-              </p>
+              {monthlyFormulaDisplayParts.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-gray-800">
+                  {monthlyFormulaDisplayParts.map((part, index) => (
+                    <span key={`${part}-${index}`} className="contents">
+                      {index > 0 && <span className="px-1 font-bold text-blue-600">+</span>}
+                      <span>{part}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-800 font-medium">(chưa có công thức)</p>
+              )}
             </div>
           </div>
 
@@ -1021,7 +1024,7 @@ export function EditContractModal({ contract, onClose, onSuccess }: ContractModa
   );
 }
 import { X, User, Home, Calendar, DollarSign, FileText, AlertTriangle, Check, Eye, Printer, Download, Plus, Users } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { buildingService, roomService, residentService, contractService } from '../../services/api.service';
 import { Loader2 } from 'lucide-react';
@@ -1029,6 +1032,7 @@ import { formatDisplayDate, formatDisplayDateTime, formatLocalDateInput } from '
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { invoiceService, serviceService } from '../../services/api.service';
+import { normalizeSearchText, searchIncludes } from '../../lib/search';
 import { MoneyInput } from '../ui/MoneyInput';
 import { DateTextInput } from '../ui/DateTextInput';
 
@@ -1090,6 +1094,10 @@ function isWaterService(service: any) {
   return type.includes('nuoc') || type.includes('water') || name.includes('nuoc') || name.includes('water');
 }
 
+function isElectricService(service: any) {
+  return isMeterService(service) && !isWaterService(service);
+}
+
 function isVehicleService(service: any) {
   const name = normalizeText(service?.name || service?.serviceName || '');
   const type = normalizeText(service?.serviceType || service?.loai || '');
@@ -1130,19 +1138,47 @@ function normalizeExclusiveMeterServices(serviceIds: number[], catalog: any[]) {
   });
 }
 
+function ensureRequiredMeterServices(serviceIds: number[], catalog: any[]) {
+  const normalizedIds = normalizeExclusiveMeterServices(serviceIds, catalog);
+  const serviceMap = new Map(catalog.map((service: any) => [getServiceId(service), service]));
+  const hasElectricity = normalizedIds.some((serviceId) => isElectricService(serviceMap.get(serviceId)));
+  const hasWater = normalizedIds.some((serviceId) => isWaterService(serviceMap.get(serviceId)));
+  const electricityService = catalog.find((service: any) => isElectricService(service));
+  const waterService = catalog.find((service: any) => isWaterService(service));
+  const requiredIds = [...normalizedIds];
+
+  if (!hasElectricity && electricityService) {
+    const serviceId = getServiceId(electricityService);
+    if (serviceId > 0) requiredIds.push(serviceId);
+  }
+
+  if (!hasWater && waterService) {
+    const serviceId = getServiceId(waterService);
+    if (serviceId > 0) requiredIds.push(serviceId);
+  }
+
+  return normalizeExclusiveMeterServices(requiredIds, catalog);
+}
+
 function toggleExclusiveMeterService(
   serviceId: number,
   catalog: any[],
   setSelection: (updater: (current: number[]) => number[]) => void,
 ) {
   setSelection((current) => {
-    if (current.includes(serviceId)) {
-      return current.filter((id) => id !== serviceId);
+    const selectedService = catalog.find((service: any) => getServiceId(service) === serviceId);
+    const isRequiredMeter = selectedService && isMeterService(selectedService);
+
+    if (current.includes(serviceId) && isRequiredMeter) {
+      return ensureRequiredMeterServices(current, catalog);
     }
 
-    const selectedService = catalog.find((service: any) => getServiceId(service) === serviceId);
+    if (current.includes(serviceId)) {
+      return ensureRequiredMeterServices(current.filter((id) => id !== serviceId), catalog);
+    }
+
     if (!selectedService || !isMeterService(selectedService)) {
-      return [...current, serviceId];
+      return ensureRequiredMeterServices([...current, serviceId], catalog);
     }
 
     const next = current.filter((id) => {
@@ -1150,7 +1186,7 @@ function toggleExclusiveMeterService(
       if (!service || !isMeterService(service)) return true;
       return isWaterService(service) !== isWaterService(selectedService);
     });
-    return [...next, serviceId];
+    return ensureRequiredMeterServices([...next, serviceId], catalog);
   });
 }
 
@@ -1552,7 +1588,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     const availableServiceIds = new Set(
       availablePricingCatalog.map((service: any) => Number(service.id ?? service.serviceId ?? 0)),
     );
-    setSelectedServiceIds((current) => normalizeExclusiveMeterServices(
+    setSelectedServiceIds((current) => ensureRequiredMeterServices(
       current.filter((serviceId) => availableServiceIds.has(serviceId)),
       availablePricingCatalog,
     ));
@@ -1574,7 +1610,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   }, [quantityInputServices]);
 
   const householdMemberCount = useMemo(() => {
-    // Chủ hộ ở bước 2 luôn được thêm vào hợp đồng, bước 2B là thành viên ở cùng.
+    // Cư dân đại diện ở bước 2 luôn được thêm vào hợp đồng, bước 2B là thành viên ở cùng.
     return 1 + familyMembers.length;
   }, [familyMembers.length]);
 
@@ -1697,6 +1733,34 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     return formulaRows.map(getRowFormulaDisplayText);
   }, [formulaRows, serviceQuantities, householdMemberCount]);
 
+  const isRoomStepComplete = Boolean(selectedBuildingId && selectedRoomId);
+  const isTenantStepComplete = tenantType === 'existing'
+    ? Boolean(selectedResidentId)
+    : Boolean(
+      tenantName.trim()
+      && /^[\p{L}\p{M}\s.'-]+$/u.test(tenantName.trim())
+      && /^\d{9}$|^\d{12}$/.test(tenantIdCard)
+      && /^0\d{9}$/.test(tenantPhone)
+      && (!tenantEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tenantEmail)),
+    );
+  const isContractTermsStepComplete = Boolean(
+    startDate
+    && /^\d+$/.test(durationMonths)
+    && Number(durationMonths) > 0
+    && monthlyRent
+    && toNumber(monthlyRent) > 0
+    && (!deposit || toNumber(deposit) >= 0),
+  );
+  const areServiceQuantitiesValid = quantityInputServices.every((service: any) => {
+    const serviceId = Number(service.id ?? service.serviceId ?? 0);
+    const quantity = serviceQuantities[serviceId] ?? '';
+    return /^\d+$/.test(quantity) && Number(quantity) >= 0;
+  });
+  const canSubmitContract = isRoomStepComplete
+    && isTenantStepComplete
+    && isContractTermsStepComplete
+    && areServiceQuantitiesValid;
+
   const toggleServiceSelection = (serviceId: number) => {
     toggleExclusiveMeterService(serviceId, availablePricingCatalog, setSelectedServiceIds);
   };
@@ -1712,7 +1776,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
   }, [tenantType, selectedResidentId, residents]);
 
   const filteredResidents = residents.filter((resident: any) => {
-    const keyword = residentSearch.trim().toLowerCase();
+    const keyword = normalizeSearchText(residentSearch);
     if (!keyword) return true;
     const searchableText = [
       resident.fullName,
@@ -1726,10 +1790,9 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
       resident.email,
     ]
       .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+      .join(' ');
 
-    return searchableText.includes(keyword);
+    return searchIncludes(searchableText, keyword);
   });
 
   useEffect(() => {
@@ -1770,7 +1833,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
         .map((serviceId: any) => Number(serviceId))
         .filter((serviceId: number) => serviceId > 0 && availableServiceIds.has(serviceId)),
     ));
-    setSelectedServiceIds(normalizeExclusiveMeterServices(configuredServiceIds, availablePricingCatalog));
+    setSelectedServiceIds(ensureRequiredMeterServices(configuredServiceIds, availablePricingCatalog));
   }, [selectedRoomId, rooms, availablePricingCatalog]);
 
   const handleRemoveMember = (id: string) => {
@@ -1795,12 +1858,12 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
     }
 
     if (tenantType === 'new' && (!tenantName.trim() || !tenantIdCard.trim() || !tenantPhone.trim())) {
-      setError('Vui lòng điền đầy đủ: Phòng, Họ tên, CCCD, SĐT chủ hộ, Ngày bắt đầu, Tiền thuê');
+      setError('Vui lòng điền đầy đủ: Phòng, Họ tên, CCCD, SĐT người đại diện, Ngày bắt đầu, Tiền thuê');
       return;
     }
 
     if (tenantType === 'existing' && !selectedResidentId) {
-      setError('Vui lòng chọn cư dân đã có làm chủ hộ');
+      setError('Vui lòng chọn cư dân đã có làm người đại diện');
       return;
     }
 
@@ -1907,7 +1970,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
         
         <div className="p-6 space-y-6">
           {/* Step 1: Room Selection */}
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+          <div className="contract-step-reveal bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center">
               <Home size={16} className="mr-2" />
               BƯỚC 1: Chọn phòng
@@ -1954,11 +2017,13 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
 
           </div>
 
+          {isRoomStepComplete && (
+            <>
           {/* Step 2: Head of Household */}
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+          <div className="contract-step-reveal bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center">
               <User size={16} className="mr-2" />
-              BƯỚC 2: Thông tin chủ hộ (Người ký hợp đồng)
+              BƯỚC 2: Thông tin người đại diện (Người ký hợp đồng)
             </h4>
 
             <div className="space-y-3">
@@ -2032,7 +2097,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                       <div className="flex items-center justify-between gap-3 mb-3">
                         <div>
                           <p className="text-xs font-bold text-gray-800">Danh sách cư dân</p>
-                          <p className="text-xs text-gray-500">Chọn một cư dân có sẵn để làm chủ hộ hợp đồng</p>
+                          <p className="text-xs text-gray-500">Chọn một cư dân có sẵn để làm người đại diện hợp đồng</p>
                         </div>
                         <span className="text-xs text-gray-600 bg-gray-100 border border-gray-300 px-2 py-1 rounded whitespace-nowrap">
                           {filteredResidents.length}/{residents.length} cư dân
@@ -2158,8 +2223,13 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
             )}
           </div>
 
+            </>
+          )}
+
+          {isRoomStepComplete && isTenantStepComplete && (
+            <>
           {/* Step 3: Contract Details */}
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+          <div className="contract-step-reveal bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center">
               <Calendar size={16} className="mr-2" />
               BƯỚC 3: Điều khoản hợp đồng
@@ -2269,8 +2339,13 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
             </p>
           </div>
 
+            </>
+          )}
+
+          {isRoomStepComplete && isTenantStepComplete && isContractTermsStepComplete && (
+            <>
           {/* Step 4: Services */}
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+          <div className="contract-step-reveal bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3 flex items-center">
               <DollarSign size={16} className="mr-2" />
               BƯỚC 4: Danh mục dịch vụ áp dụng
@@ -2281,13 +2356,16 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                 availablePricingCatalog.map((service: any) => {
                   const serviceId = Number(service.id ?? service.serviceId ?? 0);
                   const isSelected = selectedServiceIds.includes(serviceId);
+                  const isRequiredMeter = isMeterService(service);
                   const fieldName = `serviceQuantity-${serviceId}`;
                   return (
                     <div key={serviceId} className="bg-white border border-gray-200">
                       <button
                         type="button"
                         onClick={() => toggleServiceSelection(serviceId)}
-                        className="w-full flex items-center justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50"
+                        aria-disabled={isRequiredMeter && isSelected}
+                        title={isRequiredMeter && isSelected ? 'Dịch vụ điện/nước là bắt buộc và không thể bỏ chọn' : undefined}
+                        className={`w-full flex items-center justify-between gap-3 p-2 text-sm text-gray-700 hover:bg-gray-50 ${isRequiredMeter && isSelected ? 'cursor-not-allowed' : ''}`}
                       >
                         <span className="flex min-h-[48px] cursor-pointer items-center text-left">
                           <span className="flex items-center gap-2">
@@ -2295,6 +2373,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
                               type="checkbox"
                               checked={isSelected}
                               readOnly
+                              disabled={isRequiredMeter && isSelected}
                               className="pointer-events-none h-4 w-4 shrink-0"
                             />
                             <span>{service.name || service.serviceName || 'Dịch vụ'}</span>
@@ -2340,12 +2419,17 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
               🔗 Danh mục dịch vụ đồng bộ từ <strong>Quản lý Hạ tầng</strong>
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục (tùy chọn)
+              Đã chọn: <strong>{selectedServiceIds.length}</strong> danh mục. Điện/nước là bắt buộc.
             </p>
           </div>
 
+            </>
+          )}
+
+          {isRoomStepComplete && isTenantStepComplete && isContractTermsStepComplete && areServiceQuantitiesValid && (
+            <>
           {/* Step 5 */}
-          <div className="bg-gray-50 border border-gray-300 rounded p-4">
+          <div className="contract-step-reveal bg-gray-50 border border-gray-300 rounded p-4">
             <h4 className="text-sm text-gray-800 font-bold mb-3">BƯỚC 5: Cách tính hóa đơn cuối tháng</h4>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border border-gray-200">
@@ -2396,6 +2480,8 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
               Công thức sẽ được lưu theo hợp đồng/phòng và áp dụng khi tính hóa đơn nháp mỗi tháng.
             </p>
           </div>
+            </>
+          )}
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-300 rounded px-3 py-2">{error}</p>
@@ -2412,7 +2498,7 @@ export function CreateContractModal({ onClose, onSuccess }: ContractModalProps) 
           </button>
           <button 
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || !canSubmitContract}
             className="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 flex items-center space-x-2 disabled:opacity-50"
           >
             {loading && <Loader2 size={16} className="animate-spin" />}
@@ -2484,7 +2570,7 @@ function AddFamilyMemberModal({
 
   const filteredExistingResidents = useMemo(() => {
     const excluded = new Set(excludeResidentIds.map(Number));
-    const query = residentSearch.trim().toLowerCase();
+    const query = normalizeSearchText(residentSearch);
 
     return residents
       .filter((resident: any) => {
@@ -2497,9 +2583,9 @@ function AddFamilyMemberModal({
           getResidentPhoneValue(resident),
           getResidentIdCard(resident),
           getResidentEmail(resident),
-        ].join(' ').toLowerCase();
+        ].join(' ');
 
-        return haystack.includes(query);
+        return searchIncludes(haystack, query);
       })
       .slice(0, 50);
   }, [excludeResidentIds, residentSearch, residents]);
@@ -2648,7 +2734,7 @@ function AddFamilyMemberModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-2">Mối quan hệ với chủ hộ *</label>
+            <label className="block text-sm text-gray-700 mb-2">Mối quan hệ với người đại diện *</label>
             <select 
               value={formData.relationship}
               onChange={(e) => {
@@ -2963,7 +3049,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Hồ sơ hợp đồng</p>
-                <h2 className="mt-1 text-2xl font-bold text-gray-950">{displayCode}</h2>
+                <h2 className="mt-1 text-xl font-bold text-gray-950">{displayCode}</h2>
                 <p className="mt-3 text-sm leading-5 text-gray-700">
                   {displayLocationText}
                 </p>
@@ -2981,7 +3067,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
               </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-4 gap-3 text-sm">
+            <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
               <div className="border border-gray-200 bg-slate-50 p-3">
                 <p className="text-xs text-gray-500">Thời hạn</p>
                 <p className="mt-1 font-bold text-gray-900">{displayStartDate} → {displayEndDate}</p>
@@ -2993,10 +3079,6 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
               <div className="border border-gray-200 bg-slate-50 p-3">
                 <p className="text-xs text-gray-500">Tiền cọc</p>
                 <p className="mt-1 font-bold text-gray-900">{fmtCurrency(displayDeposit)} VNĐ</p>
-              </div>
-              <div className="border border-gray-200 bg-slate-50 p-3">
-                <p className="text-xs text-gray-500">Ngày thu hằng tháng</p>
-                <p className="mt-1 font-bold text-gray-900">Ngày 5</p>
               </div>
             </div>
           </div>
@@ -3080,7 +3162,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="truncate text-sm font-bold text-gray-900">{getResidentName(resident)}</p>
-                          {isHead && <span className="shrink-0 rounded-[15px] bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">Chủ phòng</span>}
+                          {isHead && <span className="shrink-0 rounded-[15px] bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">Cư dân đại diện</span>}
                         </div>
                         <p className="mt-1 text-xs text-gray-600">{getResidentPhone(resident)} - CCCD: {getResidentIdCard(resident)}</p>
                         {resident.email && <p className="text-xs text-gray-500">{resident.email}</p>}
@@ -3192,6 +3274,7 @@ export function ViewContractModal({ contract, onClose }: ContractModalProps) {
 }
 
 export function PrintContractModal({ contract, onClose }: ContractModalProps) {
+  const printContentRef = useRef<HTMLDivElement | null>(null);
   const residentList: any[] = Array.isArray(contract?.residents) ? contract.residents : [];
   const headOfHousehold = residentList.find((r: any) => r.residencyRole === 'Người thuê chính') || residentList[0];
 
@@ -3199,6 +3282,48 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
   const getResidentPhone = (r: any) => r?.phoneNumber || r?.soDienThoai || '---';
   const getResidentIdCard = (r: any) => r?.idCardNumber || r?.soCCCD || '---';
   const getResidentEmail = (r: any) => r?.email || '---';
+
+  const handlePrint = () => {
+    const content = printContentRef.current?.innerHTML;
+    if (!content) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>In hợp đồng ${contract?.code || ''}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #111827; margin: 32px; }
+            .text-center { text-align: center; }
+            .mb-6 { margin-bottom: 24px; }
+            .mt-2 { margin-top: 8px; }
+            .ml-4 { margin-left: 16px; }
+            .pt-4 { padding-top: 16px; }
+            .space-y-4 > * + * { margin-top: 16px; }
+            .font-bold, strong { font-weight: 700; }
+            .text-xl { font-size: 20px; }
+            .text-sm { font-size: 14px; }
+            .text-xs { font-size: 12px; }
+            .text-gray-500, .text-gray-600 { color: #4b5563; }
+            @page { size: A4; margin: 18mm; }
+          </style>
+        </head>
+        <body>${content}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
 
   return (
     <div className="admin-content-modal-overlay">
@@ -3255,7 +3380,7 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
           </div>
 
           {/* Contract Preview */}
-          <div className="bg-white border-2 border-gray-300 rounded p-6" style={{ minHeight: '400px' }}>
+          <div ref={printContentRef} className="bg-white border-2 border-gray-300 rounded p-6" style={{ minHeight: '400px' }}>
             <div className="text-center mb-6">
               <h2 className="text-xl text-gray-800 font-bold">HỢP ĐỒNG THUÊ PHÒNG</h2>
               <p className="text-sm text-gray-600 mt-2">Số: {contract?.code}</p>
@@ -3275,7 +3400,7 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
                 <p>CMND/CCCD: {headOfHousehold ? getResidentIdCard(headOfHousehold) : '---'}</p>
                 <p>Điện thoại: {headOfHousehold ? getResidentPhone(headOfHousehold) : '---'}</p>
                 <p>Email: {headOfHousehold ? getResidentEmail(headOfHousehold) : '---'}</p>
-                <p className="mt-2 font-bold">Số người cùng ở: {residentList.length} người (Bao gồm chủ hộ)</p>
+                <p className="mt-2 font-bold">Số người cùng ở: {residentList.length} người (Bao gồm người đại diện)</p>
                 {residentList.map((member: any, idx: number) => (
                   <p key={member.id || member.residentId || idx} className="ml-4">
                     {idx + 1}. {getResidentName(member)} ({member.residencyRole || 'Thành viên'}) - SĐT: {getResidentPhone(member)}
@@ -3345,7 +3470,7 @@ export function PrintContractModal({ contract, onClose }: ContractModalProps) {
             Hủy
           </button>
           <button 
-            onClick={onClose}
+            onClick={handlePrint}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-2"
           >
             <Printer size={16} />

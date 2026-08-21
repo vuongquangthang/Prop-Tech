@@ -302,7 +302,7 @@ export default function RoommateCreateScreen() {
         throw new Error('Không tìm thấy hợp đồng còn hiệu lực');
       }
       if (!canResidentManageRoommatePosts(contract, user?.residentId)) {
-        throw new Error('Chỉ chủ phòng/người thuê chính được tạo bài đăng tìm người ở ghép.');
+        throw new Error('Chỉ cư dân đại diện/người thuê chính được tạo bài đăng tìm người ở ghép.');
       }
 
       setSelectedPostContractId(contract.id);
@@ -323,7 +323,7 @@ export default function RoommateCreateScreen() {
   const handleSelectContract = async (contract: ContractDetail) => {
     if (contract.id === selectedPostContractId || saving) return;
     if (!canResidentManageRoommatePosts(contract, user?.residentId)) {
-      Alert.alert('Không có quyền', 'Chỉ chủ phòng/người thuê chính được tạo bài đăng tìm người ở ghép.');
+      Alert.alert('Không có quyền', 'Chỉ cư dân đại diện/người thuê chính được tạo bài đăng tìm người ở ghép.');
       return;
     }
     try {
@@ -702,7 +702,7 @@ export default function RoommateCreateScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>Yêu cầu từ chủ phòng</Text>
+              <Text style={styles.label}>Yêu cầu từ cư dân đại diện</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 multiline

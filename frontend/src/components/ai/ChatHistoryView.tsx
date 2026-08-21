@@ -1,7 +1,7 @@
 import { ThumbsUp, ThumbsDown, MessageSquare, Plus, X, Check } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { chatService, ChatMessage, UnansweredChatItem } from '../../services/feature.service';
-import { SegmentedTabs, StatusBadge, EmptyState } from '../ui/product-system';
+import { StatusBadge, EmptyState } from '../ui/product-system';
 
 interface ChatSession {
   id: string;
@@ -205,6 +205,11 @@ export function ChatHistoryView() {
   });
   
   const sessionMessages = selectedSession?.messages || [];
+  const filterTabs = [
+    { key: 'all', label: 'Tất cả', count: chatSessions.length },
+    { key: 'satisfied', label: 'Hài lòng', count: chatSessions.filter(s => s.satisfied).length },
+    { key: 'unsatisfied', label: 'Cần xử lý', count: chatSessions.filter(s => !s.satisfied).length },
+  ] as const;
 
   return (
     <div className="space-y-4">
@@ -216,7 +221,7 @@ export function ChatHistoryView() {
         className="product-card overflow-hidden"
         style={{
           display: 'grid',
-          gridTemplateColumns: '360px 1fr',
+          gridTemplateColumns: '340px 1fr',
           height: 'calc(100dvh - var(--admin-topbar-height) - 210px)',
           minHeight: '460px',
         }}
@@ -224,19 +229,29 @@ export function ChatHistoryView() {
         {/* Chat List - Left Panel */}
         <div
           className="flex flex-col"
-          style={{ minHeight: 0, borderRight: '1px solid var(--border)', background: 'var(--card)' }}
+          style={{ minHeight: 0, borderRight: '1px solid var(--surface-border)', background: 'var(--surface-card)' }}
         >
-          <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h3 className="text-sm mb-3" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Danh sách hội thoại</h3>
-            <SegmentedTabs
-              activeKey={filter}
-              onChange={(key) => setFilter(key as 'all' | 'satisfied' | 'unsatisfied')}
-              items={[
-                { key: 'all', label: 'Tất cả', count: chatSessions.length },
-                { key: 'satisfied', label: 'Hài lòng', count: chatSessions.filter(s => s.satisfied).length },
-                { key: 'unsatisfied', label: 'Chưa ổn', count: chatSessions.filter(s => !s.satisfied).length },
-              ]}
-            />
+          <div className="p-4" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>Lịch sử hội thoại</h3>
+                <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{chatSessions.length} cuộc hội thoại</p>
+              </div>
+              <MessageSquare size={18} style={{ color: 'var(--brand-primary)' }} />
+            </div>
+            <div className="ai-chat-filter-tabs">
+              {filterTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={filter === tab.key ? 'is-active' : ''}
+                  onClick={() => setFilter(tab.key)}
+                >
+                  <span>{tab.label}</span>
+                  <b>{tab.count}</b>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Session List — cuộn độc lập */}
@@ -249,17 +264,17 @@ export function ChatHistoryView() {
                     type="button"
                     key={session.id}
                     onClick={() => setSelectedChat(session.id)}
-                    className="relative w-full text-left p-4"
+                    className="relative w-full text-left"
                     style={{
-                      paddingLeft: 28,
-                      borderBottom: '1px solid var(--border)',
-                      background: isActive ? 'var(--primary-soft)' : 'transparent',
+                      padding: '14px 14px 14px 22px',
+                      borderBottom: '1px solid var(--surface-border)',
+                      background: isActive ? 'var(--brand-surface)' : 'transparent',
                       transition: 'background 0.15s ease',
                     }}
                   >
                     <span
                       className="absolute"
-                      style={{ left: 0, top: 0, bottom: 0, width: 4, background: isActive ? 'var(--primary)' : 'transparent' }}
+                      style={{ left: 0, top: 0, bottom: 0, width: 4, background: isActive ? 'var(--brand-primary)' : 'transparent' }}
                     />
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <div className="flex-1" style={{ minWidth: 0 }}>
@@ -293,13 +308,13 @@ export function ChatHistoryView() {
         </div>
 
         {/* Chat Content - Right Panel */}
-        <div className="flex flex-col" style={{ minHeight: 0, background: 'var(--surface-subtle)' }}>
+          <div className="flex flex-col" style={{ minHeight: 0, background: 'var(--surface-subtle)' }}>
           {selectedChat ? (
             <>
               {/* Chat Header — cố định */}
               <div
                 className="px-6 py-4 flex items-center justify-between gap-3"
-                style={{ flexShrink: 0, background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
+                style={{ flexShrink: 0, background: 'var(--surface-card)', borderBottom: '1px solid var(--surface-border)' }}
               >
                 <div style={{ minWidth: 0 }}>
                   <p className="text-sm truncate" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedSession?.resident}</p>
@@ -315,8 +330,8 @@ export function ChatHistoryView() {
                   className="px-3 py-2 text-xs rounded flex items-center gap-2"
                   style={{
                     flexShrink: 0,
-                    background: 'var(--card)',
-                    border: '1px solid var(--border)',
+                    background: 'var(--surface-card)',
+                    border: '1px solid var(--surface-border)',
                     color: 'var(--text-primary)',
                     opacity: selectedUnansweredList.length === 0 ? 0.4 : 1,
                   }}
@@ -330,7 +345,7 @@ export function ChatHistoryView() {
               <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ minHeight: 0 }}>
                 {sessionMessages.map((message, index) => (
                   <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-md ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
+                    <div className={`${message.sender === 'user' ? 'order-2' : 'order-1'}`} style={{ maxWidth: 'min(620px, 76%)' }}>
                       {message.sender === 'ai' && (
                         <div className="flex items-center space-x-2 mb-1">
                           <div
@@ -344,8 +359,8 @@ export function ChatHistoryView() {
                         className="px-4 py-3 rounded-lg"
                         style={
                           message.sender === 'user'
-                            ? { background: 'var(--primary)', color: '#fff' }
-                            : { background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
+                            ? { background: 'var(--brand-primary)', color: '#fff' }
+                            : { background: 'var(--surface-card)', border: '1px solid var(--surface-border)', color: 'var(--text-primary)' }
                         }
                       >
                         <p className="text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.text}</p>
@@ -367,7 +382,7 @@ export function ChatHistoryView() {
                   >
                     <p className="text-sm" style={{ fontWeight: 600, color: 'var(--error-foreground)' }}>Các câu cần bổ sung tri thức</p>
                     {selectedUnansweredList.map((item) => (
-                      <div key={item.assistantMessageId} className="rounded p-3" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                      <div key={item.assistantMessageId} className="p-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-card)' }}>
                         <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>{item.question}</p>
                         <button
                           onClick={() => setSelectedUnanswered(item)}
@@ -383,7 +398,7 @@ export function ChatHistoryView() {
               )}
 
               {/* Satisfaction Footer — cố định */}
-              <div className="px-6 py-3" style={{ flexShrink: 0, background: 'var(--card)', borderTop: '1px solid var(--border)' }}>
+              <div className="px-6 py-3" style={{ flexShrink: 0, background: 'var(--surface-card)', borderTop: '1px solid var(--surface-border)' }}>
                 {selectedSession?.satisfied ? (
                   <div className="flex items-center space-x-2" style={{ color: 'var(--success-foreground)' }}>
                     <ThumbsUp size={16} />
