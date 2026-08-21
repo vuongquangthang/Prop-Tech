@@ -447,12 +447,6 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.OwnerUserId);
-            entity.HasOne(e => e.UpdatedByUser)
-                .WithMany()
-                .HasForeignKey(e => e.UpdatedBy)
-                .OnDelete(DeleteBehavior.SetNull);
-            // NoAction (khong SetNull) de tranh nhieu duong cascade tu USER -> KNOWLEDGE_BASE
-            // (UpdatedBy da la SetNull). SQL Server cam multiple cascade paths (error 1785).
             entity.HasOne(e => e.OwnerUser)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerUserId)

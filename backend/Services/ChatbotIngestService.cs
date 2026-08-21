@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
@@ -6,6 +7,13 @@ namespace backend.Services;
 public interface IChatbotIngestService
 {
     Task<ChatbotIngestTriggerResult> RebuildAsync(int? buildingId = null, CancellationToken cancellationToken = default);
+    Task<ChatbotIngestTriggerResult> IngestDocumentAsync(
+        IFormFile file,
+        int ownerUserId,
+        int uploadedByUserId,
+        string? category = null,
+        string? title = null,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class ChatbotIngestTriggerResult
@@ -99,6 +107,102 @@ public class ChatbotIngestService : IChatbotIngestService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Chatbot ingest call failed. url={Url}", baseUrl);
+
+            return new ChatbotIngestTriggerResult
+            {
+                Triggered = true,
+                Success = false,
+                Message = ex.Message
+            };
+        }
+    }
+
+    public async Task<ChatbotIngestTriggerResult> IngestDocumentAsync(
+        IFormFile file,
+        int ownerUserId,
+        int uploadedByUserId,
+        string? category = null,
+        string? title = null,
+        CancellationToken cancellationToken = default)
+    {
+        var enabled = _configuration.GetValue("Chatbot:AutoIngestOnKnowledgeUpload", true);
+        if (!enabled)
+        {
+            return new ChatbotIngestTriggerResult
+            {
+                Triggered = false,
+                Success = false,
+                Message = "Auto ingest is disabled."
+            };
+        }
+
+        var baseUrl = (_configuration["Chatbot:BaseUrl"] ?? DefaultChatbotBaseUrl).TrimEnd('/');
+        var internalApiKey = _configuration["Chatbot:InternalApiKey"]
+            ?? _configuration["InternalApiKey"]
+            ?? DefaultInternalApiKey;
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromMinutes(5);
+
+            await using var stream = file.OpenReadStream();
+            using var fileContent = new StreamContent(stream);
+            if (!string.IsNullOrWhiteSpace(file.ContentType))
+            {
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            }
+
+            using var form = new MultipartFormDataContent
+            {
+                { fileContent, "file", file.FileName },
+                { new StringContent(ownerUserId.ToString()), "owner_user_id" },
+                { new StringContent(uploadedByUserId.ToString()), "uploaded_by" }
+            };
+
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                form.Add(new StringContent(category), "category");
+            }
+
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                form.Add(new StringContent(title), "title");
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/api/internal/ingest/document");
+            request.Headers.TryAddWithoutValidation("X-Internal-Api-Key", internalApiKey);
+            request.Content = form;
+
+            using var response = await client.SendAsync(request, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Chatbot document ingest returned non-success status. status={StatusCode}, body={Body}",
+                    (int)response.StatusCode,
+                    body);
+
+                return new ChatbotIngestTriggerResult
+                {
+                    Triggered = true,
+                    Success = false,
+                    Message = $"Chatbot document ingest failed with status {(int)response.StatusCode}."
+                };
+            }
+
+            return new ChatbotIngestTriggerResult
+            {
+                Triggered = true,
+                Success = true,
+                Message = "Chatbot document ingest completed.",
+                Documents = TryReadDocumentsCount(body)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Chatbot document ingest call failed. url={Url}", baseUrl);
 
             return new ChatbotIngestTriggerResult
             {

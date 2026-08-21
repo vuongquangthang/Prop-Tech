@@ -1,10 +1,6 @@
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories;
-using System.Security.Claims;
-using UglyToad.PdfPig;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace backend.Services;
 
@@ -18,34 +14,28 @@ public interface IKnowledgeBaseService
     Task<KnowledgeBaseDto> UpdateAsync(int id, UpdateKnowledgeBaseDto dto, int userId, int ownerUserId);
     Task DeleteAsync(int id, int ownerUserId);
     Task<DocumentUploadResultDto> UploadDocumentAsync(IFormFile file, string category, bool autoActivate, int userId, int ownerUserId);
-    // Upload cho tri thuc chung (SUPER_ADMIN TroUyTin): ownerUserId = null => KB ap cho moi toa nha.
-    // Dung cho luong internal (X-Internal-Api-Key), khong gan owner cu the.
     Task<DocumentUploadResultDto> UploadDocumentForOwnerAsync(IFormFile file, string category, bool autoActivate, int? userId, int? ownerUserId);
 }
 
 public class KnowledgeBaseService : IKnowledgeBaseService
 {
     private readonly IKnowledgeBaseRepository _repository;
+    private readonly IStorageService _storage;
 
-    public KnowledgeBaseService(IKnowledgeBaseRepository repository)
+    public KnowledgeBaseService(IKnowledgeBaseRepository repository, IStorageService storage)
     {
         _repository = repository;
+        _storage = storage;
     }
 
     public async Task<List<KnowledgeBaseDto>> GetAllAsync(int ownerUserId, bool activeOnly = false)
     {
-        var items = activeOnly 
-            ? await _repository.GetAllActiveAsync(ownerUserId)
-            : await _repository.GetAllAsync(ownerUserId);
-        
+        var items = await _repository.GetAllAsync(ownerUserId);
         return items.Select(MapToDto).ToList();
     }
 
-    public async Task<List<KnowledgeBaseDto>> GetByCategoryAsync(string category, int ownerUserId)
-    {
-        var items = await _repository.GetByCategoryAsync(category, ownerUserId);
-        return items.Select(MapToDto).ToList();
-    }
+    public Task<List<KnowledgeBaseDto>> GetByCategoryAsync(string category, int ownerUserId)
+        => Task.FromResult(new List<KnowledgeBaseDto>());
 
     public async Task<List<KnowledgeBaseDto>> SearchAsync(string keyword, int ownerUserId)
     {
@@ -66,16 +56,17 @@ public class KnowledgeBaseService : IKnowledgeBaseService
 
     public async Task<KnowledgeBaseDto> CreateAsync(CreateKnowledgeBaseDto dto, int userId, int ownerUserId)
     {
+        if (string.IsNullOrWhiteSpace(dto.FileName) || string.IsNullOrWhiteSpace(dto.FileUrl))
+        {
+            throw new InvalidOperationException("Ten file va URL khong duoc de trong");
+        }
+
         var kb = new KnowledgeBase
         {
-            Title = dto.Title,
-            Content = dto.Content,
-            Category = dto.Category,
-            Tags = dto.Tags,
-            IsActive = dto.IsActive,
-            UpdatedAt = DateTime.UtcNow,
-            UpdatedBy = userId,
-            OwnerUserId = ownerUserId
+            FileName = dto.FileName.Trim(),
+            FileUrl = dto.FileUrl.Trim(),
+            OwnerUserId = ownerUserId,
+            CreatedAt = DateTime.UtcNow,
         };
 
         await _repository.AddAsync(kb);
@@ -90,26 +81,18 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         var kb = await _repository.GetByIdAsync(id, ownerUserId);
         if (kb == null)
         {
-            throw new InvalidOperationException("Không tìm thấy kiến thức này");
+            throw new InvalidOperationException("Khong tim thay tai lieu tri thuc nay");
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.Title))
-            kb.Title = dto.Title;
+        if (!string.IsNullOrWhiteSpace(dto.FileName))
+        {
+            kb.FileName = dto.FileName.Trim();
+        }
 
-        if (!string.IsNullOrWhiteSpace(dto.Content))
-            kb.Content = dto.Content;
-
-        if (dto.Category != null)
-            kb.Category = dto.Category;
-
-        if (dto.Tags != null)
-            kb.Tags = dto.Tags;
-
-        if (dto.IsActive.HasValue)
-            kb.IsActive = dto.IsActive.Value;
-
-        kb.UpdatedAt = DateTime.UtcNow;
-        kb.UpdatedBy = userId;
+        if (!string.IsNullOrWhiteSpace(dto.FileUrl))
+        {
+            kb.FileUrl = dto.FileUrl.Trim();
+        }
 
         _repository.Update(kb);
         await _repository.SaveChangesAsync();
@@ -123,7 +106,7 @@ public class KnowledgeBaseService : IKnowledgeBaseService
         var kb = await _repository.GetByIdAsync(id, ownerUserId);
         if (kb == null)
         {
-            throw new InvalidOperationException("Không tìm thấy kiến thức này");
+            throw new InvalidOperationException("Khong tim thay tai lieu tri thuc nay");
         }
 
         _repository.Remove(kb);
@@ -135,129 +118,65 @@ public class KnowledgeBaseService : IKnowledgeBaseService
 
     public async Task<DocumentUploadResultDto> UploadDocumentForOwnerAsync(IFormFile file, string category, bool autoActivate, int? userId, int? ownerUserId)
     {
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        string rawText;
-
-        using var memStream = new MemoryStream();
-        await file.CopyToAsync(memStream);
-        memStream.Position = 0;
-
-        rawText = extension switch
+        var originalFileName = Path.GetFileName(file.FileName);
+        if (string.IsNullOrWhiteSpace(originalFileName))
         {
-            ".pdf" => ExtractTextFromPdf(memStream),
-            ".docx" => ExtractTextFromDocx(memStream),
-            ".txt" or ".doc" => new StreamReader(memStream).ReadToEnd(),
-            _ => throw new InvalidOperationException("Loại file không được hỗ trợ")
+            throw new InvalidOperationException("Ten file khong hop le");
+        }
+
+        var storedFileName = $"{Guid.NewGuid():N}_{BuildSafeStorageName(originalFileName)}";
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? "application/octet-stream"
+            : file.ContentType;
+
+        await using var stream = file.OpenReadStream();
+        var fileUrl = await _storage.UploadAsync(stream, storedFileName, contentType);
+
+        var kb = new KnowledgeBase
+        {
+            FileName = originalFileName,
+            FileUrl = fileUrl,
+            OwnerUserId = ownerUserId,
+            CreatedAt = DateTime.UtcNow,
         };
 
-        var chunks = SplitIntoChunks(rawText);
-        var entries = new List<KnowledgeBase>();
-        var now = DateTime.UtcNow;
+        await _repository.AddAsync(kb);
+        await _repository.SaveChangesAsync();
 
-        foreach (var chunk in chunks)
-        {
-            var title = ExtractTitle(chunk);
-            var content = chunk.Length > 2000 ? chunk[..2000] : chunk;
-
-            entries.Add(new KnowledgeBase
-            {
-                Title = title,
-                Content = content,
-                Category = category,
-                IsActive = autoActivate,
-                UpdatedAt = now,
-                UpdatedBy = userId,
-                OwnerUserId = ownerUserId
-            });
-        }
-
-        if (entries.Count > 0)
-        {
-            await _repository.AddRangeAsync(entries);
-            await _repository.SaveChangesAsync();
-        }
-
+        var entry = MapToDto(kb);
         return new DocumentUploadResultDto
         {
-            FileName = file.FileName,
-            TotalExtracted = entries.Count,
-            Activated = autoActivate ? entries.Count : 0,
-            Entries = entries.Select(MapToDto).ToList()
+            FileName = entry.FileName,
+            FileUrl = entry.FileUrl,
+            Entry = entry,
         };
     }
 
-    private static string ExtractTextFromPdf(Stream stream)
-    {
-        var sb = new System.Text.StringBuilder();
-        using var pdf = PdfDocument.Open(stream);
-        foreach (var page in pdf.GetPages())
-        {
-            sb.AppendLine(page.Text);
-            sb.AppendLine();
-        }
-        return sb.ToString();
-    }
-
-    private static string ExtractTextFromDocx(Stream stream)
-    {
-        var sb = new System.Text.StringBuilder();
-        using var wordDoc = WordprocessingDocument.Open(stream, false);
-        var body = wordDoc.MainDocumentPart?.Document?.Body;
-        if (body == null) return string.Empty;
-        foreach (var para in body.Elements<Paragraph>())
-        {
-            var text = para.InnerText.Trim();
-            if (!string.IsNullOrEmpty(text))
-                sb.AppendLine(text);
-        }
-        return sb.ToString();
-    }
-
-    private static List<string> SplitIntoChunks(string text)
-    {
-        var paragraphs = text
-            .Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(p => p.Trim().Replace("\r\n", " ").Replace("\n", " "))
-            .Where(p => p.Length >= 20)
-            .ToList();
-
-        // If no double-newline separation, split by single lines (headings mode)
-        if (paragraphs.Count <= 1)
-        {
-            paragraphs = text
-                .Split(new[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(p => p.Trim())
-                .Where(p => p.Length >= 20)
-                .ToList();
-        }
-
-        return paragraphs;
-    }
-
-    private static string ExtractTitle(string chunk)
-    {
-        // Use first sentence as title
-        var sentenceEnd = chunk.IndexOfAny(new[] { '.', '?', '!' });
-        var title = sentenceEnd > 0 && sentenceEnd < 200
-            ? chunk[..(sentenceEnd + 1)]
-            : chunk.Length > 150 ? chunk[..150] + "..." : chunk;
-        return title.Trim();
-    }
-
-    private KnowledgeBaseDto MapToDto(KnowledgeBase kb)
+    private static KnowledgeBaseDto MapToDto(KnowledgeBase kb)
     {
         return new KnowledgeBaseDto
         {
             Id = kb.Id,
-            Title = kb.Title,
-            Content = kb.Content,
-            Category = kb.Category,
-            Tags = kb.Tags,
-            IsActive = kb.IsActive,
-            UpdatedAt = kb.UpdatedAt,
-            UpdatedBy = kb.UpdatedBy,
-            UpdatedByName = kb.UpdatedByUser?.PhoneNumber,
-            OwnerUserId = kb.OwnerUserId
+            FileName = kb.FileName,
+            FileUrl = kb.FileUrl,
+            OwnerUserId = kb.OwnerUserId,
+            CreatedAt = kb.CreatedAt,
         };
+    }
+
+    private static string BuildSafeStorageName(string fileName)
+    {
+        var extension = Path.GetExtension(fileName);
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+        var safeChars = nameWithoutExtension
+            .Select(ch => ch <= 127 && (char.IsLetterOrDigit(ch) || ch is '-' or '_') ? ch : '-')
+            .ToArray();
+        var safeName = new string(safeChars).Trim('-');
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            safeName = "document";
+        }
+
+        return $"{safeName}{extension.ToLowerInvariant()}";
     }
 }

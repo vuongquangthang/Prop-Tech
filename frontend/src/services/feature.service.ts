@@ -127,12 +127,10 @@ export interface MaintenanceRequest {
 
 export interface KnowledgeBase {
   id: number;
-  title: string;
-  content: string;
-  category: string;
-  tags?: string;
-  isActive: boolean;
-  updatedAt?: string;
+  fileName: string;
+  fileUrl: string;
+  ownerUserId?: number | null;
+  createdAt: string;
 }
 
 // Report Services
@@ -419,7 +417,7 @@ export const knowledgeService = {
     }
   },
 
-  create: async (data: Omit<KnowledgeBase, 'id' | 'createdAt'>) => {
+  create: async (data: { fileName: string; fileUrl: string } | Record<string, unknown>) => {
     try {
       const response = await api.post<KnowledgeBase>(API_ENDPOINTS.KNOWLEDGE.BASE, data);
       return response.data;
@@ -428,7 +426,7 @@ export const knowledgeService = {
     }
   },
 
-  update: async (id: number, data: Partial<KnowledgeBase>) => {
+  update: async (id: number, data: Partial<KnowledgeBase> | Record<string, unknown>) => {
     try {
       const response = await api.put<KnowledgeBase>(
         API_ENDPOINTS.KNOWLEDGE.BY_ID(id),
@@ -456,13 +454,12 @@ export const knowledgeService = {
       formData.append('autoActivate', String(autoActivate));
       const response = await api.post<{
         fileName: string;
-        totalExtracted: number;
-        activated: number;
+        fileUrl: string;
+        entry: KnowledgeBase;
         ingestTriggered: boolean;
         ingestSucceeded: boolean;
-        ingestMessage?: string;
-        ingestDocuments?: number;
-        entries: KnowledgeBase[];
+        ingestMessage?: string | null;
+        ingestDocuments?: number | null;
       }>(API_ENDPOINTS.KNOWLEDGE.UPLOAD_DOCUMENT, formData, {
       });
       return response.data;

@@ -633,42 +633,29 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Category")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("THE_LOAI");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("NOI_DUNG");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit")
-                        .HasColumnName("IS_ACTIVE");
-
-                    b.Property<string>("Tags")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("TAGS");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("TIEU_DE");
-
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")
-                        .HasColumnName("UPDATED_AT");
+                        .HasColumnName("CREATED_AT");
 
-                    b.Property<int?>("UpdatedBy")
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("TEN_FILE");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)")
+                        .HasColumnName("FILE_URL");
+
+                    b.Property<int?>("OwnerUserId")
                         .HasColumnType("int")
-                        .HasColumnName("UPDATED_BY");
+                        .HasColumnName("OWNER_USER_ID");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UpdatedBy");
+                    b.HasIndex("OwnerUserId");
 
                     b.ToTable("KNOWLEDGE_BASE");
                 });
@@ -1607,12 +1594,12 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.KnowledgeBase", b =>
                 {
-                    b.HasOne("backend.Models.User", "UpdatedByUser")
+                    b.HasOne("backend.Models.User", "OwnerUser")
                         .WithMany()
-                        .HasForeignKey("UpdatedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Navigation("UpdatedByUser");
+                    b.Navigation("OwnerUser");
                 });
 
             modelBuilder.Entity("backend.Models.LichSuChat", b =>
