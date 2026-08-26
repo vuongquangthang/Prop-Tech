@@ -7,6 +7,12 @@ import { buildingService } from '../../services/api.service';
 import { PageHeader } from '../ui/product-system';
 import { useTablePagination } from '../../lib/useTablePagination';
 import { TablePaginationBar } from '../ui/TablePaginationBar';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../../lib/memoryDataCache';
+
+const INFRA_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getInfrastructureCacheKey = (name: string) => `infrastructure:${getCurrentDataCacheScope()}:${name}`;
+const invalidateInfrastructureCache = () => invalidateCachedData(`infrastructure:${getCurrentDataCacheScope()}:`);
 
 interface TaiSanDto {
   id: number;
@@ -105,16 +111,25 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
   const [addCondition, setAddCondition] = useState('Tốt');
   const [addNote, setAddNote] = useState('');
   const [addSaving, setAddSaving] = useState(false);
-  const fetchAssets = async () => {
+  const fetchAssets = async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
     try {
-      setLoading(true);
+      const cacheKey = getInfrastructureCacheKey('assets');
+      const cached = !force ? getCachedData<TaiSanDto[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setAssets(cached);
+        setError(null);
+        return;
+      }
+
+      if (!silent) setLoading(true);
       setError(null);
       const res = await api.get<TaiSanDto[]>(API_ENDPOINTS.ASSETS.BASE);
+      setCachedData(cacheKey, res.data);
       setAssets(res.data);
     } catch {
       setError('Không thể tải danh sách tài sản');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -123,10 +138,19 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
     fetchBuildings();
   }, []);
 
-  const fetchBuildings = async () => {
+  const fetchBuildings = async ({ force = false }: { force?: boolean } = {}) => {
     try {
+      const cacheKey = getInfrastructureCacheKey('buildings');
+      const cached = !force ? getCachedData<BuildingOption[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setBuildings(cached);
+        return;
+      }
+
       const data = await buildingService.getAll();
-      setBuildings(data as BuildingOption[]);
+      const normalized = data as BuildingOption[];
+      setCachedData(cacheKey, normalized);
+      setBuildings(normalized);
     } catch {
       setBuildings([]);
     }
@@ -321,7 +345,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
       });
       setShowAddModal(false);
       setFormData({ assetName: '', assetCode: '', buildingIds: [] });
-      await fetchAssets();
+      invalidateInfrastructureCache();
+      await fetchAssets({ force: true, silent: true });
     } catch (err: any) {
       setErrorModalMessage(err.response?.data?.message || err.message || 'Thêm tài sản thất bại. Vui lòng thử lại.');
     } finally {
@@ -345,7 +370,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
       await Promise.all(selectedAsset.assetIds.map((assetId) => api.put(API_ENDPOINTS.ASSETS.BY_ID(assetId), payload)));
       setShowEditModal(false);
       setSelectedAsset(null);
-      await fetchAssets();
+      invalidateInfrastructureCache();
+      await fetchAssets({ force: true, silent: true });
     } catch (err: any) {
       setErrorModalMessage(err.response?.data?.message || err.message || 'Cập nhật tài sản thất bại. Vui lòng thử lại.');
     } finally {
@@ -366,7 +392,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
       await Promise.all(selectedAsset.assetIds.map((assetId) => api.delete(API_ENDPOINTS.ASSETS.BY_ID(assetId))));
       setShowDeleteModal(false);
       setSelectedAsset(null);
-      await fetchAssets();
+      invalidateInfrastructureCache();
+      await fetchAssets({ force: true, silent: true });
     } catch (err: any) {
       setDeleteAssetError(err.response?.data?.message || err.message || 'Xóa tài sản thất bại. Vui lòng thử lại.');
     } finally {
@@ -484,7 +511,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
       );
       await fetchAssignments(assignAsset);
       setAddRoomIds([]); setAddQty('1'); setAddCondition('Tốt'); setAddNote('');
-      await fetchAssets();
+      invalidateInfrastructureCache();
+      await fetchAssets({ force: true, silent: true });
     } catch (e: any) {
       setAssignError(e.response?.data?.message || e.message || 'Gán thất bại');
     } finally {
@@ -498,7 +526,8 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
     try {
       await api.delete(API_ENDPOINTS.ASSETS.ROOM_ASSETS_DELETE(row.roomId, row.assetId));
       await fetchAssignments(assignAsset);
-      await fetchAssets();
+      invalidateInfrastructureCache();
+      await fetchAssets({ force: true, silent: true });
     } catch (e: any) {
       setAssignError(e.response?.data?.message || e.message || 'Xóa thất bại');
     }

@@ -33,6 +33,7 @@ public class UtilityReadingService : IUtilityReadingService
 
         // Lấy phòng có hợp đồng giao với kỳ đang chọn
         var rooms = await _context.Rooms
+            .AsNoTracking()
             .Include(r => r.Floor).ThenInclude(f => f.Building)
             .Include(r => r.HopDongs).ThenInclude(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident)
             .Include(r => r.ChiTietSuDungDichVus).ThenInclude(ctsdv => ctsdv.Service)
@@ -44,15 +45,148 @@ public class UtilityReadingService : IUtilityReadingService
             .ToListAsync();
 
         var result = new List<RoomUtilityReadingDto>();
+        var activeContractByRoomId = rooms
+            .Select(room => new
+            {
+                RoomId = room.Id,
+                Contract = room.HopDongs
+                    .Where(hd => hd.StartDate <= periodEnd && (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStart))
+                    .OrderByDescending(hd => hd.StartDate)
+                    .FirstOrDefault()
+            })
+            .Where(item => item.Contract != null)
+            .ToDictionary(item => item.RoomId, item => item.Contract!);
+
+        var activeContractIds = activeContractByRoomId.Values.Select(contract => contract.Id).Distinct().ToList();
+        var sentInvoices = activeContractIds.Count == 0
+            ? new List<HoaDon>()
+            : await _context.HoaDons
+                .AsNoTracking()
+                .Where(invoice =>
+                    activeContractIds.Contains(invoice.ContractId)
+                    && invoice.Month == month
+                    && invoice.Year == year
+                    && invoice.Status != "Nháp"
+                    && invoice.Status != "Bị từ chối")
+                .ToListAsync();
+        var sentInvoiceByContractId = sentInvoices
+            .GroupBy(invoice => invoice.ContractId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(invoice => invoice.Id).First());
+
+        var allElectricityCandidateIds = rooms
+            .SelectMany(room => room.ChiTietSuDungDichVus)
+            .Where(usage => usage.Service != null
+                && usage.Service.IsActive
+                && IsElectricityService(usage.Service)
+                && usage.ApplyFrom <= periodEnd
+                && (usage.ApplyTo == null || usage.ApplyTo >= periodStart))
+            .Select(usage => usage.Id)
+            .Distinct()
+            .ToList();
+
+        var allWaterCandidateIds = rooms
+            .SelectMany(room => room.ChiTietSuDungDichVus)
+            .Where(usage => usage.Service != null
+                && usage.Service.IsActive
+                && IsWaterService(usage.Service)
+                && usage.ApplyFrom <= periodEnd
+                && (usage.ApplyTo == null || usage.ApplyTo >= periodStart))
+            .Select(usage => usage.Id)
+            .Distinct()
+            .ToList();
+
+        var recordedElectricityUsageIds = allElectricityCandidateIds.Count == 0
+            ? new HashSet<long>()
+            : (await _context.ChiSoDiens
+                .AsNoTracking()
+                .Where(reading => allElectricityCandidateIds.Contains(reading.ServiceUsageDetailId)
+                    && reading.Month == month
+                    && reading.Year == year)
+                .Select(reading => reading.ServiceUsageDetailId)
+                .ToListAsync())
+                .ToHashSet();
+
+        var recordedWaterUsageIds = allWaterCandidateIds.Count == 0
+            ? new HashSet<long>()
+            : (await _context.ChiSoNuocs
+                .AsNoTracking()
+                .Where(reading => allWaterCandidateIds.Contains(reading.ServiceUsageDetailId)
+                    && reading.Month == month
+                    && reading.Year == year)
+                .Select(reading => reading.ServiceUsageDetailId)
+                .ToListAsync())
+                .ToHashSet();
+
+        ChiTietSuDungDichVu? SelectUtilityUsage(
+            IEnumerable<ChiTietSuDungDichVu> usages,
+            Func<Service?, bool> serviceMatcher,
+            HashSet<long> recordedUsageIds)
+        {
+            var candidates = usages
+                .Where(usage => usage.Service != null
+                    && usage.Service.IsActive
+                    && serviceMatcher(usage.Service)
+                    && usage.ApplyFrom <= periodEnd
+                    && (usage.ApplyTo == null || usage.ApplyTo >= periodStart))
+                .OrderByDescending(usage => usage.ApplyFrom)
+                .ThenByDescending(usage => usage.Id)
+                .ToList();
+
+            return candidates.FirstOrDefault(usage => recordedUsageIds.Contains(usage.Id))
+                ?? candidates.FirstOrDefault();
+        }
+
+        var selectedElectricityUsageByRoomId = rooms
+            .Select(room => new
+            {
+                RoomId = room.Id,
+                Usage = SelectUtilityUsage(room.ChiTietSuDungDichVus, IsElectricityService, recordedElectricityUsageIds)
+            })
+            .Where(item => item.Usage != null)
+            .ToDictionary(item => item.RoomId, item => item.Usage!);
+
+        var selectedWaterUsageByRoomId = rooms
+            .Select(room => new
+            {
+                RoomId = room.Id,
+                Usage = SelectUtilityUsage(room.ChiTietSuDungDichVus, IsWaterService, recordedWaterUsageIds)
+            })
+            .Where(item => item.Usage != null)
+            .ToDictionary(item => item.RoomId, item => item.Usage!);
+
+        var selectedElectricityUsageIds = selectedElectricityUsageByRoomId.Values.Select(usage => usage.Id).Distinct().ToList();
+        var selectedWaterUsageIds = selectedWaterUsageByRoomId.Values.Select(usage => usage.Id).Distinct().ToList();
+
+        var electricityReadingsByUsageId = selectedElectricityUsageIds.Count == 0
+            ? new Dictionary<long, List<ChiSoDien>>()
+            : (await _context.ChiSoDiens
+                .AsNoTracking()
+                .Where(reading => selectedElectricityUsageIds.Contains(reading.ServiceUsageDetailId)
+                    && (reading.Year < year || (reading.Year == year && reading.Month <= month)))
+                .OrderByDescending(reading => reading.Year)
+                .ThenByDescending(reading => reading.Month)
+                .ToListAsync())
+                .GroupBy(reading => reading.ServiceUsageDetailId)
+                .ToDictionary(group => group.Key, group => group.ToList());
+
+        var waterReadingsByUsageId = selectedWaterUsageIds.Count == 0
+            ? new Dictionary<long, List<ChiSoNuoc>>()
+            : (await _context.ChiSoNuocs
+                .AsNoTracking()
+                .Where(reading => selectedWaterUsageIds.Contains(reading.ServiceUsageDetailId)
+                    && (reading.Year < year || (reading.Year == year && reading.Month <= month)))
+                .OrderByDescending(reading => reading.Year)
+                .ThenByDescending(reading => reading.Month)
+                .ToListAsync())
+                .GroupBy(reading => reading.ServiceUsageDetailId)
+                .ToDictionary(group => group.Key, group => group.ToList());
 
         foreach (var room in rooms)
         {
             // Chỉ lấy hợp đồng giao với kỳ đang chọn
-            var activeContract = room.HopDongs
-                .Where(hd => hd.StartDate <= periodEnd && (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStart))
-                .OrderByDescending(hd => hd.StartDate)
-                .FirstOrDefault();
-            if (activeContract == null) continue;
+            if (!activeContractByRoomId.TryGetValue(room.Id, out var activeContract)) continue;
 
             var residentName = activeContract.ChiTietOs
                 .Where(ct => ct.FromDate <= periodEnd && (ct.ToDate == null || ct.ToDate >= periodStart))
@@ -60,24 +194,14 @@ public class UtilityReadingService : IUtilityReadingService
                 .Select(ct => ct.Resident != null ? ct.Resident.FullName : null)
                 .FirstOrDefault();
 
-            var sentInvoice = await GetSentInvoiceAsync(activeContract.Id, month, year);
+            sentInvoiceByContractId.TryGetValue(activeContract.Id, out var sentInvoice);
             var readingsLocked = sentInvoice != null;
 
             // Tìm usage detail cho điện có hiệu lực trong kỳ (ServiceId = 1)
-            var elecUsage = await SelectElectricityUsageAsync(
-                room.ChiTietSuDungDichVus,
-                periodStart,
-                periodEnd,
-                month,
-                year);
+            selectedElectricityUsageByRoomId.TryGetValue(room.Id, out var elecUsage);
 
             // Tìm usage detail cho nước có hiệu lực trong kỳ
-            var waterUsage = await SelectWaterUsageAsync(
-                room.ChiTietSuDungDichVus,
-                periodStart,
-                periodEnd,
-                month,
-                year);
+            selectedWaterUsageByRoomId.TryGetValue(room.Id, out var waterUsage);
 
             // Lấy chỉ số cũ (tháng trước)
             decimal? oldElec = null;
@@ -93,45 +217,37 @@ public class UtilityReadingService : IUtilityReadingService
 
             if (elecUsage != null)
             {
-                var prevElec = await _context.ChiSoDiens
-                    .Where(c => c.ServiceUsageDetailId == elecUsage.Id
-                                && (c.Year < year || (c.Year == year && c.Month < month)))
-                    .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
-                    .FirstOrDefaultAsync();
+                var elecReadings = electricityReadingsByUsageId.TryGetValue(elecUsage.Id, out var readings)
+                    ? readings
+                    : new List<ChiSoDien>();
+                var prevElec = elecReadings.FirstOrDefault(c => c.Year < year || (c.Year == year && c.Month < month));
                 oldElec = prevElec?.NewReading;
 
-                var currentElec = await _context.ChiSoDiens
-                    .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == elecUsage.Id
-                                              && c.Month == month && c.Year == year);
+                var currentElec = elecReadings.FirstOrDefault(c => c.Month == month && c.Year == year);
                 if (currentElec != null)
                 {
                     newElec = currentElec.NewReading;
                     elecRecorded = true;
-                    var anomaly = await EvaluateElectricityAnomalyAsync(elecUsage.Id, month, year, currentElec.NewReading);
-                    elecIsAnomaly = anomaly.IsAnomaly;
-                    elecAnomalyNote = anomaly.Note;
+                    elecIsAnomaly = currentElec.IsAnomaly;
+                    elecAnomalyNote = currentElec.AnomalyNote;
                 }
             }
 
             if (waterUsage != null)
             {
-                var prevWater = await _context.ChiSoNuocs
-                    .Where(c => c.ServiceUsageDetailId == waterUsage.Id
-                                && (c.Year < year || (c.Year == year && c.Month < month)))
-                    .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month)
-                    .FirstOrDefaultAsync();
+                var waterReadings = waterReadingsByUsageId.TryGetValue(waterUsage.Id, out var readings)
+                    ? readings
+                    : new List<ChiSoNuoc>();
+                var prevWater = waterReadings.FirstOrDefault(c => c.Year < year || (c.Year == year && c.Month < month));
                 oldWater = prevWater?.NewReading;
 
-                var currentWater = await _context.ChiSoNuocs
-                    .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == waterUsage.Id
-                                              && c.Month == month && c.Year == year);
+                var currentWater = waterReadings.FirstOrDefault(c => c.Month == month && c.Year == year);
                 if (currentWater != null)
                 {
                     newWater = currentWater.NewReading;
                     waterRecorded = true;
-                    var anomaly = await EvaluateWaterAnomalyAsync(waterUsage.Id, month, year, currentWater.NewReading);
-                    waterIsAnomaly = anomaly.IsAnomaly;
-                    waterAnomalyNote = anomaly.Note;
+                    waterIsAnomaly = currentWater.IsAnomaly;
+                    waterAnomalyNote = currentWater.AnomalyNote;
                 }
             }
 

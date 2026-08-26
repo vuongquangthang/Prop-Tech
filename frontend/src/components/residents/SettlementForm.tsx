@@ -7,6 +7,12 @@ import { MoneyInput } from '../ui/MoneyInput';
 import { DateTextInput } from '../ui/DateTextInput';
 import { useTablePagination } from '../../lib/useTablePagination';
 import { TablePaginationBar } from '../ui/TablePaginationBar';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../../lib/memoryDataCache';
+
+const SETTLEMENT_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getSettlementCacheKey = (name: string) => `settlement:${getCurrentDataCacheScope()}:${name}`;
+const invalidateSettlementCache = () => invalidateCachedData(`settlement:${getCurrentDataCacheScope()}:`);
 
 function parseAmount(input: string): number {
   const normalized = input.replace(/[^0-9.-]/g, '');
@@ -87,11 +93,21 @@ function ViewSettlementsTab() {
     fetchSettlements();
   }, []);
 
-  const fetchSettlements = async () => {
+  const fetchSettlements = async ({ force = false }: { force?: boolean } = {}) => {
     try {
+      const cacheKey = getSettlementCacheKey('list');
+      const cached = !force ? getCachedData<any[]>(cacheKey, SETTLEMENT_CACHE_TTL_MS) : null;
+      if (cached) {
+        setSettlements(cached);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       const data = await tatToanService.getAll();
+      setCachedData(cacheKey, data);
       setSettlements(data);
     } catch (err: any) {
       setError(err.message || 'Không thể tải danh sách tất toán');
@@ -376,16 +392,31 @@ function CreateSettlementTab({ onCreated }: { onCreated: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = async ({ force = false }: { force?: boolean } = {}) => {
     try {
+      const cacheKey = getSettlementCacheKey('create-data');
+      const cached = !force ? getCachedData<{ contracts: any[]; settlements: any[] }>(cacheKey, SETTLEMENT_CACHE_TTL_MS) : null;
+      if (cached) {
+        setContracts(cached.contracts);
+        setSettlements(cached.settlements);
+        setError(null);
+        setLoadingData(false);
+        return;
+      }
+
       setLoadingData(true);
       setError(null);
       const [contractsData, settlementsData] = await Promise.all([
         contractService.getAll(),
         tatToanService.getAll(),
       ]);
-      setContracts(Array.isArray(contractsData) ? contractsData : []);
-      setSettlements(Array.isArray(settlementsData) ? settlementsData : []);
+      const nextData = {
+        contracts: Array.isArray(contractsData) ? contractsData : [],
+        settlements: Array.isArray(settlementsData) ? settlementsData : [],
+      };
+      setCachedData(cacheKey, nextData);
+      setContracts(nextData.contracts);
+      setSettlements(nextData.settlements);
     } catch (err: any) {
       setError(err.message || 'Không thể tải dữ liệu hợp đồng/tất toán');
     } finally {
@@ -483,7 +514,8 @@ function CreateSettlementTab({ onCreated }: { onCreated: () => void }) {
       setCompensationInput('0');
       setDeductionsInput('0');
       setNotes('');
-      await loadData();
+      invalidateSettlementCache();
+      await loadData({ force: true });
       onCreated();
     } catch (err: any) {
       setError(err.message || 'Không thể tạo hồ sơ tất toán');

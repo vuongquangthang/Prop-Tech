@@ -10,6 +10,7 @@ import { buildingService, floorService, roomService, type Building, type Floor, 
 import { searchIncludes } from '../../lib/search';
 import { useTablePagination } from '../../lib/useTablePagination';
 import { TablePaginationBar } from '../ui/TablePaginationBar';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../../lib/memoryDataCache';
 
 interface LineItem {
   id: number;
@@ -75,6 +76,7 @@ const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
 const isDraft = (inv: Invoice) => inv.status === 'Draft' || inv.status === 'Nháp';
 const isPending = (inv: Invoice) => inv.status === 'Issued' || inv.status === 'Chưa thanh toán' || inv.status === 'PartiallyPaid' || inv.status === 'Đã thanh toán một phần';
 const isPaid = (inv: Invoice) => inv.status === 'Paid' || inv.status === 'Đã thanh toán';
+const INVOICE_TABLE_CACHE_TTL_MS = 2 * 60 * 1000;
 
 interface InvoiceTableProps {
   embedded?: boolean;
@@ -112,8 +114,17 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
   const [successMsg, setSuccessMsg] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
 
-  const loadInvoices = useCallback(async () => {
-    setLoading(true);
+  const loadInvoices = useCallback(async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
+    const cacheScope = getCurrentDataCacheScope();
+    const cacheKey = `invoice-table:${cacheScope}`;
+    const cached = !force ? getCachedData<Invoice[]>(cacheKey, INVOICE_TABLE_CACHE_TTL_MS) : null;
+    if (cached) {
+      setAllInvoices(cached);
+      setErrors([]);
+      return;
+    }
+
+    if (!silent) setLoading(true);
     setErrors([]);
     try {
       const res = await api.get<Invoice[]>(API_ENDPOINTS.INVOICES.BASE);
@@ -122,20 +133,27 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
         roomCode: inv.roomCode || inv.roomNumber || inv.soPhong || '',
         roomNumber: inv.roomNumber || inv.roomCode || inv.soPhong || '',
       }));
+      setCachedData(cacheKey, normalized);
       setAllInvoices(normalized);
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Không thể tải danh sách hóa đơn.']);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
+  const refreshInvoices = useCallback(() => {
+    invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
+    void loadInvoices({ force: true, silent: true });
+  }, [loadInvoices]);
+
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
-  useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'InvoiceUpdated'], loadInvoices);
+  useSignalRRefresh(['PaymentSuccess', 'PaymentFailed', 'InvoiceUpdated'], refreshInvoices);
 
   useEffect(() => {
     const handleInvoiceUpdated = () => {
-      void loadInvoices();
+      invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
+      void loadInvoices({ force: true, silent: true });
     };
     window.addEventListener('billing-invoices-updated', handleInvoiceUpdated);
     return () => window.removeEventListener('billing-invoices-updated', handleInvoiceUpdated);
@@ -144,14 +162,30 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
   useEffect(() => {
     const loadLocationFilters = async () => {
       try {
+        const cacheScope = getCurrentDataCacheScope();
+        const cacheKey = `invoice-location-filters:${cacheScope}`;
+        const cached = getCachedData<{ buildings: Building[]; floors: Floor[]; rooms: Room[] }>(cacheKey, INVOICE_TABLE_CACHE_TTL_MS);
+        if (cached) {
+          setBuildings(cached.buildings);
+          setFloors(cached.floors);
+          setRooms(cached.rooms);
+          return;
+        }
+
         const [buildingRows, floorRows, roomRows] = await Promise.all([
           buildingService.getAll(),
           floorService.getAll(),
           roomService.getAll(),
         ]);
-        setBuildings(Array.isArray(buildingRows) ? buildingRows : []);
-        setFloors(Array.isArray(floorRows) ? floorRows : []);
-        setRooms(Array.isArray(roomRows) ? roomRows : []);
+        const nextFilters = {
+          buildings: Array.isArray(buildingRows) ? buildingRows : [],
+          floors: Array.isArray(floorRows) ? floorRows : [],
+          rooms: Array.isArray(roomRows) ? roomRows : [],
+        };
+        setCachedData(cacheKey, nextFilters);
+        setBuildings(nextFilters.buildings);
+        setFloors(nextFilters.floors);
+        setRooms(nextFilters.rooms);
       } catch {
         setBuildings([]);
         setFloors([]);
@@ -271,7 +305,8 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
       setSuccessMsg(`✅ Đã phê duyệt ${res.data.success} hóa đơn và gửi thông báo cho cư dân.${res.data.failed > 0 ? ` ${res.data.failed} lỗi.` : ''}`);
       setSelectedIds(new Set());
       setSelectedInvoice(null);
-      await loadInvoices();
+      invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
+      await loadInvoices({ force: true, silent: true });
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi phê duyệt hóa đơn.']);
     } finally {
@@ -284,7 +319,8 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
       await api.put(API_ENDPOINTS.INVOICES.APPROVE(id));
       setSuccessMsg(`✅ Đã phê duyệt hóa đơn phòng ${roomNumber || id}.`);
       if (selectedInvoice?.id === id) setSelectedInvoice(null);
-      await loadInvoices();
+      invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
+      await loadInvoices({ force: true, silent: true });
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi phê duyệt.']);
     }
@@ -297,7 +333,8 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
       await api.put(API_ENDPOINTS.INVOICES.REJECT(id), { reason });
       setSuccessMsg('Đã từ chối hóa đơn.');
       if (selectedInvoice?.id === id) setSelectedInvoice(null);
-      await loadInvoices();
+      invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
+      await loadInvoices({ force: true, silent: true });
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi từ chối.']);
     }
@@ -320,7 +357,8 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
       if (modalInvoiceId === deleteInvoice.id) setModalInvoiceId(null);
       if (editingInvoice?.id === deleteInvoice.id) setEditingInvoice(null);
       setDeleteInvoice(null);
-      await loadInvoices();
+      invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
+      await loadInvoices({ force: true, silent: true });
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Không thể xóa hóa đơn.']);
     } finally {
@@ -676,7 +714,8 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
           onSaved={async () => {
             setSuccessMsg(`✅ Đã cập nhật hóa đơn nháp phòng ${editingInvoice.roomCode || editingInvoice.invoiceNumber}.`);
             setEditingInvoice(null);
-            await loadInvoices();
+            invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
+            await loadInvoices({ force: true, silent: true });
           }}
         />
       )}

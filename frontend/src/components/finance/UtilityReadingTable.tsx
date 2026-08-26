@@ -2,6 +2,7 @@ import { Save, Calculator, Filter, CheckCircle, X, AlertTriangle, Eye, Send } fr
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../../lib/memoryDataCache';
 import { FilterSelect } from '../ui/FilterSelect';
 import { PageHeader } from '../ui/product-system';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
@@ -71,6 +72,8 @@ const extractInvoiceList = (payload: any): any[] => {
   return [];
 };
 
+const UTILITY_READING_CACHE_TTL_MS = 2 * 60 * 1000;
+
 export function UtilityReadingTable({ embedded = false }: UtilityReadingTableProps = {}) {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
@@ -98,35 +101,60 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     totalInvoices: number;
     totalAmount: number;
     skipped: number;
+    invoices?: CalculatedInvoiceSummary[];
     skippedReasons: string[];
     errors: string[];
     warnings: string[];
   } | null>(null);
 
-  const loadReadings = useCallback(async () => {
-    setLoading(true);
+  const hydrateReadings = useCallback((data: RoomUtilityReading[]) => {
+    setRooms(data);
+    const initEdits: Record<number, RowEdit> = {};
+    data.forEach(r => {
+      initEdits[r.roomId] = {
+        newElec: r.newElecReading != null ? String(r.newElecReading) : '',
+        newWater: r.newWaterReading != null ? String(r.newWaterReading) : '',
+      };
+    });
+    setEdits(initEdits);
+  }, []);
+
+  const loadReadings = useCallback(async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
+    const cacheScope = getCurrentDataCacheScope();
+    const cacheKey = `utility-readings:${cacheScope}:${selectedYear}:${selectedMonth}`;
+    const cached = !force ? getCachedData<RoomUtilityReading[]>(cacheKey, UTILITY_READING_CACHE_TTL_MS) : null;
+
+    if (cached) {
+      hydrateReadings(cached);
+      setErrors([]);
+      setWarnings([]);
+      return;
+    }
+
+    if (!silent) setLoading(true);
     setErrors([]);
     setWarnings([]);
     try {
       const res = await api.get<RoomUtilityReading[]>(API_ENDPOINTS.UTILITY_READINGS.MONTH(selectedYear, selectedMonth));
-      setRooms(res.data);
-      // Init edits with existing recorded values
-      const initEdits: Record<number, RowEdit> = {};
-      res.data.forEach(r => {
-        initEdits[r.roomId] = {
-          newElec: r.newElecReading != null ? String(r.newElecReading) : '',
-          newWater: r.newWaterReading != null ? String(r.newWaterReading) : '',
-        };
-      });
-      setEdits(initEdits);
+      setCachedData(cacheKey, res.data);
+      hydrateReadings(res.data);
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Không thể tải dữ liệu. Vui lòng kiểm tra kết nối.']);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, [selectedYear, selectedMonth]);
+  }, [hydrateReadings, selectedYear, selectedMonth]);
 
   useEffect(() => { loadReadings(); }, [loadReadings]);
+
+  useEffect(() => {
+    const handleInvoiceUpdated = () => {
+      invalidateCachedData(`utility-readings:${getCurrentDataCacheScope()}:`);
+    };
+
+    window.addEventListener('billing-invoices-updated', handleInvoiceUpdated);
+    return () => window.removeEventListener('billing-invoices-updated', handleInvoiceUpdated);
+  }, []);
 
   useEffect(() => {
     setLockedCalculatedRoomIds(new Set());
@@ -212,7 +240,8 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
       if (showSuccess) {
         setSuccessMsg(`✅ Đã lưu ${data.success} phòng thành công${data.failed > 0 ? `, ${data.failed} lỗi` : ''}.`);
       }
-      await loadReadings();
+      invalidateCachedData(`utility-readings:${getCurrentDataCacheScope()}:`);
+      await loadReadings({ force: true, silent: true });
       return data.failed === 0 && data.errors.length === 0;
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi lưu chỉ số.']);
@@ -271,15 +300,13 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
       const saved = await saveReadingsBatch({ showSuccess: false });
       if (!saved) return;
 
-      const draftsBeforeCalculation = await loadCalculatedInvoices();
-      const draftIdsBefore = new Set(draftsBeforeCalculation.map((invoice) => invoice.id));
-
       const enteredRoomIds = getEnteredRoomIds();
       const res = await api.post<{
         totalContracts: number;
         totalInvoices: number;
         totalAmount: number;
         skipped: number;
+        invoices?: CalculatedInvoiceSummary[];
         skippedReasons: string[];
         errors: string[];
         warnings: string[];
@@ -287,9 +314,15 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
         API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth)
       );
 
-      const draftsAfterCalculation = await loadCalculatedInvoices();
-      const newlyCreatedDrafts = draftsAfterCalculation.filter((invoice) => !draftIdsBefore.has(invoice.id));
-      const displayDrafts = newlyCreatedDrafts.length > 0 ? newlyCreatedDrafts : draftsAfterCalculation;
+      const displayDrafts = res.data.invoices
+        ? res.data.invoices.map((inv: any) => ({
+            ...inv,
+            contractId: inv.contractId ?? inv.hopDongId,
+            roomId: inv.roomId ?? inv.phongId,
+            roomCode: inv.roomCode || inv.roomNumber || inv.soPhong || '',
+            roomNumber: inv.roomNumber || inv.roomCode || inv.soPhong || '',
+          }))
+        : await loadCalculatedInvoices();
 
       setCalcResult(res.data);
       setLockedCalculatedRoomIds(new Set(enteredRoomIds));

@@ -1,7 +1,12 @@
 import { api, handleApiError } from '../lib/api-client';
 import { API_CONFIG, API_ENDPOINTS } from '../lib/api-config';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../lib/memoryDataCache';
 
 const POST_AMENITIES_CACHE_KEY = 'prop-tech-post-amenities-cache';
+const POST_DATA_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getPostCacheKey = (name: string) => `posts:${getCurrentDataCacheScope()}:${name}`;
+const invalidatePostCache = () => invalidateCachedData(`posts:${getCurrentDataCacheScope()}:`);
 
 export interface RoomOption {
   id: number;
@@ -450,9 +455,15 @@ function shouldHydratePostRooms(posts: any[]): boolean {
 export const postService = {
   getRooms: async (): Promise<RoomOption[]> => {
     try {
+      const cacheKey = getPostCacheKey('rooms');
+      const cached = getCachedData<RoomOption[]>(cacheKey, POST_DATA_CACHE_TTL_MS);
+      if (cached) return cached;
+
       const response = await api.get(API_ENDPOINTS.ROOMS.BASE);
       const rooms = Array.isArray(response.data) ? response.data : [];
-      return rooms.map(mapRoomDto);
+      const normalized = rooms.map(mapRoomDto);
+      setCachedData(cacheKey, normalized);
+      return normalized;
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -460,16 +471,19 @@ export const postService = {
 
   getPosts: async (): Promise<PostRecord[]> => {
     try {
+      const cacheKey = getPostCacheKey('list');
+      const cached = getCachedData<PostRecord[]>(cacheKey, POST_DATA_CACHE_TTL_MS);
+      if (cached) return cached;
+
       const postsResp = await api.get(API_ENDPOINTS.POSTS.BASE);
       const posts = Array.isArray(postsResp.data) ? postsResp.data : [];
       let roomMap = new Map<number, any>();
 
       if (shouldHydratePostRooms(posts)) {
-        const roomsResp = await api.get(API_ENDPOINTS.ROOMS.BASE);
-        const rooms = Array.isArray(roomsResp.data) ? roomsResp.data : [];
+        const rooms = await postService.getRooms();
         roomMap = new Map<number, any>();
         for (const r of rooms) {
-          roomMap.set(Number(r.id ?? r.roomId ?? 0), r);
+          roomMap.set(Number(r.id ?? 0), r);
         }
       }
 
@@ -500,7 +514,9 @@ export const postService = {
         return normalizedPost;
       });
 
-      return normalized.filter(isManagedPost).map(applyCachedAmenities);
+      const result = normalized.filter(isManagedPost).map(applyCachedAmenities);
+      setCachedData(cacheKey, result);
+      return result;
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -508,10 +524,16 @@ export const postService = {
 
   getManagedPartnerUserIds: async (): Promise<number[]> => {
     try {
+      const cacheKey = getPostCacheKey('partner-user-ids');
+      const cached = getCachedData<number[]>(cacheKey, POST_DATA_CACHE_TTL_MS);
+      if (cached) return cached;
+
       const response = await api.get(`${API_ENDPOINTS.POSTS.BASE}/partner-user-ids`);
-      return Array.isArray(response.data)
+      const result = Array.isArray(response.data)
         ? response.data.map((id: unknown) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0)
         : [];
+      setCachedData(cacheKey, result);
+      return result;
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -520,6 +542,7 @@ export const postService = {
   createPost: async (input: CreatePostInput): Promise<PostRecord> => {
     try {
       const response = await api.post(API_ENDPOINTS.POSTS.BASE, input);
+      invalidatePostCache();
       const created = response.data ?? {};
 
       // If backend didn't return roomCode but returned roomId, try to map room info
@@ -554,6 +577,7 @@ export const postService = {
   toggleLock: async (id: number, isLocked: boolean): Promise<PostRecord> => {
     try {
       const response = await api.patch(API_ENDPOINTS.POSTS.LOCK(id), { isLocked });
+      invalidatePostCache();
       return normalizePostRecord(response.data);
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -572,6 +596,7 @@ export const postService = {
   updatePost: async (id: number, payload: Partial<CreatePostInput>): Promise<PostRecord> => {
     try {
       const response = await api.put(API_ENDPOINTS.POSTS.BY_ID(id), payload);
+      invalidatePostCache();
       const normalized = normalizePostRecord(response.data);
       const payloadAmenities = normalizeAmenityStrings((payload as any).amenities);
       if (payloadAmenities.length > 0) {
@@ -589,6 +614,7 @@ export const postService = {
   deletePost: async (id: number): Promise<void> => {
     try {
       await api.delete(API_ENDPOINTS.POSTS.BY_ID(id));
+      invalidatePostCache();
     } catch (error) {
       throw new Error(handleApiError(error));
     }

@@ -7,6 +7,12 @@ import { FilterSelect } from '../ui/FilterSelect';
 import { DateTextInput } from '../ui/DateTextInput';
 import { useTablePagination } from '../../lib/useTablePagination';
 import { TablePaginationBar } from '../ui/TablePaginationBar';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../../lib/memoryDataCache';
+
+const INFRA_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getInfrastructureCacheKey = (name: string) => `infrastructure:${getCurrentDataCacheScope()}:${name}`;
+const invalidateInfrastructureCache = () => invalidateCachedData(`infrastructure:${getCurrentDataCacheScope()}:`);
 
 const SERVICE_TYPES = ['Điện', 'Nước', 'Cần nhập số lượng', 'Theo tháng'] as const;
 type ServiceTypeValue = typeof SERVICE_TYPES[number];
@@ -147,10 +153,19 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
     fetchBuildings();
   }, []);
 
-  const fetchBuildings = async () => {
+  const fetchBuildings = async ({ force = false }: { force?: boolean } = {}) => {
     try {
+      const cacheKey = getInfrastructureCacheKey('buildings');
+      const cached = !force ? getCachedData<BuildingOption[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setBuildings(cached);
+        return;
+      }
+
       const data = await buildingService.getAll();
-      setBuildings(data as BuildingOption[]);
+      const normalized = data as BuildingOption[];
+      setCachedData(cacheKey, normalized);
+      setBuildings(normalized);
     } catch {
       setBuildings([]);
     }
@@ -395,9 +410,17 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
     if (!duplicateMessage) setUpdateError(null);
   };
 
-  const fetchServices = async () => {
+  const fetchServices = async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
     try {
-      setLoading(true);
+      const cacheKey = getInfrastructureCacheKey('services');
+      const cached = !force ? getCachedData<ServiceData[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setServices(cached);
+        setError(null);
+        return;
+      }
+
+      if (!silent) setLoading(true);
       setError(null);
       const data = await serviceService.getAll();
       
@@ -421,12 +444,13 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
         buildingNames: Array.isArray(service.buildingNames) ? service.buildingNames : [],
       }));
       
+      setCachedData(cacheKey, serviceData);
       setServices(serviceData);
     } catch (err: any) {
       setError(err.message || 'Không thể tải danh sách dịch vụ');
       console.error('Error fetching services:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -507,7 +531,8 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
         effectiveDate: toLocalIsoString(addEffectiveDate),
         buildingIds: targetBuildingIds,
       } as any);
-      await fetchServices();
+      invalidateInfrastructureCache();
+      await fetchServices({ force: true, silent: true });
       setShowAddModal(false);
     } catch (err: any) {
       setAddError(err.message || 'Có lỗi xảy ra, vui lòng thử lại');
@@ -588,7 +613,8 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
         buildingIds: targetBuildingIds,
       };
       await serviceService.update(selectedService.id, basePayload as any);
-      await fetchServices();
+      invalidateInfrastructureCache();
+      await fetchServices({ force: true, silent: true });
       setShowUpdatePriceConfirm(false);
       setShowUpdatePriceModal(false);
     } catch (err: any) {
@@ -603,6 +629,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
     setDeleteLoading(true); setDeleteError(null);
     try {
       await serviceService.delete(selectedService.id);
+      invalidateInfrastructureCache();
       setServices((current) => current.filter((service) => service.id !== selectedService.id));
       setShowDeleteModal(false);
       setSelectedService(null);

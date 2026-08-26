@@ -13,6 +13,7 @@ import { ImageViewer } from '../components/ui/ImageViewer';
 import { MoneyInput } from '../components/ui/MoneyInput';
 import { PageHeader } from '../components/ui/product-system';
 import { DateTextInput } from '../components/ui/DateTextInput';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../lib/memoryDataCache';
 
 interface AssetOption {
   id: number;
@@ -23,6 +24,10 @@ interface AssetOption {
 }
 
 const POST_IMAGE_LIMIT = 6;
+const POST_FORM_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getPostFormCacheKey = (name: string) => `post-form:${getCurrentDataCacheScope()}:${name}`;
+const invalidatePostFormCache = () => invalidateCachedData(`post-form:${getCurrentDataCacheScope()}:`);
 type RoomStatusFilter = 'all' | 'empty' | 'rented';
 
 const resolveImageUrl = (url?: string) => {
@@ -269,14 +274,27 @@ export function CreatePostPage() {
   useEffect(() => {
     void (async () => {
       try {
+        const cacheKey = getPostFormCacheKey('initial-data');
+        const cached = getCachedData<{
+          rooms: RoomOption[];
+          posts: PostRecord[];
+          services: PostServiceLineItem[];
+          assets: AssetOption[];
+        }>(cacheKey, POST_FORM_CACHE_TTL_MS);
+        if (cached) {
+          setRooms(cached.rooms);
+          setExistingPosts(cached.posts);
+          setServiceCatalog(cached.services);
+          setAssetCatalog(cached.assets);
+          return;
+        }
+
         const [list, posts, catalog, assetsResp] = await Promise.all([
           postService.getRooms(),
           postService.getPosts(),
           serviceService.getAll().catch(() => []),
           api.get<any[]>(API_ENDPOINTS.ASSETS.BASE).catch(() => ({ data: [] })),
         ]);
-        setRooms(list);
-        setExistingPosts(posts);
 
         const normalizedCatalog: PostServiceLineItem[] = (Array.isArray(catalog) ? catalog : []).map((service: any, index: number) => ({
           key: String(service.id ?? service.serviceId ?? `catalog-${index}`),
@@ -287,8 +305,6 @@ export function CreatePostPage() {
           buildingId: typeof service.buildingId === 'number' ? service.buildingId : null,
           buildingIds: Array.isArray(service.buildingIds) ? service.buildingIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0) : [],
         }));
-        setServiceCatalog(normalizedCatalog);
-
         const normalizedAssets: AssetOption[] = (Array.isArray(assetsResp.data) ? assetsResp.data : []).map((asset: any) => ({
           id: Number(asset.id ?? 0),
           assetName: String(asset.assetName ?? asset.name ?? 'Tài sản'),
@@ -296,7 +312,13 @@ export function CreatePostPage() {
           buildingId: typeof asset.buildingId === 'number' ? asset.buildingId : null,
           buildingIds: Array.isArray(asset.buildingIds) ? asset.buildingIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id) && id > 0) : [],
         }));
-        setAssetCatalog(normalizedAssets);
+
+        const nextData = { rooms: list, posts, services: normalizedCatalog, assets: normalizedAssets };
+        setCachedData(cacheKey, nextData);
+        setRooms(nextData.rooms);
+        setExistingPosts(nextData.posts);
+        setServiceCatalog(nextData.services);
+        setAssetCatalog(nextData.assets);
       } catch {
         // keep fallback empty
       }
@@ -639,9 +661,11 @@ export function CreatePostPage() {
 
         if (isEditing && editingPostId) {
           await postService.updatePost(editingPostId, finalPayload as any);
+          invalidatePostFormCache();
           toast.success('Đã lưu thay đổi');
         } else {
           await postService.createPost(finalPayload as any);
+          invalidatePostFormCache();
           toast.success('Đã đăng bài');
         }
         navigate('/post-management', { state: { refresh: Date.now() } });

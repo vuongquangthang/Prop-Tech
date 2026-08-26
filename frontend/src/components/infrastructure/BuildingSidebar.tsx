@@ -3,6 +3,12 @@ import { useState, useEffect, useRef } from 'react';
 import { buildingService, floorService, roomService } from '../../services/api.service';
 import { postService } from '../../services/postService';
 import { LocationPicker } from '../LocationPicker';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../../lib/memoryDataCache';
+
+const INFRA_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getInfrastructureCacheKey = (name: string) => `infrastructure:${getCurrentDataCacheScope()}:${name}`;
+const invalidateInfrastructureCache = () => invalidateCachedData(`infrastructure:${getCurrentDataCacheScope()}:`);
 
 interface FloorData {
   id: number;
@@ -101,12 +107,20 @@ export function BuildingSidebar({
   const [floorNumberError, setFloorNumberError] = useState('');
 
   useEffect(() => {
-    fetchBuildings();
+    fetchBuildings({ force: structureRefreshKey > 0 });
   }, [structureRefreshKey]);
 
-  const fetchBuildings = async () => {
+  const fetchBuildings = async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
     try {
-      setLoading(true);
+      const cacheKey = getInfrastructureCacheKey('building-tree');
+      const cached = !force ? getCachedData<BuildingData[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setBuildings(cached);
+        setError(null);
+        return;
+      }
+
+      if (!silent) setLoading(true);
       setError(null);
       const buildingsData = await buildingService.getAll();
       
@@ -150,6 +164,7 @@ export function BuildingSidebar({
         })
       );
       
+      setCachedData(cacheKey, buildingsWithFloors);
       setBuildings(buildingsWithFloors);
       
       // Auto-expand first building
@@ -160,7 +175,7 @@ export function BuildingSidebar({
       setError(err.message || 'Không thể tải danh sách tòa nhà');
       console.error('Error fetching buildings:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -315,7 +330,8 @@ export function BuildingSidebar({
           } as any);
         }
       }
-      await fetchBuildings();
+      invalidateInfrastructureCache();
+      await fetchBuildings({ force: true, silent: true });
       onStructureChange?.();
       setShowAddModal(false);
     } catch (err: any) {
@@ -507,7 +523,8 @@ export function BuildingSidebar({
         } as any);
       }
 
-      await fetchBuildings();
+      invalidateInfrastructureCache();
+      await fetchBuildings({ force: true, silent: true });
       onStructureChange?.();
       setDetailEditMode(false);
       setDetailTarget(null);
@@ -536,7 +553,8 @@ export function BuildingSidebar({
         }
       }
 
-      await fetchBuildings();
+      invalidateInfrastructureCache();
+      await fetchBuildings({ force: true, silent: true });
       onStructureChange?.();
       closeDeleteModal();
     } catch (err: any) {

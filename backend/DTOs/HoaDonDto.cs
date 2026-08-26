@@ -84,6 +84,7 @@ public class CalculateInvoiceResultDto
     public int TotalInvoices { get; set; }
     public decimal TotalAmount { get; set; }
     public int Skipped { get; set; }
+    public List<HoaDonDto> Invoices { get; set; } = new();
     public List<string> SkippedReasons { get; set; } = new();
     public List<string> Errors { get; set; } = new();
     public List<string> Warnings { get; set; } = new();

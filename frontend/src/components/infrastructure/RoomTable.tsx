@@ -14,6 +14,12 @@ import { LocationPicker } from '../LocationPicker';
 import type { ResolvedLocation } from '../../services/goongLocation.service';
 import { useTablePagination } from '../../lib/useTablePagination';
 import { TablePaginationBar } from '../ui/TablePaginationBar';
+import { getCachedData, getCurrentDataCacheScope, invalidateCachedData, setCachedData } from '../../lib/memoryDataCache';
+
+const INFRA_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getInfrastructureCacheKey = (name: string) => `infrastructure:${getCurrentDataCacheScope()}:${name}`;
+const invalidateInfrastructureCache = () => invalidateCachedData(`infrastructure:${getCurrentDataCacheScope()}:`);
 
 interface RoomData {
   id: number;
@@ -302,8 +308,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   };
 
   useEffect(() => {
-    fetchRooms();
-    fetchFloors();
+    fetchRooms({ force: structureRefreshKey > 0 });
+    fetchFloors({ force: structureRefreshKey > 0 });
   }, [structureRefreshKey]);
 
   const normalizeRoom = (room: any): RoomData => ({
@@ -345,12 +351,24 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       : [],
   });
 
-  const fetchRooms = async () => {
+  const fetchRooms = async ({ force = false, silent = false }: { force?: boolean; silent?: boolean } = {}) => {
     try {
-      setLoading(true);
+      const cacheKey = getInfrastructureCacheKey('rooms');
+      const cached = !force ? getCachedData<RoomData[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setRooms(cached);
+        setDetailRoom((current) => {
+          if (!current) return current;
+          return cached.find((room) => room.id === current.id) ?? current;
+        });
+        return cached;
+      }
+
+      if (!silent) setLoading(true);
       setError(null);
       const data = await roomService.getAll();
       const roomData: RoomData[] = data.map(normalizeRoom);
+      setCachedData(cacheKey, roomData);
       setRooms(roomData);
       setDetailRoom((current) => {
         if (!current) return current;
@@ -361,22 +379,38 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       setError(err.message || 'Không thể tải danh sách phòng');
       return [];
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  const fetchFloors = async () => {
+  const fetchFloors = async ({ force = false }: { force?: boolean } = {}) => {
     try {
+      const cacheKey = getInfrastructureCacheKey('floors');
+      const cached = !force ? getCachedData<Floor[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setFloors(cached);
+        return;
+      }
+
       const data = await floorService.getAll();
+      setCachedData(cacheKey, data);
       setFloors(data);
     } catch {
       // floors not critical
     }
   };
 
-  const fetchServiceCatalog = async () => {
+  const fetchServiceCatalog = async ({ force = false }: { force?: boolean } = {}) => {
     try {
+      const cacheKey = getInfrastructureCacheKey('services');
+      const cached = !force ? getCachedData<Service[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setServiceCatalog(cached);
+        return cached;
+      }
+
       const services = (await serviceService.getAll()).map(normalizeService);
+      setCachedData(cacheKey, services);
       setServiceCatalog(services);
       return services;
     } catch {
@@ -385,9 +419,17 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     }
   };
 
-  const fetchAssetCatalog = async () => {
+  const fetchAssetCatalog = async ({ force = false }: { force?: boolean } = {}) => {
     try {
+      const cacheKey = getInfrastructureCacheKey('assets');
+      const cached = !force ? getCachedData<AssetOption[]>(cacheKey, INFRA_CACHE_TTL_MS) : null;
+      if (cached) {
+        setAssetCatalog(cached);
+        return cached;
+      }
+
       const res = await api.get<AssetOption[]>(API_ENDPOINTS.ASSETS.BASE);
+      setCachedData(cacheKey, res.data);
       setAssetCatalog(res.data);
       return res.data;
     } catch {
@@ -396,8 +438,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     }
   };
 
-  const loadReferenceData = async () => {
-    const [services, assets] = await Promise.all([fetchServiceCatalog(), fetchAssetCatalog()]);
+  const loadReferenceData = async ({ force = false }: { force?: boolean } = {}) => {
+    const [services, assets] = await Promise.all([fetchServiceCatalog({ force }), fetchAssetCatalog({ force })]);
     return { services, assets };
   };
 
@@ -646,14 +688,9 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     let services: Service[] = [];
     let assets: AssetOption[] = [];
     try {
-      const [serviceData, assetRes] = await Promise.all([
-        serviceService.getAll(),
-        api.get<AssetOption[]>(API_ENDPOINTS.ASSETS.BASE),
-      ]);
-      services = serviceData.map(normalizeService);
-      assets = assetRes.data ?? [];
-      setServiceCatalog(services);
-      setAssetCatalog(assets);
+      const referenceData = await loadReferenceData();
+      services = referenceData.services;
+      assets = referenceData.assets;
     } catch {
       setServiceCatalog([]);
       setAssetCatalog([]);
@@ -759,7 +796,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
         servicePrices: [],
       } as any);
 
-      await fetchRooms();
+      invalidateInfrastructureCache();
+      await fetchRooms({ force: true, silent: true });
       onRoomsChange?.();
       setShowAddModal(false);
     } catch (err: any) { setAddError(err.message || 'Có lỗi xảy ra'); }
@@ -847,7 +885,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
         serviceIds: editServiceIds,
       } as any);
 
-      await fetchRooms();
+      invalidateInfrastructureCache();
+      await fetchRooms({ force: true, silent: true });
       onRoomsChange?.();
       setShowEditModal(false);
     } catch (err: any) { setEditError(err.message || 'Có lỗi xảy ra'); }
@@ -869,7 +908,8 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     setDeleteLoading(true); setDeleteError(null);
     try {
       await roomService.delete(deleteRoom.id);
-      await fetchRooms();
+      invalidateInfrastructureCache();
+      await fetchRooms({ force: true, silent: true });
       onRoomsChange?.();
       setShowDeleteModal(false);
     } catch (err: any) { setDeleteError(err.message || 'Có lỗi xảy ra'); }

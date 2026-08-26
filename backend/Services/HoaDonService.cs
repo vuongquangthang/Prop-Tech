@@ -151,33 +151,33 @@ public class HoaDonService : IHoaDonService
         result.TotalContracts = contracts.Count;
 
         var contractIds = contracts.Select(contract => contract.Id).ToList();
-        if (contractIds.Count > 0)
-        {
-            var finalizedInvoiceContractIds = await _context.HoaDons
-                .AsNoTracking()
+        var existingInvoicesForPeriod = contractIds.Count == 0
+            ? new List<HoaDon>()
+            : await _context.HoaDons
+                .Include(invoice => invoice.ChiTietHoaDons)
                 .Where(invoice =>
                     contractIds.Contains(invoice.ContractId)
                     && invoice.Month == month
-                    && invoice.Year == year
-                    && invoice.Status != "Nháp"
-                    && invoice.Status != "Bị từ chối")
-                .Select(invoice => invoice.ContractId)
-                .Distinct()
+                    && invoice.Year == year)
                 .ToListAsync();
 
-            if (finalizedInvoiceContractIds.Count > 0)
+        var existingInvoiceByContractId = existingInvoicesForPeriod
+            .GroupBy(invoice => invoice.ContractId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        if (existingInvoiceByContractId.Count > 0)
+        {
+            foreach (var skippedContract in contracts.Where(contract => existingInvoiceByContractId.ContainsKey(contract.Id)))
             {
-                var finalizedInvoiceContractIdSet = finalizedInvoiceContractIds.ToHashSet();
-                foreach (var skippedContract in contracts.Where(contract => finalizedInvoiceContractIdSet.Contains(contract.Id)))
-                {
-                    var roomCode = skippedContract.Room?.RoomCode ?? $"Hợp đồng {skippedContract.Id}";
-                    result.SkippedReasons.Add($"Phòng {roomCode}: Đã có hóa đơn tháng {month}/{year} được gửi hoặc đã thanh toán");
-                }
-                result.Skipped += finalizedInvoiceContractIdSet.Count;
-                contracts = contracts
-                    .Where(contract => !finalizedInvoiceContractIdSet.Contains(contract.Id))
-                    .ToList();
+                var roomCode = skippedContract.Room?.RoomCode ?? $"Hợp đồng {skippedContract.Id}";
+                var status = existingInvoiceByContractId[skippedContract.Id].Status;
+                result.SkippedReasons.Add($"Phòng {roomCode}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {status})");
             }
+            result.Skipped += existingInvoiceByContractId.Count;
+            contracts = contracts
+                .Where(contract => !existingInvoiceByContractId.ContainsKey(contract.Id))
+                .ToList();
+            contractIds = contracts.Select(contract => contract.Id).ToList();
         }
 
         var serviceIds = contracts
@@ -191,6 +191,58 @@ public class HoaDonService : IHoaDonService
             .OrderBy(history => history.EffectiveDate)
             .ToListAsync();
         var invoiceIssuedDate = GetVietnamToday();
+
+        var activeUsageIds = contracts
+            .SelectMany(contract => contract.Room?.ChiTietSuDungDichVus ?? Enumerable.Empty<ChiTietSuDungDichVu>())
+            .Select(usage => usage.Id)
+            .Distinct()
+            .ToList();
+
+        var currentElectricityReadings = activeUsageIds.Count == 0
+            ? new Dictionary<long, ChiSoDien>()
+            : await _context.ChiSoDiens
+                .AsNoTracking()
+                .Where(reading => activeUsageIds.Contains(reading.ServiceUsageDetailId)
+                    && reading.Month == month
+                    && reading.Year == year)
+                .ToDictionaryAsync(reading => reading.ServiceUsageDetailId);
+
+        var currentWaterReadings = activeUsageIds.Count == 0
+            ? new Dictionary<long, ChiSoNuoc>()
+            : await _context.ChiSoNuocs
+                .AsNoTracking()
+                .Where(reading => activeUsageIds.Contains(reading.ServiceUsageDetailId)
+                    && reading.Month == month
+                    && reading.Year == year)
+                .ToDictionaryAsync(reading => reading.ServiceUsageDetailId);
+
+        var previousElectricityReadingRows = activeUsageIds.Count == 0
+            ? new List<ChiSoDien>()
+            : await _context.ChiSoDiens
+                .AsNoTracking()
+                .Where(reading => activeUsageIds.Contains(reading.ServiceUsageDetailId)
+                    && (reading.Year < year || (reading.Year == year && reading.Month < month)))
+                .OrderByDescending(reading => reading.Year)
+                .ThenByDescending(reading => reading.Month)
+                .ToListAsync();
+
+        var previousWaterReadingRows = activeUsageIds.Count == 0
+            ? new List<ChiSoNuoc>()
+            : await _context.ChiSoNuocs
+                .AsNoTracking()
+                .Where(reading => activeUsageIds.Contains(reading.ServiceUsageDetailId)
+                    && (reading.Year < year || (reading.Year == year && reading.Month < month)))
+                .OrderByDescending(reading => reading.Year)
+                .ThenByDescending(reading => reading.Month)
+                .ToListAsync();
+
+        var previousElectricityReadings = previousElectricityReadingRows
+            .GroupBy(reading => reading.ServiceUsageDetailId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        var previousWaterReadings = previousWaterReadingRows
+            .GroupBy(reading => reading.ServiceUsageDetailId)
+            .ToDictionary(group => group.Key, group => group.First());
 
         decimal ResolveMarketPrice(int serviceId, decimal fallbackPrice)
         {
@@ -210,7 +262,82 @@ public class HoaDonService : IHoaDonService
             return histories.FirstOrDefault()?.OldPrice ?? fallbackPrice;
         }
 
+        ChiTietSuDungDichVu? SelectElectricityUsage(IEnumerable<ChiTietSuDungDichVu> activeUsages)
+        {
+            var candidates = activeUsages
+                .Where(usage => IsElectricityService(usage.Service))
+                .OrderByDescending(usage => usage.ApplyFrom)
+                .ThenByDescending(usage => usage.Id)
+                .ToList();
+
+            return candidates.FirstOrDefault(usage => currentElectricityReadings.ContainsKey(usage.Id))
+                ?? candidates.FirstOrDefault();
+        }
+
+        ChiTietSuDungDichVu? SelectWaterUsage(IEnumerable<ChiTietSuDungDichVu> activeUsages)
+        {
+            var candidates = activeUsages
+                .Where(usage => IsWaterService(usage.Service))
+                .OrderByDescending(usage => usage.ApplyFrom)
+                .ThenByDescending(usage => usage.Id)
+                .ToList();
+
+            return candidates.FirstOrDefault(usage => currentWaterReadings.ContainsKey(usage.Id))
+                ?? candidates.FirstOrDefault();
+        }
+
+        ChiSoDien? GetPreviousElectricityReadingBefore(long usageDetailId, byte targetMonth, short targetYear)
+        {
+            return previousElectricityReadingRows.FirstOrDefault(reading =>
+                reading.ServiceUsageDetailId == usageDetailId
+                && (reading.Year < targetYear || (reading.Year == targetYear && reading.Month < targetMonth)));
+        }
+
+        ChiSoNuoc? GetPreviousWaterReadingBefore(long usageDetailId, byte targetMonth, short targetYear)
+        {
+            return previousWaterReadingRows.FirstOrDefault(reading =>
+                reading.ServiceUsageDetailId == usageDetailId
+                && (reading.Year < targetYear || (reading.Year == targetYear && reading.Month < targetMonth)));
+        }
+
+        List<string> GetUtilityReadingAnomalyReasons(IEnumerable<ChiTietSuDungDichVu> activeUsages)
+        {
+            var reasons = new List<string>();
+
+            foreach (var usage in activeUsages)
+            {
+                if (IsElectricityService(usage.Service)
+                    && currentElectricityReadings.TryGetValue(usage.Id, out var currentElectricity)
+                    && previousElectricityReadings.TryGetValue(usage.Id, out var previousElectricity))
+                {
+                    var previousPrevious = GetPreviousElectricityReadingBefore(usage.Id, previousElectricity.Month, previousElectricity.Year);
+                    var previousConsumption = previousElectricity.NewReading - (previousPrevious?.NewReading ?? 0);
+                    var currentConsumption = currentElectricity.NewReading - previousElectricity.NewReading;
+                    if (previousConsumption > 0 && currentConsumption > previousConsumption * 2m)
+                    {
+                        reasons.Add($"Phòng có chỉ số điện tăng bất thường: {currentConsumption:N0} kWh so với tháng trước {previousConsumption:N0} kWh");
+                    }
+                }
+
+                if (IsWaterService(usage.Service)
+                    && currentWaterReadings.TryGetValue(usage.Id, out var currentWater)
+                    && previousWaterReadings.TryGetValue(usage.Id, out var previousWater))
+                {
+                    var previousPrevious = GetPreviousWaterReadingBefore(usage.Id, previousWater.Month, previousWater.Year);
+                    var previousConsumption = previousWater.NewReading - (previousPrevious?.NewReading ?? 0);
+                    var currentConsumption = currentWater.NewReading - previousWater.NewReading;
+                    if (previousConsumption > 0 && currentConsumption > previousConsumption * 2m)
+                    {
+                        reasons.Add($"Phòng có chỉ số nước tăng bất thường: {currentConsumption:N0} m³ so với tháng trước {previousConsumption:N0} m³");
+                    }
+                }
+            }
+
+            return reasons;
+        }
+
         var strategy = _context.Database.CreateExecutionStrategy();
+        var createdInvoices = new List<HoaDon>();
         await strategy.ExecuteAsync(async () =>
         {
         using var transaction = await _context.Database.BeginTransactionAsync();
@@ -218,24 +345,6 @@ public class HoaDonService : IHoaDonService
         {
             foreach (var contract in contracts)
             {
-                // Kiểm tra hóa đơn đã tồn tại
-                var existingInvoice = await _context.HoaDons
-                    .Include(hd => hd.ChiTietHoaDons)
-                    .FirstOrDefaultAsync(hd => hd.ContractId == contract.Id && hd.Month == month && hd.Year == year);
-
-                if (existingInvoice != null)
-                {
-                    if (existingInvoice.Status != "Nháp" && existingInvoice.Status != "Bị từ chối")
-                    {
-                        result.Skipped++;
-                        result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode ?? $"Hợp đồng {contract.Id}"}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
-                        continue;
-                    }
-                    _context.ChiTietHoaDons.RemoveRange(existingInvoice.ChiTietHoaDons);
-                    _context.HoaDons.Remove(existingInvoice);
-                    await _context.SaveChangesAsync();
-                }
-
                 var room = contract.Room;
                 if (room == null)
                 {
@@ -245,7 +354,7 @@ public class HoaDonService : IHoaDonService
 
                 var activeUsages = GetActiveServiceUsagesForPeriod(room.ChiTietSuDungDichVus, year, month);
 
-                var anomalyReasons = await GetUtilityReadingAnomalyReasonsAsync(activeUsages, year, month);
+                var anomalyReasons = GetUtilityReadingAnomalyReasons(activeUsages);
                 if (anomalyReasons.Any())
                 {
                     result.Skipped++;
@@ -281,16 +390,11 @@ public class HoaDonService : IHoaDonService
                             // Meter reading (Electricity or Water)
                             if (IsElectricityFormulaItem(item))
                             {
-                                var elecUsage = await SelectElectricityUsageAsync(activeUsages, month, year);
+                                var elecUsage = SelectElectricityUsage(activeUsages);
                                 if (elecUsage != null)
                                 {
-                                    var prev = await _context.ChiSoDiens
-                                        .Where(c => c.ServiceUsageDetailId == elecUsage.Id && (c.Year < year || (c.Year == year && c.Month < month)))
-                                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
-                                    var curr = await _context.ChiSoDiens
-                                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == elecUsage.Id && c.Month == month && c.Year == year);
-
-                                    if (curr != null)
+                                    previousElectricityReadings.TryGetValue(elecUsage.Id, out var prev);
+                                    if (currentElectricityReadings.TryGetValue(elecUsage.Id, out var curr))
                                     {
                                         var oldReading = prev?.NewReading ?? 0;
                                         var consumption = curr.NewReading - oldReading;
@@ -310,16 +414,11 @@ public class HoaDonService : IHoaDonService
                             }
                             else if (IsWaterFormulaItem(item))
                             {
-                                var waterUsage = await SelectWaterUsageAsync(activeUsages, month, year);
+                                var waterUsage = SelectWaterUsage(activeUsages);
                                 if (waterUsage != null)
                                 {
-                                    var prev = await _context.ChiSoNuocs
-                                        .Where(c => c.ServiceUsageDetailId == waterUsage.Id && (c.Year < year || (c.Year == year && c.Month < month)))
-                                        .OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
-                                    var curr = await _context.ChiSoNuocs
-                                        .FirstOrDefaultAsync(c => c.ServiceUsageDetailId == waterUsage.Id && c.Month == month && c.Year == year);
-
-                                    if (curr != null)
+                                    previousWaterReadings.TryGetValue(waterUsage.Id, out var prev);
+                                    if (currentWaterReadings.TryGetValue(waterUsage.Id, out var curr))
                                     {
                                         var oldReading = prev?.NewReading ?? 0;
                                         var consumption = curr.NewReading - oldReading;
@@ -383,8 +482,8 @@ public class HoaDonService : IHoaDonService
                     total += contract.ActualRentPrice;
 
                     // 2. Điện/Nước/Dịch vụ khác từ activeUsages
-                    var selectedElectricityUsage = await SelectElectricityUsageAsync(activeUsages, month, year);
-                    var selectedWaterUsage = await SelectWaterUsageAsync(activeUsages, month, year);
+                    var selectedElectricityUsage = SelectElectricityUsage(activeUsages);
+                    var selectedWaterUsage = SelectWaterUsage(activeUsages);
                     var billableUsages = activeUsages
                         .Where(usage =>
                             !IsElectricityService(usage.Service)
@@ -408,9 +507,8 @@ public class HoaDonService : IHoaDonService
                             : configuredPrice;
                         if (IsElectricityService(usage.Service))
                         {
-                            var prev = await _context.ChiSoDiens.Where(c => c.ServiceUsageDetailId == usage.Id && (c.Year < year || (c.Year == year && c.Month < month))).OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
-                            var curr = await _context.ChiSoDiens.FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usage.Id && c.Month == month && c.Year == year);
-                            if (curr != null) {
+                            previousElectricityReadings.TryGetValue(usage.Id, out var prev);
+                            if (currentElectricityReadings.TryGetValue(usage.Id, out var curr)) {
                                 var cons = curr.NewReading - (prev?.NewReading ?? 0);
                                 lineItems.Add(new ChiTietHoaDon { ItemType = "Dien", ServiceId = usage.ServiceId, ServiceUsageDetailId = usage.Id, Description = $"Điện tháng {month}/{year}: {prev?.NewReading ?? 0} → {curr.NewReading} = {cons} kWh", Quantity = cons, UnitPrice = unitPrice });
                                 total += cons * unitPrice;
@@ -418,9 +516,8 @@ public class HoaDonService : IHoaDonService
                         }
                         else if (IsWaterService(usage.Service))
                         {
-                            var prev = await _context.ChiSoNuocs.Where(c => c.ServiceUsageDetailId == usage.Id && (c.Year < year || (c.Year == year && c.Month < month))).OrderByDescending(c => c.Year).ThenByDescending(c => c.Month).FirstOrDefaultAsync();
-                            var curr = await _context.ChiSoNuocs.FirstOrDefaultAsync(c => c.ServiceUsageDetailId == usage.Id && c.Month == month && c.Year == year);
-                            if (curr != null) {
+                            previousWaterReadings.TryGetValue(usage.Id, out var prev);
+                            if (currentWaterReadings.TryGetValue(usage.Id, out var curr)) {
                                 var cons = curr.NewReading - (prev?.NewReading ?? 0);
                                 lineItems.Add(new ChiTietHoaDon { ItemType = "Nuoc", ServiceId = usage.ServiceId, ServiceUsageDetailId = usage.Id, Description = $"Nước tháng {month}/{year}: {prev?.NewReading ?? 0} → {curr.NewReading} = {cons} m³", Quantity = cons, UnitPrice = unitPrice });
                                 total += cons * unitPrice;
@@ -445,6 +542,7 @@ public class HoaDonService : IHoaDonService
                 var invoice = new HoaDon
                 {
                     ContractId = contract.Id,
+                    HopDong = contract,
                     Month = month,
                     Year = year,
                     TotalAmount = total,
@@ -452,19 +550,19 @@ public class HoaDonService : IHoaDonService
                     DueDate = BuildDueDate(year, month, contract.PaymentDayOfMonth)
                 };
                 _context.HoaDons.Add(invoice);
-                await _context.SaveChangesAsync();
 
                 foreach (var item in lineItems)
                 {
-                    item.InvoiceId = invoice.Id;
-                    _context.ChiTietHoaDons.Add(item);
+                    invoice.ChiTietHoaDons.Add(item);
                 }
-                await _context.SaveChangesAsync();
 
                 result.TotalInvoices++;
                 result.TotalAmount += total;
+                createdInvoices.Add(invoice);
             }
 
+            await _context.SaveChangesAsync();
+            result.Invoices = createdInvoices.Select(MapToDto).ToList();
             await transaction.CommitAsync();
         }
         catch (Exception ex)

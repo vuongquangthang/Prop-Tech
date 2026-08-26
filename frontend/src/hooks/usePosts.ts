@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { postService, type CreatePostInput, type PostRecord, type RoomOption } from '../services/postService';
+import { getCachedData, getCurrentDataCacheScope } from '../lib/memoryDataCache';
+
+const POST_DATA_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const getPostCacheKey = (name: string) => `posts:${getCurrentDataCacheScope()}:${name}`;
 
 export function usePosts() {
-  const [rooms, setRooms] = useState<RoomOption[]>([]);
-  const [posts, setPosts] = useState<PostRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialRooms = getCachedData<RoomOption[]>(getPostCacheKey('rooms'), POST_DATA_CACHE_TTL_MS);
+  const initialPosts = getCachedData<PostRecord[]>(getPostCacheKey('list'), POST_DATA_CACHE_TTL_MS);
+  const hasInitialCache = Boolean(initialRooms && initialPosts);
+  const [rooms, setRooms] = useState<RoomOption[]>(initialRooms ?? []);
+  const [posts, setPosts] = useState<PostRecord[]>(initialPosts ?? []);
+  const [loading, setLoading] = useState(!hasInitialCache);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,8 +36,9 @@ export function usePosts() {
   }, []);
 
   useEffect(() => {
+    if (hasInitialCache) return;
     void refresh();
-  }, [refresh]);
+  }, [hasInitialCache, refresh]);
 
   const createPost = useCallback(async (input: CreatePostInput) => {
     setCreating(true);
