@@ -5,6 +5,8 @@ import { formatDisplayDate, formatLocalDateInput, toLocalIsoString } from '../..
 import { PageHeader } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 import { DateTextInput } from '../ui/DateTextInput';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 const SERVICE_TYPES = ['Điện', 'Nước', 'Cần nhập số lượng', 'Theo tháng'] as const;
 type ServiceTypeValue = typeof SERVICE_TYPES[number];
@@ -327,6 +329,19 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
       return matchesSearch && matchesType && matchesManualBuilding;
     });
   }, [contextBuildingId, contextServiceGroups, serviceSearch, serviceTypeFilter, serviceBuildingFilter]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems: pagedServiceGroups,
+  } = useTablePagination(filteredServiceGroups, {
+    initialPageSize: 10,
+    resetDeps: [contextBuildingId, serviceSearch, serviceTypeFilter, serviceBuildingFilter],
+  });
 
   const visibleServiceCount = useMemo(
     () => filteredServiceGroups.reduce((total, group) => total + (group.items?.length || 1), 0),
@@ -754,7 +769,7 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
                 </tr>
               </thead>
               <tbody>
-                {filteredServiceGroups.map((service) => (
+                {pagedServiceGroups.map((service) => (
                   <tr key={service.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-800">{service.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
@@ -827,6 +842,16 @@ export function ServiceTable({ embedded = false, contextBuildingId = null, inlin
               </tbody>
             </table>
           </div>
+        )}
+        {filteredServiceGroups.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
       

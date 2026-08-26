@@ -7,6 +7,8 @@ import { formatDisplayDate } from '../../lib/date-utils';
 import { DataCard, DataTable, EmptyState, LoadingState, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 import { searchIncludes } from '../../lib/search';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface ContractData {
   id: number;
@@ -191,6 +193,19 @@ export function ContractList() {
     return matchesSearch && matchesStatus;
   });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(filteredContracts, {
+    initialPageSize: 10,
+    resetDeps: [searchTerm, statusFilter],
+  });
+
   // Loading state
   if (loading) {
     return (
@@ -266,7 +281,7 @@ export function ContractList() {
                 </tr>
               </thead>
               <tbody>
-                {filteredContracts.map((contract) => (
+                {pagedItems.map((contract) => (
                   <tr
                     key={contract.id}
                     className={`cursor-pointer ${getRowColor(contract.status)}`}
@@ -304,6 +319,16 @@ export function ContractList() {
                 ))}
               </tbody>
             </DataTable>
+        )}
+        {filteredContracts.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </DataCard>
       

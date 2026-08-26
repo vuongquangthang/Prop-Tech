@@ -5,6 +5,8 @@ import { contractService, residentService } from '../../services/api.service';
 import { DataCard, DataTable, EmptyState, LoadingState, StatusBadge } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 import { searchIncludes } from '../../lib/search';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface ResidentData {
   id: number;
@@ -129,6 +131,19 @@ export function ResidentTable() {
       return locationCollator.compare(first.fullName, second.fullName);
     });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(filteredResidents, {
+    initialPageSize: 10,
+    resetDeps: [searchTerm, statusFilter],
+  });
+
   const handleEditClick = (resident: any) => {
     setSelectedResident(resident);
     setShowEditModal(true);
@@ -199,7 +214,7 @@ export function ResidentTable() {
                 </tr>
               </thead>
               <tbody>
-                {filteredResidents.map((resident) => (
+                {pagedItems.map((resident) => (
                   <tr key={resident.id}>
                     <td className="font-semibold">{resident.fullName}</td>
                     <td>{resident.phoneNumber || '-'}</td>
@@ -228,6 +243,16 @@ export function ResidentTable() {
                 ))}
               </tbody>
             </DataTable>
+          )}
+          {filteredResidents.length > 0 && (
+            <TablePaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
       </DataCard>
       

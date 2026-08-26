@@ -12,6 +12,8 @@ import { ImageViewer } from '../ui/ImageViewer';
 import { MoneyInput } from '../ui/MoneyInput';
 import { LocationPicker } from '../LocationPicker';
 import type { ResolvedLocation } from '../../services/goongLocation.service';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface RoomData {
   id: number;
@@ -463,6 +465,19 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
       if (filter === 'maintenance') return s === 'bảo trì' || s === 'maintenance';
       return true;
     });
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(filteredRooms, {
+    initialPageSize: 10,
+    resetDeps: [selectedFloorId, selectedBuildingId, filter],
+  });
 
   const setIntegerField = (
     field: string,
@@ -941,7 +956,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
               </tr>
             </thead>
             <tbody>
-              {filteredRooms.map(room => {
+              {pagedItems.map(room => {
                 const cfg = getStatusConfig(room.status);
                 return (
                   <tr
@@ -971,6 +986,16 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
             </tbody>
           </table>
         </div>
+      )}
+      {filteredRooms.length > 0 && (
+        <TablePaginationBar
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       )}
 
       {showAddModal && (

@@ -5,6 +5,8 @@ import { formatDisplayDate, formatLocalDateInput } from '../../lib/date-utils';
 import { searchIncludes } from '../../lib/search';
 import { MoneyInput } from '../ui/MoneyInput';
 import { DateTextInput } from '../ui/DateTextInput';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 function parseAmount(input: string): number {
   const normalized = input.replace(/[^0-9.-]/g, '');
@@ -114,6 +116,19 @@ function ViewSettlementsTab() {
     );
   });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(filtered, {
+    initialPageSize: 10,
+    resetDeps: [searchTerm],
+  });
+
   const openSettlementDetail = async (settlementId: number) => {
     try {
       setLoadingDetail(true);
@@ -186,7 +201,7 @@ function ViewSettlementsTab() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => {
+              {pagedItems.map((s) => {
                 const { label, cls } = statusLabel(s.status);
                 return (
                   <tr
@@ -228,6 +243,16 @@ function ViewSettlementsTab() {
             </tbody>
           </table>
         </div>
+        )}
+        {!loading && !error && filtered.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
 

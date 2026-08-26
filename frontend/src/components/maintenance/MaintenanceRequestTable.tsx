@@ -6,6 +6,8 @@ import { fileService } from '../../services/feature.service';
 import { DataCard, DataTable, EmptyState, SegmentedTabs, Toolbar } from '../ui/product-system';
 import { FilterSelect } from '../ui/FilterSelect';
 import { ImageViewer } from '../ui/ImageViewer';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 import './MaintenanceDetailModal.css';
 
 // Modal Hoàn thành yêu cầu
@@ -427,6 +429,19 @@ export function MaintenanceRequestTable() {
     return matchStatus && matchType;
   });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(filteredRequests, {
+    initialPageSize: 10,
+    resetDeps: [activeTab, filterType],
+  });
+
   // Tính toán số lượng động cho từng tab
   const tabs = [
     { key: 'new', label: 'Chờ xử lý', count: requests.filter(r => r.status === 'new').length },
@@ -553,7 +568,7 @@ export function MaintenanceRequestTable() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRequests.map((request) => (
+                {pagedItems.map((request) => (
                   <tr 
                     key={request.code} 
                     className={`cursor-pointer ${selectedRequest?.code === request.code ? 'bg-blue-50' : ''}`}
@@ -587,6 +602,16 @@ export function MaintenanceRequestTable() {
                 ))}
               </tbody>
             </DataTable>
+          )}
+          {filteredRequests.length > 0 && (
+            <TablePaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </DataCard>
       

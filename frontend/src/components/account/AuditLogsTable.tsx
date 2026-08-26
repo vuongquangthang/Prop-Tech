@@ -5,6 +5,8 @@ import { FilterSelect } from '../ui/FilterSelect';
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date-utils';
 import { DateTextInput } from '../ui/DateTextInput';
 import { searchIncludes } from '../../lib/search';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface AuditLogRow {
   time: string;
@@ -129,6 +131,19 @@ export function AuditLogsTable() {
     return accountMatch && actionMatch && dateMatch && searchMatch;
   });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems: pagedLogs,
+  } = useTablePagination(filteredLogs, {
+    initialPageSize: 10,
+    resetDeps: [accountFilter, actionFilter, dateFrom, dateTo, searchText],
+  });
+
   return (
     <div className="space-y-4">
       {/* Summary Cards - Only showing 2 cards */}
@@ -233,7 +248,7 @@ export function AuditLogsTable() {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log, index) => (
+              {pagedLogs.map((log, index) => (
                 <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
                   <td className="px-6 py-4 text-gray-700" style={{ fontSize: 'var(--type-caption)' }}>{log.time}</td>
                   <td className="px-6 py-4">
@@ -278,6 +293,16 @@ export function AuditLogsTable() {
             </tbody>
           </table>
         </div>
+        {!loading && filteredLogs.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
     </div>
   );

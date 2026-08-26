@@ -5,6 +5,8 @@ import { FilterSelect } from '../ui/FilterSelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDisplayDateTime } from '../../lib/date-utils';
 import { searchIncludes } from '../../lib/search';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface UserData {
   id: number | string;
@@ -221,6 +223,19 @@ export function UserAccountsTable() {
     return roleMatch && statusMatch && searchMatch;
   });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems: pagedUsers,
+  } = useTablePagination(filteredUsers, {
+    initialPageSize: 10,
+    resetDeps: [roleFilter, statusFilter, searchText],
+  });
+
   const isViewingCurrentUser = (viewUser: UserData | null) => {
     if (!viewUser || !currentUser) return false;
     return String(viewUser.id) === String(currentUser.id)
@@ -381,7 +396,7 @@ export function UserAccountsTable() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                pagedUsers.map((user) => (
                   <tr
                     key={user.id}
                     className="cursor-pointer border-b border-gray-200 hover:bg-gray-50"
@@ -430,6 +445,16 @@ export function UserAccountsTable() {
             </tbody>
           </table>
         </div>
+        {filteredUsers.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
 
       {showViewModal && viewUser && (

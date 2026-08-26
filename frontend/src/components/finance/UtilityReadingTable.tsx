@@ -5,6 +5,8 @@ import { API_ENDPOINTS } from '../../lib/api-config';
 import { FilterSelect } from '../ui/FilterSelect';
 import { PageHeader } from '../ui/product-system';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface RoomUtilityReading {
   roomId: number;
@@ -35,6 +37,7 @@ interface RowEdit {
 
 interface CalculatedInvoiceSummary {
   id: number;
+  contractId?: number;
   invoiceNumber?: string;
   roomId?: number;
   roomCode?: string;
@@ -49,7 +52,24 @@ interface UtilityReadingTableProps {
   embedded?: boolean;
 }
 
-const CALCULATION_RESULT_PREVIEW_LIMIT = 5;
+const normalizeStatusText = (value?: string) =>
+  (value || '')
+    .toLocaleLowerCase('vi')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '');
+
+const isDraftInvoiceStatus = (status?: string) => {
+  const normalized = normalizeStatusText(status);
+  return normalized === 'draft' || normalized === 'nhap';
+};
+
+const extractInvoiceList = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
 
 export function UtilityReadingTable({ embedded = false }: UtilityReadingTableProps = {}) {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
@@ -152,6 +172,13 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     return (!requiresElec || Boolean(edit.newElec)) && (!requiresWater || Boolean(edit.newWater));
   };
 
+  const hasSavedRequiredReadings = (room: RoomUtilityReading) => {
+    const requiresElec = Boolean(room.elecUsageDetailId);
+    const requiresWater = Boolean(room.waterUsageDetailId);
+    if (!requiresElec && !requiresWater) return false;
+    return (!requiresElec || room.elecRecorded) && (!requiresWater || room.waterRecorded);
+  };
+
   const saveReadingsBatch = async ({ showSuccess = true }: { showSuccess?: boolean } = {}) => {
     setSaving(true);
     setErrors([]);
@@ -203,15 +230,33 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     .filter(hasEnteredRequiredReadings)
     .map(r => r.roomId);
 
-  const loadCalculatedInvoices = async (roomIds: number[]) => {
-    if (roomIds.length === 0) return [];
-    const res = await api.get<CalculatedInvoiceSummary[]>(API_ENDPOINTS.INVOICES.BASE);
-    return (res.data || [])
+  const loadCalculatedInvoices = async () => {
+    // Prefer the dedicated drafts endpoint; fallback to base list if needed.
+    const [draftsRes, invoicesRes] = await Promise.all([
+      api.get(API_ENDPOINTS.INVOICES.DRAFTS).catch(() => ({ data: [] })),
+      api.get(API_ENDPOINTS.INVOICES.BASE).catch(() => ({ data: [] })),
+    ]);
+
+    const allCandidates = [
+      ...extractInvoiceList(draftsRes.data),
+      ...extractInvoiceList(invoicesRes.data),
+    ];
+
+    const uniqueById = new Map<number, any>();
+    allCandidates.forEach((candidate) => {
+      const id = Number(candidate?.id);
+      if (Number.isFinite(id) && id > 0 && !uniqueById.has(id)) {
+        uniqueById.set(id, candidate);
+      }
+    });
+
+    return Array.from(uniqueById.values())
       .filter(inv => Number(inv.month) === selectedMonth && Number(inv.year) === selectedYear)
-      .filter(inv => roomIds.includes(Number(inv.roomId)))
-      .filter(inv => inv.status === 'Draft' || inv.status === 'Nháp')
+      .filter(inv => isDraftInvoiceStatus(inv.status))
       .map((inv: any) => ({
         ...inv,
+        contractId: inv.contractId ?? inv.hopDongId,
+        roomId: inv.roomId ?? inv.phongId,
         roomCode: inv.roomCode || inv.roomNumber || inv.soPhong || '',
         roomNumber: inv.roomNumber || inv.roomCode || inv.soPhong || '',
       }));
@@ -223,10 +268,11 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     setWarnings([]);
     setSuccessMsg('');
     try {
-      if (isCurrentMonth) {
-        const saved = await saveReadingsBatch({ showSuccess: false });
-        if (!saved) return;
-      }
+      const saved = await saveReadingsBatch({ showSuccess: false });
+      if (!saved) return;
+
+      const draftsBeforeCalculation = await loadCalculatedInvoices();
+      const draftIdsBefore = new Set(draftsBeforeCalculation.map((invoice) => invoice.id));
 
       const enteredRoomIds = getEnteredRoomIds();
       const res = await api.post<{
@@ -240,9 +286,14 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
       }>(
         API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth)
       );
+
+      const draftsAfterCalculation = await loadCalculatedInvoices();
+      const newlyCreatedDrafts = draftsAfterCalculation.filter((invoice) => !draftIdsBefore.has(invoice.id));
+      const displayDrafts = newlyCreatedDrafts.length > 0 ? newlyCreatedDrafts : draftsAfterCalculation;
+
       setCalcResult(res.data);
       setLockedCalculatedRoomIds(new Set(enteredRoomIds));
-      setCalculatedInvoices(await loadCalculatedInvoices(enteredRoomIds));
+      setCalculatedInvoices(displayDrafts);
       setSendResult('');
       setShowAllSkippedReasons(false);
       setShowAllCalculationErrors(false);
@@ -307,6 +358,36 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     });
   }, [rooms, selectedBuilding, selectedFloor]);
 
+  const sortedFilteredRooms = useMemo(() => {
+    return filteredRooms
+      .map((room, index) => ({ room, index }))
+      .sort((left, right) => {
+        const getRank = (room: RoomUtilityReading) => {
+          const hasRequiredService = Boolean(room.elecUsageDetailId || room.waterUsageDetailId);
+          if (!hasRequiredService) return 3;
+          if (!hasSavedRequiredReadings(room)) return room.readingsLocked ? 2 : 0;
+          return 1;
+        };
+
+        const rankDiff = getRank(left.room) - getRank(right.room);
+        return rankDiff !== 0 ? rankDiff : left.index - right.index;
+      })
+      .map(({ room }) => room);
+  }, [filteredRooms]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems: pagedRooms,
+  } = useTablePagination(sortedFilteredRooms, {
+    initialPageSize: 10,
+    resetDeps: [selectedBuilding, selectedFloor, selectedMonth, selectedYear],
+  });
+
   useEffect(() => {
     if (selectedFloor !== 'all' && !floorOptions.includes(selectedFloor)) {
       setSelectedFloor('all');
@@ -325,18 +406,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
   const maxMonthForSelectedYear = selectedYear === currentYear ? currentMonth : 12;
   const monthOptions = Array.from({ length: maxMonthForSelectedYear }, (_, i) => i + 1);
 
-  // Only allow input for the current month
-  const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
-
-  const skippedReasonsPreview = calcResult
-    ? (showAllSkippedReasons ? calcResult.skippedReasons : calcResult.skippedReasons.slice(0, CALCULATION_RESULT_PREVIEW_LIMIT))
-    : [];
-  const calculationErrorsPreview = calcResult
-    ? (showAllCalculationErrors ? calcResult.errors : calcResult.errors.slice(0, CALCULATION_RESULT_PREVIEW_LIMIT))
-    : [];
-  const calculationWarningsPreview = calcResult
-    ? (showAllCalculationWarnings ? calcResult.warnings : calcResult.warnings.slice(0, CALCULATION_RESULT_PREVIEW_LIMIT))
-    : [];
+  const isFuturePeriod = selectedYear > currentYear || (selectedYear === currentYear && selectedMonth > currentMonth);
+  const missingSkippedReasonCount = calcResult
+    ? Math.max(0, Number(calcResult.skipped || 0) - calcResult.skippedReasons.length)
+    : 0;
 
   useEffect(() => {
     if (selectedMonth > maxMonthForSelectedYear) {
@@ -420,10 +493,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
           <div className="ml-auto flex shrink-0 items-center justify-end" style={{ gap: '10px' }}>
             <button
               onClick={handleSaveBatch}
-              disabled={saving || loading || !isCurrentMonth}
+              disabled={saving || loading || isFuturePeriod}
               className="flex items-center rounded transition-colors hover:bg-[var(--brand-surface)]"
-              style={{ padding: '0 18px', backgroundColor: 'var(--surface-card)', border: '2px solid var(--brand-primary)', color: 'var(--brand-primary)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: '42px', gap: '8px', opacity: (saving || !isCurrentMonth) ? 0.6 : 1, cursor: !isCurrentMonth ? 'not-allowed' : 'pointer' }}
-              title={!isCurrentMonth ? 'Chỉ có thể nhập chỉ số cho tháng hiện tại' : ''}
+              style={{ padding: '0 18px', backgroundColor: 'var(--surface-card)', border: '2px solid var(--brand-primary)', color: 'var(--brand-primary)', fontSize: 'var(--type-body)', fontWeight: 600, borderRadius: 'var(--radius-button)', height: '42px', gap: '8px', opacity: (saving || isFuturePeriod) ? 0.6 : 1, cursor: isFuturePeriod ? 'not-allowed' : 'pointer' }}
+              title={isFuturePeriod ? 'Không thể nhập chỉ số cho tháng tương lai' : ''}
             >
               <Save size={18} />
               <span>{saving ? 'Đang lưu...' : 'Lưu chỉ số'}</span>
@@ -489,7 +562,7 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRooms.map(room => {
+                  {pagedRooms.map(room => {
                     const edit = edits[room.roomId] || { newElec: '', newWater: '' };
                     const elecAbnormal = isAbnormal(room, 'elec');
                     const waterAbnormal = isAbnormal(room, 'water');
@@ -529,10 +602,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               placeholder="Nhập..."
                               value={edit.newElec}
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
-                              disabled={!isCurrentMonth || rowLocked}
+                              disabled={isFuturePeriod || rowLocked}
                               className="focus:outline-none"
                               title={rowLocked ? lockTitle : room.elecAnomalyNote || undefined}
-                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (!isCurrentMonth || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (!isCurrentMonth || rowLocked) ? 'not-allowed' : 'text' }}
+                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (isFuturePeriod || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (isFuturePeriod || rowLocked) ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>Không áp dụng</span>}
                         </td>
@@ -556,10 +629,10 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               placeholder="Nhập..."
                               value={edit.newWater}
                               onChange={e => handleInputChange(room.roomId, 'newWater', e.target.value)}
-                              disabled={!isCurrentMonth || rowLocked}
+                              disabled={isFuturePeriod || rowLocked}
                               className="focus:outline-none"
                               title={rowLocked ? lockTitle : room.waterAnomalyNote || undefined}
-                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (!isCurrentMonth || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (!isCurrentMonth || rowLocked) ? 'not-allowed' : 'text' }}
+                              style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (isFuturePeriod || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (isFuturePeriod || rowLocked) ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>Không áp dụng</span>}
                         </td>
@@ -576,19 +649,36 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
               </table>
             </div>
           )}
+          {filteredRooms.length > 0 && (
+            <TablePaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
       </div>
 
       {/* Calculate Result Modal */}
       {calculateModal && calcResult && (
         <div className="admin-content-modal-overlay">
-          <div className="bg-white rounded-lg w-[760px] max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg w-full max-w-[1180px] max-h-[90vh] overflow-y-auto mx-4">
             <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Calculator size={20} className="text-gray-800" />
                 <h3 className="text-base font-semibold text-gray-800">Tạo thành công {calcResult.totalInvoices} hóa đơn</h3>
               </div>
-              <button onClick={() => setCalculateModal(false)}><X size={20} /></button>
+              <button
+                type="button"
+                onClick={() => setCalculateModal(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100"
+                aria-label="Đóng"
+              >
+                <X size={20} />
+              </button>
             </div>
             <div className="p-6 space-y-4">
               {/* Summary row */}
@@ -660,10 +750,11 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                             <button
                               type="button"
                               onClick={() => setModalInvoiceId(invoice.id)}
-                              className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                              title="Xem chi tiết"
+                              aria-label="Xem chi tiết"
                             >
                               <Eye size={14} />
-                              Xem
                             </button>
                           </td>
                         </tr>
@@ -686,69 +777,96 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
               )}
 
               {/* Skipped reasons */}
-              {calcResult.skippedReasons.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold text-yellow-700">⚠️ Phòng bị bỏ qua ({calcResult.skippedReasons.length})</p>
-                    {calcResult.skippedReasons.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllSkippedReasons((current) => !current)}
-                        className="text-xs font-semibold text-yellow-700 underline-offset-2 hover:underline"
-                      >
-                        {showAllSkippedReasons ? 'Thu gọn' : `Xem thêm ${calcResult.skippedReasons.length - CALCULATION_RESULT_PREVIEW_LIMIT}`}
-                      </button>
-                    )}
+              {(calcResult.skipped > 0 || calcResult.skippedReasons.length > 0) && (
+                <div className="bg-yellow-50 border border-yellow-300 rounded p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle size={18} className="mt-0.5 flex-shrink-0 text-yellow-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-yellow-800">Phòng bị bỏ qua</p>
+                        <p className="mt-0.5 text-xs text-yellow-700">{calcResult.skipped || calcResult.skippedReasons.length} phòng không tạo hóa đơn</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSkippedReasons((current) => !current)}
+                      disabled={calcResult.skippedReasons.length === 0 && missingSkippedReasonCount === 0}
+                      className="shrink-0 rounded border border-yellow-300 bg-white px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-100"
+                      title={showAllSkippedReasons ? 'Thu gọn' : 'Mở danh sách'}
+                      aria-label={showAllSkippedReasons ? 'Thu gọn' : 'Mở danh sách'}
+                    >
+                      {showAllSkippedReasons ? 'v' : '>'}
+                    </button>
                   </div>
-                  <div className={`space-y-0.5 ${showAllSkippedReasons ? 'max-h-44 overflow-y-auto pr-1' : ''}`}>
-                    {skippedReasonsPreview.map((r, i) => <p key={i} className="text-xs text-yellow-600">• {r}</p>)}
-                  </div>
-                  {!showAllSkippedReasons && calcResult.skippedReasons.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
-                    <p className="mt-2 text-xs text-yellow-700">
-                      Còn {calcResult.skippedReasons.length - CALCULATION_RESULT_PREVIEW_LIMIT} phòng bị bỏ qua. Bấm “Xem thêm” nếu cần kiểm tra chi tiết.
-                    </p>
+                  {showAllSkippedReasons && (
+                    <div className="mt-3 max-h-44 space-y-1 overflow-y-auto border-t border-yellow-200 pt-3 pr-1">
+                      {calcResult.skippedReasons.map((reason, index) => (
+                        <p key={index} className="text-xs text-yellow-700">• {reason}</p>
+                      ))}
+                      {missingSkippedReasonCount > 0 && (
+                        <p className="text-xs text-yellow-700">
+                          • Còn {missingSkippedReasonCount} phòng/hợp đồng đã được bỏ qua nhưng backend chưa trả chi tiết.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
               {/* Calculation errors */}
               {calcResult.errors.length > 0 && (
-                <div className="bg-red-50 border border-red-300 rounded p-3">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold text-red-700">⚠️ Lỗi không tạo được hóa đơn ({calcResult.errors.length})</p>
-                    {calcResult.errors.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllCalculationErrors((current) => !current)}
-                        className="text-xs font-semibold text-red-700 underline-offset-2 hover:underline"
-                      >
-                        {showAllCalculationErrors ? 'Thu gọn' : `Xem thêm ${calcResult.errors.length - CALCULATION_RESULT_PREVIEW_LIMIT}`}
-                      </button>
-                    )}
+                <div className="bg-red-50 border border-red-300 rounded p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle size={18} className="mt-0.5 flex-shrink-0 text-red-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-red-800">Lỗi không tạo được hóa đơn</p>
+                        <p className="mt-0.5 text-xs text-red-700">{calcResult.errors.length} lỗi cần xử lý</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllCalculationErrors((current) => !current)}
+                      className="shrink-0 rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                    >
+                      {showAllCalculationErrors ? 'Thu gọn' : 'Xem'}
+                    </button>
                   </div>
-                  <div className={`space-y-0.5 ${showAllCalculationErrors ? 'max-h-36 overflow-y-auto pr-1' : ''}`}>
-                    {calculationErrorsPreview.map((e, i) => <p key={i} className="text-xs text-red-600">• {e}</p>)}
-                  </div>
+                  {showAllCalculationErrors && (
+                    <div className="mt-3 max-h-36 space-y-1 overflow-y-auto border-t border-red-200 pt-3 pr-1">
+                      {calcResult.errors.map((error, index) => (
+                        <p key={index} className="text-xs text-red-700">• {error}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {calcResult.warnings.length > 0 && (
-                <div className="bg-orange-50 border border-orange-300 rounded p-3">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold text-orange-700">⚠️ Cảnh báo cần kiểm tra công thức/dịch vụ ({calcResult.warnings.length})</p>
-                    {calcResult.warnings.length > CALCULATION_RESULT_PREVIEW_LIMIT && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllCalculationWarnings((current) => !current)}
-                        className="text-xs font-semibold text-orange-700 underline-offset-2 hover:underline"
-                      >
-                        {showAllCalculationWarnings ? 'Thu gọn' : `Xem thêm ${calcResult.warnings.length - CALCULATION_RESULT_PREVIEW_LIMIT}`}
-                      </button>
-                    )}
+                <div className="bg-orange-50 border border-orange-300 rounded p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle size={18} className="mt-0.5 flex-shrink-0 text-orange-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-orange-800">Cảnh báo cần kiểm tra</p>
+                        <p className="mt-0.5 text-xs text-orange-700">{calcResult.warnings.length} cảnh báo công thức/dịch vụ</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllCalculationWarnings((current) => !current)}
+                      className="shrink-0 rounded border border-orange-300 bg-white px-3 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-100"
+                    >
+                      {showAllCalculationWarnings ? 'Thu gọn' : 'Xem'}
+                    </button>
                   </div>
-                  <div className={`space-y-0.5 ${showAllCalculationWarnings ? 'max-h-36 overflow-y-auto pr-1' : ''}`}>
-                    {calculationWarningsPreview.map((w, i) => <p key={i} className="text-xs text-orange-600">• {w}</p>)}
-                  </div>
+                  {showAllCalculationWarnings && (
+                    <div className="mt-3 max-h-36 space-y-1 overflow-y-auto border-t border-orange-200 pt-3 pr-1">
+                      {calcResult.warnings.map((warning, index) => (
+                        <p key={index} className="text-xs text-orange-700">• {warning}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex justify-end gap-3 pt-2">

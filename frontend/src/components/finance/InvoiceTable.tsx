@@ -8,6 +8,8 @@ import { FilterSelect } from '../ui/FilterSelect';
 import { PageHeader } from '../ui/product-system';
 import { buildingService, floorService, roomService, type Building, type Floor, type Room } from '../../services/api.service';
 import { searchIncludes } from '../../lib/search';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface LineItem {
   id: number;
@@ -228,6 +230,19 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
         searchIncludes(inv.residentName, search)
       )
     : timeFiltered;
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems: pagedInvoices,
+  } = useTablePagination(filteredInvoices, {
+    initialPageSize: 10,
+    resetDeps: [activeTab, search, selectedBuildingId, selectedFloorId, selectedRoomId, selectedMonth, selectedYear],
+  });
 
   const availableFloors = selectedBuildingId
     ? floors.filter(floor => String(floor.buildingId) === selectedBuildingId)
@@ -534,7 +549,7 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.map(inv => (
+                  {pagedInvoices.map(inv => (
                     <tr
                       key={inv.id}
                       onClick={() => setModalInvoiceId(inv.id)}
@@ -627,6 +642,16 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
                 </tbody>
               </table>
             </div>
+          )}
+          {!loading && filteredInvoices.length > 0 && (
+            <TablePaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </div>
 

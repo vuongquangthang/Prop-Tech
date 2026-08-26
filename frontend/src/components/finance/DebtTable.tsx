@@ -2,6 +2,8 @@ import { Send, Ban, Eye, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ViewDebtModal, SendReminderModal, BlockAccountModal, BatchSendReminderModal } from './DebtModals';
 import { invoiceService } from '../../services/api.service';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface DebtData {
   invoiceId: number;
@@ -115,6 +117,17 @@ export function DebtTable() {
   };
 
   const filteredData = debtData;
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems: pagedDebts,
+  } = useTablePagination(filteredData, {
+    initialPageSize: 10,
+  });
 
   // Tính toán số liệu thống kê dựa trên dữ liệu đã lọc
   const totalDebt = filteredData.reduce((sum, debt) => sum + debt.amount, 0);
@@ -201,7 +214,7 @@ export function DebtTable() {
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((debt) => {
+                {pagedDebts.map((debt) => {
                   return (
                     <tr
                       key={debt.invoiceId}
@@ -235,6 +248,16 @@ export function DebtTable() {
               </tbody>
             </table>
           </div>
+        )}
+        {filteredData.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
       

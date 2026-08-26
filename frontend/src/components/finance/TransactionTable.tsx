@@ -5,6 +5,8 @@ import { searchIncludes } from '../../lib/search';
 import { paymentService } from '../../services/api.service';
 import { FilterSelect } from '../ui/FilterSelect';
 import { DateTextInput } from '../ui/DateTextInput';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface TransactionData {
   id: number;
@@ -156,6 +158,19 @@ export function TransactionTable() {
     return true;
   });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(filteredTransactions, {
+    initialPageSize: 10,
+    resetDeps: [statusFilter, fromDate, toDate, methodFilter, searchText],
+  });
+
   // Calculate total amount on filtered result
   const totalAmount = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
 
@@ -282,7 +297,7 @@ export function TransactionTable() {
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.map((transaction) => (
+              {pagedItems.map((transaction) => (
                 <tr key={transaction.id} className={`border-b border-gray-200 hover:bg-gray-50 ${transaction.status === 'matched' ? 'bg-green-50' : ''}`}>
                   <td className="px-6 py-4 text-sm text-gray-800">{transaction.bankCode}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{transaction.time}</td>
@@ -323,6 +338,16 @@ export function TransactionTable() {
             </tbody>
           </table>
           </div>
+        )}
+        {filteredTransactions.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
       

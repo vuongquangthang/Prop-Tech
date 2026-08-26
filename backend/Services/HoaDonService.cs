@@ -148,6 +148,7 @@ public class HoaDonService : IHoaDonService
                 hd.Room.Floor.Building.OwnerUserId == ownerUserId &&
                 hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= periodStartUtc))
             .ToListAsync();
+        result.TotalContracts = contracts.Count;
 
         var contractIds = contracts.Select(contract => contract.Id).ToList();
         if (contractIds.Count > 0)
@@ -167,6 +168,11 @@ public class HoaDonService : IHoaDonService
             if (finalizedInvoiceContractIds.Count > 0)
             {
                 var finalizedInvoiceContractIdSet = finalizedInvoiceContractIds.ToHashSet();
+                foreach (var skippedContract in contracts.Where(contract => finalizedInvoiceContractIdSet.Contains(contract.Id)))
+                {
+                    var roomCode = skippedContract.Room?.RoomCode ?? $"Hợp đồng {skippedContract.Id}";
+                    result.SkippedReasons.Add($"Phòng {roomCode}: Đã có hóa đơn tháng {month}/{year} được gửi hoặc đã thanh toán");
+                }
                 result.Skipped += finalizedInvoiceContractIdSet.Count;
                 contracts = contracts
                     .Where(contract => !finalizedInvoiceContractIdSet.Contains(contract.Id))
@@ -210,8 +216,6 @@ public class HoaDonService : IHoaDonService
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            result.TotalContracts = contracts.Count;
-
             foreach (var contract in contracts)
             {
                 // Kiểm tra hóa đơn đã tồn tại
@@ -224,6 +228,7 @@ public class HoaDonService : IHoaDonService
                     if (existingInvoice.Status != "Nháp" && existingInvoice.Status != "Bị từ chối")
                     {
                         result.Skipped++;
+                        result.SkippedReasons.Add($"Phòng {contract.Room?.RoomCode ?? $"Hợp đồng {contract.Id}"}: Đã có hóa đơn tháng {month}/{year} (trạng thái: {existingInvoice.Status})");
                         continue;
                     }
                     _context.ChiTietHoaDons.RemoveRange(existingInvoice.ChiTietHoaDons);

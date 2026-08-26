@@ -2,6 +2,8 @@ import { Upload, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { UploadFileModal } from './KnowledgeModals';
 import { knowledgeService, KnowledgeBase } from '../../services/feature.service';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 export function KnowledgeBaseTable() {
   const [knowledgeData, setKnowledgeData] = useState<KnowledgeBase[]>([]);
@@ -20,7 +22,17 @@ export function KnowledgeBaseTable() {
 
   const activeCount = knowledgeData.filter(k => k.isActive).length;
   const inactiveCount = Math.max(knowledgeData.length - activeCount, 0);
-  const recentItems = knowledgeData.slice(0, 10);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(knowledgeData, {
+    initialPageSize: 10,
+  });
 
   return (
     <div className="space-y-4">
@@ -74,7 +86,7 @@ export function KnowledgeBaseTable() {
                   <td colSpan={4} className="px-6 py-8 text-center text-gray-500">Đang tải...</td>
                 </tr>
               )}
-              {!loading && recentItems.map((kb) => (
+              {!loading && pagedItems.map((kb) => (
                 <tr key={kb.id} className="border-b border-gray-200 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm text-gray-800">KB-{kb.id}</td>
                   <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
@@ -90,7 +102,7 @@ export function KnowledgeBaseTable() {
                   </td>
                 </tr>
               ))}
-              {!loading && recentItems.length === 0 && (
+              {!loading && pagedItems.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                     Chưa có dữ liệu tri thức. Hãy tải tài liệu đầu tiên để hệ thống lưu kho tri thức và đồng bộ AI.
@@ -100,6 +112,16 @@ export function KnowledgeBaseTable() {
             </tbody>
           </table>
         </div>
+        {!loading && knowledgeData.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
 
       {uploadModal && (

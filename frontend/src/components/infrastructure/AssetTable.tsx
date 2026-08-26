@@ -5,6 +5,8 @@ import { API_ENDPOINTS } from '../../lib/api-config';
 import { normalizeSearchText, searchIncludes } from '../../lib/search';
 import { buildingService } from '../../services/api.service';
 import { PageHeader } from '../ui/product-system';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface TaiSanDto {
   id: number;
@@ -183,6 +185,19 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
       asset.buildingIds.includes(contextBuildingId),
     );
   }, [assetGroups, contextBuildingId]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems: pagedAssetGroups,
+  } = useTablePagination(filteredAssetGroups, {
+    initialPageSize: 10,
+    resetDeps: [contextBuildingId],
+  });
 
   const getBuildingLabel = (building: BuildingOption) => building.buildingName || building.name || `Tòa #${building.id}`;
   const getContextBuildingLabel = () => {
@@ -619,9 +634,9 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
                       Chưa có tài sản nào. Nhấn "Thêm tài sản" để bắt đầu.
                     </td>
                   </tr>
-                ) : filteredAssetGroups.map((asset, index) => (
+                ) : pagedAssetGroups.map((asset, index) => (
                   <tr key={asset.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-700">{index + 1}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{(currentPage - 1) * pageSize + index + 1}</td>
                     <td className="px-6 py-4 text-sm text-gray-800 font-medium">{asset.assetName}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 font-mono">{asset.assetCode}</td>
                     <td className="px-6 py-4 text-center text-sm text-gray-700">{asset.totalRooms}</td>
@@ -644,6 +659,16 @@ export function AssetTable({ embedded = false, contextBuildingId = null, inlineF
               </tbody>
             </table>
           </div>
+        )}
+        {filteredAssetGroups.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
       

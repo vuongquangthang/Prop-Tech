@@ -1,5 +1,7 @@
 import { Plus, Edit2, Trash2, X, AlertTriangle, Tag } from 'lucide-react';
 import { useState } from 'react';
+import { useTablePagination } from '../../lib/useTablePagination';
+import { TablePaginationBar } from '../ui/TablePaginationBar';
 
 interface Amenity {
   id: number;
@@ -22,6 +24,17 @@ export function AmenityManager() {
   const [editName, setEditName] = useState('');
   const [editIcon, setEditIcon] = useState('');
   const [editDefault, setEditDefault] = useState(false);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    pagedItems,
+  } = useTablePagination(amenities, {
+    initialPageSize: 10,
+  });
 
   const handleEditClick = (amenity: Amenity) => {
     setSelectedAmenity(amenity);
@@ -98,9 +111,9 @@ export function AmenityManager() {
                     Chưa có tiện nghi nào. Nhấn "Thêm tiện nghi" để bắt đầu.
                   </td>
                 </tr>
-              ) : amenities.map((amenity, index) => (
+              ) : pagedItems.map((amenity, index) => (
                 <tr key={amenity.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-700">{index + 1}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{(currentPage - 1) * pageSize + index + 1}</td>
                   <td className="px-6 py-4 text-2xl">{amenity.icon}</td>
                   <td className="px-6 py-4 text-sm text-gray-800">{amenity.name}</td>
                   <td className="px-6 py-4 text-center">
@@ -137,6 +150,16 @@ export function AmenityManager() {
             </tbody>
           </table>
         </div>
+        {amenities.length > 0 && (
+          <TablePaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
 
       {/* Add Amenity Modal */}
