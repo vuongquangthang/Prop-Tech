@@ -83,7 +83,7 @@ export function ViewInvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                     }`}>
                       {invoice?.status === 'paid' ? 'Đã thanh toán' :
                        invoice?.status === 'overdue' ? 'Quá hạn 15 ngày' :
-                       invoice?.status === 'pending' ? 'Chờ thanh toán (còn 10 ngày)' : 'Nháp'}
+                       invoice?.status === 'pending' ? 'Chờ thanh toán (còn 10 ngày)' : 'Chờ gửi'}
                     </span>
                   </div>
                 </div>

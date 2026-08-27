@@ -78,6 +78,11 @@ public class PayHoaDonDto
 /// <summary>
 /// DTO kết quả tính hóa đơn nháp
 /// </summary>
+public class CalculateInvoiceRequestDto
+{
+    public List<int> RoomIds { get; set; } = new();
+}
+
 public class CalculateInvoiceResultDto
 {
     public int TotalContracts { get; set; }

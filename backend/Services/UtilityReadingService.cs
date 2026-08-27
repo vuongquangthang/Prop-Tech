@@ -17,6 +17,8 @@ public class UtilityReadingService : IUtilityReadingService
 {
     private readonly ApplicationDbContext _context;
     private const decimal AnomalyIncreaseFactor = 2m;
+    private const decimal HighElectricityConsumptionThreshold = 1000m;
+    private const decimal HighWaterConsumptionThreshold = 100m;
 
     public UtilityReadingService(ApplicationDbContext context)
     {
@@ -321,6 +323,16 @@ public class UtilityReadingService : IUtilityReadingService
                     continue;
                 }
 
+                var futureSentInvoice = activeContract == null
+                    ? null
+                    : await GetFutureSentInvoiceAsync(activeContract.Id, dto.Month, dto.Year);
+                if (futureSentInvoice != null)
+                {
+                    result.Failed++;
+                    result.Errors.Add($"Phòng {room.RoomCode}: Không thể nhập/sửa chỉ số tháng {dto.Month}/{dto.Year} vì đã gửi hóa đơn kỳ sau ({futureSentInvoice.Month}/{futureSentInvoice.Year}, trạng thái: {futureSentInvoice.Status})");
+                    continue;
+                }
+
                 // Ghi chỉ số điện
                 if (dto.NewElecReading.HasValue)
                 {
@@ -505,6 +517,11 @@ public class UtilityReadingService : IUtilityReadingService
             return (true, $"Chỉ số điện tăng bất thường: kỳ này {currentConsumption:N0} kWh, tháng trước {previousConsumption.Value:N0} kWh");
         }
 
+        if (currentConsumption > HighElectricityConsumptionThreshold)
+        {
+            return (true, $"Chỉ số điện cao bất thường: kỳ này {currentConsumption:N0} kWh, vượt ngưỡng kiểm tra {HighElectricityConsumptionThreshold:N0} kWh");
+        }
+
         return (false, null);
     }
 
@@ -518,6 +535,20 @@ public class UtilityReadingService : IUtilityReadingService
                 && invoice.Year == year
                 && invoice.Status != "Nháp"
                 && invoice.Status != "Bị từ chối");
+    }
+
+    private async Task<HoaDon?> GetFutureSentInvoiceAsync(int contractId, byte month, short year)
+    {
+        return await _context.HoaDons
+            .AsNoTracking()
+            .Where(invoice =>
+                invoice.ContractId == contractId
+                && (invoice.Year > year || (invoice.Year == year && invoice.Month > month))
+                && invoice.Status != "Nháp"
+                && invoice.Status != "Bị từ chối")
+            .OrderBy(invoice => invoice.Year)
+            .ThenBy(invoice => invoice.Month)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<(bool IsAnomaly, string? Note)> EvaluateWaterAnomalyAsync(long usageDetailId, byte month, short year, decimal currentReading)
@@ -534,6 +565,11 @@ public class UtilityReadingService : IUtilityReadingService
         if (previousConsumption.HasValue && previousConsumption.Value > 0 && currentConsumption > previousConsumption.Value * AnomalyIncreaseFactor)
         {
             return (true, $"Chỉ số nước tăng bất thường: kỳ này {currentConsumption:N0} m³, tháng trước {previousConsumption.Value:N0} m³");
+        }
+
+        if (currentConsumption > HighWaterConsumptionThreshold)
+        {
+            return (true, $"Chỉ số nước cao bất thường: kỳ này {currentConsumption:N0} m³, vượt ngưỡng kiểm tra {HighWaterConsumptionThreshold:N0} m³");
         }
 
         return (false, null);

@@ -20,7 +20,7 @@ public interface IHoaDonService
     Task<HoaDonDto?> GetByIdAsync(int id);
     Task<HoaDonDto> CreateAsync(CreateHoaDonDto dto);
     Task<HoaDonDto> PayInvoiceAsync(int id, PayHoaDonDto dto);
-    Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month, int ownerUserId);
+    Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month, int ownerUserId, IReadOnlyCollection<int>? roomIds = null);
     Task<HoaDonDto> EditDraftAsync(int id, EditDraftInvoiceDto dto);
     Task<HoaDonDto> ApproveAsync(int id, int approvedByUserId);
     Task<BatchReadingResultDto> BatchApproveAsync(List<int> invoiceIds, int approvedByUserId);
@@ -133,28 +133,75 @@ public class HoaDonService : IHoaDonService
     /// <summary>
     /// Tính toán hóa đơn nháp từ chỉ số điện/nước đã chốt và công thức tính hóa đơn của hợp đồng
     /// </summary>
-    public async Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month, int ownerUserId)
+    public async Task<CalculateInvoiceResultDto> CalculateDraftInvoicesAsync(short year, byte month, int ownerUserId, IReadOnlyCollection<int>? roomIds = null)
     {
         var result = new CalculateInvoiceResultDto();
 
         // Lấy tất cả hợp đồng đang active (có cư dân)
         var periodStartUtc = CreatePeriodStartUtc(year, month);
+        var periodEndUtc = CreatePeriodEndUtc(year, month);
+        var targetRoomIds = roomIds?
+            .Where(id => id > 0)
+            .Distinct()
+            .ToHashSet();
+        if (roomIds != null && targetRoomIds is not { Count: > 0 })
+        {
+            return result;
+        }
 
-        var contracts = await _context.HopDongs
+        var contractsQuery = _context.HopDongs
             .Include(hd => hd.Room).ThenInclude(r => r.ChiTietSuDungDichVus).ThenInclude(u => u.Service)
             .Include(hd => hd.Room).ThenInclude(r => r.Floor).ThenInclude(f => f.Building)
             .Include(hd => hd.ChiTietOs).ThenInclude(ct => ct.Resident).ThenInclude(r => r.Users)
             .Where(hd =>
                 hd.Room.Floor.Building.OwnerUserId == ownerUserId &&
-                hd.ChiTietOs.Any(ct => ct.ToDate == null || ct.ToDate >= periodStartUtc))
-            .ToListAsync();
+                hd.StartDate <= periodEndUtc &&
+                (hd.ExpectedEndDate == null || hd.ExpectedEndDate >= periodStartUtc) &&
+                hd.ChiTietOs.Any(ct => ct.FromDate <= periodEndUtc && (ct.ToDate == null || ct.ToDate >= periodStartUtc)));
+
+        if (targetRoomIds is { Count: > 0 })
+        {
+            contractsQuery = contractsQuery.Where(hd => targetRoomIds.Contains(hd.RoomId));
+        }
+
+        var contracts = await contractsQuery.ToListAsync();
         result.TotalContracts = contracts.Count;
+        if (targetRoomIds is { Count: > 0 })
+        {
+            var matchedRoomIds = contracts.Select(contract => contract.RoomId).ToHashSet();
+            var missingContractRoomIds = targetRoomIds.Where(roomId => !matchedRoomIds.Contains(roomId)).ToList();
+            if (missingContractRoomIds.Count > 0)
+            {
+                var missingRooms = await _context.Rooms
+                    .AsNoTracking()
+                    .Include(room => room.Floor).ThenInclude(floor => floor.Building)
+                    .Where(room => missingContractRoomIds.Contains(room.Id) && room.Floor.Building.OwnerUserId == ownerUserId)
+                    .Select(room => new { room.Id, room.RoomCode })
+                    .ToListAsync();
+
+                foreach (var room in missingRooms)
+                {
+                    result.Skipped++;
+                    result.SkippedReasons.Add($"Phòng {room.RoomCode}: Không có hợp đồng hợp lệ trong tháng {month}/{year}");
+                }
+
+                var missingRoomCodes = missingRooms.Select(room => room.Id).ToHashSet();
+                foreach (var roomId in missingContractRoomIds.Where(roomId => !missingRoomCodes.Contains(roomId)))
+                {
+                    result.Skipped++;
+                    result.SkippedReasons.Add($"Phòng ID {roomId}: Không tồn tại hoặc không thuộc quyền quản lý");
+                }
+            }
+        }
 
         var contractIds = contracts.Select(contract => contract.Id).ToList();
         var existingInvoicesForPeriod = contractIds.Count == 0
             ? new List<HoaDon>()
             : await _context.HoaDons
-                .Include(invoice => invoice.ChiTietHoaDons)
+                .Include(invoice => invoice.HopDong).ThenInclude(contract => contract.Room).ThenInclude(room => room.Floor).ThenInclude(floor => floor.Building)
+                .Include(invoice => invoice.HopDong).ThenInclude(contract => contract.ChiTietOs).ThenInclude(occupancy => occupancy.Resident)
+                .Include(invoice => invoice.ChiTietHoaDons).ThenInclude(detail => detail.Service)
+                .Include(invoice => invoice.ThanhToans)
                 .Where(invoice =>
                     contractIds.Contains(invoice.ContractId)
                     && invoice.Month == month
@@ -164,6 +211,9 @@ public class HoaDonService : IHoaDonService
         var existingInvoiceByContractId = existingInvoicesForPeriod
             .GroupBy(invoice => invoice.ContractId)
             .ToDictionary(group => group.Key, group => group.First());
+        var reusableDraftInvoices = existingInvoiceByContractId.Values
+            .Where(invoice => invoice.Status == "Nháp")
+            .ToList();
 
         if (existingInvoiceByContractId.Count > 0)
         {
@@ -176,6 +226,41 @@ public class HoaDonService : IHoaDonService
             result.Skipped += existingInvoiceByContractId.Count;
             contracts = contracts
                 .Where(contract => !existingInvoiceByContractId.ContainsKey(contract.Id))
+                .ToList();
+            contractIds = contracts.Select(contract => contract.Id).ToList();
+        }
+
+        var futureSentInvoices = contractIds.Count == 0
+            ? new List<HoaDon>()
+            : await _context.HoaDons
+                .AsNoTracking()
+                .Include(invoice => invoice.HopDong).ThenInclude(contract => contract.Room)
+                .Where(invoice =>
+                    contractIds.Contains(invoice.ContractId)
+                    && (invoice.Year > year || (invoice.Year == year && invoice.Month > month))
+                    && invoice.Status != "Nháp"
+                    && invoice.Status != "Bị từ chối")
+                .OrderBy(invoice => invoice.Year)
+                .ThenBy(invoice => invoice.Month)
+                .ToListAsync();
+
+        var futureSentInvoiceByContractId = futureSentInvoices
+            .GroupBy(invoice => invoice.ContractId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        if (futureSentInvoiceByContractId.Count > 0)
+        {
+            foreach (var skippedContract in contracts.Where(contract => futureSentInvoiceByContractId.ContainsKey(contract.Id)))
+            {
+                var roomCode = skippedContract.Room?.RoomCode ?? $"Hợp đồng {skippedContract.Id}";
+                var futureInvoice = futureSentInvoiceByContractId[skippedContract.Id];
+                result.SkippedReasons.Add(
+                    $"Phòng {roomCode}: Không thể tính hóa đơn tháng {month}/{year} vì đã gửi hóa đơn kỳ sau ({futureInvoice.Month}/{futureInvoice.Year}, trạng thái: {futureInvoice.Status})");
+            }
+
+            result.Skipped += futureSentInvoiceByContractId.Count;
+            contracts = contracts
+                .Where(contract => !futureSentInvoiceByContractId.ContainsKey(contract.Id))
                 .ToList();
             contractIds = contracts.Select(contract => contract.Id).ToList();
         }
@@ -562,7 +647,10 @@ public class HoaDonService : IHoaDonService
             }
 
             await _context.SaveChangesAsync();
-            result.Invoices = createdInvoices.Select(MapToDto).ToList();
+            result.Invoices = reusableDraftInvoices
+                .Concat(createdInvoices)
+                .Select(MapToDto)
+                .ToList();
             await transaction.CommitAsync();
         }
         catch (Exception ex)

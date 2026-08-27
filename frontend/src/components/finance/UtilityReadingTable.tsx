@@ -73,12 +73,16 @@ const extractInvoiceList = (payload: any): any[] => {
 };
 
 const UTILITY_READING_CACHE_TTL_MS = 2 * 60 * 1000;
+const HIGH_ELECTRICITY_CONSUMPTION_THRESHOLD = 1000;
+const HIGH_WATER_CONSUMPTION_THRESHOLD = 100;
 
 export function UtilityReadingTable({ embedded = false }: UtilityReadingTableProps = {}) {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [rooms, setRooms] = useState<RoomUtilityReading[]>([]);
   const [edits, setEdits] = useState<Record<number, RowEdit>>({});
+  const [editedRoomIds, setEditedRoomIds] = useState<Set<number>>(new Set());
+  const [recentlySavedRoomIds, setRecentlySavedRoomIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [calculating, setCalculating] = useState(false);
@@ -161,6 +165,8 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     setCalculatedInvoices([]);
     setCalcResult(null);
     setSendResult('');
+    setEditedRoomIds(new Set());
+    setRecentlySavedRoomIds([]);
     setShowAllSkippedReasons(false);
     setShowAllCalculationErrors(false);
     setShowAllCalculationWarnings(false);
@@ -169,6 +175,11 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
   const handleInputChange = (roomId: number, field: 'newElec' | 'newWater', value: string) => {
     const integerOnly = value.replace(/[^0-9]/g, '');
     setEdits(prev => ({ ...prev, [roomId]: { ...prev[roomId], [field]: integerOnly } }));
+    setEditedRoomIds(prev => {
+      const next = new Set(prev);
+      next.add(roomId);
+      return next;
+    });
   };
 
   const isAbnormal = (room: RoomUtilityReading, field: 'elec' | 'water') => {
@@ -178,7 +189,30 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     const oldVal = (field === 'elec' ? room.oldElecReading : room.oldWaterReading) ?? 0;
     if (isNaN(newVal)) return false;
     if (newVal < oldVal) return true;
+    const usage = newVal - oldVal;
+    if (field === 'elec' && usage > HIGH_ELECTRICITY_CONSUMPTION_THRESHOLD) return true;
+    if (field === 'water' && usage > HIGH_WATER_CONSUMPTION_THRESHOLD) return true;
     return field === 'elec' ? !!room.elecIsAnomaly : !!room.waterIsAnomaly;
+  };
+
+  const getReadingWarning = (room: RoomUtilityReading, field: 'elec' | 'water') => {
+    const edit = edits[room.roomId];
+    if (!edit) return field === 'elec' ? room.elecAnomalyNote : room.waterAnomalyNote;
+
+    const newVal = parseFloat(field === 'elec' ? edit.newElec : edit.newWater);
+    const oldVal = (field === 'elec' ? room.oldElecReading : room.oldWaterReading) ?? 0;
+    if (isNaN(newVal)) return field === 'elec' ? room.elecAnomalyNote : room.waterAnomalyNote;
+    if (newVal < oldVal) return `Chỉ số ${field === 'elec' ? 'điện' : 'nước'} mới không được nhỏ hơn chỉ số cũ`;
+
+    const usage = newVal - oldVal;
+    if (field === 'elec' && usage > HIGH_ELECTRICITY_CONSUMPTION_THRESHOLD) {
+      return `Tiêu thụ điện cao bất thường: ${usage.toLocaleString('vi-VN')} kWh`;
+    }
+    if (field === 'water' && usage > HIGH_WATER_CONSUMPTION_THRESHOLD) {
+      return `Tiêu thụ nước cao bất thường: ${usage.toLocaleString('vi-VN')} m³`;
+    }
+
+    return field === 'elec' ? room.elecAnomalyNote : room.waterAnomalyNote;
   };
 
   const calcUsage = (room: RoomUtilityReading, field: 'elec' | 'water') => {
@@ -207,19 +241,30 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     return (!requiresElec || room.elecRecorded) && (!requiresWater || room.waterRecorded);
   };
 
+  const getEditedEnteredRoomIds = () => rooms
+    .filter(room => editedRoomIds.has(room.roomId))
+    .filter(hasEnteredRequiredReadings)
+    .map(room => room.roomId);
+
   const saveReadingsBatch = async ({ showSuccess = true }: { showSuccess?: boolean } = {}) => {
     setSaving(true);
     setErrors([]);
     setWarnings([]);
     if (showSuccess) setSuccessMsg('');
     try {
+      const targetRoomIds = getEditedEnteredRoomIds();
+      if (targetRoomIds.length === 0) {
+        return {
+          ok: true,
+          roomIds: [],
+        };
+      }
+
       const payload = rooms
         .filter(r =>
+          targetRoomIds.includes(r.roomId)
+          &&
           !r.readingsLocked
-          && (
-            (r.elecUsageDetailId && edits[r.roomId]?.newElec)
-            || (r.waterUsageDetailId && edits[r.roomId]?.newWater)
-          )
         )
         .map(r => ({
           roomId: r.roomId,
@@ -235,17 +280,30 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
         API_ENDPOINTS.UTILITY_READINGS.RECORD_BATCH, payload
       );
       const data = res.data;
-      if (data.errors.length > 0) setErrors(data.errors);
-      if (data.warnings?.length > 0) setWarnings(data.warnings);
+      const responseErrors = data.errors || [];
+      const responseWarnings = data.warnings || [];
       if (showSuccess) {
         setSuccessMsg(`✅ Đã lưu ${data.success} phòng thành công${data.failed > 0 ? `, ${data.failed} lỗi` : ''}.`);
       }
+      if (data.failed === 0 && responseErrors.length === 0) {
+        setRecentlySavedRoomIds(targetRoomIds);
+        setEditedRoomIds(prev => {
+          const next = new Set(prev);
+          targetRoomIds.forEach(roomId => next.delete(roomId));
+          return next;
+        });
+      }
       invalidateCachedData(`utility-readings:${getCurrentDataCacheScope()}:`);
       await loadReadings({ force: true, silent: true });
-      return data.failed === 0 && data.errors.length === 0;
+      if (responseErrors.length > 0) setErrors(responseErrors);
+      if (responseWarnings.length > 0) setWarnings(responseWarnings);
+      return {
+        ok: data.failed === 0 && responseErrors.length === 0,
+        roomIds: targetRoomIds,
+      };
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi lưu chỉ số.']);
-      return false;
+      return { ok: false, roomIds: [] };
     } finally {
       setSaving(false);
     }
@@ -254,10 +312,6 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
   const handleSaveBatch = async () => {
     await saveReadingsBatch();
   };
-
-  const getEnteredRoomIds = () => rooms
-    .filter(hasEnteredRequiredReadings)
-    .map(r => r.roomId);
 
   const loadCalculatedInvoices = async () => {
     // Prefer the dedicated drafts endpoint; fallback to base list if needed.
@@ -298,9 +352,18 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
     setSuccessMsg('');
     try {
       const saved = await saveReadingsBatch({ showSuccess: false });
-      if (!saved) return;
+      if (!saved.ok) return;
 
-      const enteredRoomIds = getEnteredRoomIds();
+      const enteredRoomIds = saved.roomIds.length > 0
+        ? saved.roomIds
+        : recentlySavedRoomIds.length > 0
+          ? recentlySavedRoomIds
+          : [];
+      if (enteredRoomIds.length === 0) {
+        setErrors(['Vui lòng nhập chỉ số cho ít nhất một phòng trước khi tính hóa đơn.']);
+        return;
+      }
+
       const res = await api.post<{
         totalContracts: number;
         totalInvoices: number;
@@ -311,7 +374,8 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
         errors: string[];
         warnings: string[];
       }>(
-        API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth)
+        API_ENDPOINTS.INVOICES.CALCULATE(selectedYear, selectedMonth),
+        { roomIds: enteredRoomIds }
       );
 
       const displayDrafts = res.data.invoices
@@ -351,9 +415,16 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
         { invoiceIds }
       );
       if (res.data.errors?.length > 0) setErrors(res.data.errors);
-      setSendResult(`Đã gửi ${res.data.success} hóa đơn cho cư dân${res.data.failed > 0 ? `, ${res.data.failed} lỗi` : ''}.`);
+      const message = `Đã gửi ${res.data.success} hóa đơn cho cư dân${res.data.failed > 0 ? `, ${res.data.failed} lỗi` : ''}.`;
+      setSendResult(message);
       setCalculatedInvoices([]);
+      await loadReadings();
       window.dispatchEvent(new CustomEvent('billing-invoices-updated'));
+      if (res.data.success > 0 && res.data.failed === 0) {
+        setCalculateModal(false);
+        setCalcResult(null);
+        setSuccessMsg(message);
+      }
     } catch (err: any) {
       setErrors([err.response?.data?.message || 'Lỗi khi gửi hóa đơn.']);
     } finally {
@@ -605,6 +676,8 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                     const elecApplicable = Boolean(room.elecUsageDetailId);
                     const waterApplicable = Boolean(room.waterUsageDetailId);
                     const lockTitle = room.readingsLockReason || 'Phòng đã được tính hóa đơn, không thể sửa chỉ số.';
+                    const elecWarning = getReadingWarning(room, 'elec');
+                    const waterWarning = getReadingWarning(room, 'water');
 
                     return (
                       <tr
@@ -637,16 +710,21 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               onChange={e => handleInputChange(room.roomId, 'newElec', e.target.value)}
                               disabled={isFuturePeriod || rowLocked}
                               className="focus:outline-none"
-                              title={rowLocked ? lockTitle : room.elecAnomalyNote || undefined}
+                              title={rowLocked ? lockTitle : elecWarning || undefined}
                               style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${elecAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (isFuturePeriod || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (isFuturePeriod || rowLocked) ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>Không áp dụng</span>}
                         </td>
                         {/* Tiêu thụ điện */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          <span style={{ fontWeight: 700, color: elecAbnormal ? 'var(--error)' : elecUsage !== '-' ? 'var(--brand-primary)' : 'var(--text-secondary)' }}>
-                            {elecUsage} {elecAbnormal && <AlertTriangle size={14} className="inline" />}
-                          </span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span style={{ fontWeight: 700, color: elecAbnormal ? 'var(--error)' : elecUsage !== '-' ? 'var(--brand-primary)' : 'var(--text-secondary)' }}>
+                              {elecUsage} {elecAbnormal && <AlertTriangle size={14} className="inline" />}
+                            </span>
+                            {elecWarning && elecAbnormal && (
+                              <span className="text-[11px] font-semibold text-red-600">Bất thường</span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Nước cũ */}
@@ -664,16 +742,21 @@ export function UtilityReadingTable({ embedded = false }: UtilityReadingTablePro
                               onChange={e => handleInputChange(room.roomId, 'newWater', e.target.value)}
                               disabled={isFuturePeriod || rowLocked}
                               className="focus:outline-none"
-                              title={rowLocked ? lockTitle : room.waterAnomalyNote || undefined}
+                              title={rowLocked ? lockTitle : waterWarning || undefined}
                               style={{ width: '90px', padding: '8px', textAlign: 'center', fontSize: 'var(--type-body)', border: `1px solid ${waterAbnormal ? 'var(--error)' : 'var(--surface-border)'}`, borderRadius: 'var(--radius-button)', color: 'var(--text-primary)', backgroundColor: (isFuturePeriod || rowLocked) ? 'var(--surface-bg)' : 'white', cursor: (isFuturePeriod || rowLocked) ? 'not-allowed' : 'text' }}
                             />
                           ) : <span style={{ color: 'var(--text-secondary)' }}>Không áp dụng</span>}
                         </td>
                         {/* Tiêu thụ nước */}
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          <span style={{ fontWeight: 700, color: waterAbnormal ? 'var(--error)' : waterUsage !== '-' ? 'var(--brand-primary)' : 'var(--text-secondary)' }}>
-                            {waterUsage} {waterAbnormal && <AlertTriangle size={14} className="inline" />}
-                          </span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span style={{ fontWeight: 700, color: waterAbnormal ? 'var(--error)' : waterUsage !== '-' ? 'var(--brand-primary)' : 'var(--text-secondary)' }}>
+                              {waterUsage} {waterAbnormal && <AlertTriangle size={14} className="inline" />}
+                            </span>
+                            {waterWarning && waterAbnormal && (
+                              <span className="text-[11px] font-semibold text-red-600">Cảnh báo bất thường</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

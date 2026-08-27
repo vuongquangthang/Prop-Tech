@@ -60,8 +60,8 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
 };
 
 const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
-  'Draft':     { label: 'Nháp',          color: 'bg-gray-100 text-gray-700 border-gray-300' },
-  'Nháp':      { label: 'Nháp',          color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  'Draft':     { label: 'Chờ gửi',       color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  'Nháp':      { label: 'Chờ gửi',       color: 'bg-gray-100 text-gray-700 border-gray-300' },
   'Issued':    { label: 'Chờ thanh toán', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
   'Chưa thanh toán': { label: 'Chờ thanh toán', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
   'PartiallyPaid': { label: 'TT một phần', color: 'bg-blue-100 text-blue-800 border-blue-300' },
@@ -73,7 +73,7 @@ const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
   'Bị từ chối': { label: 'Bị từ chối',  color: 'bg-red-100 text-red-800 border-red-300' },
 };
 
-const isDraft = (inv: Invoice) => inv.status === 'Draft' || inv.status === 'Nháp';
+const isDraft = (inv: Invoice) => inv.status === 'Draft' || inv.status === 'Nháp' || inv.status === 'draft';
 const isPending = (inv: Invoice) => inv.status === 'Issued' || inv.status === 'Chưa thanh toán' || inv.status === 'PartiallyPaid' || inv.status === 'Đã thanh toán một phần';
 const isPaid = (inv: Invoice) => inv.status === 'Paid' || inv.status === 'Đã thanh toán';
 const INVOICE_TABLE_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -200,12 +200,14 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
     isPending(inv) && !!inv.dueDate && new Date(inv.dueDate) < currentDate;
 
   const tabs = [
+    { key: 'draft',   label: 'Chờ gửi',        count: allInvoices.filter(isDraft).length },
     { key: 'pending', label: 'Chờ thanh toán',  count: allInvoices.filter(i => isPending(i) && !isOverdue(i)).length },
     { key: 'paid',    label: 'Đã thanh toán',   count: allInvoices.filter(isPaid).length },
     { key: 'overdue', label: 'Quá hạn',         count: allInvoices.filter(isOverdue).length },
   ];
 
   const tabFiltered = allInvoices.filter(inv => {
+    if (activeTab === 'draft') return isDraft(inv);
     if (activeTab === 'pending') return isPending(inv) && !isOverdue(inv);
     if (activeTab === 'paid')    return isPaid(inv);
     if (activeTab === 'overdue') return isOverdue(inv);
@@ -712,7 +714,7 @@ export function InvoiceTable({ embedded = false }: InvoiceTableProps = {}) {
           invoice={editingInvoice}
           onClose={() => setEditingInvoice(null)}
           onSaved={async () => {
-            setSuccessMsg(`✅ Đã cập nhật hóa đơn nháp phòng ${editingInvoice.roomCode || editingInvoice.invoiceNumber}.`);
+            setSuccessMsg(`✅ Đã cập nhật hóa đơn chờ gửi phòng ${editingInvoice.roomCode || editingInvoice.invoiceNumber}.`);
             setEditingInvoice(null);
             invalidateCachedData(`invoice-table:${getCurrentDataCacheScope()}`);
             await loadInvoices({ force: true, silent: true });
@@ -821,7 +823,7 @@ function EditDraftInvoiceModal({
           unitPrice: String(item.unitPrice ?? 0),
         })));
       } catch (err: any) {
-        if (mounted) setError(err.response?.data?.message || 'Không thể tải chi tiết hóa đơn nháp.');
+        if (mounted) setError(err.response?.data?.message || 'Không thể tải chi tiết hóa đơn chờ gửi.');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -860,7 +862,7 @@ function EditDraftInvoiceModal({
       });
       await onSaved();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Không thể lưu hóa đơn nháp.');
+      setError(err.response?.data?.message || 'Không thể lưu hóa đơn chờ gửi.');
     } finally {
       setSaving(false);
     }
@@ -871,7 +873,7 @@ function EditDraftInvoiceModal({
       <div className="bg-white rounded-lg w-[860px] max-h-[90vh] flex flex-col overflow-hidden">
         <div className="border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Sửa hóa đơn nháp</h3>
+            <h3 className="text-lg font-bold text-gray-900">Sửa hóa đơn chờ gửi</h3>
             <p className="text-sm text-gray-500">Phòng {invoice.roomCode || '---'} · {invoice.invoiceNumber}</p>
           </div>
           <button onClick={onClose} disabled={saving} className="p-1 text-gray-500 hover:text-gray-800">

@@ -3257,3 +3257,11 @@ div[class~="lp-roi-card"] {
 .asset-tree-details[open] > summary .asset-tree-chevron {
   transform: rotate(90deg);
 }
+
+.table-pagination-page-size,
+.admin-main-content select.table-pagination-page-size {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 2px 28px 2px 8px !important;
+  line-height: 20px !important;
+}

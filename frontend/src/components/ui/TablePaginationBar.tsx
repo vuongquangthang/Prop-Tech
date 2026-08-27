@@ -31,7 +31,7 @@ export function TablePaginationBar({
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+          className="table-pagination-page-size rounded border border-gray-300 bg-white text-sm"
         >
           {PAGE_SIZE_OPTIONS.map((option) => (
             <option key={option} value={option}>{option}</option>

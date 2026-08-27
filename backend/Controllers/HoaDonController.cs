@@ -186,11 +186,11 @@ public class HoaDonController : ControllerBase
     /// </summary>
     [HttpPost("calculate/{year}/{month}")]
     [Authorize(Roles = "Admin,QuanLy,KeToan")]
-    public async Task<ActionResult<CalculateInvoiceResultDto>> Calculate(short year, byte month)
+    public async Task<ActionResult<CalculateInvoiceResultDto>> Calculate(short year, byte month, [FromBody] CalculateInvoiceRequestDto? dto = null)
     {
         try
         {
-            var result = await _hoaDonService.CalculateDraftInvoicesAsync(year, month, GetCurrentOwnerUserId());
+            var result = await _hoaDonService.CalculateDraftInvoicesAsync(year, month, GetCurrentOwnerUserId(), dto?.RoomIds);
             return Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }

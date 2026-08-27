@@ -87,8 +87,8 @@ const ITEM_LABELS: Record<string, string> = {
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  Draft:          { label: 'Nháp',          color: '#374151', bg: '#f3f4f6' },
-  Nháp:           { label: 'Nháp',          color: '#374151', bg: '#f3f4f6' },
+  Draft:          { label: 'Chờ gửi',       color: '#374151', bg: '#f3f4f6' },
+  Nháp:           { label: 'Chờ gửi',       color: '#374151', bg: '#f3f4f6' },
   Issued:         { label: 'Chờ thanh toán', color: '#92400e', bg: '#fef3c7' },
   'Chưa thanh toán': { label: 'Chờ thanh toán', color: '#92400e', bg: '#fef3c7' },
   PartiallyPaid:  { label: 'Đã TT một phần', color: '#1e40af', bg: '#dbeafe' },

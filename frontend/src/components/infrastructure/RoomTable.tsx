@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { roomService, floorService, serviceService } from '../../services/api.service';
 import type { Floor } from '../../services/api.service';
 import type { Service } from '../../services/api.service';
+import type { ServiceInContract } from '../../services/api.service';
 import { api } from '../../lib/api-client';
 import { API_ENDPOINTS } from '../../lib/api-config';
 import { API_CONFIG } from '../../lib/api-config';
@@ -56,6 +57,12 @@ interface RoomData {
   amenities?: string[];
   serviceIds?: number[];
   servicePrices?: { serviceId: number; price: number }[];
+  services?: {
+    serviceId: number;
+    serviceName: string;
+    price: number;
+    unit?: string | null;
+  }[];
   imageUrls?: string[];
 }
 
@@ -141,7 +148,8 @@ const normalizeService = (service: any): Service => {
     name: service.name || service.serviceName || service.tenDichVu || '',
     serviceType: service.serviceType || service.loaiDichVu || '',
     unit: service.unit || service.donVi || '',
-    commonUnitPrice: service.currentUnitPrice ?? service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? 0,
+    commonUnitPrice: service.commonUnitPrice ?? service.unitPrice ?? service.donGia ?? service.price ?? service.currentUnitPrice ?? 0,
+    currentUnitPrice: service.currentUnitPrice ?? service.unitPrice ?? service.donGia ?? service.price ?? service.commonUnitPrice ?? 0,
     isActive: service.isActive !== false,
     buildingId: service.buildingId ?? service.toaNhaId ?? null,
     buildingName: service.buildingName ?? service.tenToaNha ?? null,
@@ -239,6 +247,7 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   const [filter, setFilter] = useState<string>('all');
   const [floors, setFloors] = useState<Floor[]>([]);
   const [assetCatalog, setAssetCatalog] = useState<AssetOption[]>([]);
+  const [detailRoomServices, setDetailRoomServices] = useState<ServiceInContract[]>([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addFloorId, setAddFloorId] = useState<number>(0);
@@ -346,6 +355,14 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
     amenities: room.amenities || [],
     serviceIds: room.serviceIds || [],
     servicePrices: room.servicePrices || [],
+    services: Array.isArray(room.services)
+      ? room.services.map((service: any) => ({
+          serviceId: Number(service.serviceId ?? service.id ?? 0),
+          serviceName: service.serviceName ?? service.name ?? '',
+          price: Number(service.price ?? service.unitPrice ?? service.currentUnitPrice ?? service.commonUnitPrice ?? 0),
+          unit: service.unit ?? null,
+        })).filter((service: { serviceId: number }) => service.serviceId > 0)
+      : [],
     imageUrls: Array.isArray(room.imageUrls)
       ? room.imageUrls.map((url: string) => resolveRoomImageUrl(url)).filter(Boolean)
       : [],
@@ -917,9 +934,14 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
   };
 
   const openDetailModal = async (room: RoomData) => {
+    setDetailRoomServices([]);
     try {
-      const latestRoom = await roomService.getById(room.id);
+      const [latestRoom, roomServices] = await Promise.all([
+        roomService.getById(room.id),
+        serviceService.getByRoom(room.id).catch(() => []),
+      ]);
       setDetailRoom(normalizeRoom(latestRoom));
+      setDetailRoomServices(roomServices);
     } catch {
       setDetailRoom(rooms.find((item) => item.id === room.id) ?? room);
     }
@@ -1394,16 +1416,25 @@ export function RoomTable({ selectedFloorId, selectedBuildingId, addRoomRequest,
                 ].filter(Boolean);
                 const isApartment = detailRoom.type === 'apartment';
                 const selectedServiceIds = detailRoom.serviceIds ?? [];
+                const roomServiceMap = new Map(detailRoomServices.map((service) => [service.serviceId, service]));
+                const roomResolvedServiceMap = new Map((detailRoom.services ?? []).map((service) => [service.serviceId, service]));
                 const selectedServices = selectedServiceIds.map((serviceId) => {
                   const service = serviceCatalog.find(item => item.id === serviceId);
+                  const roomService = roomServiceMap.get(serviceId);
+                  const resolvedRoomService = roomResolvedServiceMap.get(serviceId);
                   const customPrice = detailRoom.servicePrices?.find(item => item.serviceId === serviceId)?.price;
+                  const price = resolvedRoomService?.price
+                    ?? roomService?.currentUnitPrice
+                    ?? roomService?.unitPrice
+                    ?? customPrice
+                    ?? service?.currentUnitPrice
+                    ?? service?.commonUnitPrice
+                    ?? 0;
                   return {
                     id: serviceId,
-                    name: service?.name || `Dịch vụ #${serviceId}`,
-                    unit: service?.unit,
-                    price: getMeterServiceCategory(service)
-                      ? service?.currentUnitPrice ?? service?.commonUnitPrice ?? 0
-                      : customPrice ?? service?.currentUnitPrice ?? service?.commonUnitPrice ?? 0,
+                    name: resolvedRoomService?.serviceName || roomService?.serviceName || service?.name || `Dịch vụ #${serviceId}`,
+                    unit: resolvedRoomService?.unit ?? roomService?.unit ?? service?.unit,
+                    price,
                   };
                 });
 
