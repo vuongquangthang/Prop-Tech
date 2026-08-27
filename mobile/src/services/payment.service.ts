@@ -1,8 +1,6 @@
 import axios from 'axios';
-import { API_BASE_URL } from './api.service';
+import { getApiBaseUrl } from './api.service';
 import { secureStorage } from '../utils/secureStorage';
-
-const API_URL = API_BASE_URL;
 
 const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
@@ -60,7 +58,7 @@ class PaymentService {
     try {
       const headers = await this.getAuthHeaders();
       const response = await axios.post(
-        `${API_URL}/api/Payment/initiate`,
+        `${getApiBaseUrl()}/api/Payment/initiate`,
         request,
         { headers }
       );
@@ -78,7 +76,7 @@ class PaymentService {
     try {
       const headers = await this.getAuthHeaders();
       const response = await axios.get(
-        `${API_URL}/api/Payment/pending/${invoiceId}`,
+        `${getApiBaseUrl()}/api/Payment/pending/${invoiceId}`,
         { headers }
       );
       return response.data;
@@ -97,7 +95,7 @@ class PaymentService {
   async confirmPayment(transactionCode: string): Promise<void> {
     try {
       await axios.post(
-        `${API_URL}/api/Payment/callback`,
+        `${getApiBaseUrl()}/api/Payment/callback`,
         {
           transactionCode,
           status: 'SUCCESS',
@@ -117,7 +115,7 @@ class PaymentService {
     try {
       const headers = await this.getAuthHeaders();
       await axios.post(
-        `${API_URL}/api/Payment/cancel/${transactionId}`,
+        `${getApiBaseUrl()}/api/Payment/cancel/${transactionId}`,
         {},
         { headers }
       );
@@ -136,7 +134,7 @@ class PaymentService {
     }
 
     const normalizedPath = paymentUrl.startsWith('/') ? paymentUrl : `/${paymentUrl}`;
-    return `${API_URL}${normalizedPath}`;
+    return `${getApiBaseUrl()}${normalizedPath}`;
   }
 }
 

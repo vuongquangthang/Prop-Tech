@@ -46,11 +46,23 @@ public class JwtService : IJwtService
             new(ClaimTypes.MobilePhone, user.PhoneNumber),
             new(ClaimTypes.Role, user.Role),
             new("UserId", user.Id.ToString()),
-            new("OwnerUserId", (user.OwnerUserId ?? user.Id).ToString()),
             new("PhoneNumber", user.PhoneNumber),
             new("Role", user.Role),
             new("SessionId", user.ActiveSessionId ?? string.Empty)
         };
+
+        // OwnerUserId la KHOA CACH LY TENANT: no quyet dinh building_code
+        // "OWNER-{n}" khi upload tai lieu va khi hoi chatbot.
+        //
+        // Truoc day claim nay luon duoc phat kem fallback `?? user.Id`. Vi
+        // USER_ID va OWNER_USER_ID dung chung mot dai so, mot tai khoan chua
+        // gan chu ma tinh co co USER_ID = 5 se nhan khoa "OWNER-5" - dung kho
+        // tri thuc cua chu nha so 5. Gio khong phat claim thay vi doan bua:
+        // thieu chu thi cac endpoint theo chu bao loi ro rang.
+        if (user.OwnerUserId.HasValue)
+        {
+            claims.Add(new Claim("OwnerUserId", user.OwnerUserId.Value.ToString()));
+        }
 
         if (user.ResidentId.HasValue)
         {

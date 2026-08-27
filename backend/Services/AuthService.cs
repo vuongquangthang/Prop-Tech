@@ -167,6 +167,11 @@ public class AuthService : IAuthService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Role = "CuDan",
             ResidentId = resident.Id,
+            // Ke thua chu nha tu ban ghi cu dan. Truoc day de trong, va JWT bu
+            // bang fallback `?? user.Id` - nghia la cu dan nao vo tinh co
+            // USER_ID trung OWNER_USER_ID cua mot chu nha se doc dung kho tri
+            // thuc cua chu nha do. Gan dung tu dau thay vi doan.
+            OwnerUserId = resident.OwnerUserId,
             DisplayName = request.FullName,
             ActiveSessionId = Guid.NewGuid().ToString("N"),
             IsLocked = false

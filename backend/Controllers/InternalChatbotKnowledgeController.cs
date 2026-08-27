@@ -22,18 +22,15 @@ public class InternalChatbotKnowledgeController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IKnowledgeBaseService _knowledgeBaseService;
-    private readonly IChatbotIngestService _chatbotIngestService;
 
     public InternalChatbotKnowledgeController(
         ApplicationDbContext context,
         IConfiguration configuration,
-        IKnowledgeBaseService knowledgeBaseService,
-        IChatbotIngestService chatbotIngestService)
+        IKnowledgeBaseService knowledgeBaseService)
     {
         _context = context;
         _configuration = configuration;
         _knowledgeBaseService = knowledgeBaseService;
-        _chatbotIngestService = chatbotIngestService;
     }
 
     [HttpGet("knowledge-documents")]
@@ -61,28 +58,15 @@ public class InternalChatbotKnowledgeController : ControllerBase
             .OrderBy(service => service.Name)
             .ToListAsync();
 
-        var knowledgeBases = await _context.KnowledgeBases
-            .AsNoTracking()
-            .Where(item => item.IsActive)
-            .OrderBy(item => item.Category)
-            .ThenBy(item => item.Title)
-            .ToListAsync();
-
         var documents = new List<ChatbotKnowledgeDocumentDto>();
         foreach (var building in buildings)
         {
-            AddBuildingDocuments(documents, building, services, knowledgeBases);
+            AddBuildingDocuments(documents, building, services);
         }
 
         return Ok(documents);
     }
 
-    // ---- Tri thuc chung TroUyTin (SUPER_ADMIN): OwnerUserId = null, ap cho moi toa nha ----
-    // Admin TroUyTin goi cac endpoint nay qua X-Internal-Api-Key (khong dung JWT Prop-Tech).
-
-    /// <summary>
-    /// Danh sach tai lieu tri thuc chung (OwnerUserId = null).
-    /// </summary>
     [HttpGet("knowledge-base")]
     public async Task<ActionResult<List<KnowledgeBaseDto>>> ListCommonKnowledge()
     {
@@ -94,27 +78,20 @@ public class InternalChatbotKnowledgeController : ControllerBase
         var items = await _context.KnowledgeBases
             .AsNoTracking()
             .Where(item => item.OwnerUserId == null)
-            .OrderByDescending(item => item.UpdatedAt)
+            .OrderByDescending(item => item.CreatedAt)
             .Select(item => new KnowledgeBaseDto
             {
                 Id = item.Id,
-                Title = item.Title,
-                Content = item.Content,
-                Category = item.Category,
-                Tags = item.Tags,
-                IsActive = item.IsActive,
-                UpdatedAt = item.UpdatedAt,
-                UpdatedBy = item.UpdatedBy,
+                FileName = item.FileName,
+                FileUrl = item.FileUrl,
                 OwnerUserId = item.OwnerUserId,
+                CreatedAt = item.CreatedAt,
             })
             .ToListAsync();
 
         return Ok(items);
     }
 
-    /// <summary>
-    /// Upload file (PDF/DOCX/DOC/TXT) tao tri thuc chung TroUyTin, roi rebuild chatbot.
-    /// </summary>
     [HttpPost("knowledge-base/upload-document")]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<DocumentUploadResultDto>> UploadCommonDocument(
@@ -128,35 +105,28 @@ public class InternalChatbotKnowledgeController : ControllerBase
         }
 
         if (file == null || file.Length == 0)
-            return BadRequest(new { message = "Không có file được tải lên" });
+        {
+            return BadRequest(new { message = "Khong co file duoc tai len" });
+        }
 
-        var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt" };
+        var allowedExtensions = new[] { ".pdf", ".docx", ".txt", ".md" };
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!allowedExtensions.Contains(extension))
-            return BadRequest(new { message = "Chỉ chấp nhận file PDF, DOCX, DOC, TXT" });
+        {
+            return BadRequest(new { message = "Chi chap nhan file PDF, DOCX, TXT, MD" });
+        }
 
         if (file.Length > 10 * 1024 * 1024)
-            return BadRequest(new { message = "Kích thước file không được vượt quá 10MB" });
+        {
+            return BadRequest(new { message = "Kich thuoc file khong duoc vuot qua 10MB" });
+        }
 
-        // userId = null, ownerUserId = null => tri thuc chung cua SUPER_ADMIN.
         var result = await _knowledgeBaseService.UploadDocumentForOwnerAsync(
             file, category, autoActivate, userId: null, ownerUserId: null);
-
-        if (result.TotalExtracted > 0)
-        {
-            var ingestResult = await _chatbotIngestService.RebuildAsync();
-            result.IngestTriggered = ingestResult.Triggered;
-            result.IngestSucceeded = ingestResult.Success;
-            result.IngestMessage = ingestResult.Message;
-            result.IngestDocuments = ingestResult.Documents;
-        }
 
         return Ok(result);
     }
 
-    /// <summary>
-    /// Xoa 1 muc tri thuc chung (chi cho phep xoa muc OwnerUserId = null), roi rebuild.
-    /// </summary>
     [HttpDelete("knowledge-base/{id}")]
     public async Task<IActionResult> DeleteCommonKnowledge(int id)
     {
@@ -168,20 +138,20 @@ public class InternalChatbotKnowledgeController : ControllerBase
         var entity = await _context.KnowledgeBases
             .FirstOrDefaultAsync(item => item.Id == id && item.OwnerUserId == null);
         if (entity == null)
-            return NotFound(new { message = "Không tìm thấy mục tri thức chung này" });
+        {
+            return NotFound(new { message = "Khong tim thay file tri thuc chung nay" });
+        }
 
         _context.KnowledgeBases.Remove(entity);
         await _context.SaveChangesAsync();
-        await _chatbotIngestService.RebuildAsync();
 
-        return Ok(new { message = "Đã xóa mục tri thức" });
+        return Ok(new { message = "Da xoa file tri thuc" });
     }
 
     private void AddBuildingDocuments(
         List<ChatbotKnowledgeDocumentDto> documents,
         Building building,
-        List<Service> services,
-        List<KnowledgeBase> knowledgeBases)
+        List<Service> services)
     {
         var buildingCode = building.Id.ToString();
         var source = $"proptech:TOA_NHA_ID={building.Id}";
@@ -287,16 +257,6 @@ public class InternalChatbotKnowledgeController : ControllerBase
 
             Add(string.Join("\n", lines), "services");
         }
-
-        foreach (var item in knowledgeBases.Where(item => IsKnowledgeForBuilding(item, building)))
-        {
-            Add(
-                $"KIEN THUC NOI BO - {Txt(item.Title)}\n"
-                + $"Danh muc: {Txt(item.Category)}\n"
-                + $"Tags: {Txt(item.Tags)}\n"
-                + Txt(item.Content),
-                $"knowledge-{item.Id}");
-        }
     }
 
     private bool IsValidInternalKey()
@@ -323,13 +283,10 @@ public class InternalChatbotKnowledgeController : ControllerBase
             && (service.OwnerUserId is null || service.OwnerUserId == building.OwnerUserId);
     }
 
-    private static bool IsKnowledgeForBuilding(KnowledgeBase item, Building building)
-        => item.OwnerUserId is null || item.OwnerUserId == building.OwnerUserId;
-
     private static bool IsDeletedRoomStatus(string? status)
     {
         var normalized = (status ?? "").Trim().ToLowerInvariant();
-        return normalized.Contains("xoa") || normalized.Contains("xóa") || normalized == "deleted";
+        return normalized.Contains("xoa") || normalized.Contains("xoa") || normalized == "deleted";
     }
 
     private static List<T> DeserializeList<T>(string? json)

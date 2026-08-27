@@ -985,9 +985,16 @@ static string QuotePostgresIdentifier(string identifier)
     return "\"" + clean.Replace("\"", "\"\"") + "\"";
 }
 
+static string QuotePostgresLiteral(string value)
+{
+    var clean = string.IsNullOrWhiteSpace(value) ? "proptech" : value.Trim();
+    return "'" + clean.Replace("'", "''") + "'";
+}
+
 static void EnsurePostgresCompatibility(ApplicationDbContext context, string schemaName)
 {
     var schema = QuotePostgresIdentifier(schemaName);
+    var schemaLiteral = QuotePostgresLiteral(schemaName);
 
     var sql = $$"""
         ALTER TABLE IF EXISTS {{schema}}."TOA_NHA"
@@ -1045,6 +1052,44 @@ static void EnsurePostgresCompatibility(ApplicationDbContext context, string sch
             ADD COLUMN IF NOT EXISTS "SO_LUONG" numeric(10,2) DEFAULT 1,
             ADD COLUMN IF NOT EXISTS "GHI_CHU" character varying(500),
             ADD COLUMN IF NOT EXISTS "CREATED_AT" timestamp without time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc');
+
+        ALTER TABLE IF EXISTS {{schema}}."KNOWLEDGE_BASE"
+            ADD COLUMN IF NOT EXISTS "TEN_FILE" character varying(500) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS "FILE_URL" character varying(2048) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS "CREATED_AT" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = {{schemaLiteral}}
+                  AND table_name = 'KNOWLEDGE_BASE'
+                  AND column_name = 'TIEU_DE'
+            ) THEN
+                UPDATE {{schema}}."KNOWLEDGE_BASE"
+                SET "TEN_FILE" = COALESCE(NULLIF("TIEU_DE", ''), CONCAT('knowledge-', "KB_ID", '.txt'))
+                WHERE "TEN_FILE" = '';
+            ELSE
+                UPDATE {{schema}}."KNOWLEDGE_BASE"
+                SET "TEN_FILE" = CONCAT('knowledge-', "KB_ID", '.txt')
+                WHERE "TEN_FILE" = '';
+            END IF;
+        END $$;
+
+        ALTER TABLE IF EXISTS {{schema}}."KNOWLEDGE_BASE"
+            DROP CONSTRAINT IF EXISTS "FK_KNOWLEDGE_BASE_USER_UPDATED_BY";
+
+        DROP INDEX IF EXISTS {{schema}}."IX_KNOWLEDGE_BASE_UPDATED_BY";
+
+        ALTER TABLE IF EXISTS {{schema}}."KNOWLEDGE_BASE"
+            DROP COLUMN IF EXISTS "TIEU_DE",
+            DROP COLUMN IF EXISTS "NOI_DUNG",
+            DROP COLUMN IF EXISTS "THE_LOAI",
+            DROP COLUMN IF EXISTS "TAGS",
+            DROP COLUMN IF EXISTS "IS_ACTIVE",
+            DROP COLUMN IF EXISTS "UPDATED_AT",
+            DROP COLUMN IF EXISTS "UPDATED_BY";
 
         ALTER TABLE IF EXISTS {{schema}}."CHI_SO_DIEN"
             ADD COLUMN IF NOT EXISTS "IS_ANOMALY" boolean NOT NULL DEFAULT false,

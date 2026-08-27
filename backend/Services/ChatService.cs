@@ -106,55 +106,8 @@ public class ChatService : IChatService
 
     public async Task<KnowledgeBaseDto> ResolveUnansweredAsync(long assistantMessageId, ResolveUnansweredChatDto dto, int resolverUserId, int ownerUserId)
     {
-        var assistantMessage = await _chatRepository.GetByIdAsync(assistantMessageId, ownerUserId);
-        if (assistantMessage == null || assistantMessage.MessageRole != "assistant")
-        {
-            throw new InvalidOperationException("Khong tim thay cau tra loi AI can xu ly");
-        }
-
-        var recentChats = await _chatRepository.GetByUserIdAsync(assistantMessage.UserId, 500);
-        var question = recentChats
-            .Where(x => x.MessageRole == "user" && x.CreatedAt <= assistantMessage.CreatedAt)
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefault();
-
-        if (question == null || string.IsNullOrWhiteSpace(question.MessageText))
-        {
-            throw new InvalidOperationException("Khong tim thay cau hoi tuong ung");
-        }
-
-        var kb = new KnowledgeBase
-        {
-            Title = question.MessageText.Trim(),
-            Content = dto.AnswerText.Trim(),
-            Category = string.IsNullOrWhiteSpace(dto.Category) ? "Khac" : dto.Category.Trim(),
-            Tags = BuildTagsFromQuestion(question.MessageText),
-            IsActive = dto.ActivateImmediately,
-            UpdatedAt = DateTime.UtcNow,
-            UpdatedBy = resolverUserId,
-            OwnerUserId = ownerUserId
-        };
-
-        await _knowledgeBaseRepository.AddAsync(kb);
-
-        assistantMessage.IsKnowledgeGap = false;
-        _chatRepository.Update(assistantMessage);
-
-        await _chatRepository.SaveChangesAsync();
-
-        return new KnowledgeBaseDto
-        {
-            Id = kb.Id,
-            Title = kb.Title,
-            Content = kb.Content,
-            Category = kb.Category,
-            Tags = kb.Tags,
-            IsActive = kb.IsActive,
-            UpdatedAt = kb.UpdatedAt,
-            UpdatedBy = kb.UpdatedBy,
-            UpdatedByName = null,
-            OwnerUserId = kb.OwnerUserId
-        };
+        await Task.CompletedTask;
+        throw new InvalidOperationException("Kho tri thuc hien chi luu file tai lieu. Vui long tai file len kho tri thuc de bo sung du lieu.");
     }
 
     public async Task<ChatMessageDto> SendMessageAsync(int userId, SendChatMessageDto dto)

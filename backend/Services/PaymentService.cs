@@ -33,7 +33,6 @@ public class PaymentService : IPaymentService
     private readonly IRoomRepository _roomRepository;
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly ILogger<PaymentService> _logger;
-    private readonly IPayOSService _payOSService;
     private readonly IConfiguration _config;
     private readonly IVietQRService _vietQRService;
     private readonly IPaymentAccountRepository _paymentAccountRepository;
@@ -49,7 +48,6 @@ public class PaymentService : IPaymentService
         IRoomRepository roomRepository,
         IHubContext<NotificationHub> hubContext,
         ILogger<PaymentService> logger,
-        IPayOSService payOSService,
         IConfiguration config,
         IVietQRService vietQRService,
         IPaymentAccountRepository paymentAccountRepository,
@@ -61,7 +59,6 @@ public class PaymentService : IPaymentService
         _roomRepository = roomRepository;
         _hubContext = hubContext;
         _logger = logger;
-        _payOSService = payOSService;
         _config = config;
         _vietQRService = vietQRService;
         _paymentAccountRepository = paymentAccountRepository;

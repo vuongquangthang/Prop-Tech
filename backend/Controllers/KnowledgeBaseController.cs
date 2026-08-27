@@ -1,8 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using backend.DTOs;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
 
 namespace backend.Controllers;
 
@@ -22,30 +22,20 @@ public class KnowledgeBaseController : ControllerBase
         _chatbotIngestService = chatbotIngestService;
     }
 
-    /// <summary>
-    /// Lấy tất cả kiến thức (Admin/QuanLy xem tất cả, User thường chỉ xem active)
-    /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<KnowledgeBaseDto>>> GetAll([FromQuery] bool activeOnly = true)
     {
         try
         {
-            var role = User.FindFirst(ClaimTypes.Role)?.Value;
-            // Admin/QuanLy có thể xem cả inactive entries
-            var canViewAll = role == "Admin" || role == "QuanLy";
-            
-            var items = await _service.GetAllAsync(User.GetOwnerUserId(), activeOnly || !canViewAll);
+            var items = await _service.GetAllAsync(User.GetOwnerUserId(), activeOnly);
             return Ok(items);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Tìm kiếm kiến thức theo từ khóa
-    /// </summary>
     [HttpGet("search")]
     public async Task<ActionResult<List<KnowledgeBaseDto>>> Search([FromQuery] string keyword)
     {
@@ -53,7 +43,7 @@ public class KnowledgeBaseController : ControllerBase
         {
             if (string.IsNullOrWhiteSpace(keyword))
             {
-                return BadRequest(new { message = "Vui lòng nhập từ khóa tìm kiếm" });
+                return BadRequest(new { message = "Vui long nhap tu khoa tim kiem" });
             }
 
             var items = await _service.SearchAsync(keyword, User.GetOwnerUserId());
@@ -61,13 +51,10 @@ public class KnowledgeBaseController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Lấy kiến thức theo danh mục
-    /// </summary>
     [HttpGet("category/{category}")]
     public async Task<ActionResult<List<KnowledgeBaseDto>>> GetByCategory(string category)
     {
@@ -78,13 +65,10 @@ public class KnowledgeBaseController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Lấy chi tiết kiến thức
-    /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<KnowledgeBaseDto>> GetById(int id)
     {
@@ -93,55 +77,44 @@ public class KnowledgeBaseController : ControllerBase
             var item = await _service.GetByIdAsync(id, User.GetOwnerUserId());
             if (item == null)
             {
-                return NotFound(new { message = "Không tìm thấy kiến thức này" });
+                return NotFound(new { message = "Khong tim thay tai lieu tri thuc nay" });
             }
+
             return Ok(item);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Tạo kiến thức mới (Admin/QuanLy only)
-    /// </summary>
     [HttpPost]
     [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<KnowledgeBaseDto>> Create([FromBody] CreateKnowledgeBaseDto dto)
     {
         try
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-            {
-                return Unauthorized(new { message = "Không xác định được người dùng" });
-            }
-
+            var userId = GetCurrentUserId();
             var item = await _service.CreateAsync(dto, userId, User.GetOwnerUserId());
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Cập nhật kiến thức (Admin/QuanLy only)
-    /// </summary>
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin,QuanLy")]
     public async Task<ActionResult<KnowledgeBaseDto>> Update(int id, [FromBody] UpdateKnowledgeBaseDto dto)
     {
         try
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-            {
-                return Unauthorized(new { message = "Không xác định được người dùng" });
-            }
-
+            var userId = GetCurrentUserId();
             var item = await _service.UpdateAsync(id, dto, userId, User.GetOwnerUserId());
             return Ok(item);
         }
@@ -151,13 +124,10 @@ public class KnowledgeBaseController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Xóa kiến thức (Admin only)
-    /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
@@ -165,7 +135,7 @@ public class KnowledgeBaseController : ControllerBase
         try
         {
             await _service.DeleteAsync(id, User.GetOwnerUserId());
-            return Ok(new { message = "Xóa kiến thức thành công" });
+            return Ok(new { message = "Xoa tai lieu tri thuc thanh cong" });
         }
         catch (InvalidOperationException ex)
         {
@@ -173,50 +143,103 @@ public class KnowledgeBaseController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Upload file PDF/DOCX/TXT để trích xuất kiến thức (Admin/QuảnLý only)
-    /// </summary>
     [HttpPost("upload-document")]
     [Authorize(Roles = "Admin,QuanLy")]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<DocumentUploadResultDto>> UploadDocument(
         IFormFile file,
-        [FromForm] string category = "Khác",
+        [FromForm] string category = "Khac",
         [FromForm] bool autoActivate = true)
     {
         try
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-                return Unauthorized(new { message = "Không xác định được người dùng" });
+            var userId = GetCurrentUserId();
 
             if (file == null || file.Length == 0)
-                return BadRequest(new { message = "Không có file được tải lên" });
+            {
+                return BadRequest(new { message = "Khong co file duoc tai len" });
+            }
 
-            // Bỏ ".doc": chatApp chỉ hỗ trợ .pdf/.docx/.txt/.md (SUPPORTED_EXT
-            // trong core/config.py), nên file .doc vẫn trích được kiến thức
-            // nhưng ingest vào ChromaDB luôn thất bại -> admin thấy "trích được
-            // N mục" kèm IngestSucceeded=false mà không rõ lý do.
             var allowedExtensions = new[] { ".pdf", ".docx", ".txt", ".md" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(extension))
-                return BadRequest(new { message = "Chỉ chấp nhận file PDF, DOCX, DOC, TXT" });
+            {
+                return BadRequest(new { message = "Chi chap nhan file PDF, DOCX, TXT, MD" });
+            }
 
             if (file.Length > 10 * 1024 * 1024)
-                return BadRequest(new { message = "Kích thước file không được vượt quá 10MB" });
-
-            var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, User.GetOwnerUserId());
-            if (result.TotalExtracted > 0)
             {
-                var ingestResult = await _chatbotIngestService.RebuildAsync();
-                result.IngestTriggered = ingestResult.Triggered;
-                result.IngestSucceeded = ingestResult.Success;
-                result.IngestMessage = ingestResult.Message;
-                result.IngestDocuments = ingestResult.Documents;
+                return BadRequest(new { message = "Kich thuoc file khong duoc vuot qua 10MB" });
+            }
+
+            var ownerUserId = User.GetOwnerUserId();
+
+            // Buoc 1: luu file len Cloudflare R2 va ghi 1 row vao KNOWLEDGE_BASE.
+            // Row nay la nguon du lieu cho GET /api/KnowledgeBase (danh sach tren UI).
+            var result = await _service.UploadDocumentAsync(file, category, autoActivate, userId, ownerUserId);
+
+            // Buoc 2: gui cung file sang chatbot app de chunk + embedding vao ChromaDB.
+            //
+            // CO Y KHONG dung HttpContext.RequestAborted o day. File da nam tren R2 va
+            // co row trong KNOWLEDGE_BASE, nen buoc ingest phai chay den cung du browser
+            // co con doi hay khong. Truoc day token nay duoc truyen vao: ingest lanh
+            // (cold start bge-m3 ~27s) vuot timeout 30s cua axios -> browser huy ->
+            // token bat -> cuoc goi bi cancel giua duong, trong khi chatbot van index
+            // xong -> ChromaDB co chunk ma Prop-Tech thi rollback sach.
+            var ingestResult = await _chatbotIngestService.IngestDocumentAsync(
+                file,
+                ownerUserId,
+                userId,
+                category,
+                result.FileName,
+                CancellationToken.None);
+
+            result.IngestTriggered = ingestResult.Triggered;
+            result.IngestSucceeded = ingestResult.Success;
+            result.IngestMessage = ingestResult.Message;
+            result.IngestDocuments = ingestResult.Documents;
+
+            // Triggered == false nghia la admin da tat Chatbot:AutoIngestOnKnowledgeUpload,
+            // day la lua chon co y cua nguoi van hanh chu khong phai loi -> giu file va
+            // canh bao tren UI.
+            if (ingestResult.Triggered && !ingestResult.Success)
+            {
+                // Chi hoan tac khi chatbot da TRA LOI ro rang la that bai. Luc do chac
+                // chan ChromaDB khong co gi, nen xoa row + file la dung.
+                if (ingestResult.ResponseReceived)
+                {
+                    var rolledBack = false;
+                    if (result.Entry != null)
+                    {
+                        rolledBack = await _service.RollbackUploadedDocumentAsync(result.Entry.Id, ownerUserId);
+                    }
+
+                    result.Entry = null;
+                    result.FileUrl = string.Empty;
+
+                    return StatusCode(502, new
+                    {
+                        message = rolledBack
+                            ? $"Ingest sang ChromaDB that bai, da hoan tac file va ban ghi vua tao: {ingestResult.Message}"
+                            : $"Ingest sang ChromaDB that bai: {ingestResult.Message}",
+                        result
+                    });
+                }
+
+                // Cuoc goi vo giua duong -> KHONG biet chatbot da ingest hay chua. Giu
+                // nguyen row va file: neu chatbot that su da index xong thi xoa di se
+                // tao ra lech nguoc (ChromaDB co chunk, Prop-Tech trong tron).
+                return StatusCode(502, new
+                {
+                    message = "Khong nhan duoc phan hoi tu chatbot nen chua xac nhan duoc "
+                        + "ingest. Tai lieu VAN duoc giu lai trong kho tri thuc. Kiem tra "
+                        + $"chatbot roi ingest lai neu can. Chi tiet: {ingestResult.Message}",
+                    result
+                });
             }
 
             return Ok(result);
@@ -227,7 +250,18 @@ public class KnowledgeBaseController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi", error = ex.Message });
+            return StatusCode(500, new { message = "Da xay ra loi", error = ex.Message });
         }
+    }
+
+    private int GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+        {
+            throw new InvalidOperationException("Khong xac dinh duoc nguoi dung");
+        }
+
+        return userId;
     }
 }

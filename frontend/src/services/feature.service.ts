@@ -127,12 +127,10 @@ export interface MaintenanceRequest {
 
 export interface KnowledgeBase {
   id: number;
-  title: string;
-  content: string;
-  category: string;
-  tags?: string;
-  isActive: boolean;
-  updatedAt?: string;
+  fileName: string;
+  fileUrl: string;
+  ownerUserId?: number | null;
+  createdAt: string;
 }
 
 // Report Services
@@ -419,7 +417,7 @@ export const knowledgeService = {
     }
   },
 
-  create: async (data: Omit<KnowledgeBase, 'id' | 'createdAt'>) => {
+  create: async (data: { fileName: string; fileUrl: string } | Record<string, unknown>) => {
     try {
       const response = await api.post<KnowledgeBase>(API_ENDPOINTS.KNOWLEDGE.BASE, data);
       return response.data;
@@ -428,7 +426,7 @@ export const knowledgeService = {
     }
   },
 
-  update: async (id: number, data: Partial<KnowledgeBase>) => {
+  update: async (id: number, data: Partial<KnowledgeBase> | Record<string, unknown>) => {
     try {
       const response = await api.put<KnowledgeBase>(
         API_ENDPOINTS.KNOWLEDGE.BY_ID(id),
@@ -456,14 +454,18 @@ export const knowledgeService = {
       formData.append('autoActivate', String(autoActivate));
       const response = await api.post<{
         fileName: string;
-        totalExtracted: number;
-        activated: number;
+        fileUrl: string;
+        entry?: KnowledgeBase | null;
         ingestTriggered: boolean;
         ingestSucceeded: boolean;
-        ingestMessage?: string;
-        ingestDocuments?: number;
-        entries: KnowledgeBase[];
+        ingestMessage?: string | null;
+        ingestDocuments?: number | null;
       }>(API_ENDPOINTS.KNOWLEDGE.UPLOAD_DOCUMENT, formData, {
+        // Timeout mac dinh 30s la qua ngan cho request nay: backend con phai upload
+        // len R2 roi cho chatbot chunk + embedding ca file (lan dau load model
+        // bge-m3 mat gan 30s mot minh). Het 30s browser huy request va nguoi dung
+        // thay "that bai" du server van dang lam viec.
+        timeout: 5 * 60 * 1000,
       });
       return response.data;
     } catch (error) {
